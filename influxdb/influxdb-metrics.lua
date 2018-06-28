@@ -41,7 +41,6 @@ local event_queue = {
         http_server_protocol        = "http",
         events                      = {},
         influx_database             = "mydb",
-        influx_database             = "mydb",
         max_buffer_size             = 5000,
         max_buffer_age              = 5
 }
