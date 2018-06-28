@@ -7,7 +7,7 @@ The goal is to provide useful scripts to the community.
 
 # Influxdb
 
-## Influxdb from metrics events
+## Influxdb from metrics events: *influxdb/influxdb-metrics.lua*
 
 This stream connector works with **metric events**. So you need them to be configured in Centreon broker.
 
@@ -24,7 +24,7 @@ Parameters to specify in the stream connector configuration are:
 
 if one of max\_buffer\_size or max\_buffer\_age is reached, events are sent.
 
-## Influxdb from neb events
+## Influxdb from neb events: *influxdb/influxdb-neb.lua*
 
 This stream connector is an alternative to the previous one, but works with **neb service\_status events**.
 As those events are always available on a Centreon platform, this script should work more often.
