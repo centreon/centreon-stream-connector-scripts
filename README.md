@@ -3,7 +3,33 @@
 Here are several stream connectors for the
 [Centreon Broker](https://github.com/centreon/centreon-broker).
 
-The goal is to provide useful scripts to the community.
+# Stream connectors
+
+The goal is to provide useful scripts to the community to extend the open source solution Centreon.
+
+You can find Lua scripts written to export Centreon data to several outputs.
+
+If one script is the good one for you, it is recommended to copy it on the Centreon central server
+into the **/usr/share/centreon-broker/lua** directory. If it does not exist, you can create it. This
+directory must be readable by the *centreon-broker* user.
+
+When the script is copied, you have to configure it through the centreon web interface.
+
+Stream connector documentation are provided here:
+* https://documentation.centreon.com/docs/centreon/en/2.8.x/developer/writestreamconnector.html
+* https://documentation.centreon.com/docs/centreon-broker/en/latest/exploit/stream\_connectors.html
+
+# Elasticsearch
+
+## Elasticsearch from metrics events
+
+This stream connector works with **metric events**. So you need them to be configured in Centreon broker.
+
+Parameters to specify in the stream connector configuration are:
+
+* elastic-address as **string**: it is the *ip address* of the Elasticsearch server
+* elastic-port as **number**: it is the port, if not provided, this value is *9200*.
+* max-row as **number**: it is the max number of events before sending them to the elastic server. If not specified, its value is 100
 
 # Influxdb
 
