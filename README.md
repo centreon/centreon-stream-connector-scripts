@@ -27,6 +27,7 @@ This stream connector works with **metric events**. So you need them to be confi
 
 Parameters to specify in the stream connector configuration are:
 
+* log-file as **string**: it is the *complete file name* of this script logs.
 * elastic-address as **string**: it is the *ip address* of the Elasticsearch server
 * elastic-port as **number**: it is the port, if not provided, this value is *9200*.
 * max-row as **number**: it is the max number of events before sending them to the elastic server. If not specified, its value is 100
