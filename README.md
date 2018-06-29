@@ -21,7 +21,7 @@ Stream connector documentation are provided here:
 
 # Elasticsearch
 
-## Elasticsearch from metrics events
+## Elasticsearch from metrics events: *elasticsearch/elastic-metrics.lua*
 
 This stream connector works with **metric events**. So you need them to be configured in Centreon broker.
 
