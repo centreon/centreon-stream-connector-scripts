@@ -70,3 +70,21 @@ Parameters to specify in the stream connector configuration are:
 
 if one of max\_buffer\_size or max\_buffer\_age is reached, events are sent.
 
+# Warp10
+
+## Warp10 from neb events: *warp10/export-warp10.lua*
+
+This stream connector works with **neb service\_status events**.
+
+This stream connector need at least centreon-broker-18.10.1.
+
+To use this script, one need to install the lua-curl library.
+
+Parameters to specify in the stream connector configuration are:
+
+* ipaddr as **string**: the ip address of the Warp10 server
+* logfile as **string**: the log file
+* port as **number**: the Warp10 server port
+* token as **string**: the Warp10 write token
+* max\_size as **number**: how many queries to store before sending them to the Warp10 server.
+
