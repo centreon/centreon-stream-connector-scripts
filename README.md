@@ -16,7 +16,7 @@ directory must be readable by the *centreon-broker* user.
 When the script is copied, you have to configure it through the centreon web interface.
 
 Stream connector documentation are provided here:
-* https://documentation.centreon.com/docs/centreon/en/2.8.x/developer/writestreamconnector.html
+* https://documentation.centreon.com/docs/centreon/en/latest/developer/writestreamconnector.html
 * https://documentation.centreon.com/docs/centreon-broker/en/latest/exploit/stream_connectors.html
 
 # Elasticsearch
