@@ -88,3 +88,36 @@ Parameters to specify in the stream connector configuration are:
 * token as **string**: the Warp10 write token
 * max\_size as **number**: how many queries to store before sending them to the Warp10 server.
 
+# Splunk
+
+## The proposed stream connector here
+
+There are two Lua scripts proposed here:
+1. *splunk-states-http.lua* that sends states to Splunk.
+2. *splunk-metrics-http.lua* that sends metrics to Splunk.
+
+In the first case, follow the instructions below:
+
+* Copy them into the */usr/share/centreon-broker/lua/*
+* Add a new broker output of type *stream connector*
+* Fill it as shown below
+
+![alt text](pictures/centreon-conf1.png "stream connector configuration")
+
+In the second case, follow those instructions:
+
+* Copy them into the */usr/share/centreon-broker/lua/*
+* Add a new broker output of type *stream connector*
+* Fill it as shown below
+
+![alt text](pictures/centreon-conf2.png "stream connector configuration")
+
+## The Splunk configuration
+
+An HTTP events collector has be configured in data entries.
+
+![alt text](pictures/splunk.png "Splunk configuration")
+
+## Centreon4Splunk: A good alternative
+
+Here is the [link to centreon4Splunk](https://github.com/lkco/centreon4Splunk).
