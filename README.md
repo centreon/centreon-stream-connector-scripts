@@ -102,7 +102,7 @@ In the first case, follow the instructions below:
 * Add a new broker output of type *stream connector*
 * Fill it as shown below
 
-![alt text](pictures/centreon-conf1.png "stream connector configuration")
+![alt text](pictures/splunk-conf1.png "stream connector configuration")
 
 In the second case, follow those instructions:
 
@@ -110,7 +110,7 @@ In the second case, follow those instructions:
 * Add a new broker output of type *stream connector*
 * Fill it as shown below
 
-![alt text](pictures/centreon-conf2.png "stream connector configuration")
+![alt text](pictures/splunk-conf2.png "stream connector configuration")
 
 ## The Splunk configuration
 
