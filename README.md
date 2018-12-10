@@ -101,6 +101,7 @@ In that case, you're going to use "Centreon4Splunk", it comes with:
 * A Splunk App. you may find on Splunkbase [here](https://splunkbase.splunk.com/app/4304/)
 * The LUA script and documentation [here](https://github.com/lkco/centreon4Splunk)
 
+Thanks to lkco!
 
 ## The Splunk API method
 
