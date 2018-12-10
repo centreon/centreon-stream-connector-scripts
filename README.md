@@ -19,6 +19,8 @@ Stream connector documentation are provided here:
 * https://documentation.centreon.com/docs/centreon/en/latest/developer/writestreamconnector.html
 * https://documentation.centreon.com/docs/centreon-broker/en/latest/exploit/stream_connectors.html
 
+Don't hesitate to propose improvements and/or contact the community through our Slack workspace. 
+
 # Elasticsearch
 
 ## Elasticsearch from metrics events: *elasticsearch/elastic-metrics.lua*
@@ -90,7 +92,18 @@ Parameters to specify in the stream connector configuration are:
 
 # Splunk
 
-## The proposed stream connector here
+There are two ways to use our stream connector with Splunk. The first and probably most common way uses Splunk Universal Forwarder. The second 
+method uses Splunk API. 
+
+## The Splunk Universal Forwarder method
+
+In that case, you're going to use "Centreon4Splunk", it comes with:
+* A Splunk App. you may find on Splunkbase [here](https://splunkbase.splunk.com/app/4304/)
+* The LUA script and documentation [here](https://github.com/lkco/centreon4Splunk)
+
+Thanks to lkco!
+
+## The Splunk API method
 
 There are two Lua scripts proposed here:
 1. *splunk-states-http.lua* that sends states to Splunk.
@@ -118,6 +131,3 @@ An HTTP events collector has be configured in data entries.
 
 ![alt text](pictures/splunk.png "Splunk configuration")
 
-## Centreon4Splunk: A good alternative
-
-Here is the [link to centreon4Splunk](https://github.com/lkco/centreon4Splunk).
