@@ -14,7 +14,7 @@
 -- You need an influxdb server
 --      You can install one with docker and these commands:
 --          docker pull influxdb
---          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d  influxdb 
+--          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d  influxdb
 -- You need to create a database
 -- curl  http://<influxdb-server>:8086/query --data-urlencode "q=CREATE DATABASE mydb"
 --
@@ -29,22 +29,6 @@
 
 local http = require("socket.http")
 local ltn12 = require("ltn12")
-
-local function parse_perfdata(perfdata)
-    retval = {}
-    for i in string.gmatch(perfdata, "%S+") do
-        local it = string.gmatch(i, "[^=]+")
-        local field = it()
-        local value = it()
-        if field and value then
-            for v in string.gmatch(value, "[0-9.]+") do
-                retval[field] = v
-                break
-            end
-        end
-    end
-    return retval
-end
 
 --------------------------------------------------------------------------------
 -- EventQueue class
@@ -74,7 +58,7 @@ function EventQueue:flush()
         sink = ltn12.sink.table(http_result_body),
         -- request body needs to be formatted as a LTN12 source
         source = ltn12.source.string(http_post_data),
-        headers = { 
+        headers = {
             -- mandatory for POST request with body
             ["content-length"] = string.len(http_post_data)
         }
@@ -103,7 +87,7 @@ end
 function EventQueue:add(e)
     broker_log:info(2, "EventQueue:add: " .. broker.json_encode(e))
     local metric = e.name
-    -- time is a reserved word in influxDB so I rename it 
+    -- time is a reserved word in influxDB so I rename it
     if metric == "time" then
         metric = "_"..metric
     end
@@ -120,7 +104,7 @@ function EventQueue:add(e)
         service_description = e.service_id
     end
     -- we finally append the event to the events table
-    local perfdata = parse_perfdata(e.perfdata)
+    local perfdata = broker.parse_perfdata(e.perfdata)
     if not next(perfdata) then
         broker_log:info(3, "EventQueue:add: No metric")
         return true
