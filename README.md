@@ -135,7 +135,7 @@ An HTTP events collector has be configured in data entries.
 
 The stream connector sends the check results received from Centreon Engine to ServiceNow. Only the host and service check results are sent.
 
-This stream connector is in **BETA** version because it has not been used enough time in production environment.
+This stream connector is in **BETA** version because it has not been used enough time in production environments.
 
 ## Configuration
 
@@ -143,14 +143,14 @@ In *Configuration  >  Pollers  >  Broker configuration*, you need to modify the 
 
 Add an output whose type is Stream Connector.
 Choose a name for your configuration.
-Enter the path of the connector-servicenow.lua.
+Enter the path to the **connector-servicenow.lua** file.
 
-Configure the *lua parameters* with the following information :
+Configure the *lua parameters* with the following informations:
 
 Name | Type | Description
 --- | --- | ---
-client_id | String | The client id for OAuth authentication
-client_secret | String | The client secret for OAuth authentication
+client\_id | String | The client id for OAuth authentication
+client\_secret | String | The client secret for OAuth authentication
 username | String | Username for OAuth authentication
 password | Password | Password for OAuth authentication
 instance | String | The ServiceNow instance
@@ -168,7 +168,7 @@ Centreon | ServiceNow Event Manager field | Description
 --- | --- | ---
 hostname | node | The hostname
 output | description | The Centreon Plugin output
-last_check | time_of_event | The time of the event
+last\_check | time\_of\_event | The time of the event
 hostname | resource | The hostname
 severity | The level of severity depends on the host status
 
@@ -178,8 +178,7 @@ Centreon | ServiceNow Event Manager field | Description
 --- | --- | ---
 hostname | node | The hostname
 output | description | The Centreon Plugin output
-last_check | time_of_event | The time of the event
-service_description | resource | The service name
+last\_check | time\_of\_event | The time of the event
+service\_description | resource | The service name
 severity | The level of severity depends on the host status
-
 

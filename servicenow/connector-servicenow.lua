@@ -1,3 +1,9 @@
+#!/usr/bin/lua
+--------------------------------------------------------------------------------
+-- Centreon Broker Servicenow Connector
+--
+--------------------------------------------------------------------------------
+
 local curl = require "cURL"
 
 local serviceNow
@@ -68,7 +74,7 @@ function ServiceNow:refreshToken (token)
 end
 
 function ServiceNow:refreshTokenIsValid ()
-  if self.tokens.refreshToken == nil then
+  if not self.tokens.refreshToken then
     return false
   end
   if os.time(os.date("!*t")) > self.tokens.refreshToken.expTime then
@@ -79,7 +85,7 @@ function ServiceNow:refreshTokenIsValid ()
 end
 
 function ServiceNow:accessTokenIsValid ()
-  if self.tokens.authToken == nil then
+  if not self.tokens.authToken then
     return false
   end
   if os.time(os.date("!*t")) > self.tokens.authToken.expTime then
