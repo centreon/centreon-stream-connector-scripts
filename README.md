@@ -131,3 +131,54 @@ An HTTP events collector has be configured in data entries.
 
 ![alt text](pictures/splunk.png "Splunk configuration")
 
+# Service Now
+
+The stream connector sends the check results received from Centreon Engine to ServiceNow. Only the host and service check results are sent.
+
+This stream connector is in **BETA** version because it has not been used enough time in production environments.
+
+## Configuration
+
+In *Configuration  >  Pollers  >  Broker configuration*, you need to modify the Central Broker Master configuration.
+
+Add an output whose type is Stream Connector.
+Choose a name for your configuration.
+Enter the path to the **connector-servicenow.lua** file.
+
+Configure the *lua parameters* with the following informations:
+
+Name | Type | Description
+--- | --- | ---
+client\_id | String | The client id for OAuth authentication
+client\_secret | String | The client secret for OAuth authentication
+username | String | Username for OAuth authentication
+password | Password | Password for OAuth authentication
+instance | String | The ServiceNow instance
+logfile | String | The log file with its full path (optional)
+
+## Protocol description
+
+The following table describes the matching information between Centreon and the
+ServiceNow Event Manager.
+
+
+**Host event**
+
+Centreon | ServiceNow Event Manager field | Description
+--- | --- | ---
+hostname | node | The hostname
+output | description | The Centreon Plugin output
+last\_check | time\_of\_event | The time of the event
+hostname | resource | The hostname
+severity | The level of severity depends on the host status
+
+**Service event**
+
+Centreon | ServiceNow Event Manager field | Description
+--- | --- | ---
+hostname | node | The hostname
+output | description | The Centreon Plugin output
+last\_check | time\_of\_event | The time of the event
+service\_description | resource | The service name
+severity | The level of severity depends on the host status
+
