@@ -1,5 +1,7 @@
 local curl = require "cURL"
 
+local serviceNow
+
 -- Class for Service now connection
 local ServiceNow = {}
 ServiceNow.__index = ServiceNow
@@ -171,34 +173,36 @@ function ServiceNow:sendEvent (event)
   return false
 end
 
-local serviceNow
-
-function init (parameters)
-  logfile = parameters["logfile"] or "/var/log/centreon-broker/connector-servicenow.log"
+function init(parameters)
+  logfile = parameters.logfile or "/var/log/centreon-broker/connector-servicenow.log"
+  if not parameters.instance or not parameters.username or not parameters.password
+     or not parameters.client_id or not parameters.client_secret then
+     error("The needed parameters are 'instance', 'username', 'password', 'client_id' and 'client_secret'")
+  end
   broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     broker_log:info(1, "Init " .. i .. " : " .. v)
   end
   serviceNow = ServiceNow:new(
-    parameters["instance"],
-    parameters["username"],
-    parameters["password"],
-    parameters["client_id"],
-    parameters["client_secret"]
+    parameters.instance,
+    parameters.username,
+    parameters.password,
+    parameters.client_id,
+    parameters.client_secret
   )
 end
 
-function write (data)
+function write(data)
   local sendData = {
     source = "centreon",
     event_class = "centreon",
     severity = 5
   }
 
-  broker_log:info(1, "Prepare Go category " .. tostring(data["category"]) .. " element " .. tostring(data["element"]))
+  broker_log:info(1, "Prepare Go category " .. tostring(data.category) .. " element " .. tostring(data.element))
 
-  if data["category"] == 1 then
+  if data.category == 1 then
     broker_log:info(1, "Broker event data")
     for k, v in pairs(data) do
       broker_log:info(1, tostring(k) .. " : " .. tostring(v))
@@ -206,46 +210,46 @@ function write (data)
     broker_log:info(1, "------")
 
     -- Doesn't process if the host is acknowledged or disabled
-    if data["acknowledged"] or not data["enabled"] then
-      broker_log:info(1, "Droped because acknowledged or not enabled")
+    if data.acknowledged or not data.enabled then
+      broker_log:info(1, "Dropped because acknowledged or not enabled")
       return true
     end
     -- Doesn't process if the host state is not hard
-    if data["state_type"] ~= 1 then
-      broker_log:info(1, "Droped because state is not hard")
+    if data.state_type ~= 1 then
+      broker_log:info(1, "Dropped because state is not hard")
       return true
     end
-    hostname = broker_cache:get_hostname(data["host_id"])
+    hostname = broker_cache:get_hostname(data.host_id)
     if not hostname then
-      broker_log:info(1, "Droped missing hostname")
+      broker_log:info(1, "Dropped missing hostname")
       return true
     end
-    sendData["node"] = hostname
-    sendData["description"] = data["output"]
-    sendData["time_of_event"] = os.date("%Y-%m-%d %H:%M:%S", data["last_check"])
-    if data["element"] == 14 then
-      sendData["resource"] = hostname
-      if data["current_state"] == 0 then
-        sendData["severity"] = 0
-      elseif data["current_state"] then
-        sendData["severity"] = 1
+    sendData.node = hostname
+    sendData.description = data.output
+    sendData.time_of_event = os.date("%Y-%m-%d %H:%M:%S", data.last_check)
+    if data.element == 14 then
+      sendData.resource = hostname
+      if data.current_state == 0 then
+        sendData.severity = 0
+      elseif data.current_state then
+        sendData.severity = 1
       end
     else
-      service_description = broker_cache:get_service_description(data["host_id"], data["service_id"])
+      service_description = broker_cache:get_service_description(data.host_id, data.service_id)
       if not service_description then
         broker_log:info(1, "Droped missing service description")
         return true
       end
-      if data["current_state"] == 0 then
-        sendData["severity"] = 0
-      elseif data["current_state"] == 1 then
-        sendData["severity"] = 3
-      elseif data["current_state"] == 2 then
-        sendData["severity"] = 1
-      elseif data["current_state"] == 3 then
-        sendData["severity"] = 4
+      if data.current_state == 0 then
+        sendData.severity = 0
+      elseif data.current_state == 1 then
+        sendData.severity = 3
+      elseif data.current_state == 2 then
+        sendData.severity = 1
+      elseif data.current_state == 3 then
+        sendData.severity = 4
       end
-      sendData["resource"] = service_description
+      sendData.resource = service_description
     end
   else
     return true
@@ -254,16 +258,12 @@ function write (data)
   return serviceNow:sendEvent(sendData)
 end
 
-function filter (category, element)
+function filter(category, element)
   if category == 1 then
     if element == 14 or element == 24 then
       broker_log:info(1, "Go category " .. tostring(category) .. " element " .. tostring(element))
       return true
     end
-  -- else if category == 6 then
-  --   if element == 1 or element == 2 or element == 3 then
-  --     return true
-  --   end
   end
   return false
 end
