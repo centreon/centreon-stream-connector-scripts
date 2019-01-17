@@ -154,7 +154,7 @@ client\_secret | String | The client secret for OAuth authentication
 username | String | Username for OAuth authentication
 password | Password | Password for OAuth authentication
 instance | String | The ServiceNow instance
-
+logfile | String | The log file with its full path (optional)
 
 ## Protocol description
 
