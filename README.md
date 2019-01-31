@@ -21,7 +21,7 @@ Stream connector documentation are provided here:
 
 Don't hesitate to propose improvements and/or contact the community through our Slack workspace. 
 
-Here is a list of the available scripts here:
+Here is a list of the available scripts:
 
 * [Elasticsearch](#elasticsearch)
 * [InfluxDB](#InfluxDB)
