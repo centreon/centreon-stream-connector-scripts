@@ -21,6 +21,16 @@ Stream connector documentation are provided here:
 
 Don't hesitate to propose improvements and/or contact the community through our Slack workspace. 
 
+Here is a list of the available scripts here:
+
+* [Elasticsearch](#elasticsearch)
+* https://github.com/centreon/centreon-stream-connector-scripts#elasticsearch
+* https://github.com/centreon/centreon-stream-connector-scripts#Influxdb
+* https://github.com/centreon/centreon-stream-connector-scripts#Warp10
+* https://github.com/centreon/centreon-stream-connector-scripts#Splunk
+* https://github.com/centreon/centreon-stream-connector-scripts#Warp10
+* https://github.com/centreon/centreon-stream-connector-scripts#service-now
+
 # Elasticsearch
 
 ## Elasticsearch from metrics events: *elasticsearch/elastic-metrics.lua*
