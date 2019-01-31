@@ -137,6 +137,12 @@ The stream connector sends the check results received from Centreon Engine to Se
 
 This stream connector is in **BETA** version because it has not been used enough time in production environments.
 
+## Installation
+
+This stream connector needs the lua-curl library available for example with *luarocks*:
+
+`luarocks install lua-curl`
+
 ## Configuration
 
 In *Configuration  >  Pollers  >  Broker configuration*, you need to modify the Central Broker Master configuration.
