@@ -24,12 +24,10 @@ Don't hesitate to propose improvements and/or contact the community through our 
 Here is a list of the available scripts here:
 
 * [Elasticsearch](#elasticsearch)
-* https://github.com/centreon/centreon-stream-connector-scripts#elasticsearch
-* https://github.com/centreon/centreon-stream-connector-scripts#Influxdb
-* https://github.com/centreon/centreon-stream-connector-scripts#Warp10
-* https://github.com/centreon/centreon-stream-connector-scripts#Splunk
-* https://github.com/centreon/centreon-stream-connector-scripts#Warp10
-* https://github.com/centreon/centreon-stream-connector-scripts#service-now
+* [InfluxDB](#InfluxDB)
+* [Warp 10](#Warp10)
+* [Splunk](#Splunk)
+* [ServiceNow](#service-now)
 
 # Elasticsearch
 
