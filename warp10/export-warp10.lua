@@ -82,10 +82,10 @@ function write(d)
     end
     for metric,v in pairs(pd) do
       local line = tostring(d.last_update) .. "000000// "
-                     .. host .. ":" .. service .. ":" .. metric
-                     .. " {" .. "host=" .. host
-                             .. ", service=" .. service
-                             .. ", metric="  .. metric .. "} "
+                     .. metric
+                     .. "{" .. "host=" .. host
+                             .. ",service=" .. service
+                             .. "} "
                      .. tostring(v)
       table.insert(my_data.data, line)
       broker_log:info(0, "New line added to data: '" .. line .. "'")
