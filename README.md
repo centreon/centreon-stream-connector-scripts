@@ -196,3 +196,16 @@ last\_check | time\_of\_event | The time of the event
 service\_description | resource | The service name
 severity | The level of severity depends on the host status
 
+# NDO
+
+## NDO: *ndo/ndo-output.lua*
+
+Create a broker output in NDO protocol
+
+Parameters to specify in the broker output web ui are:
+
+* ipaddr as **string**: the ip address of the listening server
+* port as **number**: the listening server port
+* max-row as **number**: the number of event to store before sending the data
+
+By default logs are in /var/log/centreon-broker/ndo-output.log
