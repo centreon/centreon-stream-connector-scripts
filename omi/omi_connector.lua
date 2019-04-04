@@ -20,6 +20,7 @@
 --
 -- source_ci (string): Name of the transmiter, usually Centreon server name
 -- ipaddr (string): the ip address of the operation connector server
+-- url (string): url of the operation connector endpoint
 -- logfile (string): the log file to use
 -- loglevel (number): th log level (0, 1, 2, 3) where 3 is the maximum level
 -- port (number): the operation connector server port
@@ -33,6 +34,7 @@ local ltn12 = require("ltn12")
 local my_data = {
   source_ci = "Centreon",
   ipaddr = "192.168.56.15",
+  url = "/bsmc/rest/events/opscx-sdk/v1/",
   logfile = "/var/log/centreon-broker/omi_connector.log",
   loglevel = 2, --set log level (0, 1, 2, 3) where 3 is the maximum level
   port = 30005,
@@ -53,6 +55,9 @@ function init(conf)
   if conf.ipaddr then
     my_data.ipaddr = conf.ipaddr
   end
+  if conf.url then
+    my_data.url = conf.url
+  end
   if conf.port then
     my_data.port = conf.port
   end
@@ -67,6 +72,7 @@ function init(conf)
                      "\nlogfile = " .. my_data.logfile .. 
                      "\nloglevel = " .. my_data.loglevel ..
                      "\nipaddr = " .. my_data.ipaddr ..
+                     "\nurl = " .. my_data.url ..
                      "\nport = " .. my_data.port ..
                      "\nmax_size = " .. my_data.max_size ..
                      "\nmax_age = " .. my_data.max_age .. "\n")
@@ -83,7 +89,7 @@ local function flush()
   local respbody = {}
   local  body, code, headers, status = http.request {
     method = "POST",
-    url = "https://" .. my_data.ipaddr .. ":" .. my_data.port .. "/bsmc/rest/events/opscx-sdk/v1/",
+    url = "https://" .. my_data.ipaddr .. ":" .. my_data.port .. my_data.port,
     source = ltn12.source.string(buf),
     headers =
              {
