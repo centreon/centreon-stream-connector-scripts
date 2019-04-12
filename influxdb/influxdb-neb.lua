@@ -2,7 +2,7 @@
 --------------------------------------------------------------------------------
 -- Centreon Broker InfluxDB Connector
 -- Tested with versions
--- 1.4.3
+-- 1.4.3, 1.7.4
 --
 -- References: 
 -- https://docs.influxdata.com/influxdb/v1.4/write_protocols/line_protocol_tutorial/
@@ -14,11 +14,11 @@
 -- You need an influxdb server
 --      You can install one with docker and these commands:
 --          docker pull influxdb
---          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d  influxdb
+--          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d influxdb
 -- You need to create a database
 -- curl  http://<influxdb-server>:8086/query --data-urlencode "q=CREATE DATABASE mydb"
 --
--- The Lua-socket library is required by this script.
+-- The Lua-socket and Lua-sec libraries are required by this script.
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -26,8 +26,8 @@
 -- curl -G 'http://<influxdb-server>:8086/query?pretty=true' --data-urlencode "db=mydb" --data-urlencode "q=SELECT * from Cpu"
 --------------------------------------------------------------------------------
 
-
 local http = require("socket.http")
+local https = require("ssl.https")
 local ltn12 = require("ltn12")
 
 --------------------------------------------------------------------------------
@@ -39,10 +39,11 @@ EventQueue.__index = EventQueue
 
 --------------------------------------------------------------------------------
 -- flush() method
---   Called when the max number of events or the max age are reached
+-- Called when the max number of events or the max age are reached
 --------------------------------------------------------------------------------
+
 function EventQueue:flush()
-    broker_log:info(2, "EventQueue:flush: Concatenating all the events as one string")
+    broker_log:info(3, "EventQueue:flush: Concatenating all the events as one string")
     --  we concatenate all the events
     local http_post_data = ""
     local http_result_body = {}
@@ -51,8 +52,15 @@ function EventQueue:flush()
     end
     broker_log:info(2, "EventQueue:flush: HTTP POST request \"" .. self.http_server_protocol .. "://" .. self.http_server_address .. ":" .. self.http_server_port .. "/write?db=" .. self.influx_database .. "\"")
     broker_log:info(3, "EventQueue:flush: HTTP POST data are: '" .. http_post_data .. "'")
-    local hr_result, hr_code, hr_header, hr_s = http.request{
-        url = self.http_server_protocol.."://"..self.http_server_address..":"..self.http_server_port.."/write?db="..self.influx_database,
+    http.TIMEOUT = self.http_timeout
+    local req
+    if self.http_server_protocol == "http" then
+        req = http
+    else
+        req = https
+    end
+    local hr_result, hr_code, hr_header, hr_s = req.request{
+        url = self.http_server_protocol .. "://" .. self.http_server_address .. ":" .. self.http_server_port .. "/write?db=" .. self.influx_database .. "&u=" .. self.influx_username .. "&p=" .. self.influx_password,
         method = "POST",
         -- sink is where the request result's body will go
         sink = ltn12.sink.table(http_result_body),
@@ -66,6 +74,8 @@ function EventQueue:flush()
     -- Handling the return code
     if hr_code == 204 then
         broker_log:info(2, "EventQueue:flush: HTTP POST request successful: return code is " .. hr_code)
+        -- now that the data has been sent, we empty the events array
+        self.events = {}
     else
         broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: return code is " .. hr_code)
         for i, v in ipairs(http_result_body) do
@@ -73,8 +83,6 @@ function EventQueue:flush()
         end
     end
 
-    -- now that the data has been sent, we empty the events array
-    self.events = {}
     -- and update the timestamp
     self.__internal_ts_last_flush = os.time()
 end
@@ -82,18 +90,24 @@ end
 --------------------------------------------------------------------------------
 -- EventQueue:add method
 -- @param e An event
---
 --------------------------------------------------------------------------------
+
 function EventQueue:add(e)
-    broker_log:info(2, "EventQueue:add: " .. broker.json_encode(e))
-    local metric = e.name
-    -- time is a reserved word in influxDB so I rename it
-    if metric == "time" then
-        metric = "_"..metric
+    broker_log:info(3, "EventQueue:add: " .. broker.json_encode(e))
+    -- let's get and verify we have perfdata
+    local perfdata = broker.parse_perfdata(e.perfdata)
+    if not next(perfdata) then
+        broker_log:info(3, "EventQueue:add: No metric")
+        return true
     end
     -- retrieve objects names instead of IDs
     local host_name = broker_cache:get_hostname(e.host_id)
-    local service_description = broker_cache:get_service_description(e.host_id, e.service_id)
+    local service_description
+    if e.service_id then
+        service_description = broker_cache:get_service_description(e.host_id, e.service_id)
+    else
+        service_description = "host-latency"
+    end
     -- what if we could not get them from cache
     if not host_name then
         broker_log:warning(1, "EventQueue:add: host_name for id " .. e.host_id .. " not found. Restarting centengine should fix this.")
@@ -103,23 +117,27 @@ function EventQueue:add(e)
         broker_log:warning(1, "EventQueue:add: service_description for id " .. e.host_id .. "." .. e.service_id .. " not found. Restarting centengine should fix this.")
         service_description = e.service_id
     end
-    -- we finally append the event to the events table
-    local perfdata = broker.parse_perfdata(e.perfdata)
-    if not next(perfdata) then
-        broker_log:info(3, "EventQueue:add: No metric")
-        return true
-    end
 
     -- <measurement>[,<tag-key>=<tag-value>...] <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
-    local mess = self.measurement .. ",host=" .. host_name .. ",service=" .. service_description
+    local item = ""
+    if string.find(service_description, " ") then
+        item = ",item=" .. string.gsub(service_description, ".* ", "")
+        service_description = string.gsub(service_description, " .*", "")
+    end
+    local mess
+    if string.len(self.measurement) > 0 then
+        mess = self.measurement .. ",host=" .. host_name .. ",service=" .. service_description .. item
+    else
+        mess = service_description .. ",host=" .. host_name .. item
+    end
     local sep = " "
     for m,v in pairs(perfdata) do
-    	mess = mess .. sep .. m .. "=" .. v
+        mess = mess .. sep .. m .. "=" .. v
         sep = ","
     end
     mess = mess .. " " .. e.last_check .. "000000000\n"
     self.events[#self.events + 1] = mess
-    broker_log:info(3, "EventQueue:add: adding " .. mess)
+    broker_log:info(3, "EventQueue:add: adding " .. mess:sub(1, -2))
 
     -- then we check whether it is time to send the events to the receiver and flush
     if #self.events >= self.max_buffer_size then
@@ -140,21 +158,28 @@ end
 -- @param conf The table given by the init() function and returned from the GUI
 -- @return the new EventQueue
 --------------------------------------------------------------------------------
+
 function EventQueue.new(conf)
     local retval = {
-        measurement                 = "centreon",
-	http_server_address         = "",
-	http_server_port            = 8086,
-	http_server_protocol        = "http",
-	influx_database             = "mydb",
-	max_buffer_size             = 5000,
-	max_buffer_age              = 5
+        measurement                 = "",
+        http_server_address         = "",
+        http_server_port            = 8086,
+        http_server_protocol        = "https",
+        http_timeout                = 5,
+        influx_database             = "mydb",
+        influx_username             = "",
+        influx_password             = "",
+        max_buffer_size             = 5000,
+        max_buffer_age              = 30,
+        log_level                   = 0 -- already proceeded in init function
     }
     for i,v in pairs(conf) do
-        broker_log:warning(1, "Conf parameter " .. i .. " => " .. v)
         if retval[i] then
-            broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
             retval[i] = v
+            if i == "influx_password" then
+                v = string.gsub(v, ".", "*")
+            end
+            broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
         else
             broker_log:warning(1, "EventQueue.new: ignoring parameter " .. i .. " => " .. v)
         end
@@ -168,16 +193,20 @@ function EventQueue.new(conf)
 end
 
 --------------------------------------------------------------------------------
-
-
---------------------------------------------------------------------------------
 -- Required functions for Broker StreamConnector
 --------------------------------------------------------------------------------
 
 local queue
+
 -- Fonction init()
 function init(conf)
-    broker_log:set_parameters(3, "/var/log/centreon-broker/stream-connector-influxdb-neb.log")
+    local log_level = 3
+    for i,v in pairs(conf) do
+        if i == "log_level" then
+            log_level = v
+        end
+    end
+    broker_log:set_parameters(log_level, "/var/log/centreon-broker/stream-connector-influxdb-neb.log")
     broker_log:info(2, "init: Beginning init() function")
     queue = EventQueue.new(conf)
     broker_log:info(2, "init: Ending init() function, Event queue created")
@@ -192,8 +221,8 @@ function write(e)
 end
 
 -- Fonction filter()
--- return true if you want to handle this type of event (category, element) ; here category NEB and element Service Status
+-- return true if you want to handle this type of event (category, element) ; here category NEB and element Host or Service
 -- return false otherwise
 function filter(category, element)
-    return category == 1 and element == 24
+    return category == 1 and (element == 14 or element == 24)
 end
