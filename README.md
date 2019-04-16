@@ -28,6 +28,8 @@ Here is a list of the available scripts:
 * [Warp 10](#Warp10)
 * [Splunk](#Splunk)
 * [ServiceNow](#service-now)
+* [NDO](#NDO)
+* [HP OMI](#OMI)
 
 # Elasticsearch
 
@@ -196,3 +198,31 @@ last\_check | time\_of\_event | The time of the event
 service\_description | resource | The service name
 severity | The level of severity depends on the host status
 
+# NDO
+
+## Send service status events in the historical NDO protocol format : *ndo/ndo-output.lua*
+NDO protocol is no longer supported by Centreon Broker. It is now replaced by BBDO (lower network footprint, automatic compression and encryption).
+However it is possible to emulate the historical NDO protocol output with this stream connector.
+
+Parameters to specify in the broker output web ui are:
+
+* ipaddr as **string**: the ip address of the listening server
+* port as **number**: the listening server port
+* max-row as **number**: the number of event to store before sending the data
+
+By default logs are in /var/log/centreon-broker/ndo-output.log
+
+# OMI
+
+## stream connector for HP OMI : *ndo/ndo-output.lua*
+
+Create a broker output for HP OMI Connector
+
+Parameters to specify in the broker output web ui are:
+
+* ipaddr as **string**: the ip address of the listening server
+* port as **number**: the listening server port
+* logfile as **string**: where to send logs
+* loglevel as **number** : the log level (0, 1, 2, 3) where 3 is the maximum level
+* max_size as **number** : how many events to store before sending them to the server
+* max_age as **number** : flush the events when the specified time (in second) is reach (even if max_size is not reach)
