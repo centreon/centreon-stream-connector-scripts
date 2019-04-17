@@ -82,7 +82,6 @@ function EventQueue:flush()
             broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: message line " .. i ..  " is \"" .. v .. "\"")
         end
     end
-
     -- and update the timestamp
     self.__internal_ts_last_flush = os.time()
 end
@@ -117,28 +116,32 @@ function EventQueue:add(e)
         broker_log:warning(1, "EventQueue:add: service_description for id " .. e.host_id .. "." .. e.service_id .. " not found. Restarting centengine should fix this.")
         service_description = e.service_id
     end
-
-    -- <measurement>[,<tag-key>=<tag-value>...] <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
+    -- message format : <measurement>[,<tag-key>=<tag-value>...] <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
+    -- consider space in service_description as a separator for an item tag
     local item = ""
     if string.find(service_description, " ") then
         item = ",item=" .. string.gsub(service_description, ".* ", "")
         service_description = string.gsub(service_description, " .*", "")
     end
-    local mess
-    if string.len(self.measurement) > 0 then
-        mess = self.measurement .. ",host=" .. host_name .. ",service=" .. service_description .. item
-    else
-        mess = service_description .. ",host=" .. host_name .. item
-    end
-    local sep = " "
+    -- define messages from perfata, transforming instance names to inst tags, which leads to one message per instance
+    local instances = {}
     for m,v in pairs(perfdata) do
-        mess = mess .. sep .. m .. "=" .. v
-        sep = ","
+        local inst = string.match(m, "(.*)#.*")
+        if not inst then
+            inst = ""
+        else
+            inst = ",inst=" .. inst
+        end
+        if not instances[inst] then
+            instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
+        end
+        instances[inst] = instances[inst] .. string.gsub(m, ".*#", "") .. "=" .. v .. ","
     end
-    mess = mess .. " " .. e.last_check .. "000000000\n"
-    self.events[#self.events + 1] = mess
-    broker_log:info(3, "EventQueue:add: adding " .. mess:sub(1, -2))
-
+    -- compute final messages to push
+    for _,v in pairs(instances) do
+        self.events[#self.events + 1] = v:sub(1, -2) .. " " .. e.last_check .. "000000000" .. "\n"
+        broker_log:info(3, "EventQueue:add: adding " .. self.events[#self.events]:sub(1, -2))
+    end
     -- then we check whether it is time to send the events to the receiver and flush
     if #self.events >= self.max_buffer_size then
         broker_log:info(2, "EventQueue:add: flushing because buffer size reached " .. self.max_buffer_size .. " elements.")
@@ -180,6 +183,9 @@ function EventQueue.new(conf)
                 v = string.gsub(v, ".", "*")
             end
             broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
+            if i == "measurement" then
+                retval[i] = retval[i] .. ",service="
+            end
         else
             broker_log:warning(1, "EventQueue.new: ignoring parameter " .. i .. " => " .. v)
         end
