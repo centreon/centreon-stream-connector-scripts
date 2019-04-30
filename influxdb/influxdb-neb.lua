@@ -95,7 +95,7 @@ function EventQueue:add(e)
     broker_log:info(3, "EventQueue:add: " .. broker.json_encode(e))
     -- let's get and verify we have perfdata
     local perfdata = broker.parse_perfdata(e.perfdata)
-    if not next(perfdata) then
+    if not perfdata or not next(perfdata) then
         broker_log:info(3, "EventQueue:add: No metric")
         return true
     end
