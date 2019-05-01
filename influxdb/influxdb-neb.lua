@@ -94,9 +94,9 @@ end
 function EventQueue:add(e)
     broker_log:info(3, "EventQueue:add: " .. broker.json_encode(e))
     -- let's get and verify we have perfdata
-    local perfdata = broker.parse_perfdata(e.perfdata)
-    if not perfdata or not next(perfdata) then
-        broker_log:info(3, "EventQueue:add: No metric")
+    local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata)
+    if perfdata_err then
+        broker_log:info(3, "EventQueue:add: No metric: " .. perfdata_err)
         return true
     end
     -- retrieve objects names instead of IDs
