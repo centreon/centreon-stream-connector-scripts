@@ -122,10 +122,16 @@ function EventQueue:add(e)
     -- what if we could not get them from cache
     if not host_name then
         broker_log:warning(1, "EventQueue:add: host_name for id " .. e.host_id .. " not found. Restarting centengine should fix this.")
+        if self.skip_anon_events == 1 then
+            return false
+        end
         host_name = e.host_id
     end
     if not service_description then
         broker_log:warning(1, "EventQueue:add: service_description for id " .. e.host_id .. "." .. e.service_id .. " not found. Restarting centengine should fix this.")
+        if self.skip_anon_events == 1 then
+            return false
+        end
         service_description = e.service_id
     end
     -- message format : <measurement>[,<tag-key>=<tag-value>...] <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
@@ -186,6 +192,7 @@ function EventQueue.new(conf)
         influx_password             = "",
         max_buffer_size             = 5000,
         max_buffer_age              = 30,
+        skip_anon_events            = 1,
         log_level                   = 0 -- already proceeded in init function
     }
     for i,v in pairs(conf) do
