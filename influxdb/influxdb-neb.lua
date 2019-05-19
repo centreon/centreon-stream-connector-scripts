@@ -72,10 +72,12 @@ function EventQueue:flush()
         }
     }
     -- Handling the return code
+    local retval = false
     if hr_code == 204 then
         broker_log:info(2, "EventQueue:flush: HTTP POST request successful: return code is " .. hr_code)
         -- now that the data has been sent, we empty the events array
         self.events = {}
+        retval = true
     else
         broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: return code is " .. hr_code)
         for i, v in ipairs(http_result_body) do
@@ -84,6 +86,7 @@ function EventQueue:flush()
     end
     -- and update the timestamp
     self.__internal_ts_last_flush = os.time()
+    return retval
 end
 
 --------------------------------------------------------------------------------
@@ -97,7 +100,7 @@ function EventQueue:add(e)
     local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata)
     if perfdata_err then
         broker_log:info(3, "EventQueue:add: No metric: " .. perfdata_err)
-        return true
+        return false
     end
     -- retrieve objects names instead of IDs
     local host_name = broker_cache:get_hostname(e.host_id)
@@ -145,12 +148,12 @@ function EventQueue:add(e)
     -- then we check whether it is time to send the events to the receiver and flush
     if #self.events >= self.max_buffer_size then
         broker_log:info(2, "EventQueue:add: flushing because buffer size reached " .. self.max_buffer_size .. " elements.")
-        self:flush()
-        return true
+        local retval = self:flush()
+        return retval
     elseif os.time() - self.__internal_ts_last_flush >= self.max_buffer_age then
         broker_log:info(2, "EventQueue:add: flushing " .. #self.events .. " elements because buffer age reached " .. (os.time() - self.__internal_ts_last_flush) .. "s and max age is " .. self.max_buffer_age .. "s.")
-        self:flush()
-        return true
+        local retval = self:flush()
+        return retval
     else
         return false
     end
@@ -221,9 +224,10 @@ end
 -- Fonction write()
 function write(e)
     broker_log:info(3, "write: Beginning write() function")
-    queue:add(e)
-    broker_log:info(3, "write: Ending write() function")
-    return true
+    local retval = queue:add(e)
+    broker_log:info(3, "write: Ending write() function, returning " .. tostring(retval))
+    -- return true to ask broker to clear its cache, false otherwise
+    return retval
 end
 
 -- Fonction filter()
