@@ -72,10 +72,12 @@ function EventQueue:flush()
         }
     }
     -- Handling the return code
+    local retval = false
     if hr_code == 204 then
         broker_log:info(2, "EventQueue:flush: HTTP POST request successful: return code is " .. hr_code)
         -- now that the data has been sent, we empty the events array
         self.events = {}
+        retval = true
     else
         broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: return code is " .. hr_code)
         for i, v in ipairs(http_result_body) do
@@ -84,6 +86,7 @@ function EventQueue:flush()
     end
     -- and update the timestamp
     self.__internal_ts_last_flush = os.time()
+    return retval
 end
 
 --------------------------------------------------------------------------------
@@ -91,13 +94,22 @@ end
 -- @param e An event
 --------------------------------------------------------------------------------
 
+local previous_event = ""
+
 function EventQueue:add(e)
-    broker_log:info(3, "EventQueue:add: " .. broker.json_encode(e))
+    -- workaround https://github.com/centreon/centreon-broker/issues/201
+    current_event = broker.json_encode(e)
+    if current_event == previous_event then
+        broker_log:info(3, "EventQueue:add: Duplicate event ignored.")
+        return false
+    end
+    previous_event = current_event
+    broker_log:info(3, "EventQueue:add: " .. current_event)
     -- let's get and verify we have perfdata
     local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata)
     if perfdata_err then
         broker_log:info(3, "EventQueue:add: No metric: " .. perfdata_err)
-        return true
+        return false
     end
     -- retrieve objects names instead of IDs
     local host_name = broker_cache:get_hostname(e.host_id)
@@ -110,10 +122,16 @@ function EventQueue:add(e)
     -- what if we could not get them from cache
     if not host_name then
         broker_log:warning(1, "EventQueue:add: host_name for id " .. e.host_id .. " not found. Restarting centengine should fix this.")
+        if self.skip_anon_events == 1 then
+            return false
+        end
         host_name = e.host_id
     end
     if not service_description then
         broker_log:warning(1, "EventQueue:add: service_description for id " .. e.host_id .. "." .. e.service_id .. " not found. Restarting centengine should fix this.")
+        if self.skip_anon_events == 1 then
+            return false
+        end
         service_description = e.service_id
     end
     -- message format : <measurement>[,<tag-key>=<tag-value>...] <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
@@ -145,12 +163,12 @@ function EventQueue:add(e)
     -- then we check whether it is time to send the events to the receiver and flush
     if #self.events >= self.max_buffer_size then
         broker_log:info(2, "EventQueue:add: flushing because buffer size reached " .. self.max_buffer_size .. " elements.")
-        self:flush()
-        return true
+        local retval = self:flush()
+        return retval
     elseif os.time() - self.__internal_ts_last_flush >= self.max_buffer_age then
         broker_log:info(2, "EventQueue:add: flushing " .. #self.events .. " elements because buffer age reached " .. (os.time() - self.__internal_ts_last_flush) .. "s and max age is " .. self.max_buffer_age .. "s.")
-        self:flush()
-        return true
+        local retval = self:flush()
+        return retval
     else
         return false
     end
@@ -174,6 +192,7 @@ function EventQueue.new(conf)
         influx_password             = "",
         max_buffer_size             = 5000,
         max_buffer_age              = 30,
+        skip_anon_events            = 1,
         log_level                   = 0 -- already proceeded in init function
     }
     for i,v in pairs(conf) do
@@ -221,9 +240,10 @@ end
 -- Fonction write()
 function write(e)
     broker_log:info(3, "write: Beginning write() function")
-    queue:add(e)
-    broker_log:info(3, "write: Ending write() function")
-    return true
+    local retval = queue:add(e)
+    broker_log:info(3, "write: Ending write() function, returning " .. tostring(retval))
+    -- return true to ask broker to clear its cache, false otherwise
+    return retval
 end
 
 -- Fonction filter()

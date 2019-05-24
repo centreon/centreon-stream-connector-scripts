@@ -44,9 +44,9 @@ Parameters to specify in the stream connector configuration are:
 * elastic-port as **number**: it is the port, if not provided, this value is *9200*.
 * max-row as **number**: it is the max number of events before sending them to the elastic server. If not specified, its value is 100
 
-# Influxdb
+# InfluxDB
 
-## Influxdb from metrics events: *influxdb/influxdb-metrics.lua*
+## InfluxDB from metrics events: *influxdb/influxdb-metrics.lua*
 
 This stream connector works with **metric events**. So you need them to be configured in Centreon broker.
 
@@ -54,31 +54,36 @@ To use this script, one need to install the lua-socket library.
 
 Parameters to specify in the stream connector configuration are:
 
-* http\_server\_address as **string**: it is the *ip address* of the Influxdb server
+* http\_server\_address as **string**: it is the *ip address* of the InfluxDB server
 * http\_server\_port as **number**: it is the port, if not provided, this value is *8086*
 * http\_server\_protocol as **string**: by default, this value is *http*
 * influx\_database as **string**: The database name, *mydb* is the default value
-* max\_buffer\_size as **number**: The number of events to stock before them to be sent to influxdb
+* max\_buffer\_size as **number**: The number of events to stock before them to be sent to InfluxDB
 * max\_buffer\_age as **number**: The delay in seconds to wait before the next flush.
 
 if one of max\_buffer\_size or max\_buffer\_age is reached, events are sent.
 
-## Influxdb from neb events: *influxdb/influxdb-neb.lua*
+## InfluxDB from neb events: *influxdb/influxdb-neb.lua*
 
 This stream connector is an alternative to the previous one, but works with **neb service\_status events**.
 As those events are always available on a Centreon platform, this script should work more often.
 
-To use this script, one need to install the lua-socket library.
+To use this script, one need to install the lua-socket and lua-sec libraries.
 
 Parameters to specify in the stream connector configuration are:
 
-* measurement as **string**: it is the influxdb *measurement*
-* http\_server\_address as **string**: it is the *ip address* of the Influxdb server
-* http\_server\_port as **number**: it is the port, if not provided, this value is *8086*
-* http\_server\_protocol as **string**: by default, this value is *http*
-* influx\_database as **string**: The database name, *mydb* is the default value
-* max\_buffer\_size as **number**: The number of events to stock before them to be sent to influxdb
-* max\_buffer\_age as **number**: The delay in seconds to wait before the next flush.
+* measurement as **string**: the InfluxDB *measurement*, overwrites the service description if set
+* http\_server\_address as **string**: the *(ip) address* of the InfluxDB server
+* http\_server\_port as **number**: the port of the InfluxDB server, by default *8086*
+* http\_server\_protocol as **string**: the connection scheme, by default *https*
+* http\_timeout as **number**: the connection timeout, by default *5* seconds
+* influx\_database as **string**: the database name, by default *mydb*
+* influx\_username as **string**: the database username, no authentication performed if not set
+* influx\_password as **string**: the database password, no authentication performed if not set
+* max\_buffer\_size as **number**: the number of events to stock before the next flush, by default *5000*
+* max\_buffer\_age as **number**: the delay to wait before the next flush, by default *30* seconds
+* skip\_anon\_events as **number**: skip events without name in broker cache, by default *1*
+* log\_level as **number**: log level from 1 to 3, by default *3*
 
 if one of max\_buffer\_size or max\_buffer\_age is reached, events are sent.
 
