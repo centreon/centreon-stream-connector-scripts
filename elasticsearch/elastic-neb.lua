@@ -18,6 +18,7 @@
 --      curl -X PUT "http://elasticsearch/centreon_metric" -H 'Content-Type: application/json'
 --          -d '{"mappings":{"properties":{"host":{"type":"keyword"},"service":{"type":"keyword"},
 --          "instance":{"type":"keyword"},"metric":{"type":"keyword"},"value":{"type":"double"},
+--          "min":{"type":"double"},"max":{"type":"double"},"uom":{"type":"text"},
 --          "type":{"type":"keyword"},"timestamp":{"type":"date","format":"epoch_second"}}}}'
 --      curl -X PUT "http://elasticsearch/centreon_status" -H 'Content-Type: application/json'
 --          -d '{"mappings":{"properties":{"host":{"type":"keyword"},"service":{"type":"keyword"},
@@ -188,7 +189,7 @@ function EventQueue:add(e)
             self.events[#self.events].state)
     end
     if string.match(self.filter_type, "metric") then
-        local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata)
+        local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata, true)
         if perfdata_err then
             broker_log:info(3, "EventQueue:add: No metric: " .. perfdata_err)
             return false
@@ -199,13 +200,26 @@ function EventQueue:add(e)
             if not instance then
                 instance = ""
             end
+
+            local perfval = {
+                value = "",
+                min = "",
+                max = "",
+                uom = ""
+            }
+            for i,d in pairs(perfdata[m]) do
+                perfval[i] = d
+            end
             self.events[#self.events + 1] = {
                 timestamp = e.last_check,
                 host = hostname,
                 service = service_description,
                 instance = instance,
                 metric = string.gsub(m, ".*#", ""),
-                value = v,
+                value = perfval.value,
+                min = perfval.min,
+                max = perfval.max,
+                uom = perfval.uom,
                 type = type
             }
             broker_log:info(3, "EventQueue:add: entry #" .. #self.events .. " [type: metric]: timestamp = " ..
@@ -220,6 +234,12 @@ function EventQueue:add(e)
                 self.events[#self.events].metric)
             broker_log:info(3, "EventQueue:add: entry #" .. #self.events .. " [type: metric]:     value = " ..
                 self.events[#self.events].value)
+            broker_log:info(3, "EventQueue:add: entry #" .. #self.events .. " [type: metric]:       min = " ..
+                self.events[#self.events].min)
+            broker_log:info(3, "EventQueue:add: entry #" .. #self.events .. " [type: metric]:       max = " ..
+                self.events[#self.events].max)
+            broker_log:info(3, "EventQueue:add: entry #" .. #self.events .. " [type: metric]:       uom = " ..
+                self.events[#self.events].uom)
         end
     end
 
