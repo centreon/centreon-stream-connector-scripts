@@ -75,6 +75,7 @@ Two indices need to be created on the Elasticsearch server:
 curl -X PUT "http://elasticsearch/centreon_metric" -H 'Content-Type: application/json'
 -d '{"mappings":{"properties":{"host":{"type":"keyword"},"service":{"type":"keyword"},
 "instance":{"type":"keyword"},"metric":{"type":"keyword"},"value":{"type":"double"},
+"min":{"type":"double"},"max":{"type":"double"},"uom":{"type":"text"},
 "type":{"type":"keyword"},"timestamp":{"type":"date","format":"epoch_second"}}}}'
 
 curl -X PUT "http://elasticsearch/centreon_status" -H 'Content-Type: application/json'
