@@ -78,12 +78,14 @@ Parameters to specify in the stream connector configuration are:
 * http\_server\_protocol as **string**: the connection scheme, by default *https*
 * http\_timeout as **number**: the connection timeout, by default *5* seconds
 * influx\_database as **string**: the database name, by default *mydb*
+* influx\_retention\_policy as **string**: the database retention policy, default is database's default
 * influx\_username as **string**: the database username, no authentication performed if not set
 * influx\_password as **string**: the database password, no authentication performed if not set
 * max\_buffer\_size as **number**: the number of events to stock before the next flush, by default *5000*
 * max\_buffer\_age as **number**: the delay to wait before the next flush, by default *30* seconds
 * skip\_anon\_events as **number**: skip events without name in broker cache, by default *1*
 * log\_level as **number**: log level from 1 to 3, by default *3*
+* log\_path as **string**: path to log file, by default */var/log/centreon-broker/stream-connector-influxdb-neb.log*
 
 if one of max\_buffer\_size or max\_buffer\_age is reached, events are sent.
 

@@ -2,7 +2,7 @@
 --------------------------------------------------------------------------------
 -- Centreon Broker InfluxDB Connector
 -- Tested with versions
--- 1.4.3, 1.7.4
+-- 1.4.3, 1.7.4, 1.7.6
 --
 -- References: 
 -- https://docs.influxdata.com/influxdb/v1.4/write_protocols/line_protocol_tutorial/
@@ -17,18 +17,21 @@
 --          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d influxdb
 -- You need to create a database
 -- curl  http://<influxdb-server>:8086/query --data-urlencode "q=CREATE DATABASE mydb"
+-- You can eventually create a retention policy
 --
 -- The Lua-socket and Lua-sec libraries are required by this script.
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 -- Access to the data:
--- curl -G 'http://<influxdb-server>:8086/query?pretty=true' --data-urlencode "db=mydb" --data-urlencode "q=SELECT * from Cpu"
+-- curl -G 'http://<influxdb-server>:8086/query?pretty=true' --data-urlencode "db=mydb" 
+--  --data-urlencode "q=SELECT * from Cpu"
 --------------------------------------------------------------------------------
 
 local http = require("socket.http")
 local https = require("ssl.https")
 local ltn12 = require("ltn12")
+local mime = require("mime")
 
 --------------------------------------------------------------------------------
 -- EventQueue class
@@ -50,7 +53,9 @@ function EventQueue:flush()
     for _, raw_event in ipairs(self.events) do
         http_post_data = http_post_data .. raw_event
     end
-    broker_log:info(2, "EventQueue:flush: HTTP POST request \"" .. self.http_server_protocol .. "://" .. self.http_server_address .. ":" .. self.http_server_port .. "/write?db=" .. self.influx_database .. "\"")
+    local url = self.http_server_protocol .. "://" .. self.http_server_address .. ":" .. self.http_server_port ..
+        "/write?db=" .. self.influx_database .. "&rp=" .. self.influx_retention_policy
+    broker_log:info(2, "EventQueue:flush: HTTP POST request \"" .. url .. "\"")
     broker_log:info(3, "EventQueue:flush: HTTP POST data are: '" .. http_post_data .. "'")
     http.TIMEOUT = self.http_timeout
     local req
@@ -60,7 +65,7 @@ function EventQueue:flush()
         req = https
     end
     local hr_result, hr_code, hr_header, hr_s = req.request{
-        url = self.http_server_protocol .. "://" .. self.http_server_address .. ":" .. self.http_server_port .. "/write?db=" .. self.influx_database .. "&u=" .. self.influx_username .. "&p=" .. self.influx_password,
+        url = url,
         method = "POST",
         -- sink is where the request result's body will go
         sink = ltn12.sink.table(http_result_body),
@@ -68,7 +73,8 @@ function EventQueue:flush()
         source = ltn12.source.string(http_post_data),
         headers = {
             -- mandatory for POST request with body
-            ["content-length"] = string.len(http_post_data)
+            ["content-length"] = string.len(http_post_data),
+            ["authorization"] = "Basic " .. (mime.b64(self.influx_username .. ":" .. self.influx_password))
         }
     }
     -- Handling the return code
@@ -81,7 +87,8 @@ function EventQueue:flush()
     else
         broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: return code is " .. hr_code)
         for i, v in ipairs(http_result_body) do
-            broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: message line " .. i ..  " is \"" .. v .. "\"")
+            broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED: message line " .. i ..
+                " is \"" .. v .. "\"")
         end
     end
     -- and update the timestamp
@@ -121,20 +128,23 @@ function EventQueue:add(e)
     end
     -- what if we could not get them from cache
     if not host_name then
-        broker_log:warning(1, "EventQueue:add: host_name for id " .. e.host_id .. " not found. Restarting centengine should fix this.")
+        broker_log:warning(1, "EventQueue:add: host_name for id " .. e.host_id ..
+            " not found. Restarting centengine should fix this.")
         if self.skip_anon_events == 1 then
             return false
         end
         host_name = e.host_id
     end
     if not service_description then
-        broker_log:warning(1, "EventQueue:add: service_description for id " .. e.host_id .. "." .. e.service_id .. " not found. Restarting centengine should fix this.")
+        broker_log:warning(1, "EventQueue:add: service_description for id " .. e.host_id .. "." .. e.service_id ..
+            " not found. Restarting centengine should fix this.")
         if self.skip_anon_events == 1 then
             return false
         end
         service_description = e.service_id
     end
-    -- message format : <measurement>[,<tag-key>=<tag-value>...] <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
+    -- message format : <measurement>[,<tag-key>=<tag-value>...]
+    --  <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
     -- consider space in service_description as a separator for an item tag
     local item = ""
     if string.find(service_description, " ") then
@@ -162,11 +172,13 @@ function EventQueue:add(e)
     end
     -- then we check whether it is time to send the events to the receiver and flush
     if #self.events >= self.max_buffer_size then
-        broker_log:info(2, "EventQueue:add: flushing because buffer size reached " .. self.max_buffer_size .. " elements.")
+        broker_log:info(2, "EventQueue:add: flushing because buffer size reached " .. self.max_buffer_size ..
+            " elements.")
         local retval = self:flush()
         return retval
     elseif os.time() - self.__internal_ts_last_flush >= self.max_buffer_age then
-        broker_log:info(2, "EventQueue:add: flushing " .. #self.events .. " elements because buffer age reached " .. (os.time() - self.__internal_ts_last_flush) .. "s and max age is " .. self.max_buffer_age .. "s.")
+        broker_log:info(2, "EventQueue:add: flushing " .. #self.events .. " elements because buffer age reached " ..
+            (os.time() - self.__internal_ts_last_flush) .. "s and max age is " .. self.max_buffer_age .. "s.")
         local retval = self:flush()
         return retval
     else
@@ -188,12 +200,14 @@ function EventQueue.new(conf)
         http_server_protocol        = "https",
         http_timeout                = 5,
         influx_database             = "mydb",
+        influx_retention_policy     = "",
         influx_username             = "",
         influx_password             = "",
         max_buffer_size             = 5000,
         max_buffer_age              = 30,
         skip_anon_events            = 1,
-        log_level                   = 0 -- already proceeded in init function
+        log_level                   = 0, -- already proceeded in init function
+        log_path                    = "" -- already proceeded in init function
     }
     for i,v in pairs(conf) do
         if retval[i] then
@@ -226,12 +240,16 @@ local queue
 -- Fonction init()
 function init(conf)
     local log_level = 3
+    local log_path = "/var/log/centreon-broker/stream-connector-influxdb-neb.log"
     for i,v in pairs(conf) do
         if i == "log_level" then
             log_level = v
         end
+        if i == "log_path" then
+            log_path = v
+        end
     end
-    broker_log:set_parameters(log_level, "/var/log/centreon-broker/stream-connector-influxdb-neb.log")
+    broker_log:set_parameters(log_level, log_path)
     broker_log:info(2, "init: Beginning init() function")
     queue = EventQueue.new(conf)
     broker_log:info(2, "init: Ending init() function, Event queue created")
@@ -247,7 +265,8 @@ function write(e)
 end
 
 -- Fonction filter()
--- return true if you want to handle this type of event (category, element) ; here category NEB and element Host or Service
+-- return true if you want to handle this type of event (category, element) ; here category NEB and element
+--  Host or Service
 -- return false otherwise
 function filter(category, element)
     return category == 1 and (element == 14 or element == 24)
