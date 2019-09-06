@@ -44,6 +44,46 @@ Parameters to specify in the stream connector configuration are:
 * elastic-port as **number**: it is the port, if not provided, this value is *9200*.
 * max-row as **number**: it is the max number of events before sending them to the elastic server. If not specified, its value is 100
 
+## Elasticsearch from NEB events: *elasticsearch/elastic-neb.lua*
+
+This stream connector is an alternative to the previous one, but works with **neb service\_status events**.
+As those events are always available on a Centreon platform, this script should work more often.
+
+To use this script, one need to install the lua-socket and lua-sec libraries.
+
+Parameters to specify in the stream connector configuration are:
+
+* http\_server\_address as **string**: the *(ip) address* of the Elasticsearch server
+* http\_server\_port as **number**: the port of the Elasticsearch server, by default *9200*
+* http\_server\_protocol as **string**: the connection scheme, by default *http*
+* http\_timeout as **number**: the connection timeout, by default *5* seconds
+* filter\_type as **string**: filter events to compute, by default *metric,status*
+* elastic\_index\_metric as **string**: the index name for metrics, by default *centreon_metric*
+* elastic\_index\_status as **string**: the index name for status, by default *centreon_status*
+* elastic\_username as **string**: the API username if set
+* elastic\_password as **password**: the API password if set
+* max\_buffer\_size as **number**: the number of events to stock before the next flush, by default *5000*
+* max\_buffer\_age as **number**: the delay to wait before the next flush, by default *30* seconds
+* skip\_anon\_events as **number**: skip events without name in broker cache, by default *1*
+* log\_level as **number**: log level from 1 to 3, by default *3*
+* log\_path as **string**: path to log file, by default */var/log/centreon-broker/stream-connector-elastic-neb.log*
+
+If one of max\_buffer\_size or max\_buffer\_age is reached, events are sent.
+
+Two indices need to be created on the Elasticsearch server:
+```
+curl -X PUT "http://elasticsearch/centreon_metric" -H 'Content-Type: application/json'
+-d '{"mappings":{"properties":{"host":{"type":"keyword"},"service":{"type":"keyword"},
+"instance":{"type":"keyword"},"metric":{"type":"keyword"},"value":{"type":"double"},
+"min":{"type":"double"},"max":{"type":"double"},"uom":{"type":"text"},
+"type":{"type":"keyword"},"timestamp":{"type":"date","format":"epoch_second"}}}}'
+
+curl -X PUT "http://elasticsearch/centreon_status" -H 'Content-Type: application/json'
+-d '{"mappings":{"properties":{"host":{"type":"keyword"},"service":{"type":"keyword"},
+"output":{"type":"text"},"status":{"type":"keyword"},"state":{"type":"keyword"},
+"type":{"type":"keyword"},"timestamp":{"type":"date","format":"epoch_second"}}}}''
+```
+
 # InfluxDB
 
 ## InfluxDB from metrics events: *influxdb/influxdb-metrics.lua*
