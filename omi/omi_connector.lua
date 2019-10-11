@@ -89,7 +89,7 @@ local function flush()
   local respbody = {}
   local  body, code, headers, status = http.request {
     method = "POST",
-    url = "https://" .. my_data.ipaddr .. ":" .. my_data.port .. my_data.port,
+    url = "https://" .. my_data.ipaddr .. ":" .. my_data.port .. my_data.url,
     source = ltn12.source.string(buf),
     headers =
              {
