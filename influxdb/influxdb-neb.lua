@@ -145,7 +145,7 @@ function EventQueue:add(e)
     end
     -- message format : <measurement>[,<tag-key>=<tag-value>...]
     --  <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
-    -- some charaters [ ,=] must be escaped, let's replace them by _ for better handling
+    -- some characters [ ,=] must be escaped, let's replace them by _ for better handling
     -- consider space in service_description as a separator for an item tag
     local item = ""
     if string.find(service_description, " [^ ]+$") then
