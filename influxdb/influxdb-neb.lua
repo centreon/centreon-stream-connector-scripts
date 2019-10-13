@@ -145,12 +145,14 @@ function EventQueue:add(e)
     end
     -- message format : <measurement>[,<tag-key>=<tag-value>...]
     --  <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
+    -- some characters [ ,=] must be escaped, let's replace them by _ for better handling
     -- consider space in service_description as a separator for an item tag
     local item = ""
-    if string.find(service_description, " ") then
-        item = ",item=" .. string.gsub(service_description, ".* ", "")
-        service_description = string.gsub(service_description, " .*", "")
+    if string.find(service_description, " [^ ]+$") then
+        item = ",item=" .. string.gsub(string.gsub(service_description, ".* ", "", 1), "[ ,=]+" ,"_")
+        service_description = string.gsub(service_description, " +[^ ]+$", "", 1)
     end
+    service_description = string.gsub(service_description, "[ ,=]+" ,"_")
     -- define messages from perfata, transforming instance names to inst tags, which leads to one message per instance
     local instances = {}
     for m,v in pairs(perfdata) do
@@ -158,7 +160,7 @@ function EventQueue:add(e)
         if not inst then
             inst = ""
         else
-            inst = ",inst=" .. inst
+            inst = ",inst=" .. string.gsub(inst, "[ ,=]+" ,"_")
         end
         if not instances[inst] then
             instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
