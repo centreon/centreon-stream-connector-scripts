@@ -80,12 +80,27 @@ function write(d)
       broker_log:error(0, "You should restart engine to fill the cache")
       return true
     end
+    local labels = "hostname=" .. host .. ",service=" .. service .. ','
+    local sgroups = broker_cache:get_servicegroups(d.host_id, d.service_id)
+    if sgroups and #sgroups > 0 then
+      grps = ""
+      for idx = 1, #sgroups do
+        grps = grps .. sgroups[idx].group_name .. ' '
+      end
+      labels = labels .. "service_groups=" .. grps .. ','
+    end
+    local hgroups = broker_cache:get_hostgroups(d.host_id)
+    if hgroups and #hgroups > 0 then
+      grps = ""
+      for idx = 1, #hgroups do
+        grps = grps .. hgroups[idx].group_name .. ' '
+      end
+      labels = labels .. "host_groups=" .. grps .. ','
+    end
     for metric,v in pairs(pd) do
       local line = tostring(d.last_update) .. "000000// "
                      .. metric
-                     .. "{" .. "host=" .. host
-                             .. ",service=" .. service
-                             .. "} "
+                     .. "{" .. labels .. "} "
                      .. tostring(v)
       table.insert(my_data.data, line)
       broker_log:info(0, "New line added to data: '" .. line .. "'")
