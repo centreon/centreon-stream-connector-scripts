@@ -143,7 +143,7 @@ function write(d)
       end
     end
   end
-  if #my_data.data > my_data.max_size or os.time() - my_data.flush_time > my_data.max_age then
+  if #my_data.data >= my_data.max_size or os.time() - my_data.flush_time >= my_data.max_age then
       broker_log:info(2, "max size or flush time is reached, flushing data")
       return flush()
   end
