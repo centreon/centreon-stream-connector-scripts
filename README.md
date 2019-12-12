@@ -261,7 +261,7 @@ By default logs are in /var/log/centreon-broker/ndo-output.log
 
 # OMI
 
-## stream connector for HP OMI : *ndo/ndo-output.lua*
+## stream connector for HP OMI : *omi/omi_connector.lua*
 
 Create a broker output for HP OMI Connector
 
