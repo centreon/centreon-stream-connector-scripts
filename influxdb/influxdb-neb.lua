@@ -149,10 +149,10 @@ function EventQueue:add(e)
     -- consider space in service_description as a separator for an item tag
     local item = ""
     if string.find(service_description, " [^ ]+$") then
-        item = ",item=" .. string.gsub(string.gsub(service_description, ".* ", "", 1), "[ ,=]+" ,"_")
+        item = ",item=" .. string.gsub(string.gsub(service_description, ".* ", "", 1), "[ ,=]+", self.replacement_character)
         service_description = string.gsub(service_description, " +[^ ]+$", "", 1)
     end
-    service_description = string.gsub(service_description, "[ ,=]+" ,"_")
+    service_description = string.gsub(service_description, "[ ,=]+", self.replacement_character)
     -- define messages from perfata, transforming instance names to inst tags, which leads to one message per instance
     local instances = {}
     for m,v in pairs(perfdata) do
@@ -160,7 +160,7 @@ function EventQueue:add(e)
         if not inst then
             inst = ""
         else
-            inst = ",inst=" .. string.gsub(inst, "[ ,=]+" ,"_")
+            inst = ",inst=" .. string.gsub(inst, "[ ,=]+", self.replacement_character)
         end
         if not instances[inst] then
             instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
@@ -208,6 +208,7 @@ function EventQueue.new(conf)
         max_buffer_size             = 5000,
         max_buffer_age              = 30,
         skip_anon_events            = 1,
+        replacement_character       = "_",
         log_level                   = 0, -- already proceeded in init function
         log_path                    = "" -- already proceeded in init function
     }
