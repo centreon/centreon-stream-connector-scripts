@@ -146,26 +146,30 @@ function EventQueue:add(e)
     -- message format : <measurement>[,<tag-key>=<tag-value>...]
     --  <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
     -- some characters [ ,=] must be escaped, let's replace them by _ for better handling
-    -- consider space in service_description as a separator for an item tag
+    -- consider last space in service_description as a separator for an item tag
     local item = ""
     if string.find(service_description, " [^ ]+$") then
-        item = ",item=" .. string.gsub(string.gsub(service_description, ".* ", "", 1), "[ ,=]+" ,"_")
+        item = ",item=" .. string.gsub(string.gsub(service_description, ".* ", "", 1), "[ ,=]+", self.replacement_character)
         service_description = string.gsub(service_description, " +[^ ]+$", "", 1)
     end
-    service_description = string.gsub(service_description, "[ ,=]+" ,"_")
+    service_description = string.gsub(service_description, "[ ,=]+", self.replacement_character)
     -- define messages from perfata, transforming instance names to inst tags, which leads to one message per instance
+    -- consider new perfdata (dot-separated metric names) only (of course except for host-latency)
     local instances = {}
     for m,v in pairs(perfdata) do
-        local inst = string.match(m, "(.*)#.*")
+        local inst, metric = string.match(m, "(.+)#(.+)")
         if not inst then
             inst = ""
+            metric = m
         else
-            inst = ",inst=" .. string.gsub(inst, "[ ,=]+" ,"_")
+            inst = ",inst=" .. string.gsub(inst, "[ ,=]+", self.replacement_character)
         end
-        if not instances[inst] then
-            instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
+        if not e.service_id or string.match(metric, ".+[.].+") then
+            if not instances[inst] then
+                instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
+            end
+            instances[inst] = instances[inst] .. metric .. "=" .. v .. ","
         end
-        instances[inst] = instances[inst] .. string.gsub(m, ".*#", "") .. "=" .. v .. ","
     end
     -- compute final messages to push
     for _,v in pairs(instances) do
@@ -208,6 +212,7 @@ function EventQueue.new(conf)
         max_buffer_size             = 5000,
         max_buffer_age              = 30,
         skip_anon_events            = 1,
+        replacement_character       = "_",
         log_level                   = 0, -- already proceeded in init function
         log_path                    = "" -- already proceeded in init function
     }
