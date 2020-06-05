@@ -30,6 +30,7 @@ Here is a list of the available scripts:
 * [ServiceNow](#service-now)
 * [NDO](#NDO)
 * [HP OMI](#OMI)
+* [PagerDuty](#PagerDuty)
 
 # Elasticsearch
 
@@ -273,3 +274,96 @@ Parameters to specify in the broker output web ui are:
 * loglevel as **number** : the log level (0, 1, 2, 3) where 3 is the maximum level
 * max_size as **number** : how many events to store before sending them to the server
 * max_age as **number** : flush the events when the specified time (in second) is reach (even if max_size is not reach)
+
+# PagerDuty
+
+## Installation / prerequisites
+
+The `lua-curl` and `luatz` libraries are required by this script:
+
+```bash
+yum install -y lua-curl epel-release
+yum install -y luarocks
+luarocks install luatz
+```
+
+Then copy the `pagerduty.lua` script to `/usr/share/centreon-broker/lua`.
+
+## Configuration
+
+### Minimal configuration
+
+Here are the steps to configure your stream connector:
+
+* Add a new "Generic - Stream connector" output to the central broker in the "Configuration / Poller / Broker configuration" menu.
+* Name it as wanted and set the right path:
+
+| Name | pagerduty                                    |
+| ---- | -------------------------------------------- |
+| Path | /usr/share/centreon-broker/lua/pagerduty.lua |
+
+* Add at least one string parameter containing your PagerDuty routing key/token.
+
+| Type              | String               |
+| ----------------- | -------------------- |
+| `pdy_routing_key` | `<type your key here>` |
+
+Thats all for now!
+
+Then save your configuration, export it and restart the broker daemon:
+
+```bash
+systemctl restart cbd
+```
+
+### Advanced configuration
+
+#### Proxy
+
+If your Centreon central server has no direct access to PagerDuty but needs a proxy server, you will have to add a new string parameter:
+
+| Type                | String                          |
+| ------------------- | ------------------------------- |
+| `http_proxy_string` | `http://your.proxy.server:3128` |
+
+#### Centreon URL
+
+In order to have working links/URL in your PagerDuty events, you are encouraged to add this parameter:
+
+| Type               | String                        |
+| ------------------ | ----------------------------- |
+| `pdy_centreon_url` | `http://your.centreon.server` |
+
+#### Log level / file
+
+The default value of 2 is fine for initial troubleshooting, but generates a huge amount of logs if you have a lot of hosts. In order to get less log messages, you are should add this parameter:
+
+| Type        | Number |
+| ----------- | ------ |
+| `log_level` | 1      |
+
+The default log file is `/var/log/centreon-broker/stream-connector-pagerduty.log`. If it does not suit you, you can set it with the `log_path` parameter:
+
+| Type       | String                                         |
+| ---------- | ---------------------------------------------- |
+| `log_path` | `/var/log/centreon-broker/my-custom-logfile.log` |
+
+
+#### Buffer size / age
+
+In case you want to tune the maximum number of events sent in a row for optimization purpose, you may add this parameter:
+
+| Type              | Number             |
+| ----------------- | ------------------ |
+| `max_buffer_size` | 10 (default value) |
+
+
+In case you want to shorten the delay (in seconds) between the reception of an event and its transmission to PagerDuty, you can set this parameter:
+
+| Type             | Number             |
+| ---------------- | ------------------ |
+| `max_buffer_age` | 30 (default value) |
+
+
+
+
