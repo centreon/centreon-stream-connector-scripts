@@ -40,7 +40,7 @@ local previous_event = ""
 local from_state_to_severity = { "info", "warning", "critical", "error" }
 
 -- Useful functions
-function ifnil(var, alt)
+local function ifnil(var, alt)
   if var == nil then
     return alt
   else
@@ -48,7 +48,7 @@ function ifnil(var, alt)
   end
 end
 
-function ifnil_or_empty(var, alt)
+local function ifnil_or_empty(var, alt)
   if var == nil or var == '' then
     return alt
   else
