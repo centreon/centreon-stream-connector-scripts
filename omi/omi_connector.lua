@@ -69,13 +69,13 @@ function init(conf)
   end
   broker_log:set_parameters(my_data.loglevel, my_data.logfile)
   broker_log:info(2, "init values :" ..
-                     "\nlogfile = " .. my_data.logfile .. 
-                     "\nloglevel = " .. my_data.loglevel ..
-                     "\nipaddr = " .. my_data.ipaddr ..
-                     "\nurl = " .. my_data.url ..
-                     "\nport = " .. my_data.port ..
-                     "\nmax_size = " .. my_data.max_size ..
-                     "\nmax_age = " .. my_data.max_age .. "\n")
+                     " logfile = " .. my_data.logfile .. 
+                     " loglevel = " .. my_data.loglevel ..
+                     " ipaddr = " .. my_data.ipaddr ..
+                     " url = " .. my_data.url ..
+                     " port = " .. my_data.port ..
+                     " max_size = " .. my_data.max_size ..
+                     " max_age = " .. my_data.max_age .. "\n")
 end
 
 --called when max_size or max_age is reached
@@ -143,7 +143,7 @@ function write(d)
       end
     end
   end
-  if #my_data.data > my_data.max_size or os.time() - my_data.flush_time > my_data.max_age then
+  if #my_data.data >= my_data.max_size or os.time() - my_data.flush_time >= my_data.max_age then
       broker_log:info(2, "max size or flush time is reached, flushing data")
       return flush()
   end
