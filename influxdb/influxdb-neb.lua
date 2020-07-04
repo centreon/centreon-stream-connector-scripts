@@ -170,7 +170,7 @@ function EventQueue:add(e)
                 instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
             end
             instances[inst] = instances[inst] .. metric .. "=" .. v .. ","
-        elseif metric == "perfdate"
+        elseif metric == "perfdate" then
             perfdate = v
         end
     end
