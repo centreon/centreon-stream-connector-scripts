@@ -156,6 +156,7 @@ function EventQueue:add(e)
     -- define messages from perfata, transforming instance names to inst tags, which leads to one message per instance
     -- consider new perfdata (dot-separated metric names) only (of course except for host-latency)
     local instances = {}
+    local perfdate = e.last_check
     for m,v in pairs(perfdata) do
         local inst, metric = string.match(m, "(.+)#(.+)")
         if not inst then
@@ -169,11 +170,13 @@ function EventQueue:add(e)
                 instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
             end
             instances[inst] = instances[inst] .. metric .. "=" .. v .. ","
+        elseif metric == "perfdate" then
+            perfdate = v
         end
     end
     -- compute final messages to push
     for _,v in pairs(instances) do
-        self.events[#self.events + 1] = v:sub(1, -2) .. " " .. e.last_check .. "000000000" .. "\n"
+        self.events[#self.events + 1] = v:sub(1, -2) .. " " .. perfdate .. "000000000" .. "\n"
         broker_log:info(3, "EventQueue:add: adding " .. self.events[#self.events]:sub(1, -2))
     end
     -- then we check whether it is time to send the events to the receiver and flush
