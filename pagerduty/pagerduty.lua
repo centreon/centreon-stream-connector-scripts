@@ -96,10 +96,8 @@ function EventQueue.new(conf)
     pdy_routing_key         = "Please fill pdy_routing_key in StreamConnector parameter",
     pdy_centreon_url     = "http://set.pdy_centreon_url.parameter",
     filter_type             = "metric,status",
-    max_buffer_size         = 10,
-    max_buffer_age          = 30,
-    log_level               = 2, -- already processed in init function
-    log_path                = "", -- already processed in init function
+    max_buffer_size         = 1,
+    max_buffer_age          = 5,
     skip_anon_events        = 1
   }
   for i,v in pairs(conf) do
@@ -185,9 +183,20 @@ function EventQueue:add(e)
   end
   broker_log:info(3, "EventQueue:add: Since severity is \"" .. pdy_severity .. "\", event_action is \"" .. pdy_event_action .. "\"")
 
-  -- FIXME: managing perfdata
+  -- Managing perfdata
+  local custom_details = {}
   if e.perfdata then
-    broker_log:info(3, "EventQueue:add: Perfdata " .. broker.json_encode(e.perfdata) .. " ")
+    broker_log:info(3, "EventQueue:add: Perfdata list: " .. broker.json_encode(e.perfdata) .. " ")
+    -- Case when the perfdata name is delimited with simple quotes: spaces allowed
+    for metric_name, metric_value in e.perfdata:gmatch("%s?'(.+)'=(%d+[%a]?);?[%W;]*%s?") do
+      broker_log:info(3, "EventQueue:add: Perfdata " .. metric_name .. " = " .. metric_value)
+      custom_details[metric_name] = metric_value
+    end
+    -- Case when the perfdata name is NOT delimited with simple quotes: no spaces allowed
+    for metric_name, metric_value in e.perfdata:gmatch("%s?([^'][%S]+[^'])=(%d+[%a]?);?[%W;]*%s?") do
+      broker_log:info(3, "EventQueue:add: Perfdata " .. metric_name .. " = " .. metric_value)
+      custom_details[metric_name] = metric_value
+    end
   end
 
   -- FIXME: customize usage of "group"
@@ -200,11 +209,9 @@ function EventQueue:add(e)
       severity = pdy_severity,
       source = hostname,
       component = service_description,
-      --group, FIXME: get hostgroup matching a filter for pdy?
-      class = pdy_class
-      --custom_details = {
-        --metric1 = value1, ...
-        --}
+      --group, FIXME: get hostgroup matching a filter for PagerDuty?
+      class = pdy_class,
+      custom_details = custom_details
     },
     routing_key = self.pdy_routing_key,
     dedup_key = pdy_dedup_key,
@@ -272,6 +279,7 @@ function EventQueue:flush()
   end
 
   -- adding the HTTP POST data
+  broker_log:info(3, "EventQueue:flush: POST data: '" .. http_post_data .. "'")
   http_request:setopt_postfields(http_post_data)
 
   -- performing the HTTP request
@@ -288,8 +296,7 @@ function EventQueue:flush()
     self.events = {}
     retval = true
   else
-    broker_log:error(0, "EventQueue:flush: HTTP POST request FAILED, return code is " .. http_response_code)
-    broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED, message is:\n\"" .. http_response_body .. "\n\"\n")
+    broker_log:error(0, "EventQueue:flush: HTTP POST request FAILED, return code is " .. http_response_code .. " message is:\n\"" .. http_response_body .. "\n\"\n")
   end
   -- and update the timestamp
   self.__internal_ts_last_flush = os.time()
@@ -303,7 +310,7 @@ local queue
 
 -- Fonction init()
 function init(conf)  
-  local log_level = 1
+  local log_level = 2
   local log_path = "/var/log/centreon-broker/stream-connector-pagerduty.log"
   for i,v in pairs(conf) do
     if i == "log_level" then
