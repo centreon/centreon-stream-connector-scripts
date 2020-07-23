@@ -16,8 +16,9 @@
 
 --------------------------------------------------------------------------------
 -- Parameters:
--- [MANDATORY] token: see above, this will be your authentication token
 -- [MANDATORY] http_server_url: your splunk API url
+-- [MANDATORY] splunk_index: index where you want to store the events
+-- [MANDATORY] splunk_token: see above, this will be your authentication token
 -- [MANDATORY] splunk_source: source of the HTTP events collector, must be http:something
 -- [OPTIONAL] splunk_sourcetype: sourcetype of the HTTP events collector, default _json
 -- [OPTIONAL] http_proxy_string: default empty
@@ -50,7 +51,6 @@ end
 local function get_hostname(host_id)
   local hostname = broker_cache:get_hostname(host_id)
   if not hostname then
-    broker_log:warning(1, "get_hostname: hostname for id " .. host_id .. " not found. Restarting centengine should fix this.")
     hostname = host_id
   end
   return hostname
@@ -59,7 +59,6 @@ end
 local function get_service_description(host_id, service_id)
   local service = broker_cache:get_service_description(host_id, service_id)
   if not service then
-    broker_log:warning(1, "get_service_description: service_description for id " .. host_id .. "." .. service_id .. " not found. Restarting centengine should fix this.")
     service = service_id
   end
   return service
@@ -85,10 +84,11 @@ function EventQueue.new(conf)
     http_timeout            = 5,
     splunk_sourcetype       = "_json",
     splunk_source           = "",
-    token                   = "",
+    splunk_token            = "",
+    splunk_index            = "",
     filter_type             = "metric,status",
     max_buffer_size         = 1,
-    max_buffer_age          = 30,
+    max_buffer_age          = 5,
     skip_anon_events        = 1
   }
   for i,v in pairs(conf) do
@@ -149,6 +149,7 @@ function EventQueue:add(e)
     time           = e.ctime,
     source         = self.splunk_source,
     sourcetype     = self.splunk_sourcetype,
+    index          = self.splunk_index,
     host           = hostname,
     fields         = event_data
   }
@@ -170,7 +171,7 @@ function EventQueue:flush()
     http_post_data = http_post_data .. broker.json_encode(raw_event)
   end
   for s in http_post_data:gmatch("[^\r\n]+") do
-    broker_log:info(3, "EventQueue:flush: HTTP POST data:   " .. s .. "")
+    broker_log:info(1, "EventQueue:flush: HTTP POST data:   " .. s .. "")
   end
   
   broker_log:info(3, "EventQueue:flush: HTTP POST url: \"" .. self.http_server_url .. "\"")
@@ -189,7 +190,7 @@ function EventQueue:flush()
       {
         "content-type: application/json",
         "content-length:" .. string.len(http_post_data),
-        "authorization: Splunk " .. self.token,
+        "authorization: Splunk " .. self.splunk_token,
       }
   )
 
