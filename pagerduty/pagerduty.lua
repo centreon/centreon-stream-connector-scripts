@@ -337,6 +337,13 @@ function write(e)
       queue:flush()
     end
 
+    -- Then we check that the event queue is not already full
+    if (#queue.events >= queue.max_buffer_size) then
+      broker_log:warning(1, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
+      os.execute("sleep " .. tonumber(1))
+      return queue:flush()
+    end
+
     -- Here come the filters
     -- Host/service status only
     if not (e.category == 1 and (e.element == 24 or e.element == 14)) then
