@@ -268,12 +268,54 @@ Create a broker output for HP OMI Connector
 
 Parameters to specify in the broker output web ui are:
 
-* ipaddr as **string**: the ip address of the listening server
-* port as **number**: the listening server port
-* logfile as **string**: where to send logs
-* loglevel as **number** : the log level (0, 1, 2, 3) where 3 is the maximum level
-* max_size as **number** : how many events to store before sending them to the server
-* max_age as **number** : flush the events when the specified time (in second) is reach (even if max_size is not reach)
+* `ipaddr` as **string**: the ip address of the listening server
+* `port` as **number**: the listening server port
+* `logfile` as **string**: where to send logs
+* `loglevel` as **number**: the log level (0, 1, 2, 3) where 3 is the maximum level
+* `max_size` as **number**: how many events to store before sending them to the server
+* `max_age` as **number**: flush the events when the specified time (in second) is reach (even if `max_size` is not reach)
+
+# BSM
+
+## Installation
+
+Login as `root` on the Centreon central server using your favorite SSH client.
+
+In case your Centreon central server must use a proxy server to reach the Internet, you will have to export the `https_proxy` environment variable and configure `yum` to be able to install everything.
+
+```bash
+export https_proxy=http://my.proxy.server:3128
+echo "proxy=http://my.proxy.server:3128" >> /etc/yum.conf
+```
+
+Now that your Centreon central server is able to reach the Internet, you can run:
+
+```bash
+yum install -y lua-curl
+```
+
+These packages are necessary for the script to run. Now let's download the script:
+
+```bash
+wget -O /usr/share/centreon-broker/lua/bsm_connector.lua https://raw.githubusercontent.com/centreon/centreon-stream-connector-scripts/master/bsm/bsm_connector.lua
+chmod 644 /usr/share/centreon-broker/lua/bsm_connector.lua
+```
+
+The BSM StreamConnnector is now installed on your Centreon central server!
+
+## Configuration
+
+Create a broker output for HP BSM Connector.
+
+Parameters to specify in the broker output WUI are:
+
+* `source_ci` (string): Name of the transmiter, usually Centreon server name
+* `http_server_url` (string): the full HTTP URL. Default: https://my.bsm.server:30005/bsmc/rest/events/ws-centreon/.
+* `http_proxy_string` (string): the full proxy URL if needed to reach the BSM server. Default: empty.
+* `log_path` (string): the log file to use
+* `log_level` (number): the log level (0, 1, 2, 3) where 3 is the maximum level. 0 logs almost nothing. 1 logs only the beginning of the script and errors. 2 logs a reasonable amount of verbose. 3 logs almost everything possible, to be used only for debug. Recommended value in production: 1.
+* `max_buffer_size` (number): how many events to store before sending them to the server.
+* `max_buffer_age` (number): flush the events when the specified time (in second) is reached (even if `max_buffer_size` is not reached).
 
 # PagerDuty
 
@@ -363,7 +405,4 @@ In case you want to shorten the delay (in seconds) between the reception of an e
 | Type             | Number             |
 | ---------------- | ------------------ |
 | `max_buffer_age` | 30 (default value) |
-
-
-
 
