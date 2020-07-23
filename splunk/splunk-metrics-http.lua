@@ -233,7 +233,7 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  local log_level = 1
+  local log_level = 2
   local log_path = "/var/log/centreon-broker/stream-connector-splunk-metrics.log"
   for i,v in pairs(conf) do
     if i == "log_level" then
