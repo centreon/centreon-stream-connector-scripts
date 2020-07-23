@@ -268,6 +268,13 @@ Create a broker output for HP OMI Connector
 
 Parameters to specify in the broker output web ui are:
 
+* `ipaddr` as **string**: the ip address of the listening server
+* `port` as **number**: the listening server port
+* `logfile` as **string**: where to send logs
+* `loglevel` as **number**: the log level (0, 1, 2, 3) where 3 is the maximum level
+* `max_size` as **number**: how many events to store before sending them to the server
+* `max_age` as **number**: flush the events when the specified time (in second) is reach (even if `max_size` is not reach)
+
 # BSM
 
 ## Installation
@@ -298,7 +305,7 @@ The BSM StreamConnnector is now installed on your Centreon central server!
 
 ## Configuration
 
-Create a broker output for HP BSM Connector. This LUA script has been forked from HP OMI connector and **has not yet been tested on a production environment**, hence the 'WIP' tag.
+Create a broker output for HP BSM Connector.
 
 Parameters to specify in the broker output WUI are:
 
