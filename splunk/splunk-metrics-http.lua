@@ -174,7 +174,7 @@ function EventQueue:flush()
     http_post_data = http_post_data .. broker.json_encode(raw_event)
   end
   for s in http_post_data:gmatch("[^\r\n]+") do
-    broker_log:info(1, "EventQueue:flush: HTTP POST data:   " .. s .. "")
+    broker_log:info(3, "EventQueue:flush: HTTP POST data:   " .. s .. "")
   end
   
   broker_log:info(3, "EventQueue:flush: HTTP POST url: \"" .. self.http_server_url .. "\"")
@@ -236,7 +236,7 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  local log_level = 2
+  local log_level = 1
   local log_path = "/var/log/centreon-broker/stream-connector-splunk-metrics.log"
   for i,v in pairs(conf) do
     if i == "log_level" then
