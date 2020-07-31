@@ -28,6 +28,8 @@
 
 -- Libraries
 local curl = require "cURL"
+require("LuaXML")
+
 
 -- workaround https://github.com/centreon/centreon-broker/issues/201
 local previous_event = ""
@@ -179,7 +181,7 @@ function EventQueue:add(e)
     "<output>" .. string.match(e.output, "^(.*)\n") .. "</output>" ..
     "<state>" .. e.state .. "</state>" ..
     "<last_update>" .. e.last_update .. "</last_update>" ..
-    "<hostname>" .. hostname .. "</hostname>" --..
+    "<hostname>" .. hostname .. "</hostname>" ..
     xml_host_severity ..
     xml_service_severity ..
     xml_notes ..
@@ -204,9 +206,10 @@ end
 function EventQueue:flush()
 
   broker_log:info(3, "EventQueue:flush: Concatenating all the events as one string")
-  local http_post_data = table.concat(self.events, "")
-  for s in http_post_data:gmatch("[^\r\n]+") do
-    broker_log:info(3, "EventQueue:flush: HTTP POST data:   " .. s .. "")
+
+  local http_post_data = ""
+  for xml_i, xml_str in pairs(self.events) do
+    http_post_data = http_post_data .. tostring(xml.eval(xml_str))
   end
 
   broker_log:info(3, "EventQueue:flush: HTTP POST url: \"" .. self.http_server_url .. "\"")
