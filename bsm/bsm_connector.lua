@@ -179,7 +179,7 @@ function EventQueue:add(e)
     "<output>" .. string.match(e.output, "^(.*)\n") .. "</output>" ..
     "<state>" .. e.state .. "</state>" ..
     "<last_update>" .. e.last_update .. "</last_update>" ..
-    "<hostname>" .. hostname .. "</hostname>" --..
+    "<hostname>" .. hostname .. "</hostname>" ..
     xml_host_severity ..
     xml_service_severity ..
     xml_notes ..
