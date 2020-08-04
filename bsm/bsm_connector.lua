@@ -227,7 +227,7 @@ function EventQueue:flush()
     :setopt(
       curl.OPT_HTTPHEADER,
       {
-        "Content-Type: Content-Type:text/xml",
+        "Content-Type: text/xml",
       }
   )
 
