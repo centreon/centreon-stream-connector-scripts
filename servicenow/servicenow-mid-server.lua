@@ -85,7 +85,6 @@ EventQueue.__index = EventQueue
 function EventQueue.new(conf)
   local objEventQueue = {
     source                  = "Centreon",
-    http_server_url         = "https://my.bsm.server:30005/bsmc/rest/events/ws-centreon/",
     MID_Servers_List        = "set MID_Servers_List",
     MID_Servers             = {},
     MID_Login               = "set MID_Login",
