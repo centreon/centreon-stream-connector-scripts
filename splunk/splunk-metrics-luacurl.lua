@@ -19,7 +19,7 @@
 -- [MANDATORY] http_server_url: your splunk API url
 -- [MANDATORY] splunk_index: index where you want to store the events
 -- [MANDATORY] splunk_token: see above, this will be your authentication token
--- [MANDATORY] splunk_source: source of the HTTP events collector, must be http:something
+-- [OPTIONAL] splunk_source: source of the HTTP events collector, must be http:something
 -- [OPTIONAL] splunk_sourcetype: sourcetype of the HTTP events collector, default _json
 -- [OPTIONAL] splunk_host: host field for the HTTP events collector, default Central
 -- [OPTIONAL] http_proxy_string: default empty
