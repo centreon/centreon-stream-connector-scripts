@@ -217,10 +217,10 @@ Here are the steps to configure your stream connector for the Events:
 Here are the steps to configure your stream connector for the Metrics:
 
 * Add a new "Generic - Stream connector" output to the central broker in the "Configuration / Poller / Broker configuration" menu.
-* Name it as wanted and set the right path:
+* Name it as wanted and set the right path
 
 | Name | Splunk Metrics                                            |
-| ---- | --------------------------------------------- ----------- |
+| ---- | --------------------------------------------------------- |
 | Path | /usr/share/centreon-broker/lua/splunk-metrics-luacurl.lua |
 
 * Add at least 3 string parameters containing your Splunk configuration:
