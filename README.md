@@ -165,8 +165,8 @@ Thanks to lkco!
 
 There are two Lua scripts proposed here:
 
-*splunk-events-luacurl.lua that sends states to Splunk.
-*splunk-metrics-luacurl.lua that sends metrics to Splunk.
+* splunk-events-luacurl.lua that sends states to Splunk.
+* splunk-metrics-luacurl.lua that sends metrics to Splunk.
 
 ### Splunk Configuration
 
