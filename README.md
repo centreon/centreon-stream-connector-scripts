@@ -163,6 +163,17 @@ Thanks to lkco!
 
 ## The Splunk HEC method
 
+There are two Lua scripts proposed here:
+
+*splunk-events-luacurl.lua that sends states to Splunk.
+*splunk-metrics-luacurl.lua that sends metrics to Splunk.
+
+### Splunk Configuration
+
+An HTTP events collector has be configured in data entries.
+
+![alt text](pictures/splunk.png "Splunk configuration")
+
 ### Installation
 
 Login as `root` on the Centreon central server using your favorite SSH client.
@@ -182,35 +193,83 @@ yum install -y lua-curl
 
 These packages are necessary for the script to run.
 
-The Splunk StreamConnnector is now installed on your Centreon central server!
+Then copy the `splunk-events-luacurl.lua` and `splunk-metrics-luacurl.lua` scripts to `/usr/share/centreon-broker/lua`.
 
-### Configuration
+### Minimal configuration
 
-There are two Lua scripts proposed here:
-1. *splunk-events-luacurl.lua* that sends states to Splunk.
-2. *splunk-metrics-luacurl.lua* that sends metrics to Splunk.
+Here are the steps to configure your stream connector for the Events:
 
-In the first case, follow the instructions below:
+* Add a new "Generic - Stream connector" output to the central broker in the "Configuration / Poller / Broker configuration" menu.
+* Name it as wanted and set the right path:
 
-* Copy them into the */usr/share/centreon-broker/lua/*
-* Add a new broker output of type *stream connector*
-* Fill it as shown below
+| Name | Splunk Events                                            |
+| ---- | -------------------------------------------------------- |
+| Path | /usr/share/centreon-broker/lua/splunk-events-luacurl.lua |
 
-![alt text](pictures/splunk-conf1.png "stream connector configuration")
+* Add at least 3 string parameters containing your Splunk configuration:
 
-In the second case, follow those instructions:
+| Type              | String                                  |
+| ----------------- | --------------------------------------- |
+| `http_server_url` | `http://x.x.x.:8088/services/collector` |
+| `splunk_token`    | `your hec token`                        |
+| `splunk_index`    | `your event index`                      |
 
-* Copy them into the */usr/share/centreon-broker/lua/*
-* Add a new broker output of type *stream connector*
-* Fill it as shown below
+Here are the steps to configure your stream connector for the Metrics:
 
-![alt text](pictures/splunk-conf2.png "stream connector configuration")
+* Add a new "Generic - Stream connector" output to the central broker in the "Configuration / Poller / Broker configuration" menu.
+* Name it as wanted and set the right path:
 
-## The Splunk configuration
+| Name | Splunk Metrics                                            |
+| ---- | --------------------------------------------- ----------- |
+| Path | /usr/share/centreon-broker/lua/splunk-metrics-luacurl.lua |
 
-An HTTP events collector has be configured in data entries.
+* Add at least 3 string parameters containing your Splunk configuration:
 
-![alt text](pictures/splunk.png "Splunk configuration")
+| Type              | String                                  |
+| ----------------- | --------------------------------------- |
+| `http_server_url` | `http://x.x.x.:8088/services/collector` |
+| `splunk_token`    | `your hec token`                        |
+| `splunk_index`    | `your metric index`                     |
+
+Thats all for now!
+
+Then save your configuration, export it and restart the broker daemon:
+
+```bash
+systemctl restart cbd
+```
+
+### Advanced configuration
+
+#### Splunk Host
+
+If you want to change the `host` value in the HTTP POST data to identify from which Centreon Plateform the data is sent:
+
+| Type          | String       |
+| ------------- | ------------ |
+| `splunk_host` | `Poller-ABC` |
+
+#### Proxy
+
+If your Centreon central server has no direct access to Splunk but needs a proxy server, you will have to add a new string parameter:
+
+| Type                | String                          |
+| ------------------- | ------------------------------- |
+| `http_proxy_string` | `http://your.proxy.server:3128` |
+
+#### Log level / file
+
+The default value of 2 is fine for initial troubleshooting, but generates a huge amount of logs if you have a lot of hosts. In order to get less log messages, you are should add this parameter:
+
+| Type        | Number |
+| ----------- | ------ |
+| `log_level` | 1      |
+
+The default log file is `/var/log/centreon-broker/stream-connector-splunk-*.log`. If it does not suit you, you can set it with the `log_path` parameter:
+
+| Type       | String                                         |
+| ---------- | ---------------------------------------------- |
+| `log_path` | `/var/log/centreon-broker/my-custom-logfile.log` |
 
 # Service Now
 
