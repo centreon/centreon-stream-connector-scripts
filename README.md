@@ -151,7 +151,7 @@ Parameters to specify in the stream connector configuration are:
 # Splunk
 
 There are two ways to use our stream connector with Splunk. The first and probably most common way uses Splunk Universal Forwarder. The second 
-method uses Splunk API. 
+method uses Splunk HEC (HTTP Event Collector). 
 
 ## The Splunk Universal Forwarder method
 
@@ -161,11 +161,34 @@ In that case, you're going to use "Centreon4Splunk", it comes with:
 
 Thanks to lkco!
 
-## The Splunk API method
+## The Splunk HEC method
+
+### Installation
+
+Login as `root` on the Centreon central server using your favorite SSH client.
+
+In case your Centreon central server must use a proxy server to reach the Internet, you will have to export the `https_proxy` environment variable and configure `yum` to be able to install everything.
+
+```bash
+export https_proxy=http://my.proxy.server:3128
+echo "proxy=http://my.proxy.server:3128" >> /etc/yum.conf
+```
+
+Now that your Centreon central server is able to reach the Internet, you can run:
+
+```bash
+yum install -y lua-curl
+```
+
+These packages are necessary for the script to run.
+
+The Splunk StreamConnnector is now installed on your Centreon central server!
+
+### Configuration
 
 There are two Lua scripts proposed here:
-1. *splunk-states-http.lua* that sends states to Splunk.
-2. *splunk-metrics-http.lua* that sends metrics to Splunk.
+1. *splunk-events-luacurl.lua* that sends states to Splunk.
+2. *splunk-metrics-luacurl.lua* that sends metrics to Splunk.
 
 In the first case, follow the instructions below:
 

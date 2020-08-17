@@ -28,7 +28,6 @@
 
 -- Libraries
 local curl = require "cURL"
-local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 -- Global variables
 local previous_event = ""
 

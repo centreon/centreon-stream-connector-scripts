@@ -28,7 +28,6 @@
 
 -- Libraries
 local curl = require "cURL"
-local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 -- Global variables
 local previous_event = ""
 
@@ -275,7 +274,7 @@ function write(e)
     -- Here come the filters
     -- Host/service status only
     if not (e.category == 1 and (e.element == 14 or e.element == 24)) then
-      broker_log:info(3, "write: Not a metric event. Dropping.")
+      broker_log:info(3, "write: Neither host nor service status event. Dropping.")
       return true
     end
 
