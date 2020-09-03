@@ -165,7 +165,7 @@ function EventQueue:add(e)
         else
             inst = ",inst=" .. string.gsub(inst, "[ ,=]+", self.replacement_character)
         end
-        if not e.service_id or string.match(metric, ".+[.].+") then
+        if (not e.service_id and metric ~= "time") or string.match(metric, ".+[.].+") then
             if not instances[inst] then
                 instances[inst] = self.measurement .. service_description .. ",host=" .. host_name .. item .. inst .. " "
             end
