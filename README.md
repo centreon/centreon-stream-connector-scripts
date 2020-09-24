@@ -584,8 +584,6 @@ Output > Select "Generic - Stream connector" > Add
 
 ![centreon-configuration-screenshot](pictures/centreon-configuration-screenshot.png)
 
-:warning: Don't use`.` char into `Name` property !
-
 ### Check the output
 
 By default the connector use the HTTP REST API of Canopsis to send events.
