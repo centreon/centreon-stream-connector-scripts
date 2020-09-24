@@ -585,12 +585,12 @@ Output > Select "Generic - Stream connector" > Add
 
 By default the connector use the HTTP REST API of Canopsis to send events.
 
-Check you alarm view to see the events from Centreon.
+Check your alarm view to see the events from Centreon.
+
+All logs are dumped into the default log file "/var/log/centreon-broker/debug.log"
 
 #### Advanced usage
 
 You can also use a raw log file to dump all Canopsis events and manage your
 own way to send events (by example with logstash) by editing the "sending_method"
 variable en set the "file" method.
-
-All logs are dumped into the default log file "/var/log/centreon-broker/debug.log"
