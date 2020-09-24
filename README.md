@@ -511,13 +511,15 @@ Take care of the state mapping as below :
 
 ### Installation
 
-1. software deployment
+**Software deployment from sources (centreon-broker 19.10.5 or >= 20.04.2) :**
 
-* If you are on a centreon-broker version = `19.10.5`, just copy the lua script `bbdo2canopsis.lua` from `src` dir to `/usr/share/centreon-broker/lua/bbdo2canopsis.lua` and change the permissions to this file `chown centreon-engine:centreon-engine /usr/share/centreon-broker/lua/bbdo2canopsis.lua`
+1. Copy the lua script `bbdo2canopsis.lua` from `canopsis` dir to `/usr/share/centreon-broker/lua/bbdo2canopsis.lua`
+2. Change the permissions to this file `chown centreon-engine:centreon-engine /usr/share/centreon-broker/lua/bbdo2canopsis.lua`
 
-If you are on other versions coming from `19.10.x` branch, ask to us to check if your version is compatible
+**Software deployment from packages (centreon-broker >= 20.04.2) :**
 
-* If you are on a centreon-broker version >= `20.04.2`, please install canopsis repository first
+1. Install canopsis repository first
+
 ```
 echo "[canopsis]
 name = canopsis
@@ -525,17 +527,20 @@ baseurl=https://repositories.canopsis.net/pulp/repos/centos7-canopsis/
 gpgcheck=0
 enabled=1" > /etc/yum.repos.d/canopsis.repo
 ```
-And finally install connector with Yum
+
+2. install connector with Yum
 ```
 yum install canopsis-connector-centreon-stream-connector
 ```
 
-2. add a new "Generic - Stream connector" output on the central-broker-master (see the official documentation)
-3. export the poller configuration (see the official documentation)
-4. restart services 'systemctl restart cbd centengine gorgoned'
+**Enable the connector :**
 
-If you modify this script in development mode ( directly en centreon host ), you will need to restart
-the Centreon services (at least the centengine service).
+1. add a new "Generic - Stream connector" output on the central-broker-master (see the official documentation)
+2. export the poller configuration (see the official documentation)
+3. restart services 'systemctl restart cbd centengine gorgoned'
+
+If you modify this script in development mode ( directly into the centreon host ), 
+you will need to restart the Centreon services (at least the centengine service).
 
 ### Configuration
 
