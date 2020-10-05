@@ -19,16 +19,15 @@
 -- [MANDATORY] http_server_url: your splunk API url
 -- [MANDATORY] splunk_index: index where you want to store the events
 -- [MANDATORY] splunk_token: see above, this will be your authentication token
--- [MANDATORY] splunk_source: source of the HTTP events collector, must be http:something
+-- [OPTIONAL] splunk_source: source of the HTTP events collector, must be http:something
 -- [OPTIONAL] splunk_sourcetype: sourcetype of the HTTP events collector, default _json
--- [OPTIONAL] splunk_host: host field for the HTTP events collector, default Centreon
+-- [OPTIONAL] splunk_host: host field for the HTTP events collector, default Central
 -- [OPTIONAL] http_proxy_string: default empty
 --
 --------------------------------------------------------------------------------
 
 -- Libraries
 local curl = require "cURL"
-local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 -- Global variables
 local previous_event = ""
 
@@ -84,10 +83,10 @@ function EventQueue.new(conf)
     http_proxy_string       = "",
     http_timeout            = 5,
     splunk_sourcetype       = "_json",
-    splunk_source           = "",
+    splunk_source           = "Centreon",
     splunk_token            = "",
     splunk_index            = "",
-    splunk_host             = "Centreon",
+    splunk_host             = "Central",
     filter_type             = "metric,status",
     max_buffer_size         = 1,
     max_buffer_age          = 5,
@@ -141,15 +140,24 @@ function EventQueue:add(e)
   end
 
   local event_data = {
-    service_description = service_description,
+    service_description = ifnil_or_empty(service_description,hostname),
     hostname = hostname,
-    ctime = e.ctime
+    ctime = e.last_check
   }
-  
-  event_data["metric_name:" .. e.name] = e.value
 
+  -- Managing perfdata
+  local metrics = ""
+  if e.perfdata then
+    local perf, err_str = broker.parse_perfdata(e.perfdata, true)
+    if perf then
+      for key,v in pairs(perf) do
+        event_data["metric_name:" .. key] = tostring(v.value) 
+      end
+    end
+  end
+  
   self.events[#self.events + 1] = {
-    time           = e.ctime,
+    time           = e.last_time,
     source         = self.splunk_source,
     sourcetype     = self.splunk_sourcetype,
     index          = self.splunk_index,
@@ -265,16 +273,29 @@ function write(e)
 
     -- Here come the filters
     -- Host/service status only
-    if not (e.category == 3 and e.element == 1) then
-      broker_log:info(3, "write: Not a metric event. Dropping.")
+    if not (e.category == 1 and (e.element == 14 or e.element == 24)) then
+      broker_log:info(3, "write: Neither host nor service status event. Dropping.")
       return true
     end
 
     -- workaround https://github.com/centreon/centreon-broker/issues/201
     current_event = broker.json_encode(e)
-    broker_log:info(3, "write: Raw event: " .. current_event)
-     --
+    broker_log:info(2, "write: Raw event: " .. current_event)
+    --
+   
+    -- Ignore pending states
+    if e.state and e.state == 4 then
+      broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Pending state ignored. Dropping.")
+      return true
+    end
 
+    -- workaround https://github.com/centreon/centreon-broker/issues/201
+    current_event = broker.json_encode(e)
+    broker_log:info(2, "write: Raw event: " .. current_event)
+    --
+    
+    -- The current event now becomes the previous
+    previous_event = current_event
     -- Once all the filters have been passed successfully, we can add the current event to the queue
     queue:add(e)
 
