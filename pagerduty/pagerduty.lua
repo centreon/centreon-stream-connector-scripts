@@ -93,6 +93,7 @@ function EventQueue.new(conf)
     http_server_url         = "https://events.pagerduty.com/v2/enqueue",
     http_proxy_string       = "",
     http_timeout            = 5,
+    pdy_source              = "",
     pdy_routing_key         = "Please fill pdy_routing_key in StreamConnector parameter",
     pdy_centreon_url     = "http://set.pdy_centreon_url.parameter",
     filter_type             = "metric,status",
@@ -164,7 +165,7 @@ function EventQueue:add(e)
   broker_log:info(3, "EventQueue:add: Severity converted from " .. e.state .. " to \"" .. pdy_severity .. "\"")
 
   -- handling empty output (empty "summary" cannot be sent to PagerDuty)
-  local pdy_summary = ifnil_or_empty(string.match(e.output, "^(.*)\n"), 'no output')
+  local pdy_summary = hostname .. "/" .. service_description .. ": " .. ifnil_or_empty(string.match(e.output, "^(.*)\n"), 'no output')
 
   -- basic management of "class" attribute
   local pdy_class
@@ -184,34 +185,83 @@ function EventQueue:add(e)
   broker_log:info(3, "EventQueue:add: Since severity is \"" .. pdy_severity .. "\", event_action is \"" .. pdy_event_action .. "\"")
 
   -- Managing perfdata
-  local custom_details = {}
-  if e.perfdata then
-    broker_log:info(3, "EventQueue:add: Perfdata list: " .. broker.json_encode(e.perfdata) .. " ")
-    -- Case when the perfdata name is delimited with simple quotes: spaces allowed
-    for metric_name, metric_value in e.perfdata:gmatch("%s?'(.+)'=(%d+[%a]?);?[%W;]*%s?") do
-      broker_log:info(3, "EventQueue:add: Perfdata " .. metric_name .. " = " .. metric_value)
-      custom_details[metric_name] = metric_value
-    end
-    -- Case when the perfdata name is NOT delimited with simple quotes: no spaces allowed
-    for metric_name, metric_value in e.perfdata:gmatch("%s?([^'][%S]+[^'])=(%d+[%a]?);?[%W;]*%s?") do
-      broker_log:info(3, "EventQueue:add: Perfdata " .. metric_name .. " = " .. metric_value)
-      custom_details[metric_name] = metric_value
+  local pdy_custom_details = {}
+--  if e.perfdata then
+--    broker_log:info(3, "EventQueue:add: Perfdata list: " .. broker.json_encode(e.perfdata) .. " ")
+--    -- Case when the perfdata name is delimited with simple quotes: spaces allowed
+--    for metric_name, metric_value in e.perfdata:gmatch("%s?'(.+)'=(%d+[%a]?);?[%W;]*%s?") do
+--      broker_log:info(3, "EventQueue:add: Perfdata " .. metric_name .. " = " .. metric_value)
+--      pdy_custom_details[metric_name] = metric_value
+--    end
+--    -- Case when the perfdata name is NOT delimited with simple quotes: no spaces allowed
+--    for metric_name, metric_value in e.perfdata:gmatch("%s?([^'][%S]+[^'])=(%d+[%a]?);?[%W;]*%s?") do
+--      broker_log:info(3, "EventQueue:add: Perfdata " .. metric_name .. " = " .. metric_value)
+--      pdy_custom_details[metric_name] = metric_value
+--    end
+--  end
+
+  -- Hostgroups
+  local host_hg_array = broker_cache:get_hostgroups(e.host_id)
+  local pdy_hostgroups = ""
+  -- case when no filter has been set for hostgroups
+  for i = 1, #host_hg_array do
+    if pdy_hostgroups ~= ""  then
+      pdy_hostgroups = pdy_hostgroups .. ", " .. ifnil_or_empty(host_hg_array[i].group_name, "empty host group")
+    else
+      pdy_hostgroups = ifnil_or_empty(host_hg_array[i].group_name, "empty host group")
     end
   end
 
-  -- FIXME: customize usage of "group"
+  -- Servicegroups
+  if e.service_id then
+    local service_hg_array = broker_cache:get_servicegroups(e.host_id, e.service_id)
+    local pdy_servicegroups = ""
+    -- case when no filter has been set for servicegroups
+    for i = 1, #service_hg_array do
+      if pdy_servicegroups ~= ""  then
+        pdy_servicegroups = pdy_servicegroups .. ", " .. ifnil_or_empty(service_hg_array[i].group_name, "empty service group")
+      else
+        pdy_servicegroups = ifnil_or_empty(service_hg_array[i].group_name, "empty service group")
+      end
+    end
+  end
 
+  local pdy_custom_details = {}
+
+  local host_severity = broker_cache:get_severity(e.host_id)
+  if host_severity ~= nil then
+    pdy_custom_details["Hostseverity"] = host_severity
+  end
+
+  if e.service_id then
+    local service_severity = broker_cache:get_severity(e.host_id, e.service_id)
+    if service_severity ~= nil then
+      pdy_custom_details["Serviceseverity"] = service_severity
+    end
+  end
+
+  if pdy_hostgroups ~= "" then
+      pdy_custom_details["Hostgroups"] = pdy_hostgroups
+  end
+  if pdy_servicegroups ~= "" then
+      pdy_custom_details["Servicegroups"] = pdy_servicegroups
+  end
+
+  local pdy_source_field = hostname
+  if self.pdy_source and self.pdy_source ~= "" then
+    pdy_source_field = self.pdy_source
+  end
   -- Appending the current event to the queue
   self.events[#self.events + 1] = {
     payload = {
       summary = pdy_summary,
       timestamp = pdy_timestamp,
       severity = pdy_severity,
-      source = hostname,
+      source = pdy_source_field,
       component = service_description,
-      --group, FIXME: get hostgroup matching a filter for PagerDuty?
+      group = pdy_hostgroups,
       class = pdy_class,
-      custom_details = custom_details
+      custom_details = pdy_custom_details
     },
     routing_key = self.pdy_routing_key,
     dedup_key = pdy_dedup_key,
