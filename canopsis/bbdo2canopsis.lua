@@ -297,7 +297,8 @@ local function canopsisMapping(d)
       -- extra informations
       servicegroups = getServiceGroups(d.host_id, d.service_id),
       notes_url = getNotesURL(d.host_id, d.service_id),
-      action_url = getActionURL(d.host_id, d.service_id)
+      action_url = getActionURL(d.host_id, d.service_id),
+      hostgroups = getHostGroups(d.host_id)
     }
     debug("Streaming SERVICE STATUS for service_id ".. d.service_id)
   -- ACK
@@ -390,7 +391,9 @@ function stateChanged(d)
   if d.state_type == 1 and -- if the event is in hard state
      d.last_hard_state_change ~= nil then -- if the event has been in a hard state
 
-    if d.last_check == d.last_hard_state_change then -- if the state has changed
+    -- if the state has changed 
+    -- (like noted in the omi connector, it could have a slight delta between last_check and last_hard_state_change)
+    if math.abs(d.last_check - d.last_hard_state_change) < 10 then
 
       if d.service_id then
         debug("HARD state change detected for service_id [" .. d.service_id .. "]")
