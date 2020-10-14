@@ -530,8 +530,8 @@ Extra informations are added to the host and services as bellow :
 
 - action_url
 - notes_url
+- hostgroups
 - servicegroups (for service events)
-- hostgroups (for host events)
 
 ### Acknowledgment
 
