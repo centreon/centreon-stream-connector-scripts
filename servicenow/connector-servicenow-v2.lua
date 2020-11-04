@@ -36,6 +36,198 @@ local curl = require "cURL"
 
 -- Global variables
 
+-- Useful functions
+local function get_hostname(host_id)
+  local hostname = broker_cache:get_hostname(host_id)
+  if not hostname then
+    broker_log:warning(1, "get_hostname: hostname for id " .. host_id .. " not found. Restarting centengine should fix this.")
+    hostname = host_id
+  end
+  
+  return hostname
+end
+
+local function get_service_description(host_id, service_id)
+  local service = broker_cache:get_service_description(host_id, service_id)
+  if not service then
+    broker_log:warning(1, "get_service_description: service_description for id " .. host_id .. "." .. service_id .. " not found. Restarting centengine should fix this.")
+    service = service_id
+  end
+  return service
+end
+
+local function split (string)
+  local hash = {}
+  local separator = ","
+  
+  -- https://stackoverflow.com/questions/1426954/split-string-in-lua
+  for value in string.gmatch(string, "([^" .. separator .. "]+)") do
+    table.insert(hash, value)
+  end
+
+  return hash
+end
+
+local function isEventValid (event)
+  if event then
+    return true
+  end
+
+  return false
+end
+
+local function isValidCategory (category)
+  local mapping = {
+    neb = 1,
+    bbdo = 2,
+    storage = 3,
+    correlation = 4,
+    dumper = 5,
+    bam = 6,
+    extcmd = 7
+  }
+
+  for i, v in ipairs(mapping) do
+    for k, u in ipairs(split(self.category)) do
+      if category == v and i == u then
+        return true
+      end
+    end
+  end
+  
+  return false
+end
+
+local function isValidElement(category, element)
+  local mapping {
+    [1] = {
+      acknowledgement = 1,
+      comment = 2,
+      custom_variable = 3,
+      custom_variable_status = 4
+      downtime = 5,
+      event_handler = 6,
+      flapping_status = 7,
+      host_check = 8,
+      host_dependency = 9,
+      host_group = 10,
+      host_group_member = 11,
+      host = 12,
+      host_parent = 13,
+      host_status = 14,
+      instance = 15,
+      instance_status = 16,
+      log_entry = 17,
+      module = 18,
+      service_check = 19,
+      service_dependency = 20,
+      service_group = 21,
+      service_group_member = 22,
+      service = 23,
+      service_status = 24,
+      instance_configuration = 25
+    },
+    [3] = {
+      neb = 1,
+      bbdo = 2,
+      storage = 3,
+      correlation = 4,
+      dumper = 5,
+      bam = 6,
+      extcmd = 7
+    },
+    [6] = {
+      ba_status = 1,
+      kpi_status = 2,
+      meta_service_status = 3,
+      ba_event = 4,
+      kpi_event = 5,
+      ba_duration_event = 6,
+      dimension_ba_event = 7,
+      dimension_kpi_event = 8,
+      dimension_ba_bv_relation_event = 9,
+      dimension_bv_event = 10,
+      dimension_truncate_table_signal = 11,
+      bam_rebuild = 12,
+      dimension_timeperiod = 13,
+      dimension_ba_timeperiod_relation = 14,
+      dimension_timeperiod_exception = 15,
+      dimension_timeperiod_exclusion = 16,
+      inherited_downtime = 17
+    }   
+  }
+
+  for i, v in ipairs(mapping[category]) do
+    for k, u in ipairs(split(self.dataType)) do
+      if element == v and i == u then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
+local function isValidEvent (event)
+  local validEvent = {}
+  
+  if event.category == 1 then
+    validEvent.service_status = false
+    validEvent.host_status = false
+    validEvent.ack = false
+    validEvent.state = false
+    validEvent.downtime = false
+
+    if event.element == 14 then
+      validEvent.serviceStatus = true
+      for i, v in ipairs(self.hostStatus) do
+        if event.status == v then
+          validEvent.host_status = true
+        end
+      end
+    elseif event.element == 24 then
+      if event.host_id is nil and self.skip_anon_events == 1 then
+        return false
+      end
+
+      validEvent.host_status = true
+      for i, v in ipairs(self.serviceStatus) do
+        if event.status == v then
+          validEvent.service_status = true
+        end
+      end
+    end
+
+    if self.hardOnly ~= 0 or self.hardOnly ~= 1 then
+      self.hardOnly = 1
+    end 
+  
+    if self.acknowledged ~= 0 or self.acknowledged ~= 1 then
+      self.acknowledged = 1
+    end 
+  
+    if event.state_type >= self.hardOnly then
+      validEvent.state = true
+    end
+  
+    if event.ack >= self.acknowledged then
+      validEvent.ack = true
+    end
+  
+    if event.downtime >= self.inDowntime then
+      validEvent.downtime = true
+    end
+  end
+  
+  for i, v in ipairs(validEvent) do
+    if not v then
+      return false
+    end
+  end
+
+  return true
+end
+
 --------------------------------------------------------------------------------
 -- EventQueue class
 --------------------------------------------------------------------------------
@@ -51,9 +243,16 @@ EventQueue.__index = EventQueue
 
 function EventQueue.new (conf)
   local retval = {
-    hostStatus = {0,1,2},
-    serviceStatus = {0,1,2,3},
-    hardOnly = 1,
+    host_status = "0,1,2",
+    service_status = "0,1,2,3",
+    hard_only = 1,
+    acknowledged = 0,
+    element_type = "metrics,host_status,service_status",
+    category_type = "neb,storage",
+    in_downtime = 0,
+    max_buffer_size = 1,
+    max_buffer_age = 5,
+    skip_anon_events = 1
     instance = "",
     username = "",
     password = "",
@@ -62,9 +261,6 @@ function EventQueue.new (conf)
     tokens = {},
     tokens.authToken = nil,
     tokens.refreshToken = nil,
-    max_buffer_size = 1,
-    max_buffer_age = 5,
-    skip_anon_events = 1
   }
 
   for i,v in pairs(conf) do
@@ -259,8 +455,8 @@ function ServiceNow:sendEvent (event)
   for k, v in pairs(event) do
     broker_log:info(1, tostring(k) .. " : " .. tostring(v))
   end
-  broker_log:info(1, "------")
 
+  broker_log:info(1, "------")
   broker_log:info(1, "Auth token " .. authToken)
   if pcall(self:call(
       "api/now/table/em_event",
@@ -270,6 +466,7 @@ function ServiceNow:sendEvent (event)
     )) then
     return true
   end
+
   return false
 end
 
@@ -285,11 +482,13 @@ function init (parameters)
      or not parameters.client_id or not parameters.client_secret then
      error("The needed parameters are 'instance', 'username', 'password', 'client_id' and 'client_secret'")
   end
+
   broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     broker_log:info(1, "Init " .. i .. " : " .. v)
   end
+
   serviceNow = ServiceNow:new(
     parameters.instance,
     parameters.username,
@@ -298,6 +497,12 @@ function init (parameters)
     parameters.client_secret
   )
 end
+
+--------------------------------------------------------------------------------
+-- write
+-- @param {array} data, the data from broker
+-- @return {boolean}
+--------------------------------------------------------------------------------
 
 function write (data)
   local sendData = {
@@ -308,68 +513,56 @@ function write (data)
 
   broker_log:info(1, "Prepare Go category " .. tostring(data.category) .. " element " .. tostring(data.element))
 
-  if data.category == 1 then
-    broker_log:info(1, "Broker event data")
-    for k, v in pairs(data) do
-      broker_log:info(1, tostring(k) .. " : " .. tostring(v))
-    end
-    broker_log:info(1, "------")
+  if not isValidEvent(data) then
+    return false
+  end
 
-    -- Doesn't process if the host is acknowledged or disabled
-    if data.acknowledged or not data.enabled then
-      broker_log:info(1, "Dropped because acknowledged or not enabled")
-      return true
-    end
-    -- Doesn't process if the host state is not hard
-    if data.state_type ~= 1 then
-      broker_log:info(1, "Dropped because state is not hard")
-      return true
-    end
-    hostname = broker_cache:get_hostname(data.host_id)
-    if not hostname then
-      broker_log:info(1, "Dropped missing hostname")
-      return true
-    end
-    sendData.node = hostname
-    sendData.description = data.output
-    sendData.time_of_event = os.date("%Y-%m-%d %H:%M:%S", data.last_check)
-    if data.element == 14 then
-      sendData.resource = hostname
-      if data.current_state == 0 then
-        sendData.severity = 0
-      elseif data.current_state then
-        sendData.severity = 1
-      end
-    else
-      service_description = broker_cache:get_service_description(data.host_id, data.service_id)
-      if not service_description then
-        broker_log:info(1, "Droped missing service description")
-        return true
-      end
-      if data.current_state == 0 then
-        sendData.severity = 0
-      elseif data.current_state == 1 then
-        sendData.severity = 3
-      elseif data.current_state == 2 then
-        sendData.severity = 1
-      elseif data.current_state == 3 then
-        sendData.severity = 4
-      end
-      sendData.resource = service_description
+  hostname = get_hostname(data.host_id)
+  sendData.node = hostname
+  sendData.description = data.output
+  sendData.time_of_event = os.date("%Y-%m-%d %H:%M:%S", data.last_check)
+
+  if data.element == 14 then
+    sendData.resource = hostname
+    if data.current_state == 0 then
+      sendData.severity = 0
+    elseif data.current_state then
+      sendData.severity = 1
     end
   else
-    return true
+    service_description = get_service_description(data.host_id, data.service_id)
+    if data.current_state == 0 then
+      sendData.severity = 0
+    elseif data.current_state == 1 then
+      sendData.severity = 3
+    elseif data.current_state == 2 then
+      sendData.severity = 1
+    elseif data.current_state == 3 then
+      sendData.severity = 4
+    end
+
+    sendData.resource = service_description
   end
 
-  return serviceNow:sendEvent(sendData)
+  return EventQueue:sendEvent(sendData)
 end
 
+--------------------------------------------------------------------------------
+-- filter
+-- @param {integer} category, the category of the event
+-- @param {integer} element, the element of the event
+-- @return {boolean}
+--------------------------------------------------------------------------------
 function filter (category, element)
-  if category == 1 then
-    if element == 14 or element == 24 then
-      broker_log:info(1, "Go category " .. tostring(category) .. " element " .. tostring(element))
-      return true
-    end
+  if not isValidCategory(category) then
+    return false
   end
-  return false
+
+  if not isValidElement(category, element) then
+    return false
+  end
+
+  broker_log:info(1, "Go category " .. tostring(category) .. " element " .. tostring(element))
+
+  return true
 end
