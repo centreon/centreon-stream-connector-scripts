@@ -108,10 +108,17 @@ local function split (text, separator)
   return hash
 end
 
+--------------------------------------------------------------------------------
+-- find_in_mapping: check if item type is in the mapping and is accepted
+-- @param {table} mapping, the mapping table 
+-- @param {string} reference, the accepted values for the item
+-- @param {string} item, the item we want to find in the mapping table and in the reference
+-- @return {boolean}
+--------------------------------------------------------------------------------
 local function find_in_mapping (mapping, reference, item)
-  for i, v in pairs(mapping) do
-    for k, u in pairs(split(reference, ',')) do
-      if item == v and i == u then
+  for mappingIndex, mappingValue in pairs(mapping) do
+    for referenceIndex, referenceValue in pairs(split(reference, ',')) do
+      if item == mappingValue and mappingIndex == referenceValue then
         return true
       end
     end
@@ -120,9 +127,15 @@ local function find_in_mapping (mapping, reference, item)
   return false
 end
 
-local function check_neb_event_status (eventState, acceptedStates) 
-  for i, v in ipairs(split(acceptedStates, ',')) do
-    if tostring(eventState) == v then
+--------------------------------------------------------------------------------
+-- check_neb_event_status: check the status of a neb event (ok, critical...)
+-- @param {number} eventStatus, the status of the event
+-- @param {table} acceptedStatus, the separator character that will be used to split the string
+-- @return {boolean}
+--------------------------------------------------------------------------------
+local function check_neb_event_status (eventStatus, acceptedStatuses) 
+  for i, v in ipairs(split(acceptedStatuses, ',')) do
+    if tostring(eventStatus) == v then
       return true
     end
   end
@@ -130,6 +143,13 @@ local function check_neb_event_status (eventState, acceptedStates)
   return false
 end
 
+--------------------------------------------------------------------------------
+-- compare_numbers: compare two numbers, if comparison is valid, then return true
+-- @param {number} firstNumber
+-- @param {number} secondNumber
+-- @param {string} operator, the mathematical operator that is used for the comparison
+-- @return {boolean}
+--------------------------------------------------------------------------------
 local function compare_numbers(firstNumber, secondNumber, operator)
   if type(firstNumber) ~= 'number' or type(secondNumber) ~= 'number' then
     return false
@@ -265,15 +285,31 @@ function EventQueue:new (conf)
   return retval
 end
 
+--------------------------------------------------------------------------------
+-- is_valid_category: check if the event category is valid
+-- @param {number} category, the category id of the event
+-- @return {boolean}
+--------------------------------------------------------------------------------
 function EventQueue:is_valid_category (category)
   return find_in_mapping(self.category_mapping, self.category_type, category)
 end
 
 
+--------------------------------------------------------------------------------
+-- is_valid_element: check if the event element is valid
+-- @param {number} category, the category id of the event
+-- @param {number} element, the element id of the event
+-- @return {boolean}
+--------------------------------------------------------------------------------
 function EventQueue:is_valid_element(category, element)
   return find_in_mapping(self.element_mapping[category], self.element_type, element)
 end
 
+--------------------------------------------------------------------------------
+-- is_valid_neb_event: check if the neb event is valid
+-- @param {table} event, the event data
+-- @return {table} validNebEvent, a table of boolean indexes validating the event
+--------------------------------------------------------------------------------
 function EventQueue:is_valid_neb_event (event) 
   local validNebEvent = {}
   
@@ -304,6 +340,11 @@ function EventQueue:is_valid_neb_event (event)
   return validNebEvent
 end
 
+--------------------------------------------------------------------------------
+-- is_valid_storage_event: check if the storage event is valid
+-- @param {table} event, the event data
+-- @return {table} validStorageEvent, a table of boolean indexes validating the event
+--------------------------------------------------------------------------------
 function EventQueue:is_valid_storage_event (event)
   local validStorageEvent = {
     default = true
@@ -312,6 +353,11 @@ function EventQueue:is_valid_storage_event (event)
   return validStorageEvent
 end
 
+--------------------------------------------------------------------------------
+-- is_valid_bam_event: check if the bam event is valid
+-- @param {table} event, the event data
+-- @return {table} validBamEvent, a table of boolean indexes validating the event
+--------------------------------------------------------------------------------
 function EventQueue:is_valid_bam_event (event)
   local validBamEvent = {
     default = true
@@ -320,6 +366,11 @@ function EventQueue:is_valid_bam_event (event)
   return validBamEvent
 end
 
+--------------------------------------------------------------------------------
+-- is_valid_event: check if the event is valid
+-- @param {table} event, the event data
+-- @return {boolean}
+--------------------------------------------------------------------------------
 function EventQueue:is_valid_event(event)
   local validEvent = {}
   
@@ -344,6 +395,7 @@ function EventQueue:is_valid_event(event)
 
   return true
 end
+
 --------------------------------------------------------------------------------
 -- EventQueue:getAuthToken handle tokens
 -- @return {string} the new EventQueue
