@@ -108,7 +108,7 @@ local function split (text, separator)
   return hash
 end
 
-local function findInMapping (mapping, reference, item)
+local function find_in_mapping (mapping, reference, item)
   for i, v in pairs(mapping) do
     for k, u in pairs(split(reference, ',')) do
       if item == v and i == u then
@@ -116,6 +116,28 @@ local function findInMapping (mapping, reference, item)
       end
     end
   end 
+
+  return false
+end
+
+local function check_neb_event_status (eventState, acceptedStates) 
+  for i, v in ipairs(split(acceptedStates, ',')) do
+    if tostring(eventState) == v then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function compare_numbers(firstNumber, secondNumber, operator)
+  if type(firstNumber) ~= 'number' or type(secondNumber) ~= 'number' then
+    return false
+  end
+
+  if firstNumber .. operator .. secondNumber then
+    return true
+  end
 
   return false
 end
@@ -139,8 +161,8 @@ function EventQueue:new (conf)
     service_status = "0,1,2,3",
     hard_only = 1,
     acknowledged = 0,
-    element_type = "metrics,host_status,service_status",
-    category_type = "neb,storage",
+    element_type = "metric", --metric,host_status,service_status,ba_event,kpi_event"
+    category_type = "neb,storage", -- neb,storage,bam
     in_downtime = 0,
     max_buffer_size = 1,
     max_buffer_age = 5,
@@ -243,77 +265,83 @@ function EventQueue:new (conf)
   return retval
 end
 
-function EventQueue:isValidCategory (category)
-  return findInMapping(self.category_mapping, self.category_type, category)
+function EventQueue:is_valid_category (category)
+  return find_in_mapping(self.category_mapping, self.category_type, category)
 end
 
 
-function EventQueue:isValidElement(category, element)
-  return findInMapping(self.element_mapping[category], self.element_type, element)
+function EventQueue:is_valid_element(category, element)
+  return find_in_mapping(self.element_mapping[category], self.element_type, element)
 end
 
-function EventQueue:isValidEvent(event)
-  local validEvent = {}
+function EventQueue:is_valid_neb_event (event) 
+  local validNebEvent = {}
   
-  if event.category == 1 then
-    validEvent.service_status = false
-    validEvent.host_status = false
-    validEvent.ack = false
-    validEvent.state = false
-    validEvent.downtime = false
-
+  if event.element == 14 or event.element == 24 then
     self.hard_only = check_boolean_number_option_syntax(self.hard_only, 1)
     self.acknowledged = check_boolean_number_option_syntax(self.acknowledged, 0)
     self.in_downtime = check_boolean_number_option_syntax(self.in_downtime, 0)
     self.skip_anon_events = check_boolean_number_option_syntax(self.skip_anon_events, 1)
-
-    if event.element == 14 then
-      validEvent.service_status = true
-      -- for k, u in pairs(event) do
-      --   broker_log:info(1, "key event: " .. k .. ";; value event: " .. tostring(u))
-      -- end
-      for i, v in ipairs(split(self.host_status, ',')) do
-        if tostring(event.state) == v then
-          validEvent.host_status = true
-        end
-      end
-    elseif event.element == 24 then
-      if event.host_id == nil and self.skip_anon_events == 1 then
-        return false
-      end
-
-      validEvent.host_status = true
-      for i, v in ipairs(split(self.service_status, ',')) do
-        if tostring(event.state) == v then
-          validEvent.service_status = true
-        end
-      end
-    end
-
-    
-    -- for i,v in pairs(event) do
-    --   broker_log:info(1, "event param = " .. i .. ";; event value = ")
-    -- end
-    if event.state_type >= self.hard_only then
-      validEvent.state = true
-    end
-
-    if self.acknowledged >= boolean_to_number(event.acknowledged) then
-      validEvent.ack = true
-    end
-  
-    if self.in_downtime >= event.scheduled_downtime_depth then
-      validEvent.downtime = true
-    end
+    validNebEvent.ack = false
+    validNebEvent.state = false
+    validNebEvent.downtime = false
   end
+
+  if event.element == 14 then
+    validNebEvent.host_status = check_neb_event_status(event.state, self.host_status)
+  elseif event.element == 24 then
+    if event.host_id == nil and self.skip_anon_events == 1 then
+      return false
+    end
+
+    validNebEvent.service_status = check_neb_event_status(event.state, self.service_status)
+  end
+
+  validNebEvent.state = compare_numbers(event.state_type, self.hard_only, '>=')
+  validNebEvent.ack = compare_numbers(self.acknowledged, boolean_to_number(event.acknowledged), '>=')
+  validNebEvent.downtime = compare_numbers(self.in_downtime, event.scheduled_downtime_depth, '>=')
+
+  return validNebEvent
+end
+
+function EventQueue:is_valid_storage_event (event)
+  local validStorageEvent = {
+    default = true
+  }
+
+  return validStorageEvent
+end
+
+function EventQueue:is_valid_bam_event (event)
+  local validBamEvent = {
+    default = true
+  }
+
+  return validBamEvent
+end
+
+function EventQueue:is_valid_event(event)
+  local validEvent = {}
   
+  if event.category == 1 then
+    validEvent = EventQueue:is_valid_neb_event(event)
+  elseif event.category == 3 then
+    for i, v in pairs(event) do
+      broker_log:info(1, "mon index: " .. i .. ";; ma value: " .. tostring(v))
+    end
+    validEvent = EventQueue:is_valid_storage_event(event)
+  elseif event.category == 6 then
+    validEvent = EventQueue:is_valid_bam_event(event)
+  else
+    return false
+  end
+    
   for i, v in pairs(validEvent) do
     if not v then
-      broker_log:info(1, "EventQueue:validatedEvent: on return false index " .. i .. ";; value:  " .. tostring(v))
       return false
     end
   end
-  broker_log:info(1, "EventQueue:validatedEvent: on return true")
+
   return true
 end
 --------------------------------------------------------------------------------
@@ -550,7 +578,7 @@ function write (data)
 
   broker_log:info(1, "Prepare Go category " .. tostring(data.category) .. " element " .. tostring(data.element))
 
-  if not queue:isValidEvent(data) then
+  if not queue:is_valid_event(data) then
     return false
   end
 
@@ -596,11 +624,11 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function filter (category, element)
-  if not queue:isValidCategory(category) then
+  if not queue:is_valid_category(category) then
     return false
   end
 
-  if not queue:isValidElement(category, element) then
+  if not queue:is_valid_element(category, element) then
     return false
   end
 
