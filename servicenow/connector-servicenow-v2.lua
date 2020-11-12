@@ -43,7 +43,7 @@ local curl = require "cURL"
 -- @param {boolean} boolean, the boolean that will be converted
 -- @return {number}, a number according to the boolean value
 --------------------------------------------------------------------------------
-local function boolean_to_number(boolean)
+local function boolean_to_number (boolean)
   return boolean and 1 or 0
 end
 
@@ -53,7 +53,7 @@ end
 -- @param {number} default, the default value that is going to be return if the default number is not validated
 -- @return {number} number, a boolean number
 --------------------------------------------------------------------------------
-local function check_boolean_number_option_syntax(number, default)
+local function check_boolean_number_option_syntax (number, default)
   if number ~= 1 or number ~= 0 then
     number = default
   end
@@ -66,7 +66,7 @@ end
 -- @param {number} host_id,
 -- @return {string} hostname,
 --------------------------------------------------------------------------------
-local function get_hostname(host_id)
+local function get_hostname (host_id)
   local hostname = broker_cache:get_hostname(host_id)
   if not hostname then
     broker_log:warning(1, "get_hostname: hostname for id " .. host_id .. " not found. Restarting centengine should fix this.")
@@ -82,7 +82,7 @@ end
 -- @param {number} service_id,
 -- @return {string} service, the name of the service
 --------------------------------------------------------------------------------
-local function get_service_description(host_id, service_id)
+local function get_service_description (host_id, service_id)
   local service = broker_cache:get_service_description(host_id, service_id)
   if not service then
     broker_log:warning(1, "get_service_description: service_description for id " .. host_id .. "." .. service_id .. " not found. Restarting centengine should fix this.")
@@ -97,14 +97,27 @@ end
 -- @param {string} separatpr, the separator character that will be used to split the string
 -- @return {table} table,
 --------------------------------------------------------------------------------
-local function split (string, separator)
+local function split (text, separator)
   local hash = {}
+  -- broker_log:info(1, "text : " .. text .. ";; separator: " .. separator)
   -- https://stackoverflow.com/questions/1426954/split-string-in-lua
-  for value in string.gmatch(string, "([^" .. separator .. "]+)") do
-    table.insert(table, value)
+  for value in string.gmatch(text, "([^" .. separator .. "]+)") do
+    table.insert(hash, value)
   end
 
-  return table
+  return hash
+end
+
+local function findInMapping (mapping, reference, item)
+  for i, v in pairs(mapping) do
+    for k, u in pairs(split(reference, ',')) do
+      if item == v and i == u then
+        return true
+      end
+    end
+  end 
+
+  return false
 end
 
 --------------------------------------------------------------------------------
@@ -120,7 +133,7 @@ EventQueue.__index = EventQueue
 -- @return the new EventQueue
 --------------------------------------------------------------------------------
 
-function EventQueue.new(conf)
+function EventQueue:new (conf)
   local retval = {
     host_status = "0,1,2",
     service_status = "0,1,2,3",
@@ -138,9 +151,77 @@ function EventQueue.new(conf)
     client_id = "",
     client_secret = "",
     tokens = {},
+    element_mapping = {},
+    category_mapping = {}
   }
-  broker_log:set_parameters(1, logfile)
-  broker_log:info(1, "on est dans queue")
+
+  retval.category_mapping = {
+    neb = 1,
+    bbdo = 2,
+    storage = 3,
+    correlation = 4,
+    dumper = 5,
+    bam = 6,
+    extcmd = 7
+  }
+
+  retval.element_mapping = {
+    [1] = {},
+    [3] = {},
+    [6] = {} 
+  }
+
+  retval.element_mapping[1].acknowledgement = 1
+  retval.element_mapping[1].comment = 2
+  retval.element_mapping[1].custom_variable = 3
+  retval.element_mapping[1].custom_variable_status = 4
+  retval.element_mapping[1].downtime = 5
+  retval.element_mapping[1].event_handler = 6
+  retval.element_mapping[1].flapping_status = 7
+  retval.element_mapping[1].host_check = 8
+  retval.element_mapping[1].host_dependency = 9
+  retval.element_mapping[1].host_group = 10
+  retval.element_mapping[1].host_group_member = 11
+  retval.element_mapping[1].host = 12
+  retval.element_mapping[1].host_parent = 13
+  retval.element_mapping[1].host_status = 14
+  retval.element_mapping[1].instance = 15
+  retval.element_mapping[1].instance_status = 16
+  retval.element_mapping[1].log_entry = 17
+  retval.element_mapping[1].module = 18
+  retval.element_mapping[1].service_check = 19
+  retval.element_mapping[1].service_dependency = 20
+  retval.element_mapping[1].service_group = 21
+  retval.element_mapping[1].service_group_member = 22
+  retval.element_mapping[1].service = 23
+  retval.element_mapping[1].service_status = 24
+  retval.element_mapping[1].instance_configuration = 25
+
+  retval.element_mapping[3].metric = 1
+  retval.element_mapping[3].rebuild = 2
+  retval.element_mapping[3].remove_graph = 3
+  retval.element_mapping[3].status = 4
+  retval.element_mapping[3].index_mapping = 5
+  retval.element_mapping[3].metric_mapping = 6
+
+  retval.element_mapping[6].ba_status = 1
+  retval.element_mapping[6].kpi_status = 2
+  retval.element_mapping[6].meta_service_status = 3
+  retval.element_mapping[6].ba_event = 4
+  retval.element_mapping[6].kpi_event = 5
+  retval.element_mapping[6].ba_duration_event = 6
+  retval.element_mapping[6].dimension_ba_event = 7
+  retval.element_mapping[6].dimension_kpi_event = 8
+  retval.element_mapping[6].dimension_ba_bv_relation_event = 9
+  retval.element_mapping[6].dimension_bv_event = 10
+  retval.element_mapping[6].dimension_truncate_table_signal = 11
+  retval.element_mapping[6].bam_rebuild = 12
+  retval.element_mapping[6].dimension_timeperiod = 13
+  retval.element_mapping[6].dimension_ba_timeperiod_relation = 14
+  retval.element_mapping[6].dimension_timeperiod_exception = 15
+  retval.element_mapping[6].dimension_timeperiod_exclusion = 16
+  retval.element_mapping[6].inherited_downtime = 17
+
   retval.tokens.authToken = nil
   retval.tokens.refreshToken = nil
 
@@ -163,95 +244,12 @@ function EventQueue.new(conf)
 end
 
 function EventQueue:isValidCategory (category)
-  local mapping = {
-    neb = 1,
-    bbdo = 2,
-    storage = 3,
-    correlation = 4,
-    dumper = 5,
-    bam = 6,
-    extcmd = 7
-  }
-
-  for i, v in pairs(mapping) do
-    for k, u in ipairs(split(self.category_type)) do
-      if category == v and i == u then
-        return true
-      end
-    end
-  end
-  
-  return false
+  return findInMapping(self.category_mapping, self.category_type, category)
 end
 
 
 function EventQueue:isValidElement(category, element)
-  local mapping = {
-    [1] = {},
-    [3] = {},
-    [6] = {} 
-  }
-
-  mapping[1].acknowledgement = 1
-  mapping[1].comment = 2
-  mapping[1].custom_variable = 3
-  mapping[1].custom_variable_status = 4
-  mapping[1].downtime = 5
-  mapping[1].event_handler = 6
-  mapping[1].flapping_status = 7
-  mapping[1].host_check = 8
-  mapping[1].host_dependency = 9
-  mapping[1].host_group = 10
-  mapping[1].host_group_member = 11
-  mapping[1].host = 12
-  mapping[1].host_parent = 13
-  mapping[1].host_status = 14
-  mapping[1].instance = 15
-  mapping[1].instance_status = 16
-  mapping[1].log_entry = 17
-  mapping[1].module = 18
-  mapping[1].service_check = 19
-  mapping[1].service_dependency = 20
-  mapping[1].service_group = 21
-  mapping[1].service_group_member = 22
-  mapping[1].service = 23
-  mapping[1].service_status = 24
-  mapping[1].instance_configuration = 25
-
-  mapping[3].metric = 1
-  mapping[3].rebuild = 2
-  mapping[3].remove_graph = 3
-  mapping[3].status = 4
-  mapping[3].index_mapping = 5
-  mapping[3].metric_mapping = 6
-
-  mapping[6].ba_status = 1
-  mapping[6].kpi_status = 2
-  mapping[6].meta_service_status = 3
-  mapping[6].ba_event = 4
-  mapping[6].kpi_event = 5
-  mapping[6].ba_duration_event = 6
-  mapping[6].dimension_ba_event = 7
-  mapping[6].dimension_kpi_event = 8
-  mapping[6].dimension_ba_bv_relation_event = 9
-  mapping[6].dimension_bv_event = 10
-  mapping[6].dimension_truncate_table_signal = 11
-  mapping[6].bam_rebuild = 12
-  mapping[6].dimension_timeperiod = 13
-  mapping[6].dimension_ba_timeperiod_relation = 14
-  mapping[6].dimension_timeperiod_exception = 15
-  mapping[6].dimension_timeperiod_exclusion = 16
-  mapping[6].inherited_downtime = 17
-
-  for i, v in pairs(mapping[category]) do
-    for k, u in ipairs(split(self.element_type)) do
-      if element == v and i == u then
-        return true
-      end
-    end
-  end
-
-  return false
+  return findInMapping(self.element_mapping[category], self.element_type, element)
 end
 
 function EventQueue:isValidEvent(event)
@@ -274,7 +272,7 @@ function EventQueue:isValidEvent(event)
       -- for k, u in pairs(event) do
       --   broker_log:info(1, "key event: " .. k .. ";; value event: " .. tostring(u))
       -- end
-      for i, v in ipairs(split(self.host_status)) do
+      for i, v in ipairs(split(self.host_status, ',')) do
         if tostring(event.state) == v then
           validEvent.host_status = true
         end
@@ -285,7 +283,7 @@ function EventQueue:isValidEvent(event)
       end
 
       validEvent.host_status = true
-      for i, v in ipairs(split(self.service_status)) do
+      for i, v in ipairs(split(self.service_status, ',')) do
         if tostring(event.state) == v then
           validEvent.service_status = true
         end
@@ -527,7 +525,7 @@ function init (parameters)
   for i,v in pairs(parameters) do
     broker_log:info(1, "Init " .. i .. " : " .. v)
   end
-  queue = EventQueue.new(parameters)
+  queue = EventQueue:new(parameters)
   -- serviceNow = ServiceNow:new(
   --   parameters.instance,
   --   parameters.username,
