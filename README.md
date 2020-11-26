@@ -347,6 +347,14 @@ By default logs are in /var/log/centreon-broker/ndo-output.log
 
 ## stream connector for HP OMI : *omi/omi_connector.lua*
 
+### Prerequisites
+
+* lua version >= 5.1.4
+* install lua-socket library (http://w3.impa.br/~diego/software/luasocket/)
+    * from sources, you have to install also gcc + lua-devel packages
+
+### Configuration
+
 Create a broker output for HP OMI Connector
 
 Parameters to specify in the broker output web ui are:
