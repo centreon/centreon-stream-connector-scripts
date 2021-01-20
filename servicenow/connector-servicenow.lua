@@ -301,9 +301,13 @@ function EventQueue:new (conf)
   for i,v in pairs(conf) do
     if retval[i] then
       retval[i] = v
-      broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
+      if i == 'client_secret' or i == 'password' then
+        broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => *********")
+      else
+        broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
+      end
     else
-      broker_log:info(1, "EventQueue.new: ingoring unhandled parameter " .. i .. " => " .. v)
+      broker_log:info(1, "EventQueue.new: ignoring unhandled parameter " .. i .. " => " .. v)
     end
   end
 
@@ -651,7 +655,11 @@ function init (parameters)
   broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
-    broker_log:info(1, "Init " .. i .. " : " .. v)
+    if i == 'client_secret' or i == 'password' then
+      broker_log:info(1, "Init " .. i .. " : *********")
+    else
+      broker_log:info(1, "Init " .. i .. " : " .. v)
+    end
   end
 
   queue = EventQueue:new(parameters)
