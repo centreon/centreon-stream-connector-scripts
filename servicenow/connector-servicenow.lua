@@ -354,12 +354,12 @@ function EventQueue:authToken ()
 
   self.tokens.authToken = {
     token = res.access_token,
-    expTime = os.time(os.date("!*t")) + 600
+    expTime = os.time(os.date("!*t")) + 1700
   }
 
   self.tokens.refreshToken = {
     token = res.resfresh_token,
-    expTime = os.time(os.date("!*t")) + 600
+    expTime = os.time(os.date("!*t")) + 360000
   }
 end
 
