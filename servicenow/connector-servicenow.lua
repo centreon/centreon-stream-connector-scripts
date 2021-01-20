@@ -1,124 +1,451 @@
 #!/usr/bin/lua
+
 --------------------------------------------------------------------------------
--- Centreon Broker Servicenow Connector
+-- Centreon Broker Service Now connector
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- Prerequisites:
+--
+-- You need a ServicecNow instance with the event manager module
+-- You need your Oauth credentials
+--
+-- The lua-curl and luatz libraries are required by this script:
+-- yum install lua-curl epel-release
+-- yum install luarocks
+-- luarocks install luatz
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- Parameters:
+-- [MANDATORY] instance: your ServiceNow instance name
+-- [MANDATORY] username: your OAuth user
+-- [MANDATORY] password: your OAuth password
+-- [MANDATORY] client_id: your OAuth client ID
+-- [MANDATORY] client_secret: you OAuth client secret
+-- [RECOMMENDED] log_level: level of verbose. Default is 1,
+-- [OPTIONAL] http_proxy_string: default empty
 --
 --------------------------------------------------------------------------------
 
+-- libraries
 local curl = require "cURL"
 
-local serviceNow
+-- Global variables
 
--- Class for Service now connection
-local ServiceNow = {}
-ServiceNow.__index = ServiceNow
+-- Useful functions
 
-function ServiceNow:new(instance, username, password, clientId, clientPassword)
-  local serviceNow = {}
-  setmetatable(serviceNow, ServiceNow)
-  serviceNow.instance = instance
-  serviceNow.username = username
-  serviceNow.password = password
-  serviceNow.clientId = clientId
-  serviceNow.clientPassword = clientPassword
-  serviceNow.tokens = {}
-  serviceNow.tokens.authToken = nil
-  serviceNow.tokens.refreshToken = nil
-  return serviceNow
+--------------------------------------------------------------------------------
+-- ifnil_or_empty: change a nil or empty variable for a specified value
+-- @param var, the variable that needs to be checked
+-- @param alt, the value of the variable if it is nil or empty
+-- @return alt|var, the alternate value or the variable value
+--------------------------------------------------------------------------------
+local function ifnil_or_empty(var, alt)
+  if var == nil or var == '' then
+    return alt
+  else
+    return var
+  end
 end
 
-function ServiceNow:getAuthToken ()
+--------------------------------------------------------------------------------
+-- boolean_to_number: convert boolean variable to number
+-- @param {boolean} boolean, the boolean that will be converted
+-- @return {number}, a number according to the boolean value
+--------------------------------------------------------------------------------
+local function boolean_to_number (boolean)
+  return boolean and 1 or 0
+end
+
+--------------------------------------------------------------------------------
+-- check_boolean_number_option_syntax: make sure the number is either 1 or 0
+-- @param {number} number, the boolean number that must be validated
+-- @param {number} default, the default value that is going to be return if the default number is not validated
+-- @return {number} number, a boolean number
+--------------------------------------------------------------------------------
+local function check_boolean_number_option_syntax (number, default)
+  if number ~= 1 and number ~= 0 then
+    number = default
+  end
+
+  return number
+end
+
+--------------------------------------------------------------------------------
+-- get_hostname: retrieve hostname from host_id
+-- @param {number} host_id,
+-- @return {string} hostname,
+--------------------------------------------------------------------------------
+local function get_hostname (host_id)
+  if host_id == nil then
+    broker_log:warning(1, "get_hostname: host id is nil")
+    hostname = 0
+    return hostname
+  end
+
+  local hostname = broker_cache:get_hostname(host_id)
+  if not hostname then
+    broker_log:warning(1, "get_hostname: hostname for id " .. host_id .. " not found. Restarting centengine should fix this.")
+    hostname = host_id
+  end
+
+  return hostname
+end
+
+--------------------------------------------------------------------------------
+-- get_service_description: retrieve the service name from its host_id and service_id
+-- @param {number} host_id,
+-- @param {number} service_id,
+-- @return {string} service, the name of the service
+--------------------------------------------------------------------------------
+local function get_service_description (host_id, service_id)
+  if host_id == nil or service_id ==  nil then
+    service = 0
+    broker_log:warning(1, "get_service_description: host id or service id has a nil value")
+
+    return service
+  end
+
+  local service = broker_cache:get_service_description(host_id, service_id)
+  if not service then
+    broker_log:warning(1, "get_service_description: service_description for id " .. host_id .. "." .. service_id .. " not found. Restarting centengine should fix this.")
+    service = service_id
+  end
+
+  return service
+end
+
+--------------------------------------------------------------------------------
+-- split: convert a string into a table
+-- @param {string} string, the string that is going to be splitted into a table
+-- @param {string} separatpr, the separator character that will be used to split the string
+-- @return {table} table,
+--------------------------------------------------------------------------------
+local function split (text, separator)
+  local hash = {}
+  -- https://stackoverflow.com/questions/1426954/split-string-in-lua
+  for value in string.gmatch(text, "([^" .. separator .. "]+)") do
+    table.insert(hash, value)
+  end
+
+  return hash
+end
+
+--------------------------------------------------------------------------------
+-- find_in_mapping: check if item type is in the mapping and is accepted
+-- @param {table} mapping, the mapping table
+-- @param {string} reference, the accepted values for the item
+-- @param {string} item, the item we want to find in the mapping table and in the reference
+-- @return {boolean}
+--------------------------------------------------------------------------------
+local function find_in_mapping (mapping, reference, item)
+  for mappingIndex, mappingValue in pairs(mapping) do
+    for referenceIndex, referenceValue in pairs(split(reference, ',')) do
+      if item == mappingValue and mappingIndex == referenceValue then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
+--------------------------------------------------------------------------------
+-- check_neb_event_status: check the status of a neb event (ok, critical...)
+-- @param {number} eventStatus, the status of the event
+-- @param {string} acceptedStatus, the event statuses that are going to be accepted
+-- @return {boolean}
+--------------------------------------------------------------------------------
+local function check_neb_event_status (eventStatus, acceptedStatuses)
+  for i, v in ipairs(split(acceptedStatuses, ',')) do
+    if tostring(eventStatus) == v then
+      return true
+    end
+  end
+
+  return false
+end
+
+--------------------------------------------------------------------------------
+-- compare_numbers: compare two numbers, if comparison is valid, then return true
+-- @param {number} firstNumber
+-- @param {number} secondNumber
+-- @param {string} operator, the mathematical operator that is used for the comparison
+-- @return {boolean}
+--------------------------------------------------------------------------------
+local function compare_numbers (firstNumber, secondNumber, operator)
+  if type(firstNumber) ~= 'number' or type(secondNumber) ~= 'number' then
+    return false
+  end
+
+  if firstNumber .. operator .. secondNumber then
+    return true
+  end
+
+  return false
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue class
+--------------------------------------------------------------------------------
+
+local EventQueue = {}
+EventQueue.__index = EventQueue
+
+--------------------------------------------------------------------------------
+-- Constructor
+-- @param conf The table given by the init() function and returned from the GUI
+-- @return the new EventQueue
+--------------------------------------------------------------------------------
+
+function EventQueue:new (conf)
+  local retval = {
+    host_status = "0,1,2", -- = ok, down, unreachable
+    service_status = "0,1,2,3", -- = ok, warning, critical, unknown
+    hard_only = 1,
+    acknowledged = 0,
+    element_type = "metric,host_status,service_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
+    category_type = "neb,storage", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
+    in_downtime = 0,
+    max_buffer_size = 1,
+    max_buffer_age = 5,
+    skip_anon_events = 1,
+    skip_nil_id = 1,
+    element_mapping = {},
+    category_mapping = {},
+    instance = '',
+    username = '',
+    password = '',
+    client_id = '',
+    client_secret = '',
+    proxy_address = '',
+    proxy_port = '',
+    proxy_username = '',
+    proxy_password = '',
+    tokens = {}
+  }
+
+  retval.category_mapping = {
+    neb = 1,
+    bbdo = 2,
+    storage = 3,
+    correlation = 4,
+    dumper = 5,
+    bam = 6,
+    extcmd = 7
+  }
+
+  retval.element_mapping = {
+    [1] = {},
+    [3] = {},
+    [6] = {}
+  }
+
+  retval.element_mapping[1].acknowledgement = 1
+  retval.element_mapping[1].comment = 2
+  retval.element_mapping[1].custom_variable = 3
+  retval.element_mapping[1].custom_variable_status = 4
+  retval.element_mapping[1].downtime = 5
+  retval.element_mapping[1].event_handler = 6
+  retval.element_mapping[1].flapping_status = 7
+  retval.element_mapping[1].host_check = 8
+  retval.element_mapping[1].host_dependency = 9
+  retval.element_mapping[1].host_group = 10
+  retval.element_mapping[1].host_group_member = 11
+  retval.element_mapping[1].host = 12
+  retval.element_mapping[1].host_parent = 13
+  retval.element_mapping[1].host_status = 14
+  retval.element_mapping[1].instance = 15
+  retval.element_mapping[1].instance_status = 16
+  retval.element_mapping[1].log_entry = 17
+  retval.element_mapping[1].module = 18
+  retval.element_mapping[1].service_check = 19
+  retval.element_mapping[1].service_dependency = 20
+  retval.element_mapping[1].service_group = 21
+  retval.element_mapping[1].service_group_member = 22
+  retval.element_mapping[1].service = 23
+  retval.element_mapping[1].service_status = 24
+  retval.element_mapping[1].instance_configuration = 25
+
+  retval.element_mapping[3].metric = 1
+  retval.element_mapping[3].rebuild = 2
+  retval.element_mapping[3].remove_graph = 3
+  retval.element_mapping[3].status = 4
+  retval.element_mapping[3].index_mapping = 5
+  retval.element_mapping[3].metric_mapping = 6
+
+  retval.element_mapping[6].ba_status = 1
+  retval.element_mapping[6].kpi_status = 2
+  retval.element_mapping[6].meta_service_status = 3
+  retval.element_mapping[6].ba_event = 4
+  retval.element_mapping[6].kpi_event = 5
+  retval.element_mapping[6].ba_duration_event = 6
+  retval.element_mapping[6].dimension_ba_event = 7
+  retval.element_mapping[6].dimension_kpi_event = 8
+  retval.element_mapping[6].dimension_ba_bv_relation_event = 9
+  retval.element_mapping[6].dimension_bv_event = 10
+  retval.element_mapping[6].dimension_truncate_table_signal = 11
+  retval.element_mapping[6].bam_rebuild = 12
+  retval.element_mapping[6].dimension_timeperiod = 13
+  retval.element_mapping[6].dimension_ba_timeperiod_relation = 14
+  retval.element_mapping[6].dimension_timeperiod_exception = 15
+  retval.element_mapping[6].dimension_timeperiod_exclusion = 16
+  retval.element_mapping[6].inherited_downtime = 17
+
+  retval.tokens.authToken = nil
+  retval.tokens.refreshToken = nil
+
+  for i,v in pairs(conf) do
+    if retval[i] then
+      retval[i] = v
+      broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
+    else
+      broker_log:info(1, "EventQueue.new: ingoring unhandled parameter " .. i .. " => " .. v)
+    end
+  end
+
+  retval.hard_only = check_boolean_number_option_syntax(retval.hard_only, 1)
+  retval.acknowledged = check_boolean_number_option_syntax(retval.acknowledged, 0)
+  retval.in_downtime = check_boolean_number_option_syntax(retval.in_downtime, 0)
+  retval.skip_anon_events = check_boolean_number_option_syntax(retval.skip_anon_events, 1)
+  retval.skip_nil_id = check_boolean_number_option_syntax(retval.skip_nil_id, 1)
+
+  retval.__internal_ts_last_flush = os.time()
+  retval.events = {}
+  setmetatable(retval, EventQueue)
+  -- Internal data initialization
+  broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
+
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- getAuthToken: obtain a auth token
+-- @return {string} self.tokens.authToken.token, the auth token
+--------------------------------------------------------------------------------
+function EventQueue:getAuthToken ()
   if not self:refreshTokenIsValid() then
     self:authToken()
   end
+
   if not self:accessTokenIsValid() then
     self:refreshToken(self.tokens.refreshToken.token)
   end
+
   return self.tokens.authToken.token
 end
 
-function ServiceNow:authToken ()
-  local data = "grant_type=password&client_id=" .. self.clientId .. "&client_secret=" .. self.clientPassword .. "&username=" .. self.username .. "&password=" .. self.password
+--------------------------------------------------------------------------------
+-- authToken: obtain auth token
+--------------------------------------------------------------------------------
+function EventQueue:authToken ()
+  local data = "grant_type=password&client_id=" .. self.client_id .. "&client_secret=" .. self.client_secret .. "&username=" .. self.username .. "&password=" .. self.password
 
   local res = self:call(
     "oauth_token.do",
     "POST",
     data
   )
+
   if not res.access_token then
     error("Authentication failed")
   end
+
   self.tokens.authToken = {
     token = res.access_token,
-    expTime = os.time(os.date("!*t")) + 1700
+    expTime = os.time(os.date("!*t")) + 600
   }
+
   self.tokens.refreshToken = {
     token = res.resfresh_token,
-    expTime = os.time(os.date("!*t")) + 360000
+    expTime = os.time(os.date("!*t")) + 600
   }
 end
 
-function ServiceNow:refreshToken (token)
-  local data = "grant_type=refresh_token&client_id=" .. self.clientId .. "&client_secret=" .. self.clientPassword .. "&username=" .. self.username .. "&password=" .. self.password
-  res = self.call(
-    "oauth_token.do",
-    "POST",
-    data
-  )
-  if not res.access_token then
-    error("Bad access token")
-  end
-  self.tokens.authToken = {
-    token = res.access_token,
-    expTime = os.time(os.date("!*t")) + 1700
-  }
-end
-
-function ServiceNow:refreshTokenIsValid ()
+--------------------------------------------------------------------------------
+-- refreshTokenIsValid: obtain auth token
+--------------------------------------------------------------------------------
+function EventQueue:refreshTokenIsValid ()
   if not self.tokens.refreshToken then
     return false
   end
+
   if os.time(os.date("!*t")) > self.tokens.refreshToken.expTime then
     self.refreshToken = nil
     return false
   end
+
   return true
 end
 
-function ServiceNow:accessTokenIsValid ()
+--------------------------------------------------------------------------------
+-- accessTokenIsValid: obtain auth token
+--------------------------------------------------------------------------------
+function EventQueue:accessTokenIsValid ()
   if not self.tokens.authToken then
     return false
   end
+
   if os.time(os.date("!*t")) > self.tokens.authToken.expTime then
     self.authToken = nil
     return false
   end
+
   return true
 end
 
-function ServiceNow:call (url, method, data, authToken)
+--------------------------------------------------------------------------------
+-- EventQueue:call run api call
+-- @param {string} url, the service now instance url
+-- @param {string} method, the HTTP method that is used
+-- @param {string} data, the data we want to send to service now
+-- @param {string} authToken, the api auth token
+-- @return {array} decoded output
+-- @throw exception if http call fails or response is empty
+--------------------------------------------------------------------------------
+function EventQueue:call (url, method, data, authToken)
   method = method or "GET"
   data = data or nil
   authToken = authToken or nil
 
   local endpoint = "https://" .. tostring(self.instance) .. ".service-now.com/" .. tostring(url)
-  broker_log:info(1, "Prepare url " .. endpoint)
+  broker_log:info(3, "Prepare url " .. endpoint)
 
   local res = ""
   local request = curl.easy()
     :setopt_url(endpoint)
-    :setopt_writefunction(function (responce)
-      res = res .. tostring(responce)
+    :setopt_writefunction(function (response)
+      res = res .. tostring(response)
     end)
-  broker_log:info(1, "Request initialize")
+
+  broker_log:info(3, "Request initialize")
+
+  -- set proxy address configuration
+  if (self.proxy_address ~= '') then
+    if (self.proxy_port ~= '') then
+      request:setopt(curl.OPT_PROXY, self.proxy_address .. ':' .. self.proxy_port)
+    else 
+      broker_log:error(1, "proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (self.proxy_username ~= '') then
+    if (self.proxy_password ~= '') then
+      request:setopt(curl.OPT_PROXYUSERPWD, self.proxy_username .. ':' .. self.proxy_password)
+    else
+      broker_log:error(1, "proxy_password parameter is not set but proxy_username is used")
+    end
+  end
 
   if not authToken then
     if method ~= "GET" then
-      broker_log:info(1, "Add form header")
+      broker_log:info(3, "Add form header")
       request:setopt(curl.OPT_HTTPHEADER, { "Content-Type: application/x-www-form-urlencoded" })
-      broker_log:info(1, "After add form header")
     end
   else
-    broker_log:info(1, "Add JSON header")
+    broker_log:info(3, "Add JSON header")
     request:setopt(
       curl.OPT_HTTPHEADER,
       {
@@ -130,146 +457,298 @@ function ServiceNow:call (url, method, data, authToken)
   end
 
   if method ~= "GET" then
-    broker_log:info(1, "Add post data")
+    broker_log:info(3, "Add post data")
     request:setopt_postfields(data)
   end
 
-  broker_log:info(1, "Call url " .. endpoint)
+  broker_log:info(3, "request body " .. tostring(data))
+  broker_log:info(3, "request header " .. tostring(authToken))
+  broker_log:info(3, "Call url " .. endpoint)
   request:perform()
 
   respCode = request:getinfo(curl.INFO_RESPONSE_CODE)
-  broker_log:info(1, "HTTP Code : " .. respCode)
-  broker_log:info(1, "Response body : " .. tostring(res))
+  broker_log:info(3, "HTTP Code : " .. respCode)
+  broker_log:info(3, "Response body : " .. tostring(res))
 
   request:close()
 
   if respCode >= 300 then
     broker_log:info(1, "HTTP Code : " .. respCode)
     broker_log:info(1, "HTTP Error : " .. res)
-    error("Bad request code")
+    return false
   end
 
   if res == "" then
     broker_log:info(1, "HTTP Error : " .. res)
-    error("Bad content")
+    return false
   end
 
-  broker_log:info(1, "Parsing JSON")
   return broker.json_decode(res)
 end
 
-function ServiceNow:sendEvent (event)
-  local authToken = self:getAuthToken()
-
-  broker_log:info(1, "Event information :")
-  for k, v in pairs(event) do
-    broker_log:info(1, tostring(k) .. " : " .. tostring(v))
-  end
-  broker_log:info(1, "------")
-
-  broker_log:info(1, "Auth token " .. authToken)
-  if pcall(self:call(
-      "api/now/table/em_event",
-      "POST",
-      broker.json_encode(event),
-      authToken
-    )) then
-    return true
-  end
-  return false
+--------------------------------------------------------------------------------
+-- is_valid_category: check if the event category is valid
+-- @param {number} category, the category id of the event
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:is_valid_category (category)
+  return find_in_mapping(self.category_mapping, self.category_type, category)
 end
 
-function init(parameters)
-  logfile = parameters.logfile or "/var/log/centreon-broker/connector-servicenow.log"
-  if not parameters.instance or not parameters.username or not parameters.password
-     or not parameters.client_id or not parameters.client_secret then
-     error("The needed parameters are 'instance', 'username', 'password', 'client_id' and 'client_secret'")
+--------------------------------------------------------------------------------
+-- is_valid_element: check if the event element is valid
+-- @param {number} category, the category id of the event
+-- @param {number} element, the element id of the event
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:is_valid_element (category, element)
+  return find_in_mapping(self.element_mapping[category], self.element_type, element)
+end
+
+--------------------------------------------------------------------------------
+-- is_valid_neb_event: check if the neb event is valid
+-- @return {table} validNebEvent, a table of boolean indexes validating the event
+--------------------------------------------------------------------------------
+function EventQueue:is_valid_neb_event ()
+  if self.currentEvent.element == 14 or self.currentEvent.element == 24 then
+    self.currentEvent.hostname = get_hostname(self.currentEvent.host_id)
+
+    -- can't find hostname in cache
+    if self.currentEvent.hostname == self.currentEvent.host_id and self.skip_anon_events == 1 then
+      return false
+    end
+
+    -- can't find host_id in the event
+    if self.currentEvent.hostname == 0 and self.skip_nil_id == 1 then
+      return false
+    end
+
+    if (string.find(self.currentEvent.hostname, '^_Module_BAM_*')) then
+      return false
+    end
+
+    self.currentEvent.output = ifnil_or_empty(string.match(self.currentEvent.output, "^(.*)\n"), 'no output')
+    self.sendData.source = 'tanguy-centreon'
+    self.sendData.event_class = 'centreon'
+    self.sendData.severity = 5
+    self.sendData.node = self.currentEvent.hostname
+    self.sendData.time_of_event = os.date("!%Y-%m-%d %H:%M:%S", self.currentEvent.last_check)
+    self.sendData.description = self.currentEvent.output
   end
+
+  if self.currentEvent.element == 14 then
+    if not check_neb_event_status(self.currentEvent.state, self.host_status) then
+      return false
+    end
+
+    self.sendData.resource = self.currentEvent.hostname
+    if self.currentEvent.state == 0 then
+      self.sendData.severity = 0
+    elseif self.currentEvent.state == 1 then
+      self.sendData.severity = 1
+    end
+
+  elseif self.currentEvent.element == 24 then
+    self.currentEvent.serviceDescription = get_service_description(self.currentEvent.host_id, self.currentEvent.service_id)
+
+    -- can't find service description in cache
+    if self.currentEvent.serviceDescription == self.currentEvent.service_id and self.skip_anon_events == 1 then
+      return false
+    end
+
+    if not check_neb_event_status(self.currentEvent.state, self.service_status) then
+      return false
+    end
+
+    -- can't find service_id in the event
+    if self.currentEvent.serviceDescription == 0 and self.skip_nil_id == 1 then
+      return false
+    end
+
+    self.currentEvent.svc_severity = broker_cache:get_severity(self.currentEvent.host_id,self.currentEvent.service_id)
+  
+  end
+
+  -- check hard state
+  if not compare_numbers(self.currentEvent.state_type, self.hard_only, '>=') then
+    return false
+  end
+
+  -- check ack
+  if not compare_numbers(self.acknowledged, boolean_to_number(self.currentEvent.acknowledged), '>=') then
+    return false
+  end
+
+  -- check downtime
+  if not compare_numbers(self.in_downtime, self.currentEvent.scheduled_downtime_depth, '>=') then
+    return false
+  end
+  
+  self.sendData.resource = self.currentEvent.serviceDescription
+  if self.currentEvent.state == 0 then
+    self.sendData.severity = 0
+  elseif self.currentEvent.state == 1 then
+    self.sendData.severity = 3
+  elseif self.currentEvent.state == 2 then
+    self.sendData.severity = 1
+  elseif self.currentEvent.state == 3 then
+    self.sendData.severity = 4
+  end
+
+  return true
+end
+
+--------------------------------------------------------------------------------
+-- is_valid_storage_event: check if the storage event is valid
+-- @return {table} validStorageEvent, a table of boolean indexes validating the event
+--------------------------------------------------------------------------------
+function EventQueue:is_valid_storage_event ()
+  return true
+end
+
+--------------------------------------------------------------------------------
+-- is_valid_bam_event: check if the bam event is valid
+-- @return {table} validBamEvent, a table of boolean indexes validating the event
+--------------------------------------------------------------------------------
+function EventQueue:is_valid_bam_event ()
+  return true
+end
+
+--------------------------------------------------------------------------------
+-- is_valid_event: check if the event is valid
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:is_valid_event ()
+  local validEvent = false
+  self.sendData = {}
+  if self.currentEvent.category == 1 then
+    validEvent = self:is_valid_neb_event()
+  elseif self.currentEvent.category == 3 then
+    validEvent = self:is_valid_storage_event()
+  elseif self.currentEvent.category == 6 then
+    validEvent = self:is_valid_bam_event()
+  end
+
+  return validEvent
+end
+
+local queue
+
+--------------------------------------------------------------------------------
+-- init, initiate stream connector with parameters from the configuration file
+-- @param {table} parameters, the table with all the configuration parameters
+--------------------------------------------------------------------------------
+function init (parameters)
+  logfile = parameters.logfile or "/var/log/centreon-broker/connector-servicenow.log"
+
+  if not parameters.instance or not parameters.username or not parameters.password
+    or not parameters.client_id or not parameters.client_secret then
+    broker_log:error(1,'Required parameters are: instance, username, password, client_id and client_secret. There type must be string')
+  end
+
   broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     broker_log:info(1, "Init " .. i .. " : " .. v)
   end
-  serviceNow = ServiceNow:new(
-    parameters.instance,
-    parameters.username,
-    parameters.password,
-    parameters.client_id,
-    parameters.client_secret
-  )
+
+  queue = EventQueue:new(parameters)
 end
 
-function write(data)
-  local sendData = {
-    source = "centreon",
-    event_class = "centreon",
-    severity = 5
-  }
+--------------------------------------------------------------------------------
+-- EventQueue:add, add an event to the queue
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:add ()
+  self.events[#self.events + 1] = queue.sendData
+  return true
+end
 
-  broker_log:info(1, "Prepare Go category " .. tostring(data.category) .. " element " .. tostring(data.element))
+--------------------------------------------------------------------------------
+-- EventQueue:flush, flush stored events
+-- Called when the max number of events or the max age are reached
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:flush ()
+  broker_log:info(3, "EventQueue:flush: Concatenating all the events as one string")
 
-  if data.category == 1 then
-    broker_log:info(1, "Broker event data")
-    for k, v in pairs(data) do
-      broker_log:info(1, tostring(k) .. " : " .. tostring(v))
-    end
-    broker_log:info(1, "------")
+  retval = self:send_data()
 
-    -- Doesn't process if the host is acknowledged or disabled
-    if data.acknowledged or not data.enabled then
-      broker_log:info(1, "Dropped because acknowledged or not enabled")
-      return true
-    end
-    -- Doesn't process if the host state is not hard
-    if data.state_type ~= 1 then
-      broker_log:info(1, "Dropped because state is not hard")
-      return true
-    end
-    hostname = broker_cache:get_hostname(data.host_id)
-    if not hostname then
-      broker_log:info(1, "Dropped missing hostname")
-      return true
-    end
-    sendData.node = hostname
-    sendData.description = data.output
-    sendData.time_of_event = os.date("%Y-%m-%d %H:%M:%S", data.last_check)
-    if data.element == 14 then
-      sendData.resource = hostname
-      if data.current_state == 0 then
-        sendData.severity = 0
-      elseif data.current_state then
-        sendData.severity = 1
-      end
-    else
-      service_description = broker_cache:get_service_description(data.host_id, data.service_id)
-      if not service_description then
-        broker_log:info(1, "Droped missing service description")
-        return true
-      end
-      if data.current_state == 0 then
-        sendData.severity = 0
-      elseif data.current_state == 1 then
-        sendData.severity = 3
-      elseif data.current_state == 2 then
-        sendData.severity = 1
-      elseif data.current_state == 3 then
-        sendData.severity = 4
-      end
-      sendData.resource = service_description
-    end
+  self.events = {}
+
+  -- and update the timestamp
+  self.__internal_ts_last_flush = os.time()
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:send_data, send data to external tool
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:send_data ()
+  local data = ''
+  local authToken = self:getAuthToken()
+
+  for _, raw_event in ipairs(self.events) do
+    data = data .. broker.json_encode(raw_event)
+  end
+
+  if self:call(
+      "api/now/table/em_event",
+      "POST",
+      data,
+      authToken
+    ) then
+    return true
+  end
+
+  return false
+end
+
+--------------------------------------------------------------------------------
+-- write,
+-- @param {array} event, the event from broker
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function write (event)
+
+  -- drop event if wrong category
+  if not queue:is_valid_category(event.category) then
+    return true
+  end
+
+  -- drop event if wrong element
+  if not queue:is_valid_element(event.category, event.element) then
+    return false
+  end
+
+  queue.currentEvent = event
+  
+  -- First, are there some old events waiting in the flush queue ?
+  if (#queue.events > 0 and os.time() - queue.__internal_ts_last_flush > queue.max_buffer_age) then
+    broker_log:info(2, "write: Queue max age (" .. os.time() - queue.__internal_ts_last_flush .. "/" .. queue.max_buffer_age .. ") is reached, flushing data")
+    queue:flush()
+  end
+
+  -- Then we check that the event queue is not already full
+  if (#queue.events >= queue.max_buffer_size) then
+    broker_log:warning(2, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
+    os.execute("sleep " .. tonumber(1))
+    queue:flush()
+  end
+
+  -- adding event to the queue
+  if queue:is_valid_event() then
+    queue:add()
   else
     return true
   end
 
-  return serviceNow:sendEvent(sendData)
-end
-
-function filter(category, element)
-  if category == 1 then
-    if element == 14 or element == 24 then
-      broker_log:info(1, "Go category " .. tostring(category) .. " element " .. tostring(element))
-      return true
-    end
+  -- Then we check whether it is time to send the events to the receiver and flush
+  if (#queue.events >= queue.max_buffer_size) then
+    broker_log:info(2, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached, flushing data")
+    return queue:flush()
   end
-  return false
+
+  return true
 end
