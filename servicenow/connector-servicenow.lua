@@ -205,8 +205,8 @@ function EventQueue:new (conf)
     service_status = "0,1,2,3", -- = ok, warning, critical, unknown
     hard_only = 1,
     acknowledged = 0,
-    element_type = "metric,host_status,service_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
-    category_type = "neb,storage", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
+    element_type = "host_status,service_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
+    category_type = "neb", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
     in_downtime = 0,
     max_buffer_size = 1,
     max_buffer_age = 5,
