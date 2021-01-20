@@ -10,10 +10,9 @@
 -- You need a ServicecNow instance with the event manager module
 -- You need your Oauth credentials
 --
--- The lua-curl and luatz libraries are required by this script:
+-- The lua-curl is required by this script:
 -- yum install lua-curl epel-release
 -- yum install luarocks
--- luarocks install luatz
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
@@ -208,8 +207,9 @@ function EventQueue:new (conf)
     element_type = "host_status,service_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
     category_type = "neb", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
     in_downtime = 0,
-    max_buffer_size = 1,
+    max_buffer_size = 10,
     max_buffer_age = 5,
+    max_stored_events = 10, -- do not use values above 100 
     skip_anon_events = 1,
     skip_nil_id = 1,
     element_mapping = {},
@@ -223,6 +223,7 @@ function EventQueue:new (conf)
     proxy_port = '',
     proxy_username = '',
     proxy_password = '',
+    validatedEvents = {},
     tokens = {}
   }
 
@@ -295,6 +296,7 @@ function EventQueue:new (conf)
 
   retval.tokens.authToken = nil
   retval.tokens.refreshToken = nil
+  
 
   for i,v in pairs(conf) do
     if retval[i] then
@@ -528,7 +530,7 @@ function EventQueue:is_valid_neb_event ()
     end
 
     self.currentEvent.output = ifnil_or_empty(string.match(self.currentEvent.output, "^(.*)\n"), 'no output')
-    self.sendData.source = 'tanguy-centreon'
+    self.sendData.source = 'centreon'
     self.sendData.event_class = 'centreon'
     self.sendData.severity = 5
     self.sendData.node = self.currentEvent.hostname
@@ -657,10 +659,11 @@ end
 
 --------------------------------------------------------------------------------
 -- EventQueue:add, add an event to the queue
+-- @param {table} eventData, the data related to the event 
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function EventQueue:add ()
-  self.events[#self.events + 1] = queue.sendData
+  self.events[#self.events + 1] = self.sendData
   return true
 end
 
@@ -688,13 +691,22 @@ end
 function EventQueue:send_data ()
   local data = ''
   local authToken = self:getAuthToken()
+  local counter = 0
 
   for _, raw_event in ipairs(self.events) do
-    data = data .. broker.json_encode(raw_event)
+    if counter == 0 then
+      data = broker.json_encode(raw_event) 
+      counter = counter + 1
+    else
+      data = data .. ',' .. broker.json_encode(raw_event)
+    end
   end
 
+  data = '{"records":[' .. data .. ']}'
+  broker_log:info(2, 'JSON SENT ' .. data)
+
   if self:call(
-      "api/now/table/em_event",
+      "api/global/em/jsonv2",
       "POST",
       data,
       authToken
@@ -723,6 +735,13 @@ function write (event)
   end
 
   queue.currentEvent = event
+
+  -- START FIX FOR BROKER SENDING DUPLICATED EVENTS
+  -- do not compute event if it is duplicated
+  if queue:is_event_duplicated() then
+    return true
+  end
+  -- END OF FIX
   
   -- First, are there some old events waiting in the flush queue ?
   if (#queue.events > 0 and os.time() - queue.__internal_ts_last_flush > queue.max_buffer_age) then
@@ -739,6 +758,24 @@ function write (event)
 
   -- adding event to the queue
   if queue:is_valid_event() then
+
+    -- START FIX FOR BROKER SENDING DUPLICATED EVENTS
+    -- create id from event data
+    if queue.currentEvent.element == 14 then
+      eventId = tostring(queue.currentEvent.host_id) .. '_' .. tostring(queue.currentEvent.last_check)
+    else 
+      eventId = tostring(queue.currentEvent.host_id) .. '_' .. tostring(queue.currentEvent.service_id) .. '_' .. tostring(queue.currentEvent.last_check)
+    end
+
+    -- remove oldest event from sent events list
+    if #queue.validatedEvents >= queue.max_stored_events then
+      table.remove(queue.validatedEvents, 1)
+    end
+
+    -- add event in the sent events list and add list to queue
+    table.insert(queue.validatedEvents, eventId)
+    -- END OF FIX
+
     queue:add()
   else
     return true
@@ -751,4 +788,25 @@ function write (event)
   end
 
   return true
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:is_event_duplicated, create an id from the neb event and check if id is in an already sent events list
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:is_event_duplicated() 
+  local eventId = ''
+  if self.currentEvent.element == 14 then
+    eventId = tostring(self.currentEvent.host_id) .. '_' .. tostring(self.currentEvent.last_check)
+  else 
+    eventId = tostring(self.currentEvent.host_id) .. '_' .. tostring(self.currentEvent.service_id) .. '_' .. tostring(self.currentEvent.last_check)
+  end
+
+  for i, v in ipairs(self.validatedEvents) do
+    if eventId == v then
+      return true
+    end
+  end
+  
+  return false
 end
