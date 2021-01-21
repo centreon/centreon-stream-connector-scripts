@@ -370,6 +370,28 @@ function EventQueue:authToken ()
 end
 
 --------------------------------------------------------------------------------
+-- refreshToken: refresh auth token
+--------------------------------------------------------------------------------
+function EventQueue:refreshToken (token)
+  local data = "grant_type=refresh_token&client_id=" .. self.clientId .. "&client_secret=" .. self.clientPassword .. "&username=" .. self.username .. "&password=" .. self.password
+  res = self.call(
+    "oauth_token.do",
+    "POST",
+    data
+  )
+  
+  if not res.access_token then
+    broker_log:error(1, 'Bad access token')
+    return false
+  end
+
+  self.tokens.authToken = {
+    token = res.access_token,
+    expTime = os.time(os.date("!*t")) + 1700
+  }
+end
+
+--------------------------------------------------------------------------------
 -- refreshTokenIsValid: obtain auth token
 --------------------------------------------------------------------------------
 function EventQueue:refreshTokenIsValid ()
