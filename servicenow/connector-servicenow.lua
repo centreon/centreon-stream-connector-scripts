@@ -375,7 +375,7 @@ end
 function EventQueue:refreshToken (token)
   local data = "grant_type=refresh_token&client_id=" .. self.client_id .. "&client_secret=" .. self.client_secret .. "&username=" .. self.username .. "&password=" .. self.password
   
-  res = self:call(
+  local res = self:call(
     "oauth_token.do",
     "POST",
     data
@@ -797,7 +797,7 @@ function write (event)
     else 
       eventId = tostring(queue.currentEvent.host_id) .. '_' .. tostring(queue.currentEvent.service_id) .. '_' .. tostring(queue.currentEvent.last_check)
     end
-    
+
     -- remove oldest event from sent events list
     if #queue.validatedEvents >= queue.max_stored_events then
       table.remove(queue.validatedEvents, 1)
