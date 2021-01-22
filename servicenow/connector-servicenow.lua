@@ -373,7 +373,7 @@ end
 -- refreshToken: refresh auth token
 --------------------------------------------------------------------------------
 function EventQueue:refreshToken (token)
-  local data = "grant_type=refresh_token&client_id=" .. self.clientId .. "&client_secret=" .. self.clientPassword .. "&username=" .. self.username .. "&password=" .. self.password
+  local data = "grant_type=refresh_token&client_id=" .. self.client_id .. "&client_secret=" .. self.client_secret .. "&username=" .. self.username .. "&password=" .. self.password
   res = self.call(
     "oauth_token.do",
     "POST",
