@@ -374,12 +374,13 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:refreshToken (token)
   local data = "grant_type=refresh_token&client_id=" .. self.client_id .. "&client_secret=" .. self.client_secret .. "&username=" .. self.username .. "&password=" .. self.password
-  res = self.call(
+  
+  res = self:call(
     "oauth_token.do",
     "POST",
     data
   )
-  
+
   if not res.access_token then
     broker_log:error(1, 'Bad access token')
     return false
@@ -622,7 +623,7 @@ function EventQueue:is_valid_neb_event ()
   elseif self.currentEvent.state == 3 then
     self.sendData.severity = 4
   end
-
+  
   return true
 end
 
@@ -708,7 +709,7 @@ function EventQueue:flush ()
   retval = self:send_data()
 
   self.events = {}
-
+  
   -- and update the timestamp
   self.__internal_ts_last_flush = os.time()
   return retval
@@ -796,7 +797,7 @@ function write (event)
     else 
       eventId = tostring(queue.currentEvent.host_id) .. '_' .. tostring(queue.currentEvent.service_id) .. '_' .. tostring(queue.currentEvent.last_check)
     end
-
+    
     -- remove oldest event from sent events list
     if #queue.validatedEvents >= queue.max_stored_events then
       table.remove(queue.validatedEvents, 1)
