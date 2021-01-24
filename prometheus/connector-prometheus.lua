@@ -132,6 +132,26 @@ local function get_hostname (host_id)
 end
 
 --------------------------------------------------------------------------------
+-- get_hostgroups: retrieve hostgroups from host_id
+-- @param {number} host_id,
+-- @return {array} hostgroups, 
+--------------------------------------------------------------------------------
+local function get_hostgroups (host_id)
+  if host_id == nil then 
+    broker_log:warning(1, "get_hostgroup: host id is nil")
+    return false
+  end
+
+  local hostgroups = broker_cache:get_hostgroups(host_id)
+  if not hostgroups then
+    broker_log:warning(1, "get_hostgroups: no hostgroup for host id " .. host_id .. " found.")
+    return false
+  end
+  
+  return hostgroups
+end
+
+--------------------------------------------------------------------------------
 -- get_service_description: retrieve the service name from its host_id and service_id
 -- @param {number} host_id,
 -- @param {number} service_id,
@@ -490,6 +510,40 @@ function EventQueue:is_valid_event ()
 end
 
 --------------------------------------------------------------------------------
+-- is_valid_event: check if the event is valid
+-- @param {table} event, the event data
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:display_hostgroups ()
+  local hostgroups = get_hostgroups(self.current_event.host_id)
+
+  if not hostgroups then
+    return false
+  end
+
+  local hostgroupList = {}
+  local hostgroupLabel = 'hostgroup="'
+  local counter = 0
+
+  for i, v in pairs(hostgroups) do
+    table.insert(hostgroupList, v.group_name)
+  end
+
+  table.sort(hostgroupList)
+  for i, v in pairs(hostgroups) do
+    if counter == 0 then
+      hostgroupLabel = hostgroupLabel .. v
+      counter = 1
+    else 
+      hostgroupLabel = hostgroupLabel .. ',' .. v
+    end
+  end
+
+  return hostgroupLabel
+end
+
+
+--------------------------------------------------------------------------------
 -- format_data: prepare the event data so it can be sent
 -- @return {table|string|number} data, the formated data
 --------------------------------------------------------------------------------
@@ -500,6 +554,13 @@ function EventQueue:format_data ()
   local name = nil
   local unit = nil
 
+  -- handle hostgroups
+  if self.add_hostgroups == 1 then
+    self.current_event.hostgroups = self:display_hostgroups()
+  else
+    self.current_event.hostgroups = false
+  end
+
   for label, metric in pairs(perf) do
     type = self:get_metric_type(metric)
     unit = unit_mapping(metric.uom)
@@ -507,8 +568,13 @@ function EventQueue:format_data ()
     
 
     data = data .. '# TYPE ' .. name .. ' ' .. type .. '\n'
-    data = data .. self.add_unit_info(label, unit, name)
-    data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
+    data = data .. self:add_unit_info(label, unit, name)
+    
+    if not self.current_event.hostgroups then
+      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
+    else
+      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroups .. '"} ' .. metric.value .. '\n'
+    end
 
     if (self.enable_threshold_metrics == 1) then 
       data = data .. self:threshold_metrics(metric, label, unit, type)
@@ -519,7 +585,11 @@ function EventQueue:format_data ()
     name = convert_to_openmetric(self.current_event.hostname .. '_' .. self.current_event.service_description .. ':' .. label .. ':monitoring_status')
     data = data .. '# TYPE ' .. name .. ' counter\n'
     data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
-    data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
+    if not self.current_event.hostgroups then
+      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
+    else
+      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroups .. '"} ' .. self.current_event.state .. '\n'
+    end
   end
 
   return data
@@ -532,7 +602,7 @@ end
 -- @return {string} name, the prometheus metric name (open metric format)
 --------------------------------------------------------------------------------
 function EventQueue:create_metric_name (label, unit)
-  local name = nil
+  local name = ''
 
   if (unit ~= '') then
     if (self.enable_extended_metric_name == 0) then
@@ -547,7 +617,7 @@ function EventQueue:create_metric_name (label, unit)
       name = self.current_event.hostname .. '_' .. self.current_event.service_description .. ':' .. label
     end 
   end
-
+  broker_log:info(1, 'mon name is ' .. tostring(name))
   return convert_to_openmetric(name)
 end
 --------------------------------------------------------------------------------
@@ -577,7 +647,7 @@ function EventQueue:add_unit_info (label, unit, name)
   local data = ''
 
   if (unit ~= '' and unit ~= nil) then
-    data = '# UNIT ' .. name .. '\n'
+      data = '# UNIT ' .. name .. '\n'
   end
 
   return data
@@ -601,39 +671,51 @@ function EventQueue:threshold_metrics (perfdata, label, unit, type)
 
   if (ifnumber_not_nan(perfdata.warning_low)) then
     metricName = self:add_type_info(label, unit, 'warning_low')
-
-    data = data .. '# TYPE ' .. metricName .. ' ' .. type .. '\n'
-    data = data .. '# UNIT ' .. metricName .. ' ' .. unit .. '\n'
-    data = data .. '# HELP ' .. metricName .. '  values below this will trigger a warning alert\n'
-    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata.warning_low .. '\n'
+    message = 'values below this will trigger a warning alert\n'
+    data = data .. self:threshold_metrics_format(metricName, label, unit, type, message, perfdata.warning_low)
   end
 
   if (ifnumber_not_nan(perfdata.warning_high)) then
     metricName = self:add_type_info(label, unit, 'warning_high')
-
-    data = data .. '# TYPE ' .. metricName .. ' ' .. type .. '\n'
-    data = data .. '# UNIT ' .. metricName .. ' ' .. unit .. '\n'
-    data = data .. '# HELP ' .. metricName .. '  values above this will trigger a warning alert\n'
-    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata.warning_high .. '\n'
+    message = 'alues above this will trigger a warning alert\n'
+    data = data .. self:threshold_metrics_format(metricName, label, unit, type, message, perfdata.warning_high)
   end
 
   if (ifnumber_not_nan(perfdata.critical_low)) then
     metricName = self:add_type_info(label, unit, 'critical_low')
-
-    data = data .. '# TYPE ' .. metricName .. ' ' .. type .. '\n'
-    data = data .. '# UNIT ' .. metricName .. ' ' .. unit .. '\n'
-    data = data .. '# HELP ' .. metricName .. '  values below this will trigger a critical alert\n'
-    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata.critical_low .. '\n'
+    message = 'values below this will trigger a critical alert\n'
+    data = data .. self:threshold_metrics_format(metricName, label, unit, type, message, perfdata.critical_low)
   end
 
   if (ifnumber_not_nan(perfdata.critical_high)) then
     metricName = self:add_type_info(label, unit, 'critical_high')
-
-    data = data .. '# TYPE ' .. metricName .. ' ' .. type .. '\n'
-    data = data .. '# UNIT ' .. metricName .. ' ' .. unit .. '\n'
-    data = data .. '# HELP ' .. metricName .. ' values above this will trigger a critical alert\n'
-    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata.critical_high .. '\n'
+    message = 'values above this will trigger a critical alert\n'
+    data = data .. self:threshold_metrics_format(metricName, label, unit, type, message, perfdata.critical_high)
   end
+
+  return data
+end
+
+--------------------------------------------------------------------------------
+-- threshold_metrics_format: create data format for threshold metrics
+-- @param {string} metricName, the formated metric name
+-- @param {string} label, the name of the metric
+-- @param {string} unit, the unit name
+-- @param {string} type, the type of unit (counter, gauge...)
+-- @return {string} data, metrics based on alert thresholds
+--------------------------------------------------------------------------------
+function EventQueue:threshold_metrics_format (metricName, label, unit, type, message, perfdata)
+  local data = ''
+
+  data = data .. '# TYPE ' .. metricName .. ' ' .. type .. '\n'
+  data = data .. '# UNIT ' .. metricName .. ' ' .. unit .. '\n'
+  data = data .. '# HELP ' .. metricName .. ' ' .. message
+
+  -- if not self.current_event.hostgroups then
+    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata .. '\n'
+  -- else
+  --   data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroups .. '"} ' .. perfdata .. '\n'
+  -- end
 
   return data
 end
