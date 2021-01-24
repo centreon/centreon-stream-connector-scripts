@@ -355,7 +355,8 @@ function EventQueue:authToken ()
   )
 
   if not res.access_token then
-    error("Authentication failed")
+    broker_log:error(1, "Authentication failed, couldn't get tokens")
+    return false
   end
 
   self.tokens.authToken = {
@@ -364,7 +365,7 @@ function EventQueue:authToken ()
   }
 
   self.tokens.refreshToken = {
-    token = res.resfresh_token,
+    token = res.refresh_token,
     expTime = os.time(os.date("!*t")) + 360000
   }
 end
@@ -373,7 +374,7 @@ end
 -- refreshToken: refresh auth token
 --------------------------------------------------------------------------------
 function EventQueue:refreshToken (token)
-  local data = "grant_type=refresh_token&client_id=" .. self.client_id .. "&client_secret=" .. self.client_secret .. "&username=" .. self.username .. "&password=" .. self.password
+  local data = "grant_type=refresh_token&client_id=" .. self.client_id .. "&client_secret=" .. self.client_secret .. "&username=" .. self.username .. "&password=" .. self.password .. "&refresh_token=" .. token
   
   local res = self:call(
     "oauth_token.do",
@@ -401,7 +402,7 @@ function EventQueue:refreshTokenIsValid ()
   end
 
   if os.time(os.date("!*t")) > self.tokens.refreshToken.expTime then
-    self.refreshToken = nil
+    self.tokens.refreshToken = nil
     return false
   end
 
@@ -417,7 +418,7 @@ function EventQueue:accessTokenIsValid ()
   end
 
   if os.time(os.date("!*t")) > self.tokens.authToken.expTime then
-    self.authToken = nil
+    self.tokens.authToken = nil
     return false
   end
 
