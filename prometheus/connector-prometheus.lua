@@ -210,6 +210,25 @@ local function find_in_mapping (mapping, reference, item)
 end
 
 --------------------------------------------------------------------------------
+-- find_hostgroup_in_list: check if hostgroups from hosts are in an accepted list from the stream connector configuration
+-- @param {table} acceptedHostgroups, the table with the name of accepted hostgroups 
+-- @param {table} hostHostgroups, the hostgroups associated to an host
+-- @return {boolean}
+-- @return {string} [optional] acceptedHostgroupsName, the hostgroup name that matched
+--------------------------------------------------------------------------------
+local function find_hostgroup_in_list (acceptedHostgroups, hostHostgroups)
+  for _, acceptedHostgroupsName in ipairs(acceptedHostgroups) do
+    for _, hostHostgroupsInfo in pairs(hostHostgroups) do
+      if acceptedHostgroupsName == hostHostgroupsInfo.group_name then
+        return true, acceptedHostgroupsName
+      end
+    end
+  end
+  
+  return false
+end
+
+--------------------------------------------------------------------------------
 -- check_neb_event_status: check the status of a neb event (ok, critical...)
 -- @param {number} eventStatus, the status of the event
 -- @param {string} acceptedStatus, the event statuses that are going to be accepted
@@ -508,6 +527,31 @@ function EventQueue:is_valid_event ()
 
   return validEvent
 end
+
+function EventQueue:is_valid_hostgroup ()
+  -- return true if option is not set
+  return ifnil_or_empty(self.accepted_hostgroups, true)
+
+  self.current_event.hostgroups = get_hostgroups(self.current_event.host_id)
+  
+  -- drop event if we can't find any hostgroup on the host
+  if not self.current_event.hostgroups then
+    broker_log:info(2, 'EventQueue:is_valid_hostgroup: dropping event because no hostgroup has been found for host_id: ' .. self.current_event.host_id)
+    return false
+  end
+
+  -- check if hostgroup is in the list of the accepted one
+  local retval, matchedHostgroup = find_hostgroup_in_list(split(self.accepted_hostgroups), self.current_event.hostgroups)
+
+  if matchedHostgroup == nil then
+    broker_log:info(2, 'EventQueue:is_valid_hostgroup: no hostgroup matched provided list: ' .. self.accepted_hostgroups .. ' for host_id: ' .. self.current_event.host_id .. '')
+  else
+    broker_log:info(2, 'EventQueue:is_valid_hostgroup: host_id: ' .. self.current_event.host_id .. ' matched is in the following hostgroup: ' .. matchedHostgroup)
+  end
+
+  return retval
+end
+
 
 --------------------------------------------------------------------------------
 -- is_valid_event: check if the event is valid
