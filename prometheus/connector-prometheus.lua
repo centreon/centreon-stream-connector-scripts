@@ -617,7 +617,7 @@ function EventQueue:create_metric_name (label, unit)
       name = self.current_event.hostname .. '_' .. self.current_event.service_description .. ':' .. label
     end 
   end
-  broker_log:info(1, 'mon name is ' .. tostring(name))
+
   return convert_to_openmetric(name)
 end
 --------------------------------------------------------------------------------
@@ -653,6 +653,13 @@ function EventQueue:add_unit_info (label, unit, name)
   return data
 end
 
+--------------------------------------------------------------------------------
+-- add_type_info: add unit metadata to match openmetrics standard
+-- @param {string} label, the name of the metric
+-- @param {string} unit, the unit name
+-- @param {string} suffix, a suffix that is part of the metric name
+-- @return {string} name, the full metric name (open metric format)
+--------------------------------------------------------------------------------
 function EventQueue:add_type_info (label, unit, suffix)
   return self:create_metric_name(label, unit) .. '_' .. suffix
 end
@@ -727,7 +734,7 @@ local queue
 -- @param {table} parameters, the table with all the configuration parameters
 --------------------------------------------------------------------------------
 function init (parameters)
-  logfile = parameters.logfile or "/var/log/centreon-broker/connector-servicenow.log"
+  logfile = parameters.logfile or "/var/log/centreon-broker/connector-prometheus-gateway.log"
   broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
@@ -755,13 +762,16 @@ end
 function EventQueue:flush ()
   broker_log:info(3, "EventQueue:flush: Concatenating all the events as one string")
 
-  retval = self:send_data()
+  if not self:send_data() then
+    broker_log:error(1, "EventQueue:flush: couldn't send data, flushing data anyway")
+  end
 
   self.events = {}
     
   -- and update the timestamp
   self.__internal_ts_last_flush = os.time()
-  return retval
+
+  return true
 end
 
 --------------------------------------------------------------------------------
@@ -791,14 +801,26 @@ function EventQueue:send_data ()
       }
     )
   
-  -- setting the CURLOPT_PROXY
-  if self.http_proxy_string and self.http_proxy_string ~= "" then
-    broker_log:info(3, "EventQueue:flush: HTTP PROXY string is '" .. self.http_proxy_string .. "'")
-    httpRequest:setopt(curl.OPT_PROXY, self.http_proxy_string)
+  -- set proxy address configuration
+  if (self.proxy_address ~= '') then
+    if (self.proxy_port ~= '') then
+      request:setopt(curl.OPT_PROXY, self.proxy_address .. ':' .. self.proxy_port)
+    else 
+      broker_log:error(1, "EventQueue:send_data: proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (self.proxy_username ~= '') then
+    if (self.proxy_password ~= '') then
+      request:setopt(curl.OPT_PROXYUSERPWD, self.proxy_username .. ':' .. self.proxy_password)
+    else
+      broker_log:error(1, "EventQueue:send_data: proxy_password parameter is not set but proxy_username is used")
+    end
   end
 
   -- adding the HTTP POST data
-  broker_log:info(3, "EventQueue:flush: POST data: '" .. httpPostData .. "'")
+  broker_log:info(3, "EventQueue:send_data: POST data: '" .. httpPostData .. "'")
   httpRequest:setopt_postfields(httpPostData)
 
   -- performing the HTTP request
@@ -810,12 +832,12 @@ function EventQueue:send_data ()
   -- Handling the return code
   local retval = false
   if httpResponseCode == 200 then
-    broker_log:info(2, "EventQueue:flush: HTTP POST request successful: return code is " .. httpResponseCode)
+    broker_log:info(2, "EventQueue:send_data: HTTP POST request successful: return code is " .. httpResponseCode)
     -- now that the data has been sent, we empty the events array
     self.events = {}
     retval = true
   else
-    broker_log:error(0, "EventQueue:flush: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. httpResponseBody .. "\n\"\n")
+    broker_log:error(1, "EventQueue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. httpResponseBody .. "\n\"\n")
   end
 
   -- and update the timestamp
@@ -830,6 +852,7 @@ end
 --------------------------------------------------------------------------------
 function write (event)
   queue.current_event = event
+
   -- First, are there some old events waiting in the flush queue ?
   if (#queue.events > 0 and os.time() - queue.__internal_ts_last_flush > queue.max_buffer_age) then
     broker_log:info(2, "write: Queue max age (" .. os.time() - queue.__internal_ts_last_flush .. "/" .. queue.max_buffer_age .. ") is reached, flushing data")
@@ -838,40 +861,32 @@ function write (event)
 
   -- Then we check that the event queue is not already full
   if (#queue.events >= queue.max_buffer_size) then
-    broker_log:warning(1, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
+    broker_log:warning(2, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
     os.execute("sleep " .. tonumber(1))
     queue:flush()
+  end
+
+  if not queue:is_valid_category(event.category) then
+    broker_log:info(3, 'write: event category is ' .. event.category .. ' and is not valid')
+    return true
+  end
+
+  if not queue:is_valid_element(event.category, event.element) then
+    broker_log:info(3, 'write: event element is ' .. event.element .. ' and is not valid')
+    return true
   end
 
   -- adding event to the queue
   if queue:is_valid_event() then
     queue:add(queue:format_data())
   else
-    return false
+    return true
   end
 
   -- Then we check whether it is time to send the events to the receiver and flush
   if (#queue.events >= queue.max_buffer_size) then
     broker_log:info(2, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached, flushing data")
     return queue:flush()
-  end
-
-  return true
-end
-
---------------------------------------------------------------------------------
--- filter
--- @param {integer} category, the category of the event
--- @param {integer} element, the element of the event
--- @return {boolean}
---------------------------------------------------------------------------------
-function filter (category, element)
-  if not queue:is_valid_category(category) then
-    return false
-  end
-
-  if not queue:is_valid_element(category, element) then
-    return false
   end
 
   return true
