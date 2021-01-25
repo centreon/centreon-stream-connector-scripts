@@ -394,7 +394,7 @@ function EventQueue:authToken ()
   )
 
   if not res.access_token then
-    broker_log:error(1, "Authentication failed, couldn't get tokens")
+    broker_log:error(1, "EventQueue:authToken: Authentication failed, couldn't get tokens")
     return false
   end
 
@@ -422,7 +422,7 @@ function EventQueue:refreshToken (token)
   )
 
   if not res.access_token then
-    broker_log:error(1, 'Bad access token')
+    broker_log:error(1, 'EventQueue:refreshToken Bad access token')
     return false
   end
 
@@ -479,7 +479,7 @@ function EventQueue:call (url, method, data, authToken)
   authToken = authToken or nil
 
   local endpoint = "https://" .. tostring(self.instance) .. ".service-now.com/" .. tostring(url)
-  broker_log:info(3, "Prepare url " .. endpoint)
+  broker_log:info(3, "EventQueue:call: Prepare url " .. endpoint)
 
   local res = ""
   local request = curl.easy()
@@ -488,14 +488,14 @@ function EventQueue:call (url, method, data, authToken)
       res = res .. tostring(response)
     end)
 
-  broker_log:info(3, "Request initialize")
+  broker_log:info(3, "EventQueue:call: Request initialize")
 
   -- set proxy address configuration
   if (self.proxy_address ~= '') then
     if (self.proxy_port ~= '') then
       request:setopt(curl.OPT_PROXY, self.proxy_address .. ':' .. self.proxy_port)
     else 
-      broker_log:error(1, "proxy_port parameter is not set but proxy_address is used")
+      broker_log:error(1, "EventQueue:call: proxy_port parameter is not set but proxy_address is used")
     end
   end
 
@@ -504,13 +504,13 @@ function EventQueue:call (url, method, data, authToken)
     if (self.proxy_password ~= '') then
       request:setopt(curl.OPT_PROXYUSERPWD, self.proxy_username .. ':' .. self.proxy_password)
     else
-      broker_log:error(1, "proxy_password parameter is not set but proxy_username is used")
+      broker_log:error(1, "EventQueue:call: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
   if not authToken then
     if method ~= "GET" then
-      broker_log:info(3, "Add form header")
+      broker_log:info(3, "EventQueue:call: Add form header")
       request:setopt(curl.OPT_HTTPHEADER, { "Content-Type: application/x-www-form-urlencoded" })
     end
   else
@@ -526,29 +526,29 @@ function EventQueue:call (url, method, data, authToken)
   end
 
   if method ~= "GET" then
-    broker_log:info(3, "Add post data")
+    broker_log:info(3, "EventQueue:call: Add post data")
     request:setopt_postfields(data)
   end
 
-  broker_log:info(3, "request body " .. tostring(data))
-  broker_log:info(3, "request header " .. tostring(authToken))
-  broker_log:info(3, "Call url " .. endpoint)
+  broker_log:info(3, "EventQueue:call: request body " .. tostring(data))
+  broker_log:info(3, "EventQueue:call: request header " .. tostring(authToken))
+  broker_log:info(3, "EventQueue:call: Call url " .. endpoint)
   request:perform()
 
   respCode = request:getinfo(curl.INFO_RESPONSE_CODE)
-  broker_log:info(3, "HTTP Code : " .. respCode)
-  broker_log:info(3, "Response body : " .. tostring(res))
+  broker_log:info(3, "EventQueue:call: HTTP Code : " .. respCode)
+  broker_log:info(3, "EventQueue:call: Response body : " .. tostring(res))
 
   request:close()
 
   if respCode >= 300 then
-    broker_log:info(1, "HTTP Code : " .. respCode)
-    broker_log:info(1, "HTTP Error : " .. res)
+    broker_log:info(1, "EventQueue:call: HTTP Code : " .. respCode)
+    broker_log:info(1, "EventQueue:call: HTTP Error : " .. res)
     return false
   end
 
   if res == "" then
-    broker_log:info(1, "HTTP Error : " .. res)
+    broker_log:info(1, "EventQueue:call: HTTP Error : " .. res)
     return false
   end
 
@@ -809,7 +809,7 @@ function EventQueue:send_data ()
   end
 
   data = '{"records":[' .. data .. ']}'
-  broker_log:info(2, 'JSON SENT ' .. data)
+  broker_log:info(2, 'EventQueue:send_data:  creating json: ' .. data)
 
   if self:call(
       "api/global/em/jsonv2",
