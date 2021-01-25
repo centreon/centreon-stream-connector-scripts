@@ -54,6 +54,7 @@ end
 -- unit_mapping: convert perfdata units to openmetrics standard
 -- @param {string} unit, the unit value
 -- @return {string} unit, the openmetrics unit name
+-- @reuturn {boolean}, true if the unit is found in the mapping or empty
 --------------------------------------------------------------------------------
 local function unit_mapping (unit)
   local unitMapping = {
@@ -68,6 +69,8 @@ local function unit_mapping (unit)
     degres = 'celsius'
   }
 
+  local unhandledUnit = nil
+
   if unit == nil or unit == '' or type(unit) ~= 'string' then
     unit = ''
   end
@@ -79,12 +82,10 @@ local function unit_mapping (unit)
   else
     if (unitMapping[unit] ~= nil) then
       unit = unitMapping[unit]
-    else
-      unit = ''
     end
   end
 
-  return unit
+  return unit, true
 end
 
 --------------------------------------------------------------------------------
@@ -284,6 +285,7 @@ function EventQueue:new (conf)
     acknowledged = 1,
     element_type = "service_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
     category_type = "storage", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
+    accepted_hostgroups = '',
     in_downtime = 1,
     max_buffer_size = 1,
     max_buffer_age = 5,
@@ -292,13 +294,17 @@ function EventQueue:new (conf)
     enable_threshold_metrics = 0,
     enable_status_metrics = 0,
     disable_bam_host = 1,
+    add_hostgroups = 1,
     enable_extended_metric_name = 0,
     prometheus_gateway_address = 'http://localhost',
     prometheus_gateway_port = '9091',
     prometheus_gateway_job = 'monitoring',
     prometheus_gateway_instance = 'centreon',
     http_timeout = 60,
-    http_proxy_string = '',
+    proxy_address = '',
+    proxy_port = '',
+    proxy_username = '',
+    proxy_password = '',
     current_event = nil,
     element_mapping = {},
     category_mapping = {}
@@ -376,7 +382,7 @@ function EventQueue:new (conf)
       retval[i] = v
       broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
     else
-      broker_log:info(1, "EventQueue.new: ingoring unhandled parameter " .. i .. " => " .. v)
+      broker_log:info(1, "EventQueue.new: ignoring unhandled parameter " .. i .. " => " .. v)
     end
   end
 
@@ -389,6 +395,7 @@ function EventQueue:new (conf)
   retval.enable_status_metrics = check_boolean_number_option_syntax(retval.enable_status_metrics, 1)
   retval.disable_bam_host = check_boolean_number_option_syntax(retval.disable_bam_host, 1)
   retval.enable_extended_metric_name = check_boolean_number_option_syntax(retval.enable_extended_metric_name, 0)
+  retval.add_hostgroups = check_boolean_number_option_syntax(retval.add_hostgroups, 1)
 
   retval.__internal_ts_last_flush = os.time()
   retval.events = {}
@@ -488,6 +495,10 @@ function EventQueue:is_valid_neb_event ()
 
   self.current_event.service_description = tostring(self.current_event.service_description)
 
+  if not self:is_valid_hostgroup() then
+    return false
+  end
+
   return true
 end
 
@@ -529,11 +540,13 @@ function EventQueue:is_valid_event ()
 end
 
 function EventQueue:is_valid_hostgroup ()
-  -- return true if option is not set
-  return ifnil_or_empty(self.accepted_hostgroups, true)
-
   self.current_event.hostgroups = get_hostgroups(self.current_event.host_id)
   
+  -- return true if option is not set
+  if ifnil_or_empty(self.accepted_hostgroups, true) then
+    return true
+  end
+
   -- drop event if we can't find any hostgroup on the host
   if not self.current_event.hostgroups then
     broker_log:info(2, 'EventQueue:is_valid_hostgroup: dropping event because no hostgroup has been found for host_id: ' .. self.current_event.host_id)
@@ -554,34 +567,27 @@ end
 
 
 --------------------------------------------------------------------------------
--- is_valid_event: check if the event is valid
--- @param {table} event, the event data
--- @return {boolean}
+-- display_hostgroups: create the hostgroup label for the metric
+-- @return {string} hostgroupLabel: the full label for the metric
 --------------------------------------------------------------------------------
 function EventQueue:display_hostgroups ()
-  local hostgroups = get_hostgroups(self.current_event.host_id)
-
-  if not hostgroups then
+  if not self.current_event.hostgroups then
     return false
   end
 
-  local hostgroupList = {}
   local hostgroupLabel = 'hostgroup="'
   local counter = 0
 
-  for i, v in pairs(hostgroups) do
-    table.insert(hostgroupList, v.group_name)
-  end
-
-  table.sort(hostgroupList)
-  for i, v in pairs(hostgroups) do
+  for i, v in pairs(self.current_event.hostgroups) do
     if counter == 0 then
-      hostgroupLabel = hostgroupLabel .. v
+      hostgroupLabel = hostgroupLabel .. v.group_name
       counter = 1
-    else 
-      hostgroupLabel = hostgroupLabel .. ',' .. v
+    else
+      hostgroupLabel = hostgroupLabel .. ',' .. v.group_name
     end
   end
+
+  hostgroupLabel = hostgroupLabel .. '"'
 
   return hostgroupLabel
 end
@@ -600,24 +606,24 @@ function EventQueue:format_data ()
 
   -- handle hostgroups
   if self.add_hostgroups == 1 then
-    self.current_event.hostgroups = self:display_hostgroups()
+    self.current_event.hostgroupsLabel = self:display_hostgroups()
   else
-    self.current_event.hostgroups = false
+    self.current_event.hostgroupsLabel = false
   end
 
   for label, metric in pairs(perf) do
     type = self:get_metric_type(metric)
-    unit = unit_mapping(metric.uom)
+    unit= unit_mapping(metric.uom)
     name = self:create_metric_name(label, unit)
     
 
     data = data .. '# TYPE ' .. name .. ' ' .. type .. '\n'
     data = data .. self:add_unit_info(label, unit, name)
     
-    if not self.current_event.hostgroups then
+    if not self.current_event.hostgroupsLabel then
       data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
     else
-      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroups .. '"} ' .. metric.value .. '\n'
+      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. metric.value .. '\n'
     end
 
     if (self.enable_threshold_metrics == 1) then 
@@ -629,10 +635,10 @@ function EventQueue:format_data ()
     name = convert_to_openmetric(self.current_event.hostname .. '_' .. self.current_event.service_description .. ':' .. label .. ':monitoring_status')
     data = data .. '# TYPE ' .. name .. ' counter\n'
     data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
-    if not self.current_event.hostgroups then
+    if not self.current_event.hostgroupsLabel then
       data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
     else
-      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroups .. '"} ' .. self.current_event.state .. '\n'
+      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. self.current_event.state .. '\n'
     end
   end
 
@@ -656,7 +662,7 @@ function EventQueue:create_metric_name (label, unit)
     end
   else
     if (self.enable_extended_metric_name == 0) then
-      name = label .. '_' .. unit
+      name = label
     else
       name = self.current_event.hostname .. '_' .. self.current_event.service_description .. ':' .. label
     end 
@@ -762,11 +768,11 @@ function EventQueue:threshold_metrics_format (metricName, label, unit, type, mes
   data = data .. '# UNIT ' .. metricName .. ' ' .. unit .. '\n'
   data = data .. '# HELP ' .. metricName .. ' ' .. message
 
-  -- if not self.current_event.hostgroups then
+  if not self.current_event.hostgroupsLabel then
     data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata .. '\n'
-  -- else
-  --   data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroups .. '"} ' .. perfdata .. '\n'
-  -- end
+  else
+    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroupsLabel .. '"} ' .. perfdata .. '\n'
+  end
 
   return data
 end
@@ -848,7 +854,7 @@ function EventQueue:send_data ()
   -- set proxy address configuration
   if (self.proxy_address ~= '') then
     if (self.proxy_port ~= '') then
-      request:setopt(curl.OPT_PROXY, self.proxy_address .. ':' .. self.proxy_port)
+      httpRequest:setopt(curl.OPT_PROXY, self.proxy_address .. ':' .. self.proxy_port)
     else 
       broker_log:error(1, "EventQueue:send_data: proxy_port parameter is not set but proxy_address is used")
     end
@@ -857,7 +863,7 @@ function EventQueue:send_data ()
   -- set proxy user configuration
   if (self.proxy_username ~= '') then
     if (self.proxy_password ~= '') then
-      request:setopt(curl.OPT_PROXYUSERPWD, self.proxy_username .. ':' .. self.proxy_password)
+      httpRequest:setopt(curl.OPT_PROXYUSERPWD, self.proxy_username .. ':' .. self.proxy_password)
     else
       broker_log:error(1, "EventQueue:send_data: proxy_password parameter is not set but proxy_username is used")
     end
@@ -881,6 +887,7 @@ function EventQueue:send_data ()
     self.events = {}
     retval = true
   else
+    broker_log:error(1, "the body request " .. httpPostData)
     broker_log:error(1, "EventQueue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. httpResponseBody .. "\n\"\n")
   end
 
