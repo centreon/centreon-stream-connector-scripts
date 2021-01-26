@@ -411,7 +411,7 @@ function write(e)
     end
 
     -- Ignore states different from previous hard state only
-    if e.last_hard_state_change and e.last_hard_state_change < e.last_check then
+    if e.last_hard_state_change and e.last_check and e.last_hard_state_change < e.last_check then
       broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Last hard state change prior to last check => no state change. Dropping.")
       return true
     end
