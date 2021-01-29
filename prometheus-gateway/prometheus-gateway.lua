@@ -539,11 +539,15 @@ function EventQueue:is_valid_event ()
   return validEvent
 end
 
+ --------------------------------------------------------------------------------
+  -- is_valid_hostgroup: check if the event is associated to an accepted hostgroup
+  -- @return {boolean}
+  --------------------------------------------------------------------------------
 function EventQueue:is_valid_hostgroup ()
   self.current_event.hostgroups = get_hostgroups(self.current_event.host_id)
   
   -- return true if option is not set
-  if ifnil_or_empty(self.accepted_hostgroups, true) then
+  if self.accepted_hostgroups == '' then
     return true
   end
 
@@ -554,7 +558,7 @@ function EventQueue:is_valid_hostgroup ()
   end
 
   -- check if hostgroup is in the list of the accepted one
-  local retval, matchedHostgroup = find_hostgroup_in_list(split(self.accepted_hostgroups), self.current_event.hostgroups)
+  local retval, matchedHostgroup = find_hostgroup_in_list(split(self.accepted_hostgroups, ','), self.current_event.hostgroups)
 
   if matchedHostgroup == nil then
     broker_log:info(2, 'EventQueue:is_valid_hostgroup: no hostgroup matched provided list: ' .. self.accepted_hostgroups .. ' for host_id: ' .. self.current_event.host_id .. '')
