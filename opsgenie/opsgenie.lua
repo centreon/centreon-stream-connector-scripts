@@ -280,17 +280,20 @@ function EventQueue:new (conf)
     proxy_username = '',
     proxy_password = '',
     validatedEvents = {},
-    api_token = '',
+    app_api_token = '',
+    integration_api_token = '',
     api_url = 'https://api.opsgenie.com',
     date_format = '%Y-%m-%d %H:%M:%S',
     host_event_message = '{last_update_date} {hostname} is {state}',
     host_event_description = '',
+    host_event_alias = '{hostname}_{state}',
     service_event_message = '{last_update_date} {hostname} // {serviceDescription} is {state}',
     service_event_description = '',
+    service_event_alias = '{hostname}_{serviceDescription}_{state}',
     enable_severity = 0,
     priority_must_be_set = 0,
-    priority_matching = 'P0=1,P1=2,P2=3,P3=4,P4=5,P5=6',
-    opsgenie_priorities = 'P0,P1,P2,P3,P4,P5',
+    priority_matching = 'P1=1,P2=2,P3=3,P4=4,P5=5',
+    opsgenie_priorities = 'P1,P2,P3,P4,P5',
     priority_mapping = {}
   }
 
@@ -382,7 +385,7 @@ function EventQueue:new (conf)
   for i,v in pairs(conf) do
     if retval[i] then
       retval[i] = v
-      if i == 'api_token' then
+      if i == 'app_api_token' or i == 'integration_api_token' then
         broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => *********")
       else
         broker_log:info(1, "EventQueue.new: getting parameter " .. i .. " => " .. v)
@@ -401,8 +404,10 @@ function EventQueue:new (conf)
   retval.service_event_message = ifnil_or_empty(retval.service_event_message, '{last_update_date} {hostname} // {serviceDescription} is {state}')
   retval.enable_severity = check_boolean_number_option_syntax(retval.enable_severity, 1)
   retval.priority_must_be_set = check_boolean_number_option_syntax(retval.priority_must_be_set, 0)
-  retval.priority_matching = ifnil_or_empty(retval.priority_matching, 'P0=0,P1=1,P2=2,P3=3,P4=4,P5=5')
-  retval.opsgenie_priorities = ifnil_or_empty(retval.opsgenie_priorities, 'P0,P1,P2,P3,P4,P5')
+  retval.priority_matching = ifnil_or_empty(retval.priority_matching, 'P1=1,P2=2,P3=3,P4=4,P5=5')
+  retval.opsgenie_priorities = ifnil_or_empty(retval.opsgenie_priorities, 'P1,P2,P3,P4,P5')
+  retval.host_event_alias = ifnil_or_empty(retval.host_event_alias, '{hostname}_{state}')
+  retval.service_event_alias = ifnil_or_empty(retval.service_event_alias, '{hostname}_{serviceDescription}_{state}')
 
   local severity_to_priority = {}
   
@@ -438,11 +443,11 @@ end
 -- @return {array} decoded output
 -- @throw exception if http call fails or response is empty
 --------------------------------------------------------------------------------
-function EventQueue:call (data)
+function EventQueue:call (data, url_path, token)
   method = method or "GET"
   data = data or nil
 
-  local endpoint = tostring(self.api_url) .. "/v1/incidents/create"
+  local endpoint = self.api_url .. url_path
   broker_log:info(3, "EventQueue:call: Prepare url " .. endpoint)
 
   local res = ""
@@ -478,7 +483,7 @@ function EventQueue:call (data)
     {
       "Accept: application/json",
       "Content-Type: application/json",
-      "Authorization: GenieKey " .. self.api_token
+      "Authorization: GenieKey " .. token
     }
   )
 
@@ -487,7 +492,7 @@ function EventQueue:call (data)
 
   broker_log:info(3, "EventQueue:call: request body " .. tostring(data))
   broker_log:info(3, "EventQueue:call: request header " .. tostring(token))
-  broker_log:info(3, "EventQueue:call: Call url " .. endpoint)
+  broker_log:info(3, "EventQueue:call: Call url " .. tostring(endpoint))
   request:perform()
 
   respCode = request:getinfo(curl.INFO_RESPONSE_CODE)
@@ -586,6 +591,7 @@ function EventQueue:is_valid_neb_event ()
 
     self.sendData.message = self:buildMessage(self.host_event_message, nil)
     self.sendData.description = self:buildMessage(self.host_event_description, self.currentEvent.output)
+    self.sendData.alias = self:buildMessage(self.host_event_alias, nil)
 
   elseif self.currentEvent.element == 24 then
     self.currentEvent.serviceDescription = get_service_description(self.currentEvent.host_id, self.currentEvent.service_id)
@@ -606,7 +612,7 @@ function EventQueue:is_valid_neb_event ()
 
     self.sendData.message = self:buildMessage(self.service_event_message, nil)
     self.sendData.description = self:buildMessage(self.service_event_description, self.currentEvent.output)
-    self.currentEvent.svc_severity = broker_cache:get_severity(self.currentEvent.host_id,self.currentEvent.service_id)
+    self.sendData.alias = self:buildMessage(self.service_event_alias, nil)
   end
   
   return true
@@ -637,10 +643,14 @@ function EventQueue:is_valid_event ()
   self.sendData = {}
   if self.currentEvent.category == 1 then
     validEvent = self:is_valid_neb_event()
+    self.currentEvent.endpoint = '/v2/alerts'
+    self.currentEvent.token = self.integration_api_token
   elseif self.currentEvent.category == 3 then
     validEvent = self:is_valid_storage_event()
   elseif self.currentEvent.category == 6 then
     validEvent = self:is_valid_bam_event()
+    self.currentEvent.endpoint = '/v1/incidents/create'
+    self.currentEvent.token = self.app_api_token
   end
 
   return validEvent
@@ -685,14 +695,14 @@ local queue
 function init (parameters)
   logfile = parameters.logfile or "/var/log/centreon-broker/connector-opsgenie.log"
 
-  if not parameters.api_token then
+  if not parameters.app_api_token or not parameters.integration_api_token then
     broker_log:error(1,'Required parameters are: api_token. There type must be string')
   end
 
   broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
-    if i == 'api_token' then
+    if i == 'app_api_token' or i == 'integration_api_token' then
       broker_log:info(1, "Init " .. i .. " : *********")
     else
       broker_log:info(1, "Init " .. i .. " : " .. v)
@@ -748,7 +758,7 @@ function EventQueue:send_data ()
 
   broker_log:info(2, 'EventQueue:send_data:  creating json: ' .. data)
 
-  if self:call(data) then
+  if self:call(data, self.currentEvent.endpoint, self.currentEvent.token) then
     return true
   end
 
