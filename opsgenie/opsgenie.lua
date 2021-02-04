@@ -132,6 +132,30 @@ local function get_hostgroups (host_id)
 end
 
 --------------------------------------------------------------------------------
+-- get_severity: retrieve severity from host or service
+-- @param {number} host_id,
+-- @param {number} [optional] service_id
+-- @return {array} severity, 
+--------------------------------------------------------------------------------
+local function get_severity (host_id, service_id)
+  local service_id = service_id or nil
+  local severity = nil
+
+  if host_id == nil then 
+    broker_log:warning(1, "get_severity: host id is nil")
+    return false
+  end
+
+  if service_id == nil then
+    severity = broker_cache:get_severity(host_id)
+  else
+    severity = broker_cache:get_severity(host_id, service_id)
+  end
+
+  return severity
+end
+
+--------------------------------------------------------------------------------
 -- split: convert a string into a table
 -- @param {string} string, the string that is going to be splitted into a table
 -- @param {string} separatpr, the separator character that will be used to split the string
@@ -262,7 +286,12 @@ function EventQueue:new (conf)
     host_event_message = '{last_update_date} {hostname} is {state}',
     host_event_description = '',
     service_event_message = '{last_update_date} {hostname} // {serviceDescription} is {state}',
-    service_event_description = ''
+    service_event_description = '',
+    enable_severity = 0,
+    priority_must_be_set = 0,
+    priority_matching = 'P0=1,P1=2,P2=3,P3=4,P4=5,P5=6',
+    opsgenie_priorities = 'P0,P1,P2,P3,P4,P5',
+    priority_mapping = {}
   }
 
   retval.category_mapping = {
@@ -370,6 +399,29 @@ function EventQueue:new (conf)
   retval.skip_nil_id = check_boolean_number_option_syntax(retval.skip_nil_id, 1)
   retval.host_event_message = ifnil_or_empty(retval.host_event_message, '{last_update_date} {hostname} is {state}')
   retval.service_event_message = ifnil_or_empty(retval.service_event_message, '{last_update_date} {hostname} // {serviceDescription} is {state}')
+  retval.enable_severity = check_boolean_number_option_syntax(retval.enable_severity, 1)
+  retval.priority_must_be_set = check_boolean_number_option_syntax(retval.priority_must_be_set, 0)
+  retval.priority_matching = ifnil_or_empty(retval.priority_matching, 'P0=0,P1=1,P2=2,P3=3,P4=4,P5=5')
+  retval.opsgenie_priorities = ifnil_or_empty(retval.opsgenie_priorities, 'P0,P1,P2,P3,P4,P5')
+
+  local severity_to_priority = {}
+  
+  if retval.enable_severity == 1 then
+    retval.priority_matching_list = split(retval.priority_matching, ',')
+
+    for i, v in ipairs(retval.priority_matching_list) do
+      severity_to_priority = split(v, '=')
+
+      if string.match(retval.opsgenie_priorities, severity_to_priority[1]) == nil then
+        broker_log:warning(1, "EventQueue.new: severity is enabled but the priority configuration is wrong. configured matching: " .. retval.priority_matching_list .. 
+          ", invalid parsed priority: " .. severity_to_priority[1] .. ", known Opsgenie priorities: " .. opsgenie_priorities .. 
+          ". Considere adding your priority to the opsgenie_priorities list if the parsed priority is valid")
+        break
+      end
+
+      retval.priority_mapping[severity_to_priority[2]] = severity_to_priority[1]  
+    end
+  end
 
   retval.__internal_ts_last_flush = os.time()
   retval.events = {}
@@ -516,6 +568,12 @@ function EventQueue:is_valid_neb_event ()
 
     if not self:is_valid_hostgroup() then
       return false
+    end
+
+    if self.enable_severity == 1 then
+      if not self:set_priority() then
+        return false
+      end
     end
 
     self.currentEvent.output = ifnil_or_empty(string.match(self.currentEvent.output, "^(.*)\n"), 'no output')
@@ -726,6 +784,42 @@ function EventQueue:buildMessage (template, default_template)
 
   return template
 end
+
+--------------------------------------------------------------------------------
+-- EventQueue:set_priority, set opsgenie priority using centreon severity
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function EventQueue:set_priority ()
+  local severity = nil
+  
+  if self.currentEvent.service_id == nil then
+    broker_log:info(3, "EventQueue:set_priority: getting severity for host: " .. self.currentEvent.host_id)
+    severity = get_severity(self.currentEvent.host_id)
+  else
+    broker_log:info(3, "EventQueue:set_priority: getting severity for service: " .. self.currentEvent.service_id)
+    severity = get_severity(self.currentEvent.host_id, self.currentEvent.service_id)
+  end
+
+  local matching_priority = self.priority_mapping[tostring(severity)]
+
+  if severity == nil and self.priority_must_be_set == 1 then
+    broker_log:info(3, 'EventQueue:set_priority: severity is nil and priority is mandatory. Dropping event')
+    return false
+  end
+
+  if matching_priority == nil and self.priority_must_be_set == 1 then
+    broker_log:info(3, "EventQueue:set_priority: couldn't find a matching priority for severity: " .. tostring(severity) .. " and priority is mandatory. Dropping event")
+    return false
+  elseif matching_priority == nil then
+    broker_log:info(3, 'EventQueue:set_priority: could not find matching priority for severity: ' .. tostring(severity) .. '. Skipping priority...')
+    return true
+  else
+    self.sendData.priority = matching_priority
+  end
+
+  return true
+end
+
 --------------------------------------------------------------------------------
 -- write,
 -- @param {array} event, the event from broker
