@@ -659,8 +659,7 @@
     if not self:is_valid_hostgroup() then
       return false
     end
-    broker_log:info(1, 'bouyaka')
-    
+  
     self.sendData.resource = self.currentEvent.serviceDescription
     if self.currentEvent.state == 0 then
       self.sendData.severity = 0
