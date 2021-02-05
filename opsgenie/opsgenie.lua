@@ -189,7 +189,7 @@ local function get_bvs (ba_id)
   end
 
   local bv_id = broker_cache:get_bvs(ba_id)
-  
+
   if bv_id == nil then
     broker_log:warning(1, "get_bvs: couldn't get bvs for ba id: " .. tostring(ba_id))
     return false
@@ -830,7 +830,7 @@ function init (parameters)
     broker_log:error(1,'Required parameters are: api_token. There type must be string')
   end
 
-  broker_log:set_parameters(3, logfile)
+  broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     if i == 'app_api_token' or i == 'integration_api_token' then
