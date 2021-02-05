@@ -189,6 +189,7 @@ local function get_bvs (ba_id)
   end
 
   local bv_id = broker_cache:get_bvs(ba_id)
+  
   if bv_id == nil then
     broker_log:warning(1, "get_bvs: couldn't get bvs for ba id: " .. tostring(ba_id))
     return false
@@ -197,10 +198,18 @@ local function get_bvs (ba_id)
   local bv_names = {}
   local bv_descriptions = {}
   local bv_infos = {}
+
   for i, v in ipairs(bv_id) do
     bv_infos = broker_cache:get_bv(v)
-    table.insert(bv_names,bv_infos.bv_name)
-    table.insert(bv_descriptions,bv_infos.bv_description)
+    if (bv_infos.bv_name ~= nil and bv_infos.bv_name ~= '') then
+      table.insert(bv_names,bv_infos.bv_name)
+      -- handle nil descriptions on BV
+      if bv_infos.bv_description ~= nil then
+        table.insert(bv_descriptions,bv_infos.bv_description)
+      else
+        broker_log:info(3, 'get_bvs: BV: ' .. bv_infos.bv_name .. ' has no description')
+      end
+    end
   end
 
   return bv_names, bv_descriptions
@@ -214,7 +223,16 @@ end
 --------------------------------------------------------------------------------
 local function split (text, separator)
   local hash = {}
-  -- https://stackoverflow.com/questions/1426954/split-string-in-lua
+  
+  -- return empty string if text is nil
+  if text == nil then
+    broker_log:error(1, 'split: could not split text because it is nil')
+    return ''
+  end
+  
+  -- set default separator
+  seperator = ifnil_or_empty(separator, ',')
+
   for value in string.gmatch(text, "([^" .. separator .. "]+)") do
     table.insert(hash, value)
   end
@@ -1001,7 +1019,7 @@ function write (event)
     -- add event in the sent events list and add list to queue
     table.insert(queue.validatedEvents, eventId)
     -- END OF FIX
-    
+
     queue:add()
   else
     return true
