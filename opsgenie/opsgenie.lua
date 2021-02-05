@@ -156,6 +156,57 @@ local function get_severity (host_id, service_id)
 end
 
 --------------------------------------------------------------------------------
+-- get_ba_name: retrieve ba name from ba id
+-- @param {number} ba_id,
+-- @return {string} ba_name, the name of the ba
+-- @return {string} ba_description, the description of the ba 
+--------------------------------------------------------------------------------
+local function get_ba_name (ba_id)
+  if ba_id == nil then 
+    broker_log:warning(1, "get_ba_name: ba id is nil")
+    return false
+  end
+
+  local ba_info = broker_cache:get_ba(ba_id)
+  if ba_info == nil then
+    broker_log:warning(1, "get_ba_name: couldn't get ba informations in cache")
+    return false
+  end
+
+  return ba_info.ba_name, ba_info.ba_description
+end
+
+--------------------------------------------------------------------------------
+-- get_bvs: retrieve bv name from ba id
+-- @param {number} ba_id,
+-- @return {array} bv_names, the bvs' name
+-- @return {array} bv_names, the bvs' description
+--------------------------------------------------------------------------------
+local function get_bvs (ba_id)
+  if ba_id == nil then 
+    broker_log:warning(1, "get_bvs: ba id is nil")
+    return false
+  end
+
+  local bv_id = broker_cache:get_bvs(ba_id)
+  if bv_id == nil then
+    broker_log:warning(1, "get_bvs: couldn't get bvs for ba id: " .. tostring(ba_id))
+    return false
+  end
+
+  local bv_names = {}
+  local bv_descriptions = {}
+  local bv_infos = {}
+  for i, v in ipairs(bv_id) do
+    bv_infos = broker_cache:get_bv(v)
+    table.insert(bv_names,bv_infos.bv_name)
+    table.insert(bv_descriptions,bv_infos.bv_description)
+  end
+
+  return bv_names, bv_descriptions
+end
+
+--------------------------------------------------------------------------------
 -- split: convert a string into a table
 -- @param {string} string, the string that is going to be splitted into a table
 -- @param {string} separatpr, the separator character that will be used to split the string
@@ -210,12 +261,12 @@ local function find_hostgroup_in_list (acceptedHostgroups, hostHostgroups)
 end
 
 --------------------------------------------------------------------------------
--- check_neb_event_status: check the status of a neb event (ok, critical...)
+-- check_event_status: check the status of an event (ok, critical...)
 -- @param {number} eventStatus, the status of the event
 -- @param {string} acceptedStatus, the event statuses that are going to be accepted
 -- @return {boolean}
 --------------------------------------------------------------------------------
-local function check_neb_event_status (eventStatus, acceptedStatuses)
+local function check_event_status (eventStatus, acceptedStatuses)
   for i, v in ipairs(split(acceptedStatuses, ',')) do
     if tostring(eventStatus) == v then
       return true
@@ -260,11 +311,12 @@ EventQueue.__index = EventQueue
 function EventQueue:new (conf)
   local retval = {
     host_status = "0,1,2", -- = ok, down, unreachable
-    service_status = "0,1,2,3", -- = ok, warning, critical, unknown
+    service_status = "0,1,2,3", -- = ok, warning, critical, unknown,
+    ba_status = "0,1,2", -- = ok, warning, critical
     hard_only = 1,
     acknowledged = 0,
-    element_type = "host_status,service_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
-    category_type = "neb", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
+    element_type = "host_status,service_status,ba_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
+    category_type = "neb,bam", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
     accepted_hostgroups = '',
     in_downtime = 0,
     max_buffer_size = 1,
@@ -284,12 +336,17 @@ function EventQueue:new (conf)
     integration_api_token = '',
     api_url = 'https://api.opsgenie.com',
     date_format = '%Y-%m-%d %H:%M:%S',
-    host_event_message = '{last_update_date} {hostname} is {state}',
-    host_event_description = '',
-    host_event_alias = '{hostname}_{state}',
-    service_event_message = '{last_update_date} {hostname} // {serviceDescription} is {state}',
-    service_event_description = '',
-    service_event_alias = '{hostname}_{serviceDescription}_{state}',
+    host_alert_message = '{last_update_date} {hostname} is {state}',
+    host_alert_description = '',
+    host_alert_alias = '{hostname}_{state}',
+    service_alert_message = '{last_update_date} {hostname} // {serviceDescription} is {state}',
+    service_alert_description = '',
+    service_alert_alias = '{hostname}_{serviceDescription}_{state}',
+    ba_incident_message = '{baName} is {state}, health level reached {level_nominal}',
+    ba_incident_description = '',
+    ba_incident_tags = 'centreon,applications',
+    enable_incident_tags = 1,
+    get_bv = 1,
     enable_severity = 0,
     priority_must_be_set = 0,
     priority_matching = 'P1=1,P2=2,P3=3,P4=4,P5=5',
@@ -365,22 +422,42 @@ function EventQueue:new (conf)
   retval.element_mapping[6].inherited_downtime = 17
 
   retval.status_mapping = {
-    [14] = {},
-    [24] = {}
+    [1] = {},
+    [3] = {},
+    [6] = {}
   }
 
-  retval.status_mapping[14] = {
+  retval.status_mapping[1][14] = {
     [0] = 'UP',
     [1] = 'DOWN',
     [2] = 'UNREACHABLE'
   }
 
-  retval.status_mapping[24] = {
+  retval.status_mapping[1][24] = {
     [0] = 'OK',
     [1] = 'WARNING',
     [2] = 'CRITICAL',
     [3] = 'UNKNOWN'
   }
+
+  retval.status_mapping[6][1] = {
+    [0] = 'OK',
+    [1] = 'WARNING',
+    [2] = 'CRITICAL'
+  }
+
+  -- retval.status_mapping[14] = {
+  --   [0] = 'UP',
+  --   [1] = 'DOWN',
+  --   [2] = 'UNREACHABLE'
+  -- }
+
+  -- retval.status_mapping[24] = {
+  --   [0] = 'OK',
+  --   [1] = 'WARNING',
+  --   [2] = 'CRITICAL',
+  --   [3] = 'UNKNOWN'
+  -- }
 
   for i,v in pairs(conf) do
     if retval[i] then
@@ -400,14 +477,17 @@ function EventQueue:new (conf)
   retval.in_downtime = check_boolean_number_option_syntax(retval.in_downtime, 0)
   retval.skip_anon_events = check_boolean_number_option_syntax(retval.skip_anon_events, 1)
   retval.skip_nil_id = check_boolean_number_option_syntax(retval.skip_nil_id, 1)
-  retval.host_event_message = ifnil_or_empty(retval.host_event_message, '{last_update_date} {hostname} is {state}')
-  retval.service_event_message = ifnil_or_empty(retval.service_event_message, '{last_update_date} {hostname} // {serviceDescription} is {state}')
+  retval.host_alert_message = ifnil_or_empty(retval.host_alert_message, '{last_update_date} {hostname} is {state}')
+  retval.service_alert_message = ifnil_or_empty(retval.service_alert_message, '{last_update_date} {hostname} // {serviceDescription} is {state}')
   retval.enable_severity = check_boolean_number_option_syntax(retval.enable_severity, 1)
   retval.priority_must_be_set = check_boolean_number_option_syntax(retval.priority_must_be_set, 0)
   retval.priority_matching = ifnil_or_empty(retval.priority_matching, 'P1=1,P2=2,P3=3,P4=4,P5=5')
   retval.opsgenie_priorities = ifnil_or_empty(retval.opsgenie_priorities, 'P1,P2,P3,P4,P5')
-  retval.host_event_alias = ifnil_or_empty(retval.host_event_alias, '{hostname}_{state}')
-  retval.service_event_alias = ifnil_or_empty(retval.service_event_alias, '{hostname}_{serviceDescription}_{state}')
+  retval.host_alert_alias = ifnil_or_empty(retval.host_alert_alias, '{hostname}_{state}')
+  retval.service_alert_alias = ifnil_or_empty(retval.service_alert_alias, '{hostname}_{serviceDescription}_{state}')
+  retval.ba_incident_message = ifnil_or_empty(retval.ba_incident_message, '{baName} is {state}, health level reached {level_nominal}')
+  retval.enable_incident_tags = check_boolean_number_option_syntax(retval.enable_incident_tags, 1)
+  retval.get_bv = check_boolean_number_option_syntax(retval.get_bv, 1)
 
   local severity_to_priority = {}
   
@@ -538,15 +618,18 @@ end
 -- is_valid_neb_event: check if the neb event is valid
 -- @return {table} validNebEvent, a table of boolean indexes validating the event
 --------------------------------------------------------------------------------
-function EventQueue:is_valid_neb_event ()
+function EventQueue:is_valid_neb_event ()   
   if self.currentEvent.element == 14 or self.currentEvent.element == 24 then
-    self.currentEvent.hostname = get_hostname(self.currentEvent.host_id)
+    -- prepare api info
+    self.currentEvent.endpoint = '/v2/alerts'
+    self.currentEvent.token = self.integration_api_token
 
+    self.currentEvent.hostname = get_hostname(self.currentEvent.host_id)  
     -- can't find hostname in cache
     if self.currentEvent.hostname == self.currentEvent.host_id and self.skip_anon_events == 1 then
       return false
     end
-
+  
     -- can't find host_id in the event
     if self.currentEvent.hostname == 0 and self.skip_nil_id == 1 then
       return false
@@ -574,8 +657,8 @@ function EventQueue:is_valid_neb_event ()
     if not self:is_valid_hostgroup() then
       return false
     end
-
-    if self.enable_severity == 1 then
+  
+    if self.enable_severity == 1 then   
       if not self:set_priority() then
         return false
       end
@@ -585,23 +668,25 @@ function EventQueue:is_valid_neb_event ()
   end
 
   if self.currentEvent.element == 14 then
-    if not check_neb_event_status(self.currentEvent.state, self.host_status) then
+
+    if not check_event_status(self.currentEvent.state, self.host_status) then
       return false
     end
 
-    self.sendData.message = self:buildMessage(self.host_event_message, nil)
-    self.sendData.description = self:buildMessage(self.host_event_description, self.currentEvent.output)
-    self.sendData.alias = self:buildMessage(self.host_event_alias, nil)
+    self.sendData.message = self:buildMessage(self.host_alert_message, nil)
+    self.sendData.description = self:buildMessage(self.host_alert_description, self.currentEvent.output)
+    self.sendData.alias = self:buildMessage(self.host_alert_alias, nil)
 
   elseif self.currentEvent.element == 24 then
+  
     self.currentEvent.serviceDescription = get_service_description(self.currentEvent.host_id, self.currentEvent.service_id)
 
     -- can't find service description in cache
     if self.currentEvent.serviceDescription == self.currentEvent.service_id and self.skip_anon_events == 1 then
       return false
     end
-
-    if not check_neb_event_status(self.currentEvent.state, self.service_status) then
+  
+    if not check_event_status(self.currentEvent.state, self.service_status) then
       return false
     end
 
@@ -610,9 +695,9 @@ function EventQueue:is_valid_neb_event ()
       return false
     end
 
-    self.sendData.message = self:buildMessage(self.service_event_message, nil)
-    self.sendData.description = self:buildMessage(self.service_event_description, self.currentEvent.output)
-    self.sendData.alias = self:buildMessage(self.service_event_alias, nil)
+    self.sendData.message = self:buildMessage(self.service_alert_message, nil) 
+    self.sendData.description = self:buildMessage(self.service_alert_description, self.currentEvent.output) 
+    self.sendData.alias = self:buildMessage(self.service_alert_alias, nil)
   end
   
   return true
@@ -628,10 +713,42 @@ end
 
 --------------------------------------------------------------------------------
 -- is_valid_bam_event: check if the bam event is valid
--- @return {table} validBamEvent, a table of boolean indexes validating the event
+-- @return {boolean} validBamEvent, a table of boolean indexes validating the event
 --------------------------------------------------------------------------------
 function EventQueue:is_valid_bam_event ()
-  return true
+  if self.currentEvent.element == 1 then
+    broker_log:info(3, 'EventQueue:is_valid_bam_event: starting BA treatment 1')   
+    -- prepare api info
+    self.currentEvent.endpoint = '/v1/incidents/create'
+    self.currentEvent.token = self.app_api_token 
+
+    -- check if ba event status is valid
+    broker_log:info(3, 'EventQueue:is_valid_bam_event: starting BA treatment 2')
+    if not check_event_status(self.currentEvent.state, self.ba_status) then
+      return false
+    end
+
+    self.currentEvent.baName, self.currentEvent.baDescription = get_ba_name(self.currentEvent.ba_id)
+
+    if self.currentEvent.baName and self.currentEvent.baName ~= nil then
+      if self.enable_incident_tags == 1 then
+        self.currentEvent.bv_names, self.currentEvent.bv_descriptions = get_bvs(self.currentEvent.ba_id)
+        self.sendData.tags = self.currentEvent.bv_names
+
+        if ba_incident_tags ~= '' then
+          local custom_tags = split(self.ba_incident_tags, ',')
+          for i, v in ipairs(custom_tags) do
+            broker_log:info(3, 'EventQueue:is_valid_bam_event: adding ' .. tostring(v) .. ' to the list of tags')
+            table.insert(self.sendData.tags, v)
+          end
+        end
+      end
+
+      self.sendData.message = self:buildMessage(self.ba_incident_message, nil)
+      return true
+    end
+  end 
+  return false
 end
 
 --------------------------------------------------------------------------------
@@ -643,14 +760,10 @@ function EventQueue:is_valid_event ()
   self.sendData = {}
   if self.currentEvent.category == 1 then
     validEvent = self:is_valid_neb_event()
-    self.currentEvent.endpoint = '/v2/alerts'
-    self.currentEvent.token = self.integration_api_token
   elseif self.currentEvent.category == 3 then
     validEvent = self:is_valid_storage_event()
   elseif self.currentEvent.category == 6 then
     validEvent = self:is_valid_bam_event()
-    self.currentEvent.endpoint = '/v1/incidents/create'
-    self.currentEvent.token = self.app_api_token
   end
 
   return validEvent
@@ -699,7 +812,7 @@ function init (parameters)
     broker_log:error(1,'Required parameters are: api_token. There type must be string')
   end
 
-  broker_log:set_parameters(1, logfile)
+  broker_log:set_parameters(3, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     if i == 'app_api_token' or i == 'integration_api_token' then
@@ -777,12 +890,12 @@ function EventQueue:buildMessage (template, default_template)
   end
 
   for variable in string.gmatch(template, "{(.-)}") do
-    -- replace dates
+    -- converts from timestamp to human readable date
     if string.match(variable, '.-_date') then
       template = template:gsub("{" .. variable .. "}", os.date(self.date_format, self.currentEvent[variable:sub(1, -6)]))
-    -- replace numeric state value for human readable state (warning, critical...)
+    -- replaces numeric state value for human readable state (warning, critical...)
     elseif variable == 'state' then
-      template = template:gsub("{" .. variable .. "}", self.status_mapping[self.currentEvent.element][self.currentEvent.state])
+      template = template:gsub("{" .. variable .. "}", self.status_mapping[self.currentEvent.category][self.currentEvent.element][self.currentEvent.state])
     else
       if self.currentEvent[variable] ~= nil then
         template = template:gsub("{" .. variable .. "}", self.currentEvent[variable])
@@ -802,24 +915,24 @@ end
 function EventQueue:set_priority ()
   local severity = nil
   
+  -- get host severity
   if self.currentEvent.service_id == nil then
     broker_log:info(3, "EventQueue:set_priority: getting severity for host: " .. self.currentEvent.host_id)
     severity = get_severity(self.currentEvent.host_id)
+  -- get service severity
   else
     broker_log:info(3, "EventQueue:set_priority: getting severity for service: " .. self.currentEvent.service_id)
     severity = get_severity(self.currentEvent.host_id, self.currentEvent.service_id)
   end
 
+  -- find the opsgenie priority depending on the found severity
   local matching_priority = self.priority_mapping[tostring(severity)]
 
-  if severity == nil and self.priority_must_be_set == 1 then
-    broker_log:info(3, 'EventQueue:set_priority: severity is nil and priority is mandatory. Dropping event')
-    return false
-  end
-
+  -- drop event if no severity is found and opsgenie priority must be set  
   if matching_priority == nil and self.priority_must_be_set == 1 then
     broker_log:info(3, "EventQueue:set_priority: couldn't find a matching priority for severity: " .. tostring(severity) .. " and priority is mandatory. Dropping event")
     return false
+  -- ignore priority if it is not found, opsgenie will affect a default one (P3)
   elseif matching_priority == nil then
     broker_log:info(3, 'EventQueue:set_priority: could not find matching priority for severity: ' .. tostring(severity) .. '. Skipping priority...')
     return true
@@ -874,9 +987,9 @@ function write (event)
 
     -- START FIX FOR BROKER SENDING DUPLICATED EVENTS
     -- create id from event data
-    if queue.currentEvent.element == 14 then
+    if queue.currentEvent.element == 14 and queue.currentEvent.category == 1 then
       eventId = tostring(queue.currentEvent.host_id) .. '_' .. tostring(queue.currentEvent.last_check)
-    else 
+    elseif queue.currentEvent.element == 24 and queue.currentEvent.category == 1 then
       eventId = tostring(queue.currentEvent.host_id) .. '_' .. tostring(queue.currentEvent.service_id) .. '_' .. tostring(queue.currentEvent.last_check)
     end
 
@@ -888,7 +1001,7 @@ function write (event)
     -- add event in the sent events list and add list to queue
     table.insert(queue.validatedEvents, eventId)
     -- END OF FIX
-
+    
     queue:add()
   else
     return true
