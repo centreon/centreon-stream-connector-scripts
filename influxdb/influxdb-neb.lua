@@ -116,6 +116,13 @@ function EventQueue:add(e)
     local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata)
     if perfdata_err then
         broker_log:info(3, "EventQueue:add: No metric: " .. perfdata_err)
+        perfdata = {}
+    end
+    -- retrieve and store state for further processing
+    if self.skip_events_state == 0 then
+        perfdata["centreon.state"] = e.state
+        perfdata["centreon.state_type"] = e.state_type
+    elseif perfdata_err then
         return false
     end
     -- retrieve objects names instead of IDs
@@ -215,6 +222,7 @@ function EventQueue.new(conf)
         max_buffer_size             = 5000,
         max_buffer_age              = 30,
         skip_anon_events            = 1,
+        skip_events_state           = 0,
         replacement_character       = "_",
         log_level                   = 0, -- already proceeded in init function
         log_path                    = "" -- already proceeded in init function
