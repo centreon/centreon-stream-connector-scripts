@@ -1,26 +1,8 @@
 #!/usr/bin/lua
 
 --------------------------------------------------------------------------------
--- Centreon Broker Service Now connector
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- Prerequisites:
---
--- You need a opsgenie licence
--- You need an api token
---
--- The lua-curl is required by this script:
--- yum install lua-curl epel-release
--- yum install luarocks
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- Parameters:
--- [MANDATORY] api_token: your Opsgenie api token
--- [RECOMMENDED] log_level: level of verbose. Default is 1,
--- [OPTIONAL] http_proxy_string: default empty
---
+-- Centreon Broker Opsgenie connector
+-- documentation available at https://docs.centreon.com/current/en/integrations/stream-connectors/opsgenie.html
 --------------------------------------------------------------------------------
 
 -- libraries
