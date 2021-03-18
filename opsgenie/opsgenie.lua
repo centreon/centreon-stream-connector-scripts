@@ -806,13 +806,14 @@ local queue
 -- @param {table} parameters, the table with all the configuration parameters
 --------------------------------------------------------------------------------
 function init (parameters)
-  logfile = parameters.logfile or "/var/log/centreon-broker/connector-opsgenie.log"
+  local logfile = parameters.logfile or "/var/log/centreon-broker/connector-opsgenie.log"
+  local log_level = parameters.log_level or 2
+  broker_log:set_parameters(log_level, logfile)
 
   if not parameters.app_api_token or not parameters.integration_api_token then
     broker_log:error(1,'Required parameters are: api_token. There type must be string')
   end
 
-  broker_log:set_parameters(1, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     if i == 'app_api_token' or i == 'integration_api_token' then
