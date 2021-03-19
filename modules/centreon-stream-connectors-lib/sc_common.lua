@@ -59,8 +59,8 @@ function sc_common.split (text, separator)
   local hash = {}
   
   -- return empty string if text is nil
-  if text == nil then
-    broker_log:error(1, 'split: could not split text because it is nil')
+  if text == nil or text == '' then
+    -- broker_log:error(1, 'split: could not split text because it is nil')
     return ''
   end
   
@@ -81,12 +81,38 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function sc_common.compare_numbers (firstNumber, secondNumber, operator)
-  if type(firstNumber) ~= 'number' or type(secondNumber) ~= 'number' then
-    return false
+  if operator ~= '==' and operator ~= '~=' and operator ~= '<' and operator ~= '>' and operator ~= '>=' and operator ~= '<=' then
+    return nil
   end
 
-  if firstNumber .. operator .. secondNumber then
-    return true
+  if type(firstNumber) ~= 'number' or type(secondNumber) ~= 'number' then
+    return nil
+  end
+
+  if operator == '<' then
+    if firstNumber < secondNumber then
+      return true
+    end
+  elseif operator == '>' then
+    if firstNumber > secondNumber then
+      return true
+    end
+  elseif operator == '>=' then
+    if firstNumber >= secondNumber then
+      return true
+    end
+  elseif operator == '<=' then
+    if firstNumber <= secondNumber then
+      return true
+    end
+  elseif operator == '==' then
+    if firstNumber == secondNumber then
+      return true
+    end
+  elseif operator == '~=' then
+    if firstNumber ~= secondNumber then
+      return true
+    end
   end
 
   return false
