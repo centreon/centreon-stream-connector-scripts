@@ -7,6 +7,8 @@
 
 local sc_common = {}
 
+local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+
 --- ifnil_or_empty: change a nil or empty variable for a specified value
 -- @param var (string|number) the variable that needs to be checked
 -- @param alt (string|number|table) the alternate value if "var" is nil or empty
@@ -19,11 +21,26 @@ local function ifnil_or_empty(var, alt)
   end
 end
 
+local ScCommon = {}
+
+function sc_common.new(logger)
+  local self = {}
+  
+  self.logger = logger
+  if not self.logger then 
+    self.logger = sc_logger.new('/var/log/centreon-broker/stream-connector.log', 1, true)
+  end
+
+  setmetatable(self, { __index = ScCommon })
+
+  return self
+end
+
 --- ifnil_or_empty: change a nil or empty variable for a specified value
 -- @param var (string|number) the variable that needs to be checked
 -- @param alt (string|number|table) the alternate value if "var" is nil or empty
 -- @return var or alt (string|number|table) the variable or the alternate value
-function sc_common.ifnil_or_empty(var, alt)
+function ScCommon:ifnil_or_empty(var, alt)
   return ifnil_or_empty(var, alt)
 end
 
@@ -32,7 +49,7 @@ end
 -- @param boolean (boolean) the boolean that will be converted
 -- @return (number) a number according to the boolean value
 --------------------------------------------------------------------------------
-function sc_common.boolean_to_number(boolean)
+function ScCommon:boolean_to_number(boolean)
   return boolean and 1 or 0
 end
 
@@ -42,7 +59,7 @@ end
 -- @param default (number) the default value that is going to be return if the default number is not validated
 -- @return number (number) a boolean number
 --------------------------------------------------------------------------------
-function sc_common.check_boolean_number_option_syntax(number, default)
+function ScCommon:check_boolean_number_option_syntax(number, default)
   if number ~= 1 and number ~= 0 then
     number = default
   end
@@ -55,15 +72,15 @@ end
 -- @param [opt] separator (string) the separator character that will be used to split the string
 -- @return table (table) a table of strings
 --------------------------------------------------------------------------------
-function sc_common.split (text, separator)
-  local hash = {}
-  
+function ScCommon:split (text, separator)
   -- return empty string if text is nil
   if text == nil or text == '' then
-    -- broker_log:error(1, 'split: could not split text because it is nil')
+    self.logger:error('split: could not split text because it is nil or empty')
     return ''
   end
-  
+
+  local hash = {}
+
   -- set default separator
   separator = ifnil_or_empty(separator, ',')
 
@@ -80,7 +97,7 @@ end
 -- @param operator {string} the mathematical operator that is used for the comparison
 -- @return {boolean}
 --------------------------------------------------------------------------------
-function sc_common.compare_numbers (firstNumber, secondNumber, operator)
+function ScCommon:compare_numbers (firstNumber, secondNumber, operator)
   if operator ~= '==' and operator ~= '~=' and operator ~= '<' and operator ~= '>' and operator ~= '>=' and operator ~= '<=' then
     return nil
   end
