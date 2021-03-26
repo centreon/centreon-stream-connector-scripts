@@ -75,7 +75,7 @@ end
 function ScCommon:split (text, separator)
   -- return empty string if text is nil
   if text == nil or text == '' then
-    self.logger:error('split: could not split text because it is nil or empty')
+    self.logger:error('[sc_common:split]: could not split text because it is nil or empty')
     return ''
   end
 

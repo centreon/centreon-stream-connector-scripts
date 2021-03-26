@@ -178,4 +178,66 @@ function ScBroker:get_service_infos(host_id, service_id, info)
   end
 end
 
-return sc_test
+--- get_hostgroups: retrieve hostgroups from host_id
+-- @param (number) host_id,
+-- @return false (boolean) if host id is invalid or no hostgroup found
+-- @return hostgroups (table) a table of all hostgroups for the host 
+function ScBroker:get_hostgroups(host_id)
+  -- return false if host id is invalid
+  if host_id == nil or host_id == '' then 
+    self.logger:warning("[sc_broker:get_hostgroup]: host id is nil or empty")
+    return false
+  end
+
+  -- get hostgroups
+  local hostgroups = broker_cache:get_hostgroups(host_id)
+
+  -- return false if no hostgroups were found
+  if not hostgroups then
+    return false
+  end
+  
+  return hostgroups
+end
+
+--- get_severity: retrieve severity from host or service
+-- @param host_id (number)
+-- @param [opt] service_id (number)
+-- @return false (boolean) if host id is invalid or no severity were found
+-- @return severity (table) all the severity from the host or the service 
+function ScBroker:get_severity (host_id, service_id)
+  -- return false if host id is invalid
+  if host_id == nil or host_id == '' then 
+    self.logger:warning("[sc_broker:get_severity]: host id is nil or empty")
+    return false
+  end
+
+  local service_id = service_id or nil
+  local severity = nil
+
+  -- get host severity
+  if service_id == nil then
+    severity = broker_cache:get_severity(host_id)
+
+    -- return false if no severity were found
+    if not severity then
+      self.logger:warning("[sc_broker:get_severity]: no severity found in broker cache for host: " .. tostring(host_id))
+      return false
+    end
+
+    return severity
+  end
+
+  -- get severity for service
+  severity = broker_cache:get_severity(host_id, service_id)
+
+  -- return false if no severity were found
+  if not severity then
+    self.logger:warning("[sc_broker:get_severity]: no severity found in broker cache for host id: " .. tostring(host_id) .. " and service id: " .. tostring(service_id))
+    return false
+  end
+
+  return severity
+end
+
+return sc_broker
