@@ -179,7 +179,7 @@ function ScBroker:get_service_infos(host_id, service_id, info)
 end
 
 --- get_hostgroups: retrieve hostgroups from host_id
--- @param (number) host_id,
+-- @param host_id (number)
 -- @return false (boolean) if host id is invalid or no hostgroup found
 -- @return hostgroups (table) a table of all hostgroups for the host 
 function ScBroker:get_hostgroups(host_id)
@@ -200,12 +200,35 @@ function ScBroker:get_hostgroups(host_id)
   return hostgroups
 end
 
+--- get_servicegroups: retrieve servicegroups from service_id
+-- @param host_id (number)
+-- @param service_id (number)
+-- @return false (boolean) if host_id or service_id are invalid or no service group found
+-- @return servicegroups (table) a table of all servicegroups for the service
+function ScBroker:get_servicegroups(host_id, service_id)
+  -- return false if service id is invalid
+  if host_id == nil or host_id == '' or service_id == nil or service_id == '' then 
+    self.logger:warning("[sc_broker:get_servicegroups]: service id is nil or empty")
+    return false
+  end
+
+  -- get servicegroups
+  local servicegroups = broker_cache:get_servicegroups(host_id)
+
+  -- return false if no servicegroups were found
+  if not servicegroups then
+    return false
+  end
+  
+  return servicegroups
+end
+
 --- get_severity: retrieve severity from host or service
 -- @param host_id (number)
 -- @param [opt] service_id (number)
 -- @return false (boolean) if host id is invalid or no severity were found
 -- @return severity (table) all the severity from the host or the service 
-function ScBroker:get_severity (host_id, service_id)
+function ScBroker:get_severity(host_id, service_id)
   -- return false if host id is invalid
   if host_id == nil or host_id == '' then 
     self.logger:warning("[sc_broker:get_severity]: host id is nil or empty")
@@ -239,5 +262,100 @@ function ScBroker:get_severity (host_id, service_id)
 
   return severity
 end
+
+--- get_instance: retrieve poller from instance_id
+-- @param host_id (number)
+-- @return false (boolean) if host_id is invalid or no instance found in cache
+-- @return name (string) the name of the instance
+function ScBroker:get_instance(instance_id)
+  -- return false if instance_id is invalid
+  if intance_id == nil or instance_id == '' then
+    self.logger:warning("[sc_broker:get_instance]: instance id is nil or empty")
+    return false
+  end
+
+  -- get instance name
+  local name = broker_cache:get_instance_name(instance_id)
+
+  -- return false if no instance name is found
+  if not name then
+    self.logger:warning("[sc_broker:get_instance]: couldn't get instance name from broker cache for instance id: " .. tostring(instance_id))
+    return false
+  end
+
+  return name
+end
+
+--- get_ba_info: retrieve ba name and description from ba id
+-- @param ba_id (number)
+-- @return false (boolean) if the ba_id is invalid or no information were found in the broker cache
+-- @return ba_name (string) the name of the ba
+-- @return ba_description {string) the description of the ba 
+function ScBroker:get_ba_info(ba_id)
+  -- return false if ba_id is invalid
+  if ba_id == nil or ba_id == '' then 
+    self.logger:warning("[sc_broker:get_ba_info]: ba id is nil or empty")
+    return false
+  end
+
+  -- get ba info
+  local ba_info = broker_cache:get_ba(ba_id)
+
+  -- return false if no informations are found
+  if ba_info == nil then
+    self.logger:warning("[sc_broker:get_ba_name]: couldn't get ba informations in cache for ba_id: " .. tostring(ba_id))
+    return false
+  end
+
+  -- return the name and the description of the ba
+  return ba_info.ba_name, ba_info.ba_description
+end
+
+--- get_bv_infos: retrieve bv name and description from ba_id
+-- @param ba_id (number) 
+-- @param false (boolean) if ba_id is invalid or no information are found in the broker_cache
+-- @return bvs (table) name and description of all the bvs 
+function ScBroker:get_bv_infos(ba_id)
+  -- return false if ba_id is invalid
+  if ba_id == nil or ba_id == '' then 
+    self.logger:warning("[sc_broker:get_bvs]: ba id is nil or empty")
+    return false
+  end
+
+  -- get bvs id
+  local bvs_id = broker_cache:get_bvs(ba_id)
+
+  -- return false if no bv id are found for ba_id
+  if bvs_id == nil or bvs_id == '' then
+    self.logger:warning("[sc_broker:get_bvs]: couldn't get bvs for ba id: " .. tostring(ba_id))
+    return false
+  end
+
+  local bv_infos = nil
+  local found_bv = false
+  local bvs = {}
+
+  -- get bv info (name + description) for each found bv
+  for _, id in ipairs(bv_id) do
+    bv_infos = broker_cache:get_bv(v)
+
+    -- add bv information to the list
+    if bv_infos then
+      table.insert(bvs,bv_infos)
+      found_bv = true
+    else 
+      self.logger:warning("[sc_broker:get_bvs]: couldn't get bv information for bv id: " .. tostring(bv_id))
+    end
+  end
+
+  -- return false if there are no bv information
+  if not found_bv then
+    return false
+  end
+
+  return bv_infos
+end
+
+
 
 return sc_broker
