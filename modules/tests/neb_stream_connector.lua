@@ -65,7 +65,7 @@ function EventQueue:format_event()
   }
 
   -- handle service specific information
-  if self.sc_event.element == 24 then
+  if self.sc_event.event.element == 24 then
     -- like the name of the host, service description is stored in the cache table of the event
     self.sc_event.event.formated_event.my_description = self.sc_event.event.cache.description
     -- if the service doesn't have notes,  we can retrieve the ones from the host by fetching it from the broker cache
@@ -148,7 +148,7 @@ function EventQueue:call (data)
 
   -- write in the file
   self.sc_logger:debug("EventQueue:call: writing message " .. tostring(data))
-  io.write(data)
+  io.write(data .. "\n")
 
   -- close the file
   self.sc_logger:debug("EventQueue:call: closing file " .. self.sc_params.params.output_file)

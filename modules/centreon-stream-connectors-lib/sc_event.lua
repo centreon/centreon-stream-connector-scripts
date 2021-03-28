@@ -182,7 +182,7 @@ end
 --- is_service_valid: check if service description and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_service_valid()
-  local service_infos = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id, 'description')
+  local service_infos = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
 
   -- return false if we can't get service description or if service id is nil
   if (not service_infos and self.params.skip_nil_id)

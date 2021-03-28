@@ -56,12 +56,12 @@ end
 function ScBroker:get_service_all_infos(host_id, service_id)
   -- return because host_id or service_id isn't valid
   if host_id == nil or host_id == '' or service_id == nil or service_id == '' then
-    self.logger:warning("[sc_broker:get_host_infos]: host id o service id is nil")
+    self.logger:warning("[sc_broker:get_service_all_infos]: host id or service id is nil")
     return false
   end
   
   -- get service information from broker cache
-  local service_info = broker_cache:get_host(host_id)
+  local service_info = broker_cache:get_service(host_id, service_id)
 
   -- return false only if no service information were found in broker cache
   if not service_info then
