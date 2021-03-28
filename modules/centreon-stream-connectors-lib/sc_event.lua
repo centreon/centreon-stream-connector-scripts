@@ -18,6 +18,7 @@ function sc_event.new(event, params, common, logger)
   self.common = common
 
   self.event = event
+  self.event.cache = {}
 
   setmetatable(self, { __index = ScEvent })
 
@@ -150,7 +151,7 @@ end
 --- is_host_valid: check if host name and/or id are valid
 -- @return true|false (boolean)
 function ScBroker:is_host_valid()
-  local host_infos = self.broker:get_host_infos(self.event.host_id, 'name')
+  local host_infos = self.broker:get_host_all_infos(self.event.host_id)
 
     -- return false if we can't get hostname or host id is nil
   if (not host_infos and self.params.skip_nil_id)
@@ -160,9 +161,9 @@ function ScBroker:is_host_valid()
 
   -- force host name to be its id if no name has been found
   if not host_infos.name then
-    self.event.name = host_infos.host_id or self.event.host_id
+    self.event.cache.name = host_infos.host_id or self.event.host_id
   else
-    self.event.name = host_infos.name
+    self.event.cache = host_infos
   end
 
   -- return false if event is coming from fake bam host
@@ -176,7 +177,7 @@ end
 --- is_service_valid: check if service description and/or id are valid
 -- @return true|false (boolean)
 function ScBroker:is_service_valid()
-  local service_infos = self.broker:get_service_infos(self.event.host_id, self.event.service_id, 'description')
+  local service_infos = self.broker:get_service_all_infos(self.event.host_id, self.event.service_id, 'description')
 
   -- return false if we can't get service description or if service id is nil
   if (not service_infos and self.params.skip_nil_id)
@@ -186,9 +187,9 @@ function ScBroker:is_service_valid()
 
   -- force service description to its id if no description has been found
   if not service_infos.description then
-    self.event.description = service_infos.service_id or self.event.service_id
+    self.event.cache.description = service_infos.service_id or self.event.service_id
   else
-    self.event.description = service_infos.description
+    self.event.cache = service_infos
   end
 
   return true

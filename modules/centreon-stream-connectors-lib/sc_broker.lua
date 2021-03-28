@@ -76,7 +76,7 @@ end
 -- @param host_id (number)
 -- @params info (string|table) the name of the wanted host parameter or a table of all wanted host parameters
 -- @return false (boolean) if host_id is nil or empty 
--- @return host {table} a table of all wanted host params
+-- @return host (any) a table of all wanted host params if input param is a table. The single parameter if input param is a string 
 function ScBroker:get_host_infos(host_id, info)
   -- return because host_id isn't valid
   if host_id == nil or host_id == '' then
@@ -106,10 +106,8 @@ function ScBroker:get_host_infos(host_id, info)
   -- get the desired param and return the information
   if type(info) == 'string' then
     if host_info[info] then
-      host[info] = host_info[info]
+      return host_info[info]
     end
-
-    return host
   end
 
   -- get all the desired params and return the information
@@ -129,7 +127,7 @@ end
 -- @param service_id (number)
 -- @params info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
 -- @return false (boolean) if host_id and/or service_id are nil or empty 
--- @return host {table} a table of all wanted service params
+-- @return service (any) a table of all wanted service params if input param is a table. A single parameter if input param is a string 
 function ScBroker:get_service_infos(host_id, service_id, info)
   -- return because host_id or service_id isn't valid
   if host_id == nil or host_id == '' or service_id == nil or service_id == '' then
@@ -160,10 +158,8 @@ function ScBroker:get_service_infos(host_id, service_id, info)
   -- get the desired param and return the information
   if type(info) == 'string' then
     if service_info[info] then
-      service[info] = service_info[info]
+      return service_info[info]
     end
-
-    return service
   end
 
   -- get all the desired params and return the information
