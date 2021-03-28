@@ -49,8 +49,8 @@ end
 -- @param type (string) the expected type of the variable
 -- @param default (any) the default value for the variable if type is wrong
 -- @return var or default (any) the variable if type is good or the default value
-function ScCommon:if_wrong_type(var, type, default)
-  if type(var) == type then
+function ScCommon:if_wrong_type(var, var_type, default)
+  if type(var) == var_type then
     return var
   end
 
@@ -105,7 +105,7 @@ end
 -- @param secondNumber {number} 
 -- @param operator {string} the mathematical operator that is used for the comparison
 -- @return {boolean}
-function ScCommon:compare_numbers (firstNumber, secondNumber, operator)
+function ScCommon:compare_numbers(firstNumber, secondNumber, operator)
   if operator ~= '==' and operator ~= '~=' and operator ~= '<' and operator ~= '>' and operator ~= '>=' and operator ~= '<=' then
     return nil
   end

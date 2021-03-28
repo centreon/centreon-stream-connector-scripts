@@ -285,8 +285,7 @@ end
 --- get_ba_info: retrieve ba name and description from ba id
 -- @param ba_id (number)
 -- @return false (boolean) if the ba_id is invalid or no information were found in the broker cache
--- @return ba_name (string) the name of the ba
--- @return ba_description {string) the description of the ba 
+-- @return ba_info (table) a table with the name and description of the ba
 function ScBroker:get_ba_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == '' then 
@@ -303,8 +302,7 @@ function ScBroker:get_ba_infos(ba_id)
     return false
   end
 
-  -- return the name and the description of the ba
-  return ba_info.ba_name, ba_info.ba_description
+  return ba_info
 end
 
 --- get_bv_infos: retrieve bv name and description from ba_id

@@ -16,6 +16,8 @@ local ScParams = {}
 -- @param common (object) object instance from sc_common module
 -- @param logger (object) object instance from sc_logger module 
 function sc_params.new(common, logger)
+  local self = {}
+
   -- initiate mandatory libs
   self.logger = logger
   self.common = common
@@ -35,7 +37,7 @@ function sc_params.new(common, logger)
     hard_only = 1,
     acknowledged = 0,
     in_downtime = 0,
-
+    
     -- objects filter
     accepted_hostgroups = '',
     accepted_servicegroups = '',
@@ -44,17 +46,20 @@ function sc_params.new(common, logger)
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
-
+    
     -- communication parameters
     max_buffer_size = 1,
     max_buffer_age = 5,
+
+    -- internal parameters
+    __internal_ts_last_flush = os.time(),
     
     -- initiate mappings
     element_mapping = {},
     category_mapping = {},
     status_mapping = {},
     validatedEvents = {},
-
+    
     -- FIX BROKER ISSUE 
     max_stored_events = 10 -- do not use values above 100 
   }
