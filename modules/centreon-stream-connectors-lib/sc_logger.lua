@@ -42,15 +42,9 @@ local ScLogger = {}
 --- sc_logger.new: sc_logger constructor
 -- @param [opt] logfile (string) output file for logs
 -- @param [opt] severity (integer) the accepted severity level 
--- @param [opt] is_test (boolean) use broker log if false, directly write in file if true
-function sc_logger.new(logfile, severity, is_test)
+function sc_logger.new(logfile, severity)
   local self = {}
-  self.is_test = is_test
   self.severity = severity
-
-  if type(self.is_test) ~= 'boolean' then
-    self.is_test = false
-  end
 
   if type(severity) ~= 'number' then
     self.severity = 1
@@ -67,45 +61,25 @@ end
 --- error: write an error message
 -- @param message (string) the message that will be written
 function ScLogger:error(message)
-  if not self.is_test then
-    broker_log:error(1, message)
-  else
-    file_logging(message, 'ERROR', self.logfile)
-  end
+  broker_log:error(1, message)
 end
 
 --- warning: write a warning message
 -- @param message (string) the message that will be written
 function ScLogger:warning(message)
-  if self.severity >= 2 then
-    if not self.is_test then
-      broker_log:warning(2, message)
-    else
-      file_logging(message, 'WARNING', self.logfile)  
-    end
-  end
+  broker_log:warning(2, message)
 end
 
 --- notice: write a notice message
 -- @param message (string) the message that will be written
 function ScLogger:notice(message)
-  if not self.is_test then
-    broker_log:info(1, message)
-  else
-    file_logging(message, 'NOTICE', self.logfile)
-  end
+  broker_log:info(1, message)
 end
 
 --- debug: write a debug message
 -- @param message (string) the message that will be written
 function ScLogger:debug(message)
-  if self.severity >= 3 then
-    if not self.is_test then
-      broker_log:info(3, message)
-    else 
-      file_logging(message, 'DEBUG', self.logfile)
-    end
-  end
+  broker_log:info(3, message)
 end
 
 return sc_logger

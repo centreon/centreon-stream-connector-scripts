@@ -28,7 +28,7 @@ function sc_common.new(logger)
   
   self.logger = logger
   if not self.logger then 
-    self.logger = sc_logger.new('/var/log/centreon-broker/stream-connector.log', 1, true)
+    self.logger = sc_logger.new('/var/log/centreon-broker/stream-connector.log', 1)
   end
 
   setmetatable(self, { __index = ScCommon })
