@@ -448,3 +448,11 @@ function ScEvent:find_bv_in_list()
 
   return false
 end
+
+--- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead
+-- return true (boolean)
+function ScEvent:is_valid_storage_event()
+  return true
+end
+
+return sc_event

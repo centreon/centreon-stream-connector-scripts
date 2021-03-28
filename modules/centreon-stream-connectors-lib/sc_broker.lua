@@ -291,10 +291,10 @@ end
 -- @return false (boolean) if the ba_id is invalid or no information were found in the broker cache
 -- @return ba_name (string) the name of the ba
 -- @return ba_description {string) the description of the ba 
-function ScBroker:get_ba_info(ba_id)
+function ScBroker:get_ba_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == '' then 
-    self.logger:warning("[sc_broker:get_ba_info]: ba id is nil or empty")
+    self.logger:warning("[sc_broker:get_ba_infos]: ba id is nil or empty")
     return false
   end
 
@@ -303,7 +303,7 @@ function ScBroker:get_ba_info(ba_id)
 
   -- return false if no informations are found
   if ba_info == nil then
-    self.logger:warning("[sc_broker:get_ba_name]: couldn't get ba informations in cache for ba_id: " .. tostring(ba_id))
+    self.logger:warning("[sc_broker:get_ba_infos]: couldn't get ba informations in cache for ba_id: " .. tostring(ba_id))
     return false
   end
 
