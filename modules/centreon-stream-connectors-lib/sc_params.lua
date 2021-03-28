@@ -12,6 +12,9 @@ local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScParams = {}
 
+--- sc_params.new: sc_params constructor
+-- @param common (object) object instance from sc_common module
+-- @param logger (object) object instance from sc_logger module 
 function sc_params.new(common, logger)
   -- initiate mandatory libs
   self.logger = logger
@@ -35,6 +38,7 @@ function sc_params.new(common, logger)
 
     -- objects filter
     accepted_hostgroups = '',
+    accepted_servicegroups = '',
     
     -- filter anomalous events
     skip_anon_events = 1,

@@ -108,5 +108,4 @@ function ScLogger:debug(message)
   end
 end
 
-
 return sc_logger
