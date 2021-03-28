@@ -309,8 +309,7 @@ function ScEvent:is_valid_servicegroup()
 end
 
 --- find_servicegroup_in_list: compare accepted servicegroups from parameters with the event servicegroups
--- @return accepted_name (string) the name of the first matching servicegroup 
--- @return false (boolean) if no matching servicegroup has been found
+-- @return accepted_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
 function ScEvent:find_servicegroup_in_list()
   for _, accepted_name in ipairs(self.common:split(self.params.accepted_servicegroups, ',')) do
     for _, event_servicegroup in pairs(self.event.servicegroups) do
@@ -323,4 +322,129 @@ function ScEvent:find_servicegroup_in_list()
   return false
 end
 
+--- is_valid_bam_event: check if the event is an accepted bam type event
+-- @return true|false (boolean)
+function ScEvent:is_valid_bam_event()
+  -- return false if ba name is invalid or ba_id is nil 
+  if not self:is_ba_valid() then
+    return false
+  end
 
+  -- return false if BA status is not accepted
+  if not self:is_valid_ba_status_event() then
+    return false
+  end
+
+  -- return false if BA downtime state is not accepted
+  if not self:is_valid_ba_downtime_state() then
+    return false
+  end
+
+  -- DO NOTHING FOR THE MOMENT
+  if not self:is_valid_ba_acknowledge_state() then
+    return false
+  end
+
+  -- return false if BA is not in an accepted BV
+  if not self:is_valid_bv() then
+    return false
+  end
+  
+  return true
+end
+
+--- is_ba_valid: check if ba name and/or id are valid
+-- @return true|false (boolean)
+function ScBroker:is_ba_valid()
+  self.event.name, self.event.description = self.broker:get_ba_infos(self.event.ba_id)
+
+  -- return false if we can't get ba name or ba id is nil
+  if (not self.event.name and self.params.skip_nil_id)
+    or (not self.event.name and self.params.skip_anon_events == 1) then
+    return false
+  end
+
+  -- force ba name to be its id if no name has been found
+  if not self.event.name then
+    self.event.name = self.event.name or self.event.ba_id
+  end
+
+  return true
+end
+
+--- is_valid_ba_status_event: check if the ba status event is an accepted one
+-- @return true|false (boolean)
+function ScEvent:is_valid_ba_status_event()
+  if not self:is_valid_event_status(self.params.ba_status) then
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_ba_downtime_state: check if the ba downtime state is an accepted one
+-- @return true|false (boolean)
+function ScEvent:is_valid_ba_downtime_state()
+  if not self.common:compare_numbers(self.params.in_downtime, self.event.in_downtime, '>=') then
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_ba_acknowledge_state: check if the ba acknowledge state is an accepted one
+-- @return true|false (boolean)
+function ScEvent:is_valid_ba_acknowledge_state()
+  -- if not self.common:compare_numbers(self.params.in_downtime, self.event.in_downtime, '>=') then
+  --   return false
+  -- end
+
+  return true
+end
+
+--- is_valid_bv: check if the event is in an accepted BV
+-- @return true|false (boolean)
+function ScEvent:is_valid_bv()
+  -- return true if option is not set
+  if self.params.accepted_bv == '' then
+    return true
+  end
+
+  self.event.bvs = self.broker:get_hostgroups(self.event.host_id)
+
+  -- return false if no hostgroups were found
+  if not self.event.bvs then
+    self.logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
+      .. " is not linked to a BV. Accepted BVs are: " .. self.params.accepted_bvs)
+    return false
+  end
+
+  local accepted_bv_name = self:find_bv_in_list()
+
+  -- return false if the BA is not in a valid BV
+  if not accepted_bv_name then
+    self.logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
+      .. " is not in an accepted BV. Accepted BVs are: " .. self.params.accepted_bvs)
+    return false
+  else
+    self.logger:debug("[sc_event:is_valid_bv]: event for BA with id: " .. tostring(self.event.ba_id)
+      .. "matched BV: " .. accepted_bv_name)
+  end
+
+  return true
+end
+
+--- find_bv_in_list: compare accepted BVs from parameters with the event BVs
+-- @return accepted_name (string) the name of the first matching BV
+-- @return false (boolean) if no matching BV has been found
+function ScEvent:find_bv_in_list()
+  for _, accepted_name in ipairs(self.common:split(self.params.accepted_bvs, ',')) do
+    for _, event_bv in pairs(self.event.bvs) do
+      if accepted_name == event_bv.bv_name then
+        return accepted_name
+      end
+    end
+  end 
+
+  return false
+end

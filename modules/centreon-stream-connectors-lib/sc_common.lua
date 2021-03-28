@@ -44,11 +44,23 @@ function ScCommon:ifnil_or_empty(var, alt)
   return ifnil_or_empty(var, alt)
 end
 
+--- if_wrong_type: change a wrong type variable with a default value
+-- @param var (any) the variable that needs to be checked
+-- @param type (string) the expected type of the variable
+-- @param default (any) the default value for the variable if type is wrong
+-- @return var or default (any) the variable if type is good or the default value
+function ScCommon:if_wrong_type(var, type, default)
+  if type(var) == type then
+    return var
+  end
+
+  return default
+end
+
 
 --- boolean_to_number: convert boolean variable to number
 -- @param boolean (boolean) the boolean that will be converted
 -- @return (number) a number according to the boolean value
---------------------------------------------------------------------------------
 function ScCommon:boolean_to_number(boolean)
   return boolean and 1 or 0
 end
@@ -58,7 +70,6 @@ end
 -- @param number (number)  the boolean number that must be validated
 -- @param default (number) the default value that is going to be return if the default number is not validated
 -- @return number (number) a boolean number
---------------------------------------------------------------------------------
 function ScCommon:check_boolean_number_option_syntax(number, default)
   if number ~= 1 and number ~= 0 then
     number = default
@@ -71,7 +82,6 @@ end
 -- @param string (string) the string that is going to be splitted into a table
 -- @param [opt] separator (string) the separator character that will be used to split the string
 -- @return table (table) a table of strings
---------------------------------------------------------------------------------
 function ScCommon:split (text, separator)
   -- return empty string if text is nil
   if text == nil or text == '' then
@@ -96,7 +106,6 @@ end
 -- @param secondNumber {number} 
 -- @param operator {string} the mathematical operator that is used for the comparison
 -- @return {boolean}
---------------------------------------------------------------------------------
 function ScCommon:compare_numbers (firstNumber, secondNumber, operator)
   if operator ~= '==' and operator ~= '~=' and operator ~= '<' and operator ~= '>' and operator ~= '>=' and operator ~= '<=' then
     return nil

@@ -39,6 +39,7 @@ function sc_params.new(common, logger)
     -- objects filter
     accepted_hostgroups = '',
     accepted_servicegroups = '',
+    accepted_bvs = '',
     
     -- filter anomalous events
     skip_anon_events = 1,
@@ -190,6 +191,9 @@ function ScParams:check_params()
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
+  self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, 'string', '')
+  self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, 'string', '')
+  self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, 'string', '')
 end
 
 return sc_params
