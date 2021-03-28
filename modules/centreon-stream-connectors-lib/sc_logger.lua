@@ -42,7 +42,7 @@ local ScLogger = {}
 --- sc_logger.new: sc_logger constructor
 -- @param [opt] logfile (string) output file for logs
 -- @param [opt] severity (integer) the accepted severity level 
--- @param [opt] is_test (boolean) use broker log if true, directly write in file if false
+-- @param [opt] is_test (boolean) use broker log if false, directly write in file if true
 function sc_logger.new(logfile, severity, is_test)
   local self = {}
   self.is_test = is_test
@@ -57,7 +57,8 @@ function sc_logger.new(logfile, severity, is_test)
   end
 
   self.logfile = logfile or '/var/log/centreon-broker/stream-connector.log'
-
+  broker_log:set_parameters(self.severity, self.logfile)
+  
   setmetatable(self, { __index = ScLogger })
 
   return self

@@ -356,6 +356,4 @@ function ScBroker:get_bv_infos(ba_id)
   return bv_infos
 end
 
-
-
 return sc_broker
