@@ -57,7 +57,6 @@ function ScCommon:if_wrong_type(var, type, default)
   return default
 end
 
-
 --- boolean_to_number: convert boolean variable to number
 -- @param boolean (boolean) the boolean that will be converted
 -- @return (number) a number according to the boolean value

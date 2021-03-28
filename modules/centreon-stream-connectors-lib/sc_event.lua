@@ -24,7 +24,36 @@ function sc_event.new(event, params, common, logger)
   return self
 end
 
---- is_valid_event: check if the event is accepted depending on various conditions
+--- is_valid_category: check if the event is in an accepted category
+-- @retun true|false (boolean)
+function ScEvent:is_valid_category()
+  return find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
+end
+
+--- is_valid_element: check if the event is an accepted element
+-- @return true|false (boolean)
+function ScEvent:is_valid_element()
+  return find_in_mapping(self.params.element_mapping[self.event.cateogory], self.params.accepted_elements, self.event.element)
+end
+
+--- find_in_mapping: check if item type is in the mapping and is accepted
+-- @param mapping (table) the mapping table
+-- @param reference (string)  the accepted values for the item
+-- @param item (string) the item we want to find in the mapping table and in the reference
+-- @return (boolean)
+function ScEvent:find_in_mapping (mapping, reference, item)
+  for mapping_index, mapping_value in pairs(mapping) do
+    for reference_index, reference_value in pairs(self.common:split(reference, ',')) do
+      if item == mapping_value and mapping_index == reference_value then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
+--- is_valid_event: check if the event is accepted depending on configured conditions
 -- @return true|false (boolean) 
 function ScEvent:is_valid_event()
   local is_valid_event = false
