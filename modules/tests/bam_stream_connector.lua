@@ -17,7 +17,7 @@ function EventQueue.new(params)
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/stream-connector-bam.log"
-  local log_level = params.log_level or 3
+  local log_level = params.log_level or 1
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
