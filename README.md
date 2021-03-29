@@ -1,9 +1,8 @@
 <!-- SHIELDS -->
-<center>[![Contributors][contributors-shield]][contributors-url]
+[![Contributors][contributors-shield]][contributors-url]
 [![Stars][stars-shield]][stars-url]
 [![Forks][forks-shield]][forks-url]
-[![Issues][issues-shield]][issues-url]</center>
-
+[![Issues][issues-shield]][issues-url]
 
 
 # Centreon Stream Connectors #
