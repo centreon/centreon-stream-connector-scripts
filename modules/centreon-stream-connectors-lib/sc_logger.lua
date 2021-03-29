@@ -46,11 +46,11 @@ function sc_logger.new(logfile, severity)
   local self = {}
   self.severity = severity
 
-  if type(severity) ~= 'number' then
+  if type(severity) ~= "number" then
     self.severity = 1
   end
 
-  self.logfile = logfile or '/var/log/centreon-broker/stream-connector.log'
+  self.logfile = logfile or "/var/log/centreon-broker/stream-connector.log"
   broker_log:set_parameters(self.severity, self.logfile)
   
   setmetatable(self, { __index = ScLogger })

@@ -14,7 +14,7 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 -- @param alt (string|number|table) the alternate value if "var" is nil or empty
 -- @return var or alt (string|number|table) the variable or the alternate value
 local function ifnil_or_empty(var, alt)
-  if var == nil or var == '' then
+  if var == nil or var == "" then
     return alt
   else
     return var
@@ -28,7 +28,7 @@ function sc_common.new(logger)
   
   self.logger = logger
   if not self.logger then 
-    self.logger = sc_logger.new('/var/log/centreon-broker/stream-connector.log', 1)
+    self.logger = sc_logger.new("/var/log/centreon-broker/stream-connector.log", 1)
   end
 
   setmetatable(self, { __index = ScCommon })
@@ -83,15 +83,15 @@ end
 -- @return table (table) a table of strings
 function ScCommon:split (text, separator)
   -- return empty string if text is nil
-  if text == nil or text == '' then
-    self.logger:error('[sc_common:split]: could not split text because it is nil or empty')
-    return ''
+  if text == nil or text == "" then
+    self.logger:error("[sc_common:split]: could not split text because it is nil or empty")
+    return ""
   end
 
   local hash = {}
 
   -- set default separator
-  separator = ifnil_or_empty(separator, ',')
+  separator = ifnil_or_empty(separator, ",")
 
   for value in string.gmatch(text, "([^" .. separator .. "]+)") do
     table.insert(hash, value)
@@ -106,35 +106,35 @@ end
 -- @param operator {string} the mathematical operator that is used for the comparison
 -- @return {boolean}
 function ScCommon:compare_numbers(firstNumber, secondNumber, operator)
-  if operator ~= '==' and operator ~= '~=' and operator ~= '<' and operator ~= '>' and operator ~= '>=' and operator ~= '<=' then
+  if operator ~= "==" and operator ~= "~=" and operator ~= "<" and operator ~= ">" and operator ~= ">=" and operator ~= "<=" then
     return nil
   end
 
-  if type(firstNumber) ~= 'number' or type(secondNumber) ~= 'number' then
+  if type(firstNumber) ~= "number" or type(secondNumber) ~= "number" then
     return nil
   end
 
-  if operator == '<' then
+  if operator == "<" then
     if firstNumber < secondNumber then
       return true
     end
-  elseif operator == '>' then
+  elseif operator == ">" then
     if firstNumber > secondNumber then
       return true
     end
-  elseif operator == '>=' then
+  elseif operator == ">=" then
     if firstNumber >= secondNumber then
       return true
     end
-  elseif operator == '<=' then
+  elseif operator == "<=" then
     if firstNumber <= secondNumber then
       return true
     end
-  elseif operator == '==' then
+  elseif operator == "==" then
     if firstNumber == secondNumber then
       return true
     end
-  elseif operator == '~=' then
+  elseif operator == "~=" then
     if firstNumber ~= secondNumber then
       return true
     end

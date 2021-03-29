@@ -16,8 +16,8 @@ function EventQueue.new(params)
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  local log_level = params.log_level or 1
+  local logfile = params.logfile or "/var/log/centreon-broker/stream-connector-bam.log"
+  local log_level = params.log_level or 3
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -29,8 +29,8 @@ function EventQueue.new(params)
   self.sc_params.params.output_file = params.output_file
 
   -- overriding default parameters for this stream connector
-  params.accepted_categories = "neb"
-  params.accepted_elements = "host_status,service_status"
+  params.accepted_categories = "bam"
+  params.accepted_elements = "ba_status"
   
   -- checking mandatory parameters and setting a fail flag
   if not params.output_file then
@@ -52,25 +52,15 @@ end
 -- @return true (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
-  -- starting to handle shared information between host and service
+  -- starting to handle information from BA
   self.sc_event.event.formated_event = {
-    -- name of host has been stored in a cache table when calling is_valid_even()
-    my_host = self.sc_event.event.cache.name,
+    -- name of BA has been stored in a cache table when calling is_valid_even()
+    my_host = self.sc_event.event.cache.ba_name,
     -- states (critical, ok...) are found and converted to human format thanks to the status_mapping table
     my_state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    -- get output of the event
-    my_output = self.sc_common:ifnil_or_empty(string.match(self.sc_event.event.output, "^(.*)\n"), "no output"),
-    -- like the name of the host, notes are stored in the cache table of the event
-    my_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.notes, "no notes found")
+    -- like the name of the BA, BA description is stored in the cache table of the event
+    my_description = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.ba_description, "no description found")
   }
-
-  -- handle service specific information
-  if self.sc_event.event.element == 24 then
-    -- like the name of the host, service description is stored in the cache table of the event
-    self.sc_event.event.formated_event.my_description = self.sc_event.event.cache.description
-    -- if the service doesn't have notes,  we can retrieve the ones from the host by fetching it from the broker cache
-    self.sc_event.event.formated_event.my_notes = self.sc_common:ifnil_or_empty(self.sc_broker:get_host_infos(self.sc_event.event.host_id, "notes"), "no notes found")
-  end
 
   self:add()
 

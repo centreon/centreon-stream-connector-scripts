@@ -39,9 +39,9 @@ function sc_params.new(common, logger)
     in_downtime = 0,
     
     -- objects filter
-    accepted_hostgroups = '',
-    accepted_servicegroups = '',
-    accepted_bvs = '',
+    accepted_hostgroups = "",
+    accepted_servicegroups = "",
+    accepted_bvs = "",
     
     -- filter anomalous events
     skip_anon_events = 1,
@@ -58,6 +58,10 @@ function sc_params.new(common, logger)
     element_mapping = {},
     category_mapping = {},
     status_mapping = {},
+    state_type_mapping = {
+      [0] = "SOFT",
+      [1] = "HARD"
+    },
     validatedEvents = {},
     
     -- FIX BROKER ISSUE 
@@ -146,24 +150,24 @@ function sc_params.new(common, logger)
 
   -- maps neb category statuses with host status element 
   self.params.status_mapping[1][14] = {
-    [0] = 'UP',
-    [1] = 'DOWN',
-    [2] = 'UNREACHABLE'
+    [0] = "UP",
+    [1] = "DOWN",
+    [2] = "UNREACHABLE"
   }
 
   -- maps neb category statuses with service status element 
   self.params.status_mapping[1][24] = {
-    [0] = 'OK',
-    [1] = 'WARNING',
-    [2] = 'CRITICAL',
-    [3] = 'UNKNOWN'
+    [0] = "OK",
+    [1] = "WARNING",
+    [2] = "CRITICAL",
+    [3] = "UNKNOWN"
   }
 
   -- maps bam category statuses with ba status element
   self.params.status_mapping[6][1] = {
-    [0] = 'OK',
-    [1] = 'WARNING',
-    [2] = 'CRITICAL'
+    [0] = "OK",
+    [1] = "WARNING",
+    [2] = "CRITICAL"
   }
 
   setmetatable(self, { __index = ScParams })
@@ -174,17 +178,17 @@ end
 --- param_override: change default param values with the one provides from the web configuration
 -- @param user_params (table) the table of all parameters from the web interface
 function ScParams:param_override(user_params)
-  if type(user_params) ~= 'table' then
-    self.logger:error('User parameters are not a table. Using default parameters instead')
+  if type(user_params) ~= "table" then
+    self.logger:error("User parameters are not a table. Using default parameters instead")
     return
   end
 
   for param_name, param_value in pairs(user_params) do
     if self.params[param_name] then
       self.params[param_name] = param_value
-      self.logger:notice('[sc_params:param_override]: overriding parameter: ' .. tostring(param_name) .. ' with value: ' .. tostring(param_value))
+      self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
     else 
-      self.logger:notice('[sc_params:param_override]: User parameter: ' .. tostring(param_name) .. ' is not handled by this stream connector')
+      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name) .. " is not handled by this stream connector")
     end
   end
 end
@@ -196,9 +200,9 @@ function ScParams:check_params()
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
-  self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, 'string', '')
-  self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, 'string', '')
-  self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, 'string', '')
+  self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
+  self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
+  self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
 end
 
 return sc_params
