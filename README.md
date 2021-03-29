@@ -17,6 +17,7 @@ Available scripts
 Here is a list of the Centreon powered scripts:
 
 | Software | Connectors | Documentations |
+| -------- | ---------- | -------------- |
 | BSM      | [BSM Stream Connector](https://github.com/centreon/centreon-stream-connector-scripts/tree/master/official/bsm) | [Documentation](https://docs.centreon.com/current/en/integrations/stream-connectors/bsm.html) |
 | ElasticSearch | [ElasticSearch Stream Connectors](https://github.com/centreon/centreon-stream-connector-scripts/tree/master/official/elasticsearch) | [Events Documentation](https://docs.centreon.com/current/en/integrations/stream-connectors/elasticsearch-events.html), [Metrics Documentation](https://docs.centreon.com/current/en/integrations/stream-connectors/elasticsearch-metrics.html) |
 | InfluxDB | [InfluxDB Stream Connector](https://github.com/centreon/centreon-stream-connector-scripts/tree/master/official/influxdb) | WIP |
@@ -32,6 +33,7 @@ Here is a list of the Centreon powered scripts:
 Here is a list of the Community powered scripts
 
 | Software | Connectors | Documentations | Contributors | Organizations |
+| -------- | ---------- | -------------- | ------------ | ------------- |
 | Canopsis | [Canopsis Stream Connector](https://github.com/centreon/centreon-stream-connector-scripts/tree/master/community-powered/canopsis) | [Documentation](https://github.com/centreon/centreon-stream-connector-scripts/tree/master/community-powered/canopsis/README.md) | [ppremont-capensis](https://github.com/ppremont-capensis) | [Capensis](https://www.capensis.fr/en/) |
 
 # Contribute
