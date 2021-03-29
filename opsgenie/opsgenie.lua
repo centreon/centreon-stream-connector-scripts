@@ -807,7 +807,7 @@ local queue
 --------------------------------------------------------------------------------
 function init (parameters)
   local logfile = parameters.logfile or "/var/log/centreon-broker/connector-opsgenie.log"
-  local log_level = parameters.log_level or 2
+  local log_level = parameters.log_level or 1
   broker_log:set_parameters(log_level, logfile)
 
   if not parameters.app_api_token or not parameters.integration_api_token then
