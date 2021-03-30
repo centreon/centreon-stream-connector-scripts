@@ -24,14 +24,14 @@ You can improve our Lua modules
 
 ### For everybody 
 
-Since we are not all found of code there are still ways to be part of this project
+Since we are not all found of code, there are still ways to be part of this project
 
 - Open issues for bugs or feedbacks (or help people)
 - Update an already existing example or provide new ones
 
 ## Code guidelines
 
-If you want to work on our LUA modules, you must follow the coding style provided by luaros
+If you want to work on our LUA modules, you must follow the coding style provided by luarocks
 [Coding style guidelines](https://github.com/luarocks/lua-style-guide)
 
 While it is mandatory to follow those guidelines for modules, they will not be enforced on community powered Stream Connectors scripts.
