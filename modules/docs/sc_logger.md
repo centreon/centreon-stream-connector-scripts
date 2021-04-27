@@ -70,7 +70,7 @@ If the logfile and severity are not provided, default values are going to be use
 
 ## error method
 
-The error method will print an error message in the logfile if **severity is equal or superior to 1**
+The **error** method will print an error message in the logfile if **severity is equal or superior to 1**
 
 ### error: parameters
 
@@ -85,7 +85,7 @@ test_logger:error("[module_name:method_name]: This is an error message.")
 
 ## warning method
 
-The warning method will print a warning message in the logfile if **severity is equal or superior to 2**
+The **warning** method will print a warning message in the logfile if **severity is equal or superior to 2**
 
 ### warning: parameters
 
@@ -100,7 +100,7 @@ test_logger:warning("[module_name:method_name]: This is a warning message.")
 
 ## debug method
 
-The debug method will print a debug message in the logfile if **severity is equal or superior to 3**
+The **debug** method will print a debug message in the logfile if **severity is equal or superior to 3**
 
 ### debug: parameters
 
@@ -115,7 +115,7 @@ test_logger:debug("[module_name:method_name]: This is a debug message.")
 
 ## notice method
 
-The notice method will print a notice message in the logfile if **severity is equal or superior to 1**.
+The **notice** method will print a notice message in the logfile if **severity is equal or superior to 1**.
 
 ### notice: parameters
 

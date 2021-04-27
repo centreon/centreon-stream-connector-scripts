@@ -10,24 +10,24 @@
 
 ## Libraries list
 
-| Lib name  | Content                                          | Usage                                                                     |
-| --------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
-| sc_common | basic methods for lua                            | you can use it when you want to simplify your code                        |
-| sc_logger | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 |
-| sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             |
-| sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters |
-| sc_event  | methods to help you interact with a broker event | when you to perform a specific action on an event                         |
+| Lib name  | Content                                          | Usage                                                                     | Documentation                   |
+| --------- | ------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------- |
+| sc_common | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](./sc_common.md) |
+| sc_logger | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](./sc_logger.md) |
+| sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             | link                            |
+| sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | link                            |
+| sc_event  | methods to help you interact with a broker event | when you to perform a specific action on an event                         | link                            |
 
 ## sc_common methods
 
-| Method name                        | Method description                                                                          | Link |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- | ---- |
-| ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case   | link |
-| if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value     | link |
-| boolean_to_number                  | change a true/false boolean to a 1/0 value                                                  | link |
-| check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value | link |
-| split                              | split a string using a separator (default is ",") and store each part in a table            | link |
-| compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | link |
+| Method name                        | Method description                                                                          | Link                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case   | [Documentation](./sc_common.md#ifnil_or_empty-method)                        |
+| if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value     | [Documentation](./sc_common.md#if_wrong_type-method)                         |
+| boolean_to_number                  | change a true/false boolean to a 1/0 value                                                  | [Documentation](./sc_common.md#boolean_to_number-method)                     |
+| check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value | [Documentation](./sc_common.md#check_boolean_to_number_option_syntax-method) |
+| split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](./sc_common.md#split-method)                                 |
+| compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](./sc_common.md#compare_numbers-method)                       |
 
 ## sc_logger methods
 
