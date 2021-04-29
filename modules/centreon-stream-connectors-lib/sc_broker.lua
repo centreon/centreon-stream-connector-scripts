@@ -211,7 +211,7 @@ function ScBroker:get_servicegroups(host_id, service_id)
   end
 
   -- get servicegroups
-  local servicegroups = broker_cache:get_servicegroups(host_id)
+  local servicegroups = broker_cache:get_servicegroups(host_id, service_id)
 
   -- return false if no servicegroups were found
   if not servicegroups then
