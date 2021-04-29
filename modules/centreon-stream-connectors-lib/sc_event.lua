@@ -95,7 +95,7 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_host_status_event()
   -- return false if we can't get hostname or host id is nil
-  if not self:is_host_valid() then
+  if not self:is_valid_host() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
     return false
   end
@@ -108,7 +108,7 @@ function ScEvent:is_valid_host_status_event()
   end
 
   -- return false if one of event ack, downtime or state type (hard soft) aren't valid
-  if not self:are_all_event_states_valid() then
+  if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
   end
@@ -126,14 +126,14 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_service_status_event()
   -- return false if we can't get hostname or host id is nil
-  if not self:is_host_valid() then
+  if not self:is_valid_host() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: host_id: " .. tostring(self.event.host_id) 
       .. " hasn't been validated for service with id: " .. tostring(self.event.service_id))
     return false
   end
 
   -- return false if we can't get service description of service id is nil
-  if not self:is_service_valid() then
+  if not self:is_valid_service() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) .. " hasn't been validated")
     return false
   end
@@ -146,7 +146,7 @@ function ScEvent:is_valid_service_status_event()
   end
 
   -- return false if one of event ack, downtime or state type (hard soft) aren't valid
-  if not self:are_all_event_states_valid() then
+  if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
   end
@@ -167,14 +167,14 @@ function ScEvent:is_valid_service_status_event()
   return true
 end
 
---- is_host_valid: check if host name and/or id are valid
+--- is_valid_host: check if host name and/or id are valid
 -- @return true|false (boolean)
-function ScEvent:is_host_valid()
+function ScEvent:is_valid_host()
   self.event.cache.host = self.sc_broker:get_host_all_infos(self.event.host_id)
 
     -- return false if we can't get hostname or host id is nil
   if (not self.event.cache.host and self.params.skip_nil_id) or (not self.event.cache.host.name and self.params.skip_anon_events == 1) then
-    self.sc_logger:warning("[sc_event:is_host_valid]: Invalid host with id: " .. tostring(self.event.host_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
+    self.sc_logger:warning("[sc_event:is_valid_host]: Invalid host with id: " .. tostring(self.event.host_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
       .. " host name is: " .. tostring(self.event.cache.host.name) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   end
@@ -186,21 +186,21 @@ function ScEvent:is_host_valid()
 
   -- return false if event is coming from fake bam host
   if string.find(self.event.cache.host.name, "^_Module_BAM_*") then
-    self.sc_logger:debug("[sc_event:is_host_valid]: Host is a BAM fake host: " .. tostring(self.event.cache.host.name))
+    self.sc_logger:debug("[sc_event:is_valid_host]: Host is a BAM fake host: " .. tostring(self.event.cache.host.name))
     return false
   end
 
   return true
 end
 
---- is_service_valid: check if service description and/or id are valid
+--- is_valid_service: check if service description and/or id are valid
 -- @return true|false (boolean)
-function ScEvent:is_service_valid()
+function ScEvent:is_valid_service()
   self.event.cache.service = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
 
   -- return false if we can't get service description or if service id is nil
   if (not self.event.cache.service and self.params.skip_nil_id) or (not self.event.cache.service.description and self.params.skip_anon_events == 1) then
-    self.sc_logger:warning("[sc_event:is_host_valid]: Invalid service with id: " .. tostring(self.event.service_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
+    self.sc_logger:warning("[sc_event:is_valid_service]: Invalid service with id: " .. tostring(self.event.service_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
       .. " service description is: " .. tostring(self.event.cache.service.description) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   end
@@ -213,9 +213,9 @@ function ScEvent:is_service_valid()
   return true
 end
 
---- are_all_event_states_valid: wrapper method that checks common aspect of an event such as ack and state_type
+--- is_valid_event_states: wrapper method that checks common aspect of an event such as ack and state_type
 -- @return true|false (boolean)
-function ScEvent:are_all_event_states_valid()
+function ScEvent:is_valid_event_states()
   -- return false if state_type (HARD/SOFT) is not valid
   if not self:is_valid_event_state_type() then
     return false
@@ -382,7 +382,7 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_bam_event()
   -- return false if ba name is invalid or ba_id is nil 
-  if not self:is_ba_valid() then
+  if not self:is_valid_ba() then
     self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " hasn't been validated")
     return false
   end
@@ -414,14 +414,14 @@ function ScEvent:is_valid_bam_event()
   return true
 end
 
---- is_ba_valid: check if ba name and/or id are valid
+--- is_valid_ba: check if ba name and/or id are valid
 -- @return true|false (boolean)
-function ScEvent:is_ba_valid()
+function ScEvent:is_valid_ba()
   self.event.cache.ba = self.sc_broker:get_ba_infos(self.event.ba_id)
   
   -- return false if we can't get ba name or ba id is nil
   if (not self.event.cache.ba.ba_name and self.params.skip_nil_id) or (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 1) then
-    self.sc_logger:warning("[sc_event:is_ba_valid]: Invalid BA with id: " .. tostring(self.event.ba_id) .. ". And skip nil id is set to: " .. tostring(self.params.skip_nil_id) 
+    self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA with id: " .. tostring(self.event.ba_id) .. ". And skip nil id is set to: " .. tostring(self.params.skip_nil_id) 
       .. ". Found BA name is: " .. tostring(self.event.cache.ba.ba_name) .. ". And skip anon event param is set to: " .. tostring(self.params.skip_anon_events))
     return false
   end
@@ -438,7 +438,7 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_ba_status_event()
   if not self:is_valid_event_status(self.params.ba_status) then
-    self.sc_logger:warning("[sc_event:is_ba_valid]: Invalid BA status for BA id: " .. tostring(self.event.ba_id) .. ". State is: " 
+    self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA status for BA id: " .. tostring(self.event.ba_id) .. ". State is: " 
       .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]) .. ". Acceptes states are: " .. tostring(self.params.ba_status)) 
     return false
   end
@@ -450,7 +450,7 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_ba_downtime_state()
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.sc_common:boolean_to_number(self.event.in_downtime), ">=") then
-    self.sc_logger:warning("[sc_event:is_ba_valid]: Invalid BA downtime state for BA id: " .. tostring(self.event.ba_id) .. " downtime state is : " .. tostring(self.event.in_downtime) 
+    self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA downtime state for BA id: " .. tostring(self.event.ba_id) .. " downtime state is : " .. tostring(self.event.in_downtime) 
       .. " and accepted downtime state must be below or equal to: " .. tostring(self.params.in_downtime))
     return false
   end

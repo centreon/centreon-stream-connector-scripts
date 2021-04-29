@@ -70,9 +70,9 @@
 | is_valid_neb_event               | check if the neb event is valid according to the stream connector params                                                                                     | link |
 | is_valid_host_status_event       | check the "host status" event is valid according to the stream connector params                                                                              | link |
 | is_valid_service_status_event    | check the "servce status" event is valid according to the stream connector params                                                                            | link |
-| is_host_valid                    | check if the host name and/or ID are valid according to the stream connector params                                                                          | link |
-| is_service_valid                 | check if the service description and/or ID are are valid according to the stream connector params                                                            | link |
-| are_all_event_states_valid       | check if the state (HARD/SOFT), acknowledgement state and downtime state are valid according to the stream connector params                                  | link |
+| is_valid_host                    | check if the host name and/or ID are valid according to the stream connector params                                                                          | link |
+| is_valid_service                 | check if the service description and/or ID are are valid according to the stream connector params                                                            | link |
+| is_valid_event_states       | check if the state (HARD/SOFT), acknowledgement state and downtime state are valid according to the stream connector params                                  | link |
 | is_valid_event_status            | check if the status (OK, DOWN...) of the event is valid according to the stream connector params                                                             | link |
 | is_valid_event_state_type        | check if the state (HARD/SOFT) of the event is valid according to the stream connector params                                                                | link |
 | is_valid_event_acknowledge_state | check if the acknowledgement state of the event is valid according to the stream connector params                                                            | link |
@@ -82,7 +82,7 @@
 | is_valid_servicegroup            | check if the service is in an accepted servicegroup according to the stream connector params                                                                 | link |
 | find_servicegroup_in_list        | check if one of the servicegroups of the event is in the list of accepted servicegroups provided in the stream connector configuration. Stops at first match | link |
 | is_valid_bam_event               | check if the BAM event is valid according to the stream connector params                                                                                     | link |
-| is_ba_valid                      | check if the BA name and/or ID are are valid according to the stream connector params                                                                        | link |
+| is_valid_ba                      | check if the BA name and/or ID are are valid according to the stream connector params                                                                        | link |
 | is_valid_ba_status_event         | check if the "ba status" (OK, WARNING, CRITICAL) event is valid according to the stream connector params                                                     | link |
 | is_valid_ba_downtime_state       | check if the BA downtime state is valid according to the stream connector params                                                                             | link |
 | is_valid_ba_acknowledge_state    | DO NOTHING                                                                                                                                                   | link |
