@@ -55,21 +55,21 @@ function EventQueue:format_event()
   -- starting to handle shared information between host and service
   self.sc_event.event.formated_event = {
     -- name of host has been stored in a cache table when calling is_valid_even()
-    my_host = self.sc_event.event.cache.name,
+    my_host = self.sc_event.event.cache.host.name,
     -- states (critical, ok...) are found and converted to human format thanks to the status_mapping table
     my_state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
     -- get output of the event
     my_output = self.sc_common:ifnil_or_empty(string.match(self.sc_event.event.output, "^(.*)\n"), "no output"),
     -- like the name of the host, notes are stored in the cache table of the event
-    my_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.notes, "no notes found")
+    my_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.notes, "no notes found")
   }
 
   -- handle service specific information
   if self.sc_event.event.element == 24 then
     -- like the name of the host, service description is stored in the cache table of the event
-    self.sc_event.event.formated_event.my_description = self.sc_event.event.cache.description
+    self.sc_event.event.formated_event.my_description = self.sc_event.event.cache.service.description
     -- if the service doesn't have notes,  we can retrieve the ones from the host by fetching it from the broker cache
-    self.sc_event.event.formated_event.my_notes = self.sc_common:ifnil_or_empty(self.sc_broker:get_host_infos(self.sc_event.event.host_id, "notes"), "no notes found")
+    self.sc_event.event.formated_event.my_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.service.notes, self.sc_event.event.formated_event.my_notes)
   end
 
   self:add()

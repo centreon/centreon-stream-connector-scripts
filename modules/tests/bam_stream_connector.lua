@@ -55,11 +55,11 @@ function EventQueue:format_event()
   -- starting to handle information from BA
   self.sc_event.event.formated_event = {
     -- name of BA has been stored in a cache table when calling is_valid_even()
-    my_ba = self.sc_event.event.cache.ba_name,
+    my_ba = self.sc_event.event.cache.ba.ba_name,
     -- states (critical, ok...) are found and converted to human format thanks to the status_mapping table
     my_state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
     -- like the name of the BA, BA description is stored in the cache table of the event
-    my_description = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.ba_description, "no description found")
+    my_description = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.ba.ba_description, "no description found")
   }
 
   self:add()

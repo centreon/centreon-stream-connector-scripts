@@ -170,25 +170,23 @@ end
 --- is_host_valid: check if host name and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_host_valid()
-  local host_infos = self.sc_broker:get_host_all_infos(self.event.host_id)
+  self.event.cache.host = self.sc_broker:get_host_all_infos(self.event.host_id)
 
     -- return false if we can't get hostname or host id is nil
-  if (not host_infos and self.params.skip_nil_id) or (not host_infos.name and self.params.skip_anon_events == 1) then
+  if (not self.event.cache.host and self.params.skip_nil_id) or (not self.event.cache.host.name and self.params.skip_anon_events == 1) then
     self.sc_logger:warning("[sc_event:is_host_valid]: Invalid host with id: " .. tostring(self.event.host_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
-      .. " host name is: " .. tostring(host_infos.name) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
+      .. " host name is: " .. tostring(self.event.cache.host.name) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   end
 
   -- force host name to be its id if no name has been found
-  if not host_infos.name then
-    self.event.cache.name = host_infos.host_id or self.event.host_id
-  else
-    self.event.cache = host_infos
+  if not self.event.cache.host.name then
+    self.event.cache.host.name = self.event.cache.host.host_id or self.event.host_id
   end
 
   -- return false if event is coming from fake bam host
-  if string.find(self.event.cache.name, "^_Module_BAM_*") then
-    self.sc_logger:debug("[sc_event:is_host_valid]: Host is a BAM fake host: " .. tostring(self.event.cache.name))
+  if string.find(self.event.cache.host.name, "^_Module_BAM_*") then
+    self.sc_logger:debug("[sc_event:is_host_valid]: Host is a BAM fake host: " .. tostring(self.event.cache.host.name))
     return false
   end
 
@@ -198,20 +196,18 @@ end
 --- is_service_valid: check if service description and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_service_valid()
-  local service_infos = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
+  self.event.cache.service = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
 
   -- return false if we can't get service description or if service id is nil
-  if (not service_infos and self.params.skip_nil_id) or (not service_infos.description and self.params.skip_anon_events == 1) then
+  if (not self.event.cache.service and self.params.skip_nil_id) or (not self.event.cache.service.description and self.params.skip_anon_events == 1) then
     self.sc_logger:warning("[sc_event:is_host_valid]: Invalid service with id: " .. tostring(self.event.service_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
-      .. " service description is: " .. tostring(service_infos.description) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
+      .. " service description is: " .. tostring(self.event.cache.service.description) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   end
 
   -- force service description to its id if no description has been found
-  if not service_infos.description then
-    self.event.cache.description = service_infos.service_id or self.event.service_id
-  else
-    self.event.cache = service_infos
+  if not self.event.cache.service.description then
+    self.event.cache.service.description = service_infos.service_id or self.event.service_id
   end
 
   return true
@@ -421,18 +417,18 @@ end
 --- is_ba_valid: check if ba name and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_ba_valid()
-  self.event.cache = self.sc_broker:get_ba_infos(self.event.ba_id)
+  self.event.cache.ba = self.sc_broker:get_ba_infos(self.event.ba_id)
   
   -- return false if we can't get ba name or ba id is nil
-  if (not self.event.cache.ba_name and self.params.skip_nil_id) or (not self.event.cache.ba_name and self.params.skip_anon_events == 1) then
+  if (not self.event.cache.ba.ba_name and self.params.skip_nil_id) or (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 1) then
     self.sc_logger:warning("[sc_event:is_ba_valid]: Invalid BA with id: " .. tostring(self.event.ba_id) .. ". And skip nil id is set to: " .. tostring(self.params.skip_nil_id) 
-      .. ". Found BA name is: " .. tostring(self.event.cache.ba_name) .. ". And skip anon event param is set to: " .. tostring(self.params.skip_anon_events))
+      .. ". Found BA name is: " .. tostring(self.event.cache.ba.ba_name) .. ". And skip anon event param is set to: " .. tostring(self.params.skip_anon_events))
     return false
   end
 
   -- force ba name to be its id if no name has been found
-  if not self.event.cache.name then
-    self.event.cache.name = self.event.cache.name or self.event.ba_id
+  if not self.event.cache.ba.ba_name then
+    self.event.cache.ba.ba_name = self.event.cache.ba.ba_name or self.event.ba_id
   end
 
   return true
