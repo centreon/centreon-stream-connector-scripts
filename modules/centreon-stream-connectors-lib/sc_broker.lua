@@ -267,7 +267,7 @@ end
 -- @return name (string) the name of the instance
 function ScBroker:get_instance(instance_id)
   -- return false if instance_id is invalid
-  if intance_id == nil or instance_id == "" then
+  if instance_id == nil or instance_id == "" then
     self.logger:warning("[sc_broker:get_instance]: instance id is nil or empty")
     return false
   end
