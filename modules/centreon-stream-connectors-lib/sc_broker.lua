@@ -332,8 +332,8 @@ function ScBroker:get_bv_infos(ba_id)
   local bvs = {}
 
   -- get bv info (name + description) for each found bv
-  for _, id in ipairs(bv_id) do
-    bv_infos = broker_cache:get_bv(v)
+  for _, id in ipairs(bvs_id) do
+    bv_infos = broker_cache:get_bv(id)
 
     -- add bv information to the list
     if bv_infos then
@@ -349,7 +349,7 @@ function ScBroker:get_bv_infos(ba_id)
     return false
   end
 
-  return bv_infos
+  return bvs
 end
 
 return sc_broker
