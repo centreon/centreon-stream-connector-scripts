@@ -14,20 +14,20 @@
 | --------- | ------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------- |
 | sc_common | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](./sc_common.md) |
 | sc_logger | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](./sc_logger.md) |
-| sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             | link                            |
+| sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             | [Documentation](./sc_broker.md) |
 | sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | link                            |
 | sc_event  | methods to help you interact with a broker event | when you to perform a specific action on an event                         | link                            |
 
 ## sc_common methods
 
-| Method name                        | Method description                                                                          | Link                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case   | [Documentation](./sc_common.md#ifnil_or_empty-method)                        |
-| if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value     | [Documentation](./sc_common.md#if_wrong_type-method)                         |
-| boolean_to_number                  | change a true/false boolean to a 1/0 value                                                  | [Documentation](./sc_common.md#boolean_to_number-method)                     |
+| Method name                        | Method description                                                                          | Link                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case   | [Documentation](./sc_common.md#ifnil_or_empty-method)                     |
+| if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value     | [Documentation](./sc_common.md#if_wrong_type-method)                      |
+| boolean_to_number                  | change a true/false boolean to a 1/0 value                                                  | [Documentation](./sc_common.md#boolean_to_number-method)                  |
 | check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value | [Documentation](./sc_common.md#check_boolean_number_option_syntax-method) |
-| split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](./sc_common.md#split-method)                                 |
-| compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](./sc_common.md#compare_numbers-method)                       |
+| split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](./sc_common.md#split-method)                              |
+| compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](./sc_common.md#compare_numbers-method)                    |
 
 ## sc_logger methods
 
@@ -40,18 +40,18 @@
 
 ## sc_broker methods
 
-| Method name           | Method description                                                               | Link |
-| --------------------- | -------------------------------------------------------------------------------- | ---- |
-| get_host_all_infos    | retrieve all informations about a host from the broker cache                     | link |
-| get_service_all_infos | retrieve all informations about a service from the broker cache                  | link |
-| get_host_infos        | retrieve one or more specific informations about a host from the broker cache    | link |
-| get_service_infos     | retrieve one or more specific informations about a service from the broker cache | link |
-| get_hostgroups        | retrieve the hostgroups linked to a host from the broker cache                   | link |
-| get_servicegroups     | retrieve the servicegroups linked to a service from the broker cache             | link |
-| get_severity          | retrieve the severity of a host or a service from the broker cache               | link |
-| get_instance          | retrieve the name of the poller using the instance id from the broker cache      | link |
-| get_ba_infos          | retrieve the name and description of a BA from the broker cache                  | link |
-| get_bv_infos          | retrieve the name and description of all BV linked to a BA                       |
+| Method name           | Method description                                                               | Link                                                         |
+| --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| get_host_all_infos    | retrieve all informations about a host from the broker cache                     | [Documentation](./sc_broker.md#get_host_all_infos-method)    |
+| get_service_all_infos | retrieve all informations about a service from the broker cache                  | [Documentation](./sc_broker.md#get_service_all_infos-method) |
+| get_host_infos        | retrieve one or more specific informations about a host from the broker cache    | [Documentation](./sc_broker.md#get_host_infos-method)        |
+| get_service_infos     | retrieve one or more specific informations about a service from the broker cache | [Documentation](./sc_broker.md#get_service_infos-method)     |
+| get_hostgroups        | retrieve the hostgroups linked to a host from the broker cache                   | [Documentation](./sc_broker.md#get_hostgroups-method)        |
+| get_servicegroups     | retrieve the servicegroups linked to a service from the broker cache             | [Documentation](./sc_broker.md#get_servicegroups-method)     |
+| get_severity          | retrieve the severity of a host or a service from the broker cache               | [Documentation](./sc_broker.md#get_severity-method)          |
+| get_instance          | retrieve the name of the poller using the instance id from the broker cache      | [Documentation](./sc_broker.md#get_instance-method)          |
+| get_ba_infos          | retrieve the name and description of a BA from the broker cache                  | [Documentation](./sc_broker.md#get_ba_infos-method)          |
+| get_bv_infos          | retrieve the name and description of all BV linked to a BA                       | [Documentation](./sc_broker.md#get_bv_infos-method)          |
 
 ## sc_param methods
 
@@ -72,7 +72,7 @@
 | is_valid_service_status_event    | check the "servce status" event is valid according to the stream connector params                                                                            | link |
 | is_valid_host                    | check if the host name and/or ID are valid according to the stream connector params                                                                          | link |
 | is_valid_service                 | check if the service description and/or ID are are valid according to the stream connector params                                                            | link |
-| is_valid_event_states       | check if the state (HARD/SOFT), acknowledgement state and downtime state are valid according to the stream connector params                                  | link |
+| is_valid_event_states            | check if the state (HARD/SOFT), acknowledgement state and downtime state are valid according to the stream connector params                                  | link |
 | is_valid_event_status            | check if the status (OK, DOWN...) of the event is valid according to the stream connector params                                                             | link |
 | is_valid_event_state_type        | check if the state (HARD/SOFT) of the event is valid according to the stream connector params                                                                | link |
 | is_valid_event_acknowledge_state | check if the acknowledgement state of the event is valid according to the stream connector params                                                            | link |

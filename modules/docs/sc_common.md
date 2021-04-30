@@ -32,7 +32,7 @@
 
 ## Introduction
 
-The sc_common library provides methods to help with common needs when writing stream connectors. It has been made in OOP (object oriented programming)
+The sc_common module provides methods to help with common needs when writing stream connectors. It has been made in OOP (object oriented programming)
 
 ## Module initialization
 
