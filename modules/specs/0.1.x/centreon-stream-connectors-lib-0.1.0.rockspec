@@ -1,5 +1,7 @@
+package = "centreon-stream-connectors-lib"
+version = "0.1.0-1"
 source = {
-   url = "git+https://github.com/centreon/centreon-stream-connectors",
+   url = "git+https://github.com/centreon/centreon-stream-connector-scripts",
    tag = "0.1.0"
 }
 description = {
