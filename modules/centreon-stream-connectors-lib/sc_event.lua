@@ -173,11 +173,18 @@ end
 --- is_valid_host: check if host name and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_valid_host()
+
+  -- return false if host id is nil
+  if (not self.event.host_id and self.params.skip_nil_id == 1) then
+    self.sc_logger:warning("[sc_event:is_valid_host]: Invalid host with id: " .. tostring(self.event.host_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id))
+    return false
+  end
+
   self.event.cache.host = self.sc_broker:get_host_all_infos(self.event.host_id)
 
-    -- return false if we can't get hostname or host id is nil
-  if (not self.event.cache.host and self.params.skip_nil_id) or (not self.event.cache.host.name and self.params.skip_anon_events == 1) then
-    self.sc_logger:warning("[sc_event:is_valid_host]: Invalid host with id: " .. tostring(self.event.host_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
+    -- return false if we can't get hostname
+  if (not self.event.cache.host.name and self.params.skip_anon_events == 1) then
+    self.sc_logger:warning("[sc_event:is_valid_host]: Invalid host with id: " .. tostring(self.event.host_id) 
       .. " host name is: " .. tostring(self.event.cache.host.name) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   end
@@ -199,11 +206,18 @@ end
 --- is_valid_service: check if service description and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_valid_service()
+
+  -- return false if service id is nil
+  if (not self.event.service_id and self.params.skip_nil_id == 1) then
+    self.sc_logger:warning("[sc_event:is_valid_service]: Invalid service with id: " .. tostring(self.event.service_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id))
+    return false
+  end
+
   self.event.cache.service = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
 
-  -- return false if we can't get service description or if service id is nil
-  if (not self.event.cache.service and self.params.skip_nil_id) or (not self.event.cache.service.description and self.params.skip_anon_events == 1) then
-    self.sc_logger:warning("[sc_event:is_valid_service]: Invalid service with id: " .. tostring(self.event.service_id) .. " skip nil id is: " .. tostring(self.params.skip_nil_id) 
+  -- return false if we can't get service description
+  if (not self.event.cache.service.description and self.params.skip_anon_events == 1) then
+    self.sc_logger:warning("[sc_event:is_valid_service]: Invalid service with id: " .. tostring(self.event.service_id) 
       .. " service description is: " .. tostring(self.event.cache.service.description) .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   end
@@ -420,11 +434,18 @@ end
 --- is_valid_ba: check if ba name and/or id are valid
 -- @return true|false (boolean)
 function ScEvent:is_valid_ba()
+
+  -- return false if ba_id is nil
+  if (not self.event.ba_id and self.params.skip_nil_id == 1) then
+    self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA with id: " .. tostring(self.event.ba_id) .. ". And skip nil id is set to: " .. tostring(self.params.skip_nil_id))
+    return false
+  end
+
   self.event.cache.ba = self.sc_broker:get_ba_infos(self.event.ba_id)
   
-  -- return false if we can't get ba name or ba id is nil
-  if (not self.event.cache.ba.ba_name and self.params.skip_nil_id) or (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 1) then
-    self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA with id: " .. tostring(self.event.ba_id) .. ". And skip nil id is set to: " .. tostring(self.params.skip_nil_id) 
+  -- return false if we can't get ba name
+  if (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 1) then
+    self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA with id: " .. tostring(self.event.ba_id)
       .. ". Found BA name is: " .. tostring(self.event.cache.ba.ba_name) .. ". And skip anon event param is set to: " .. tostring(self.params.skip_anon_events))
     return false
   end
