@@ -122,6 +122,13 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
+  -- return false if host has not an accepted severity
+  if not self:is_valid_host_severity() then
+    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: service id: " .. tostring(self.event.service_id) 
+      .. ". host_id: " .. tostring(self.event.host_id) .. ". Host has not an accepted severity")
+    return false
+  end
+
   -- return false if host is not in an accepted hostgroup
   if not self:is_valid_hostgroup() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in an accepted hostgroup")
@@ -164,6 +171,20 @@ function ScEvent:is_valid_service_status_event()
   if not self:is_valid_poller() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
       .. ". host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+    return false
+  end
+
+  -- return false if host has not an accepted severity
+  if not self:is_valid_host_severity() then
+    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
+      .. ". host_id: " .. tostring(self.event.host_id) .. ". Host has not an accepted severity")
+    return false
+  end
+
+  -- return false if service has not an accepted severity
+  if not self:is_valid_service_severity() then
+    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
+      .. ". host_id: " .. tostring(self.event.host_id) .. ". Service has not an accepted severity")
     return false
   end
 
@@ -600,6 +621,50 @@ function ScEvent:find_poller_in_list()
   end 
 
   return false
+end
+
+--- is_valid_host_severity: checks if the host severity is accepted
+-- @return true|false (boolean)
+function ScEvent:is_valid_host_severity()
+  -- return true if there is no severity filter
+  if self.params.host_severity_threshold == nil then
+    return true
+  end
+
+  -- get severity of the host from broker cache
+  self.event.cache.host_severity = self.sc_broker:get_severity(self.event.host_id)
+
+  -- return false if host severity doesn't match 
+  if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.host_severity, self.params.host_severity_operator) then
+    self.sc_logger:debug("[sc_event:is_valid_host_severity]: dropping event because host with id: " .. tostring(self.event.host_id) .. " has an invalid severity. Severity is: "
+      .. tostring(self.event.cache.host_severity) .. ". host_severity_threshold (" .. tostring(self.params.host_severity_threshold) .. ") is " .. self.params.host_severity_operator 
+      .. " to the severity of the host (" .. tostring(self.event.cache.host_severity) .. ")")
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_service_severity: checks if the  service severity is accepted
+-- @return true|false (boolean)
+function ScEvent:is_valid_host_severity()
+  -- return true if there is no severity filter
+  if self.params.service_severity_threshold == nil then
+    return true
+  end
+
+  -- get severity of the host from broker cache
+  self.event.cache.service_severity = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+
+  -- return false if service severity doesn't match 
+  if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.service_severity, self.params.service_severity_operator) then
+    self.sc_logger:debug("[sc_event:is_valid_service_severity]: dropping event because service with id: " .. tostring(self.event.service_id) .. " has an invalid severity. Severity is: "
+      .. tostring(self.event.cache.service_severity) .. ". service_severity_threshold (" .. tostring(self.params.service_severity_threshold) .. ") is " .. self.params.service_severity_operator 
+      .. " to the severity of the host (" .. tostring(self.event.cache.service_severity) .. ")")
+    return false
+  end
+
+  return true
 end
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead

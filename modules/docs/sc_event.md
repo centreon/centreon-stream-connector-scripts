@@ -83,6 +83,12 @@
   - [find_poller_in_list method](#find_poller_in_list-method)
     - [find_poller_in_list: returns](#find_poller_in_list-returns)
     - [find_poller_in_list: example](#find_poller_in_list-example)
+  - [is_valid_host_severity method](#is_valid_host_severity-method)
+    - [is_valid_host_severity: returns](#is_valid_host_severity-returns)
+    - [is_valid_host_severity: example](#is_valid_host_severity-example)
+  - [is_valid_service_severity method](#is_valid_service_severity-method)
+    - [is_valid_service_severity: returns](#is_valid_service_severity-returns)
+    - [is_valid_service_severity: example](#is_valid_service_severity-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -225,6 +231,7 @@ head over the following chapters for more information
 - [is_valid_event_status](#is_valid_event_status-method)
 - [is_valid_event_states](#is_valid_event_states-method)
 - [is_valid_poller](#is_valid_poller-method)
+- [is_valid_host_severity](#is_valid_host_severity-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
 
 ### is_valid_host_status_event: returns
@@ -251,6 +258,8 @@ head over the following chapters for more information
 - [is_valid_event_status](#is_valid_event_status-method)
 - [is_valid_event_states](#is_valid_event_states-method)
 - [is_valid_poller](#is_valid_poller-method)
+- [is_valid_host_severity](#is_valid_host_severity-method)
+- [is_valid_service_severity](#is_valid_service_severity-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
 - [is_valid_servicegroup](#is_valid_servicegroup-method)
 
@@ -759,6 +768,64 @@ local result = test_event:find_poller_in_list()
 
 result = test_event:find_poller_in_list()
 --> result is: false
+```
+
+## is_valid_host_severity method
+
+The **is_valid_host_severity** method checks if the event has an accepted host severity based on [**host_severity_threshold and host_severity_operator**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+
+If the **host_severity_threshold** is configured, all broker cache information regarding the severity linked to a host will be added to the event in a cache.host_severity index. More details about this cache index [**here**](sc_broker.md#get_severity-example)
+
+### is_valid_host_severity: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_host_severity: example
+
+```lua
+local result = test_event:is_valid_host_severity()
+--> result is true or false
+--[[
+  --> test_event.event structure is:
+  {
+    --- event data ---
+    cache = {
+      host_severity = 2712
+      --- other cache data type ---
+    }
+  }
+]]
+```
+
+## is_valid_service_severity method
+
+The **is_valid_service_severity** method checks if the event has an accepted service severity based on [**service_severity_threshold and service_severity_operator**](sc_param.md#default-parameters) in the **service_status** scope
+
+If the **service_severity_threshold** is configured, all broker cache information regarding the severity linked to a service will be added to the event in a cache.service_severity index. More details about this cache index [**here**](sc_broker.md#get_severity-example)
+
+### is_valid_service_severity: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_service_severity: example
+
+```lua
+local result = test_event:is_valid_service_severity()
+--> result is true or false
+--[[
+  --> test_event.event structure is:
+  {
+    --- event data ---
+    cache = {
+      service_severity = 2712
+      --- other cache data type ---
+    }
+  }
+]]
 ```
 
 ## is_valid_storage_event method
