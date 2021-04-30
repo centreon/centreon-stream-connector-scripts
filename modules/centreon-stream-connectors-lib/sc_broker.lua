@@ -16,7 +16,7 @@ function sc_broker.new(logger)
   
   self.logger = logger
   if not self.logger then 
-    self.logger = sc_logger.new("/var/log/centreon-broker/stream-connector.log", 1)
+    self.logger = sc_logger.new()
   end
 
   setmetatable(self, { __index = ScBroker })

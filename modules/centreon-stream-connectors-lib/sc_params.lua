@@ -20,6 +20,9 @@ function sc_params.new(common, logger)
 
   -- initiate mandatory libs
   self.logger = logger
+  if not self.logger then 
+    self.logger = sc_logger.new()
+  end
   self.common = common
 
   -- initiate params

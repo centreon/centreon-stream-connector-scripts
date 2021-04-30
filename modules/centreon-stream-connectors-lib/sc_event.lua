@@ -17,7 +17,10 @@ local ScEvent = {}
 function sc_event.new(event, params, common, logger, broker)
   local self = {}
 
-  self.sc_logger = logger
+  self.logger = logger
+  if not self.logger then 
+    self.logger = sc_logger.new()
+  end
   self.sc_common = common
   self.params = params
   self.event = event
