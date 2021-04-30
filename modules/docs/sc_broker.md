@@ -611,6 +611,6 @@ local result = test_broker:get_ba_infos(ba_id)
     }
   }
   
-  --> result[33].bv_name is: "another-BV"
+  --> result[2].bv_name is: "another-BV"
 --]]
 ```
