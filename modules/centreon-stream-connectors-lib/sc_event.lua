@@ -310,10 +310,10 @@ function ScEvent:is_valid_hostgroup()
     return true
   end
 
-  self.event.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
+  self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
   -- return false if no hostgroups were found
-  if not self.event.hostgroups then
+  if not self.event.cache.hostgroups then
     self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
       .. " is not linked to a hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups)
     return false
@@ -339,7 +339,7 @@ end
 -- @return false (boolean) if no matching hostgroup has been found
 function ScEvent:find_hostgroup_in_list()
   for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_hostgroups, ",")) do
-    for _, event_hostgroup in pairs(self.event.hostgroups) do
+    for _, event_hostgroup in pairs(self.event.cache.hostgroups) do
       if accepted_name == event_hostgroup.group_name then
         return accepted_name
       end
@@ -357,10 +357,10 @@ function ScEvent:is_valid_servicegroup()
     return true
   end
 
-  self.event.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
+  self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
 
   -- return false if no servicegroups were found
-  if not self.event.servicegroups then
+  if not self.event.cache.servicegroups then
     self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
       .. " is not linked to a servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
     return false
@@ -385,7 +385,7 @@ end
 -- @return accepted_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
 function ScEvent:find_servicegroup_in_list()
   for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_servicegroups, ",")) do
-    for _, event_servicegroup in pairs(self.event.servicegroups) do
+    for _, event_servicegroup in pairs(self.event.cache.servicegroups) do
       if accepted_name == event_servicegroup.group_name then
         return accepted_name
       end
@@ -500,10 +500,10 @@ function ScEvent:is_valid_bv()
     return true
   end
 
-  self.event.bvs = self.sc_broker:get_bv_infos(self.event.host_id)
+  self.event.cache.bvs = self.sc_broker:get_bv_infos(self.event.host_id)
 
   -- return false if no hostgroups were found
-  if not self.event.bvs then
+  if not self.event.cache.bvs then
     self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
       .. " is not linked to a BV. Accepted BVs are: " .. self.params.accepted_bvs)
     return false
@@ -529,7 +529,7 @@ end
 -- @return false (boolean) if no matching BV has been found
 function ScEvent:find_bv_in_list()
   for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_bvs,",")) do
-    for _, event_bv in pairs(self.event.bvs) do
+    for _, event_bv in pairs(self.event.cache.bvs) do
       if accepted_name == event_bv.bv_name then
         return accepted_name
       end
