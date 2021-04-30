@@ -329,7 +329,7 @@ head over the following chapters for more information
 
 - [is_valid_event_state_type](#is_valid_event_state_type-method)
 - [is_valid_event_acknowledge_state](#is_valid_event_acknowledge_state-method)
-- [is_valid_downtime_state](#is_valid_downtime_state-method)
+- [is_valid_event_downtime_state](#is_valid_event_downtime_state-method)
 
 ### is_valid_event_states: returns
 
