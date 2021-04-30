@@ -240,7 +240,7 @@ The **is_valid_service_status_event** method checks if the service status event 
 head over the following chapters for more information
 
 - [is_valid_host](#is_valid_host-method)
-- [is_service_valid](#is_service_valid-method)
+- [is_valid_service](#is_valid_service-method)
 - [is_valid_event_status](#is_valid_event_status-method)
 - [is_valid_event_states](#is_valid_event_states-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
