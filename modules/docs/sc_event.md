@@ -172,7 +172,7 @@ head over the following chapters for more information
 
 - [is_valid_neb_event](#is_valid_neb_event-method)
 - [is_valid_bam_event](#is_valid_bam_event-method)
-- [is_valid_storage_event](#is_valid_storage_event-method)
+- [is_valid_storage_event](#is_valid_storage_event)
 
 ### is_valid_event: returns
 
@@ -193,8 +193,8 @@ The **is_valid_neb_event** method checks if the event is a valid **neb** event b
 
 head over the following chapters for more information
 
-- [is_valid_host_status_event](#is_valid_host_status_event)
-- [is_valid_service_status_event](#is_valid_service_status_event)
+- [is_valid_host_status_event](#is_valid_host_status_event-method)
+- [is_valid_service_status_event](#is_valid_service_status_event-method)
 
 ### is_valid_neb_event: returns
 
@@ -215,10 +215,10 @@ The **is_valid_host_status_event** method checks if the host status event is val
 
 head over the following chapters for more information
 
-- [is_valid_host](#is_valid_host)
-- [is_valid_event_status](#is_valid_event_status)
-- [is_valid_event_states](#is_valid_event_states)
-- [is_valid_hostgroup](#is_valid_hostgroup)
+- [is_valid_host](#is_valid_host-method)
+- [is_valid_event_status](#is_valid_event_status-method)
+- [is_valid_event_states](#is_valid_event_states-method)
+- [is_valid_hostgroup](#is_valid_hostgroup-method)
 
 ### is_valid_host_status_event: returns
 
@@ -239,12 +239,12 @@ The **is_valid_service_status_event** method checks if the service status event 
 
 head over the following chapters for more information
 
-- [is_valid_host](#is_valid_host)
-- [is_service_valid](#is_service_valid)
-- [is_valid_event_status](#is_valid_event_status)
-- [is_valid_event_states](#is_valid_event_states)
-- [is_valid_hostgroup](#is_valid_hostgroup)
-- [is_valid_servicegroup](#is_valid_servicegroup)
+- [is_valid_host](#is_valid_host-method)
+- [is_service_valid](#is_service_valid-method)
+- [is_valid_event_status](#is_valid_event_status-method)
+- [is_valid_event_states](#is_valid_event_states-method)
+- [is_valid_hostgroup](#is_valid_hostgroup-method)
+- [is_valid_servicegroup](#is_valid_servicegroup-method)
 
 ### is_valid_service_status_event: returns
 
@@ -327,9 +327,9 @@ The **is_valid_event_states** method checks if the event states (downtime, hard/
 
 head over the following chapters for more information
 
-- [is_valid_event_state_type](#is_valid_event_state_type)
-- [is_valid_event_acknowledge_state](#is_valid_event_acknowledge_state)
-- [is_valid_downtime_state](#is_valid_downtime_state)
+- [is_valid_event_state_type](#is_valid_event_state_type-method)
+- [is_valid_event_acknowledge_state](#is_valid_event_acknowledge_state-method)
+- [is_valid_downtime_state](#is_valid_downtime_state-method)
 
 ### is_valid_event_states: returns
 
@@ -480,11 +480,11 @@ The **is_valid_bam_event** method checks if the bam status event is valid based 
 
 head over the following chapters for more information
 
-- [is_valid_ba](#is_valid_ba)
-- [is_valid_ba_status_event](#is_valid_ba_status_event)
-- [is_valid_ba_downtime_state](#is_valid_ba_downtime_state)
-- [is_valid_ba_acknowledge_state](#is_valid_ba_acknowledge_state)
-- [is_valid_bv](#is_valid_bv)
+- [is_valid_ba](#is_valid_ba-method)
+- [is_valid_ba_status_event](#is_valid_ba_status_event-method)
+- [is_valid_ba_downtime_state](#is_valid_ba_downtime_state-method)
+- [is_valid_ba_acknowledge_state](#is_valid_ba_acknowledge_state-method)
+- [is_valid_bv](#is_valid_bv-method)
 
 ### is_valid_bam_event: returns
 
@@ -536,7 +536,7 @@ The **is_valid_ba_status_event** method checks if the BA status is valid based o
 
 head over the following chapters for more information
 
-- [is_valid_event_status](#is_valid_event_status)
+- [is_valid_event_status](#is_valid_event_status-method)
 
 ### is_valid_ba_status_event: returns
 
