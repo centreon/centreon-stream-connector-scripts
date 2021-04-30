@@ -15,7 +15,7 @@
 | sc_common | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](./sc_common.md) |
 | sc_logger | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](./sc_logger.md) |
 | sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             | [Documentation](./sc_broker.md) |
-| sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | link                            |
+| sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | [Documentation](./sc_param.md)  |
 | sc_event  | methods to help you interact with a broker event | when you to perform a specific action on an event                         | link                            |
 
 ## sc_common methods
@@ -55,10 +55,10 @@
 
 ## sc_param methods
 
-| Method name    | Method description                                                                                                                            | Link |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| param_override | replace default values of params with the ones provided by users in the web configuration of the stream connector                             | link |
-| check_params   | make sure that the default stream connectors params provided by the user from the web configuration are valid. If not, uses the default value | link |
+| Method name    | Method description                                                                                                                            | Link                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| param_override | replace default values of params with the ones provided by users in the web configuration of the stream connector                             | [Documentation](./sc_param.md#param_override-method) |
+| check_params   | make sure that the default stream connectors params provided by the user from the web configuration are valid. If not, uses the default value | [Documentation](./sc_param.md#check_params-method)   |
 
 ## sc_event methods
 
