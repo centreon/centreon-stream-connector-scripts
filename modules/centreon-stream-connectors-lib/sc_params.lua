@@ -45,6 +45,7 @@ function sc_params.new(common, logger)
     accepted_hostgroups = "",
     accepted_servicegroups = "",
     accepted_bvs = "",
+    accepted_pollers = "",
     
     -- filter anomalous events
     skip_anon_events = 1,
@@ -206,6 +207,7 @@ function ScParams:check_params()
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
+  self.params.accepted_pollers = self.common:if_wrong_type(self.params.accepted_pollers, "string", "")
 end
 
 return sc_params

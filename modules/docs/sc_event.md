@@ -77,6 +77,12 @@
   - [find_bv_in_list method](#find_bv_in_list-method)
     - [find_bv_in_list: returns](#find_bv_in_list-returns)
     - [find_bv_in_list: example](#find_bv_in_list-example)
+  - [is_valid_poller method](#is_valid_poller-method)
+    - [is_valid_poller: returns](#is_valid_poller-returns)
+    - [is_valid_poller: example](#is_valid_poller-example)
+  - [find_poller_in_list method](#find_poller_in_list-method)
+    - [find_poller_in_list: returns](#find_poller_in_list-returns)
+    - [find_poller_in_list: example](#find_poller_in_list-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -218,6 +224,7 @@ head over the following chapters for more information
 - [is_valid_host](#is_valid_host-method)
 - [is_valid_event_status](#is_valid_event_status-method)
 - [is_valid_event_states](#is_valid_event_states-method)
+- [is_valid_poller](#is_valid_poller-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
 
 ### is_valid_host_status_event: returns
@@ -243,6 +250,7 @@ head over the following chapters for more information
 - [is_valid_service](#is_valid_service-method)
 - [is_valid_event_status](#is_valid_event_status-method)
 - [is_valid_event_states](#is_valid_event_states-method)
+- [is_valid_poller](#is_valid_poller-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
 - [is_valid_servicegroup](#is_valid_servicegroup-method)
 
@@ -694,6 +702,62 @@ local result = test_event:find_bv_in_list()
 -- BA from is linked to my_bv_2712
 
 result = test_event:find_bv_in_list()
+--> result is: false
+```
+
+## is_valid_poller method
+
+The **is_valid_poller** method checks if the event is monitored from an accepted poller based on [**accepted_pollers**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+
+If the **accepted_pollers** is configured, all broker cache information regarding the poller linked to a host will be added to the event in a cache.poller index. More details about this cache index [**here**](sc_broker.md#get_instance-example)
+
+### is_valid_poller: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_poller: example
+
+```lua
+local result = test_event:is_valid_poller()
+--> result is true or false
+--[[
+  --> test_event.event structure is:
+  {
+    --- event data ---
+    cache = {
+      hostgroups = "my_poller_name"
+      --- other cache data type ---
+    }
+  }
+]]
+```
+
+## find_poller_in_list method
+
+The **find_poller_in_list** method checks if one of the pollers in [**accepted_pollers**](sc_param.md#default-parameters) is monitoring the host.
+
+### find_poller_in_list: returns
+
+| return                                     | type    | always | condition            |
+| ------------------------------------------ | ------- | ------ | -------------------- |
+| the name of the first poller that is found | string  | no     | a poller must  match |
+| false                                      | boolean | no     | if no poller matched |
+
+### find_poller_in_list: example
+
+```lua
+-- accepted_pollers are my_poller_1 and my_poller_2
+-- host from event is monitored from my_poller_2
+
+local result = test_event:find_poller_in_list()
+--> result is: "my_poller_2"
+
+-- accepted_pollers are my_poller_1 and my_poller_2
+-- host from event is monitored from my_poller_2712
+
+result = test_event:find_poller_in_list()
 --> result is: false
 ```
 

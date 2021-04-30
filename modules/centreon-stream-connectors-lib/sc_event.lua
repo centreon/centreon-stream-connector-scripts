@@ -116,6 +116,12 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
+  -- return false if host is not monitored from an accepted poller
+  if not self:is_valid_poller() then
+    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+    return false
+  end
+
   -- return false if host is not in an accepted hostgroup
   if not self:is_valid_hostgroup() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in an accepted hostgroup")
@@ -151,6 +157,13 @@ function ScEvent:is_valid_service_status_event()
   -- return false if one of event ack, downtime or state type (hard soft) aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
+    return false
+  end
+
+  -- return false if host is not monitored from an accepted poller
+  if not self:is_valid_poller() then
+    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
+      .. ". host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
     return false
   end
 
@@ -533,6 +546,56 @@ function ScEvent:find_bv_in_list()
       if accepted_name == event_bv.bv_name then
         return accepted_name
       end
+    end
+  end 
+
+  return false
+end
+
+--- is_valid_poller: check if the event is monitored from an accepted poller
+-- @return true|false (boolean)
+function ScEvent:is_valid_poller()
+  -- return true if option is not set
+  if self.params.accepted_pollers == "" then
+    return true
+  end
+
+  -- return false if instance id is not found in cache
+  if not self.event.cache.host.instance then
+    self.sc_logger:warning("[sc_event:is_valid_poller]: no instance ID found for host ID: " .. tostring(self.event.host_id))
+    return false
+  end
+
+  self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance)
+
+  -- return false if no poller found in cache
+  if not self.event.cache.poller then
+    self.sc_logger:debug("[sc_event:is_valid_poller]: dropping event because host with id: " .. tostring(self.event.host_id) 
+      .. " is not linked to an accepted poller (no poller found in cache). Accepted pollers are: " .. self.params.accepted_pollers)
+    return false
+  end
+
+  local accepted_poller_name = self:find_poller_in_list()
+
+  -- return false if the host is not monitored from a valid poller
+  if not accepted_poller_name then
+    self.sc_logger:debug("[sc_event:is_valid_poller]: dropping event because host with id: " .. tostring(self.event.host_id) 
+      .. " is not linked to an accepted poller. Host is monitored from: " .. tostring(self.event.cache.poller) .. ". Accepted pollers are: " .. self.params.accepted_pollers)
+    return false
+  else
+    self.sc_logger:debug("[sc_event:is_valid_poller]: event for host with id: " .. tostring(self.event.host_id)
+      .. "matched poller: " .. accepted_poller_name)
+  end
+
+  return true
+end
+
+--- find_poller_in_list: compare accepted pollers from parameters with the event poller
+-- @return accepted_name or false (string|boolean) the name of the first matching poller if found or false if not found
+function ScEvent:find_poller_in_list()
+  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_pollers, ",")) do
+    if accepted_name == self.event.cache.poller then
+      return accepted_name
     end
   end 
 
