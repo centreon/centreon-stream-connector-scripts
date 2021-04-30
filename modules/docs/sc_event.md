@@ -77,7 +77,7 @@
   - [find_bv_in_list method](#find_bv_in_list-method)
     - [find_bv_in_list: returns](#find_bv_in_list-returns)
     - [find_bv_in_list: example](#find_bv_in_list-example)
-  - [is_valid_stprage_event method](#is_valid_stprage_event-method)
+  - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
 
@@ -172,7 +172,7 @@ head over the following chapters for more information
 
 - [is_valid_neb_event](#is_valid_neb_event-method)
 - [is_valid_bam_event](#is_valid_bam_event-method)
-- [is_valid_storage_event](#is_valid_storage_event)
+- [is_valid_storage_event](#is_valid_storage_event-method)
 
 ### is_valid_event: returns
 
@@ -697,6 +697,6 @@ result = test_event:find_bv_in_list()
 --> result is: false
 ```
 
-## is_valid_stprage_event method
+## is_valid_storage_event method
 
 **DEPRECATED** does nothing
