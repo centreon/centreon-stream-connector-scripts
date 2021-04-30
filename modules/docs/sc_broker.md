@@ -41,10 +41,10 @@
     - [get_ba_infos: parameters](#get_ba_infos-parameters)
     - [get_ba_infos: returns](#get_ba_infos-returns)
     - [get_ba_infos: example](#get_ba_infos-example)
-  - [get_bv_infos method](#get_bv_infos-method)
-    - [get_bv_infos: parameters](#get_bv_infos-parameters)
-    - [get_bv_infos: returns](#get_bv_infos-returns)
-    - [get_bv_infos: example](#get_bv_infos-example)
+  - [get_bvs_infos method](#get_bvs_infos-method)
+    - [get_bvs_infos: parameters](#get_bvs_infos-parameters)
+    - [get_bvs_infos: returns](#get_bvs_infos-returns)
+    - [get_bvs_infos: example](#get_bvs_infos-example)
 
 ## Introduction
 
@@ -571,24 +571,24 @@ local result = test_broker:get_ba_infos(ba_id)
 --]]
 ```
 
-## get_bv_infos method
+## get_bvs_infos method
 
-The **get_bv_infos** method retrieves the name and description of all BVs linked to a BA from the broker cache.
+The **get_bvs_infos** method retrieves the name and description of all BVs linked to a BA from the broker cache.
 
-### get_bv_infos: parameters
+### get_bvs_infos: parameters
 
 | parameter        | type   | optional | default value |
 | ---------------- | ------ | -------- | ------------- |
 | the ID of the BA | number | no       |               |
 
-### get_bv_infos: returns
+### get_bvs_infos: returns
 
 | return                                              | type    | always | condition                                                                   |
 | --------------------------------------------------- | ------- | ------ | --------------------------------------------------------------------------- |
 | a table with the name and description of all the BV | table   | no     | There must be BV found in the broker cache                                  |
 | false                                               | boolean | no     | if BA ID is invalid (empty or nil) or no BVs were found in the broker cache |
 
-### get_bv_infos: example
+### get_bvs_infos: example
 
 ***notice: to better understand the result, you need to know that, by convention, a table starts at index 1 in lua and not 0 like it is in most languages***
 
