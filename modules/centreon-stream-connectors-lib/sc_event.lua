@@ -500,7 +500,7 @@ function ScEvent:is_valid_bv()
     return true
   end
 
-  self.event.cache.bvs = self.sc_broker:get_bv_infos(self.event.host_id)
+  self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
 
   -- return false if no hostgroups were found
   if not self.event.cache.bvs then

@@ -51,7 +51,7 @@
 | get_severity          | retrieve the severity of a host or a service from the broker cache               | [Documentation](sc_broker.md#get_severity-method)          |
 | get_instance          | retrieve the name of the poller using the instance id from the broker cache      | [Documentation](sc_broker.md#get_instance-method)          |
 | get_ba_infos          | retrieve the name and description of a BA from the broker cache                  | [Documentation](sc_broker.md#get_ba_infos-method)          |
-| get_bv_infos          | retrieve the name and description of all BV linked to a BA                       | [Documentation](sc_broker.md#get_bv_infos-method)          |
+| get_bvs_infos          | retrieve the name and description of all BV linked to a BA                       | [Documentation](sc_broker.md#get_bvs_infos-method)          |
 
 ## sc_param methods
 

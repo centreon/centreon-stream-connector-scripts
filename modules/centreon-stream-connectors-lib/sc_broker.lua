@@ -307,11 +307,11 @@ function ScBroker:get_ba_infos(ba_id)
   return ba_info
 end
 
---- get_bv_infos: retrieve bv name and description from ba_id
+--- get_bvs_infos: retrieve bv name and description from ba_id
 -- @param ba_id (number) 
 -- @param false (boolean) if ba_id is invalid or no information are found in the broker_cache
 -- @return bvs (table) name and description of all the bvs 
-function ScBroker:get_bv_infos(ba_id)
+function ScBroker:get_bvs_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == "" then 
     self.logger:warning("[sc_broker:get_bvs]: ba id is nil or empty")
