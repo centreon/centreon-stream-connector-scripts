@@ -122,7 +122,7 @@ local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 
--- initiate "mandatory" informations for the logger module
+-- initiate "mandatory" information for the logger module
 local logfile = "/var/log/test_param.log"
 local severity = 1
 
