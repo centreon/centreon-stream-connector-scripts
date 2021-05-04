@@ -1,8 +1,8 @@
 package = "centreon-stream-connectors-lib"
-version = "0.1.0-1"
+version = "1.0.0-1"
 source = {
    url = "git+https://github.com/centreon/centreon-stream-connector-scripts",
-   tag = "0.1.0"
+   tag = "1.0.0"
 }
 description = {
    summary = "Centreon stream connectors lua modules",

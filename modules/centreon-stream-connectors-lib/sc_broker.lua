@@ -16,7 +16,7 @@ function sc_broker.new(logger)
   
   self.logger = logger
   if not self.logger then 
-    self.logger = sc_logger.new("/var/log/centreon-broker/stream-connector.log", 1)
+    self.logger = sc_logger.new()
   end
 
   setmetatable(self, { __index = ScBroker })
@@ -211,7 +211,7 @@ function ScBroker:get_servicegroups(host_id, service_id)
   end
 
   -- get servicegroups
-  local servicegroups = broker_cache:get_servicegroups(host_id)
+  local servicegroups = broker_cache:get_servicegroups(host_id, service_id)
 
   -- return false if no servicegroups were found
   if not servicegroups then
@@ -267,7 +267,7 @@ end
 -- @return name (string) the name of the instance
 function ScBroker:get_instance(instance_id)
   -- return false if instance_id is invalid
-  if intance_id == nil or instance_id == "" then
+  if instance_id == nil or instance_id == "" then
     self.logger:warning("[sc_broker:get_instance]: instance id is nil or empty")
     return false
   end
@@ -307,11 +307,11 @@ function ScBroker:get_ba_infos(ba_id)
   return ba_info
 end
 
---- get_bv_infos: retrieve bv name and description from ba_id
+--- get_bvs_infos: retrieve bv name and description from ba_id
 -- @param ba_id (number) 
 -- @param false (boolean) if ba_id is invalid or no information are found in the broker_cache
 -- @return bvs (table) name and description of all the bvs 
-function ScBroker:get_bv_infos(ba_id)
+function ScBroker:get_bvs_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == "" then 
     self.logger:warning("[sc_broker:get_bvs]: ba id is nil or empty")
@@ -332,8 +332,8 @@ function ScBroker:get_bv_infos(ba_id)
   local bvs = {}
 
   -- get bv info (name + description) for each found bv
-  for _, id in ipairs(bv_id) do
-    bv_infos = broker_cache:get_bv(v)
+  for _, id in ipairs(bvs_id) do
+    bv_infos = broker_cache:get_bv(id)
 
     -- add bv information to the list
     if bv_infos then
@@ -349,7 +349,7 @@ function ScBroker:get_bv_infos(ba_id)
     return false
   end
 
-  return bv_infos
+  return bvs
 end
 
 return sc_broker

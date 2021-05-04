@@ -20,6 +20,9 @@ function sc_params.new(common, logger)
 
   -- initiate mandatory libs
   self.logger = logger
+  if not self.logger then 
+    self.logger = sc_logger.new()
+  end
   self.common = common
 
   -- initiate params
@@ -42,7 +45,12 @@ function sc_params.new(common, logger)
     accepted_hostgroups = "",
     accepted_servicegroups = "",
     accepted_bvs = "",
-    
+    accepted_pollers = "",
+    service_severity_threshold = nil,
+    service_severity_operator = ">=",
+    host_severity_threshold = nil,
+    host_severity_operator = ">=",
+
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
@@ -203,6 +211,11 @@ function ScParams:check_params()
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
+  self.params.accepted_pollers = self.common:if_wrong_type(self.params.accepted_pollers, "string", "")
+  self.params.host_severity_threshold = self.common:if_wrong_type(self.params.host_severity_threshold, "number", nil)
+  self.params.service_severity_threshold = self.common:if_wrong_type(self.params.service_severity_threshold, "number", nil)
+  self.params.host_severity_operator = self.common:if_wrong_type(self.params.host_severity_operator, "string", ">=")
+  self.params.service_severity_operator = self.common:if_wrong_type(self.params.service_severity_operator, "string", ">=")
 end
 
 return sc_params
