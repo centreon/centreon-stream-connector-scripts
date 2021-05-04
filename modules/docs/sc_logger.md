@@ -58,7 +58,7 @@ Constructor can be initialized with two parameters or it will use default values
 -- load module
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 
--- initiate "mandatory" informations for the logger module
+-- initiate "mandatory" information for the logger module
 local logfile = "/var/log/test_logger.log"
 local severity = 1
 
