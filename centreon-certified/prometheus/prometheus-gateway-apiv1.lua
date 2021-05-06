@@ -883,6 +883,8 @@ function EventQueue:send_data ()
   -- collecting results
   httpResponseCode = httpRequest:getinfo(curl.INFO_RESPONSE_CODE) 
 
+  httpRequest:close()
+
   -- Handling the return code
   local retval = false
   if httpResponseCode == 200 then

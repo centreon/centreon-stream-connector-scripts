@@ -19,15 +19,16 @@
 -- [MANDATORY] http_server_url: your splunk API url
 -- [MANDATORY] splunk_token: see above, this will be your authentication token
 -- [MANDATORY] splunk_index: index where you want to store the events
--- [OPTIONAL] splunk_source: source of the HTTP events collector, must be http:something
+-- [MANDATORY] splunk_source: source of the HTTP events collector, must be http:something
 -- [OPTIONAL] splunk_sourcetype: sourcetype of the HTTP events collector, default _json
--- [OPTIONAL] splunk_host: host field for the HTTP events collector, default Central
+-- [OPTIONAL] splunk_host: host field for the HTTP events collector, Centreon
 -- [OPTIONAL] http_proxy_string: default empty
 --
 --------------------------------------------------------------------------------
 
 -- Libraries
 local curl = require "cURL"
+local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 -- Global variables
 local previous_event = ""
 
@@ -64,14 +65,6 @@ local function get_service_description(host_id, service_id)
   return service
 end
 
-local function get_hostgroups(host_id)
-  local hostgroups = broker_cache:get_hostgroups(host_id)
-  if not hostgroups then
-    hostgroups = "No hostgroups"
-  end
-  return hostgroups
-end
-
 --------------------------------------------------------------------------------
 -- Classe event_queue
 --------------------------------------------------------------------------------
@@ -94,7 +87,7 @@ function EventQueue.new(conf)
     splunk_source           = "",
     splunk_token            = "",
     splunk_index            = "",
-    splunk_host             = "Central",
+    splunk_host             = "Centreon",
     filter_type             = "metric,status",
     max_buffer_size         = 1,
     max_buffer_age          = 5,
@@ -112,8 +105,8 @@ function EventQueue.new(conf)
   retval.events = {},
   setmetatable(retval, EventQueue)
 -- Internal data initialization
-   broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
-   return retval
+  broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
+  return retval
 end
 
 --------------------------------------------------------------------------------
@@ -148,20 +141,11 @@ function EventQueue:add(e)
   end
 
   local event_data = {
-    event_type            = type,
-    state                 = e.state,
-    state_type            = e.state_type,
-    hostname              = hostname,
-    service_description   = ifnil_or_empty(service_description,hostname),
-    output                = string.gsub(e.output, "\n", ""),
-    hostgroups            = get_hostgroups(e.host_id),
-    acknowledged          = e.acknowledged,
-    acknowledegement_type = e.acknowledgement_type,
-    check_command         = e.check_command,
-    check_period          = e.check_period,
-    event_handler         = e.event_handler,
-    event_handler_enabled = e.event_handler_enabled,
-    execution_time        = e.execution_time
+    event_type = type,
+    state = e.state,
+    hostname = hostname,
+    service_description = service_description,
+    output = string.gsub(e.output, "\n", "")
   }
 
   self.events[#self.events + 1] = {
@@ -169,7 +153,7 @@ function EventQueue:add(e)
     source         = self.splunk_source,
     index          = self.splunk_index,
     host           = self.splunk_host,
-    time           = e.last_check,
+    time           = e.ctime,
     event          = event_data
   }
 
@@ -228,6 +212,8 @@ function EventQueue:flush()
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
 
+  http_request:close()
+
   -- Handling the return code
   local retval = false
   if http_response_code == 200 then
@@ -252,7 +238,7 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  local log_level = 1
+  local log_level = 2
   local log_path = "/var/log/centreon-broker/stream-connector-splunk-events.log"
   for i,v in pairs(conf) do
     if i == "log_level" then
@@ -280,8 +266,8 @@ function write(e)
     end
 
     -- Here come the filters
-    -- Host/service status
-    if not (e.category == 1 and e.element == 24 or e.element == 14) then
+    -- Host/service status only
+    if not (e.category == 1 and (e.element == 24 or e.element == 14)) then
       broker_log:info(3, "write: Neither host nor service status event. Dropping.")
       return true
     end
@@ -290,7 +276,6 @@ function write(e)
     current_event = broker.json_encode(e)
     broker_log:info(3, "write: Raw event: " .. current_event)
 
-    -- Ignore Pending states
     if e.state_type ~= 1 then
       broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Not HARD state type. Dropping.")
       return true
@@ -319,7 +304,6 @@ function write(e)
       broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Pending state ignored. Dropping.")
       return true
     end
-
     -- The current event now becomes the previous
     previous_event = current_event
     -- Once all the filters have been passed successfully, we can add the current event to the queue

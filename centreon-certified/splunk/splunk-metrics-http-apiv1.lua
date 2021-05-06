@@ -1,12 +1,12 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Splunk Connector Events
+-- Centreon Broker Splunk Connector Metrics
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 -- Prerequisites
 -- You need a Splunk instance
--- You need to create a new HTTP events collector with an events index and get a token
+-- You need to create a new HTTP events collector with a metrics index and get a token
 --
 -- The lua-curl and luatz libraries are required by this script:
 -- yum install lua-curl epel-release
@@ -17,11 +17,11 @@
 --------------------------------------------------------------------------------
 -- Parameters:
 -- [MANDATORY] http_server_url: your splunk API url
--- [MANDATORY] splunk_token: see above, this will be your authentication token
 -- [MANDATORY] splunk_index: index where you want to store the events
+-- [MANDATORY] splunk_token: see above, this will be your authentication token
 -- [MANDATORY] splunk_source: source of the HTTP events collector, must be http:something
 -- [OPTIONAL] splunk_sourcetype: sourcetype of the HTTP events collector, default _json
--- [OPTIONAL] splunk_host: host field for the HTTP events collector, Centreon
+-- [OPTIONAL] splunk_host: host field for the HTTP events collector, default Centreon
 -- [OPTIONAL] http_proxy_string: default empty
 --
 --------------------------------------------------------------------------------
@@ -105,8 +105,8 @@ function EventQueue.new(conf)
   retval.events = {},
   setmetatable(retval, EventQueue)
 -- Internal data initialization
-   broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
-   return retval
+  broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
+  return retval
 end
 
 --------------------------------------------------------------------------------
@@ -132,7 +132,7 @@ function EventQueue:add(e)
     type = "service"
     service_description = get_service_description(e.host_id, e.service_id)
     if service_description == e.service_id then
-      if self.skip_anon_events ~= 1 then
+    if self.skip_anon_events ~= 1 then
         broker_log:error(0, "EventQueue:add: unable to get service_description for host_id '" .. e.host_id .."' and service_id '" .. e.service_id .."'")
       else
         broker_log:info(3, "EventQueue:add: ignoring that we can't resolve host_id '" .. e.host_id .."' and service_id '" .. e.service_id .."'")
@@ -141,20 +141,20 @@ function EventQueue:add(e)
   end
 
   local event_data = {
-    event_type = type,
-    state = e.state,
-    hostname = hostname,
     service_description = service_description,
-    output = string.gsub(e.output, "\n", "")
+    hostname = hostname,
+    ctime = e.ctime
   }
+  
+  event_data["metric_name:" .. e.name] = e.value
 
   self.events[#self.events + 1] = {
-    sourcetype     = self.splunk_sourcetype,
+    time           = e.ctime,
     source         = self.splunk_source,
+    sourcetype     = self.splunk_sourcetype,
     index          = self.splunk_index,
     host           = self.splunk_host,
-    time           = e.ctime,
-    event          = event_data
+    fields         = event_data
   }
 
  return true
@@ -210,7 +210,9 @@ function EventQueue:flush()
   http_request:perform()
 
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+  
+  http_request:close()
 
   -- Handling the return code
   local retval = false
@@ -236,8 +238,8 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  local log_level = 2
-  local log_path = "/var/log/centreon-broker/stream-connector-splunk-events.log"
+  local log_level = 1
+  local log_path = "/var/log/centreon-broker/stream-connector-splunk-metrics.log"
   for i,v in pairs(conf) do
     if i == "log_level" then
       log_level = v
@@ -247,7 +249,7 @@ function init(conf)
     end
   end
   broker_log:set_parameters(log_level, log_path)
-  broker_log:info(0, "init: Starting Splunk StreamConnector (log level: " .. log_level .. ")")
+  broker_log:info(0, "init: Starting Splunk Metrics StreamConnector (log level: " .. log_level .. ")")
   broker_log:info(2, "init: Beginning init() function")
   queue = EventQueue.new(conf)
   broker_log:info(2, "init: Ending init() function, Event queue created")
@@ -265,45 +267,16 @@ function write(e)
 
     -- Here come the filters
     -- Host/service status only
-    if not (e.category == 1 and (e.element == 24 or e.element == 14)) then
-      broker_log:info(3, "write: Neither host nor service status event. Dropping.")
+    if not (e.category == 3 and e.element == 1) then
+      broker_log:info(3, "write: Not a metric event. Dropping.")
       return true
     end
 
     -- workaround https://github.com/centreon/centreon-broker/issues/201
     current_event = broker.json_encode(e)
     broker_log:info(3, "write: Raw event: " .. current_event)
+     --
 
-    if e.state_type ~= 1 then
-      broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Not HARD state type. Dropping.")
-      return true
-    end
-
-    -- Ignore states different from previous hard state only
-    if e.last_hard_state_change and e.last_hard_state_change < e.last_check then
-      broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Last hard state change prior to last check => no state change. Dropping.")
-      return true
-    end
-
-    -- Ignore objects in downtime
-    if e.scheduled_downtime_depth ~= 0 then --we keep only events in hard state and not in downtime
-      broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Scheduled downtime. Dropping.")
-      return true
-    end
-
-    -- workaround https://github.com/centreon/centreon-broker/issues/201
-    if current_event == previous_event then
-      broker_log:info(3, "write: Duplicate event ignored.")
-      return true
-    end
-
-    -- Ignore pending states
-    if e.state and e.state == 4 then
-      broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Pending state ignored. Dropping.")
-      return true
-    end
-    -- The current event now becomes the previous
-    previous_event = current_event
     -- Once all the filters have been passed successfully, we can add the current event to the queue
     queue:add(e)
 

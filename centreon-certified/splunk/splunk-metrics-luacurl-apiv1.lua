@@ -104,8 +104,8 @@ function EventQueue.new(conf)
   retval.events = {},
   setmetatable(retval, EventQueue)
 -- Internal data initialization
-   broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
-   return retval
+  broker_log:info(2, "EventQueue.new: setting the internal timestamp to " .. retval.__internal_ts_last_flush)
+  return retval
 end
 
 --------------------------------------------------------------------------------
@@ -219,6 +219,8 @@ function EventQueue:flush()
 
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+
+  http_request:close()
 
   -- Handling the return code
   local retval = false

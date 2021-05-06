@@ -66,6 +66,7 @@ local function flush()
     postfields = buf }
 
   c:perform()
+  c:close()
   my_data.data = {}
   return true
 end
