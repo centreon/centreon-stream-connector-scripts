@@ -35,6 +35,8 @@ function sc_params.new(common, logger)
     host_status = "0,1,2", -- = ok, down, unreachable
     service_status = "0,1,2,3", -- = ok, warning, critical, unknown,
     ba_status = "0,1,2", -- = ok, warning, critical
+    ack_host_status = "", -- will use host_status if empty
+    ack_service_status = "", -- wil use service_status if empty
     
     -- filter state type 
     hard_only = 1,

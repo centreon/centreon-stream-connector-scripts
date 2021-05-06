@@ -89,6 +89,8 @@ function ScEvent:is_valid_neb_event()
     is_valid_event = self:is_valid_host_status_event()
   elseif self.event.element == 24 then
     is_valid_event = self:is_valid_service_status_event()
+  elseif self.event.element == 1 then 
+    is_valid_event = self:is_valid_acknowledgement_event()
   end
 
   return is_valid_event
@@ -645,7 +647,7 @@ function ScEvent:is_valid_host_severity()
   return true
 end
 
---- is_valid_service_severity: checks if the  service severity is accepted
+--- is_valid_service_severity: checks if the service severity is accepted
 -- @return true|false (boolean)
 function ScEvent:is_valid_host_severity()
   -- return true if there is no severity filter
@@ -666,6 +668,83 @@ function ScEvent:is_valid_host_severity()
 
   return true
 end
+
+---is_valid_acknowledgement_event: checks if the event is a valid acknowledge event 
+-- @return true|false (boolean)
+function ScEvent:is_valid_acknowledgement_event()
+  -- return false if we can't get hostname or host id is nil
+  if not self:is_valid_host() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
+    return false
+  end
+  
+  -- return false if host is not monitored from an accepted poller
+  if not self:is_valid_poller() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+    return false
+  end
+
+  -- return false if host has not an accepted severity
+  if not self:is_valid_host_severity() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service id: " .. tostring(self.event.service_id) 
+      .. ". host_id: " .. tostring(self.event.host_id) .. ". Host has not an accepted severity")
+    return false
+  end
+
+  local event_status = ""
+  -- service_id = 0 means ack is on a host
+  if self.event.service_id == 0 then
+
+    -- use dedicated ack host status configuration or host_status configuration 
+    event_status = self.sc_common:ifnil_or_empty(self.params.ack_host_status, self.params.host_status)
+
+    -- return false if event status is not accepted
+    if not self:is_valid_event_status(event_status) then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) 
+        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+      return false
+    end
+  -- service_id != 0 means ack is on a service
+  else 
+    -- return false if we can't get service description of service id is nil
+    if not self:is_valid_service() then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service with id: " .. tostring(self.event.service_id) .. " hasn't been validated")
+      return false
+    end
+
+    -- use dedicated ack host status configuration or host_status configuration 
+    event_status = self.sc_common:ifnil_or_empty(self.params.ack_service_status, self.params.service_status)
+
+    -- return false if event status is not accepted
+    if not self:is_valid_event_status(event_status) then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service with id: " .. tostring(self.event.service_id) 
+        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+      return false
+    end
+
+    -- return false if service has not an accepted severity
+    if not self:is_valid_service_severity() then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service id: " .. tostring(self.event.service_id) 
+        .. ". host_id: " .. tostring(self.event.host_id) .. ". Service has not an accepted severity")
+      return false
+    end
+
+    -- return false if service is not in an accepted servicegroup 
+    if not self:is_valid_servicegroup() then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
+      return false
+    end
+  end
+
+  -- return false if host is not in an accepted hostgroup
+  if not self:is_valid_hostgroup() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service_id: " .. tostring(self.event.service_id) 
+      .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
+    return false
+  end
+  
+  return true
+end 
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead
 -- return true (boolean)

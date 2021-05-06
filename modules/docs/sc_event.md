@@ -33,6 +33,7 @@
     - [is_valid_event_states: returns](#is_valid_event_states-returns)
     - [is_valid_event_states: example](#is_valid_event_states-example)
   - [is_valid_event_status method](#is_valid_event_status-method)
+    - [is_valid_event_status: parameters](#is_valid_event_status-parameters)
     - [is_valid_event_status: returns](#is_valid_event_status-returns)
     - [is_valid_event_status: example](#is_valid_event_status-example)
   - [is_valid_event_state_type method](#is_valid_event_state_type-method)
@@ -89,6 +90,9 @@
   - [is_valid_service_severity method](#is_valid_service_severity-method)
     - [is_valid_service_severity: returns](#is_valid_service_severity-returns)
     - [is_valid_service_severity: example](#is_valid_service_severity-example)
+  - [is_valid_acknowledgement_event method](#is_valid_acknowledgement_event-method)
+    - [is_valid_acknowledgement_event: returns](#is_valid_acknowledgement_event-returns)
+    - [is_valid_acknowledgement_event: example](#is_valid_acknowledgement_event-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -207,6 +211,7 @@ head over the following chapters for more information
 
 - [is_valid_host_status_event](#is_valid_host_status_event-method)
 - [is_valid_service_status_event](#is_valid_service_status_event-method)
+- [is_valid_acknowledgement_event](#is_valid_acknowledgement_event-method)
 
 ### is_valid_neb_event: returns
 
@@ -357,13 +362,19 @@ head over the following chapters for more information
 ### is_valid_event_states: example
 
 ```lua
-local result = test_event:is_valid_event_states()
---> result is true or false
+local result = test_event:is_valid_event_states(test_param.params.host_status)
+--> result is true or false 
 ```
 
 ## is_valid_event_status method
 
 The **is_valid_event_states** method checks if the event status is valid based on [**host_status, service_status or ba_status**](sc_param.md#default-parameters) in the **host_status, service_status or ba_status** scope
+
+### is_valid_event_status: parameters
+
+| parameter                                        | type   | optional | default value |
+| ------------------------------------------------ | ------ | -------- | ------------- |
+| the list of accepted status code from parameters | string | no       |               |
 
 ### is_valid_event_status: returns
 
@@ -826,6 +837,34 @@ local result = test_event:is_valid_service_severity()
     }
   }
 ]]
+```
+
+## is_valid_acknowledgement_event method
+
+The **is_valid_acknowledgement_event** method checks if the acknowledgement event is accepted based on [**default_parameters**](sc_param.md#default-parameters) in the **acknowledgement** scope
+
+head over the following chapters for more information
+
+- [is_valid_host](#is_valid_host-method)
+- [is_valid_poller](#is_valid_poller-method)
+- [is_valid_host_severity](#is_valid_host_severity-method)
+- [is_valid_event_status](#is_valid_event_status-method)
+- [is_valid_service](#is_valid_service-method)
+- [is_valid_service_severity](#is_valid_service_severity-method)
+- [is_valid_servicegroup](#is_valid_servicegroup-method)
+- [is_valid_hostgroup](#is_valid_hostgroup-method)
+
+### is_valid_acknowledgement_event: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_acknowledgement_event: example
+
+```lua
+local result = test_event:is_valid_acknowledgement_event()
+--> result is true or false 
 ```
 
 ## is_valid_storage_event method
