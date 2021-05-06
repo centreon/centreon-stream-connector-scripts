@@ -246,6 +246,8 @@ function EventQueue:flush()
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
+  http_request:close()
+
   -- Handling the return code
   local retval = false
   if http_response_code == 202 or http_response_code == 200 then

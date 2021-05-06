@@ -389,7 +389,7 @@ function stateChanged(d)
   end
 
   if d.state_type == 1 and -- if the event is in hard state
-     d.last_hard_state_change ~= nil then -- if the event has been in a hard state
+    d.last_hard_state_change ~= nil then -- if the event has been in a hard state
 
     -- if the state has changed 
     -- (like noted in the omi connector, it could have a slight delta between last_check and last_hard_state_change)
@@ -415,8 +415,8 @@ function stateChanged(d)
 
     end
 
-     -- note : No need to send new event without last_hard_state_change because 
-     --        there is no state either
+    -- note : No need to send new event without last_hard_state_change because 
+    --        there is no state either
 
   end
 
