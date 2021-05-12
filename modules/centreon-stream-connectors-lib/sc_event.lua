@@ -677,6 +677,14 @@ function ScEvent:is_valid_acknowledgement_event()
     self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
     return false
   end
+
+  -- check if ack author is valid 
+  if not self:is_valid_author() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: acknowledgement on host: " .. tostring(self.event.host_id)
+      ..  "and service: " .. tostring(self.event.service_id) .. "(0 means ack is on host) is not made by a valid author. Author is: " 
+      .. tostring(self.event.author) .. " Accepted authors are: " .. self.params.accepted_authors)
+    return false
+  end
   
   -- return false if host is not monitored from an accepted poller
   if not self:is_valid_poller() then
@@ -744,12 +752,143 @@ function ScEvent:is_valid_acknowledgement_event()
   end
   
   return true
-end 
+end
+
+--- is_vaid_downtime_event: check if the event is a valid downtime event
+-- return true|false (boolean)
+function ScEvent:is_valid_downtime_event()
+  -- return false if we can't get hostname or host id is nil
+  if not self:is_valid_host() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
+    return false
+  end
+
+  -- check if downtime author is valid 
+  if not self:is_valid_author() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: downtime with internal ID: " .. tostring(self.event.internal_id)
+      .. " is not made by a valid author. Author is: " .. tostring(self.event.author) .. " Accepted authors are: " .. self.params.accepted_authors)
+    return false
+  end
+
+  -- return false if host is not monitored from an accepted poller
+  if not self:is_valid_poller() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+    return false
+  end
+
+  -- this is a host event
+  if self.event.downtime_type == 2 then
+    -- store the result in the self.event.state because doing that allow us to use the is_valid_event_status method
+    self.event.state = self:get_downtime_host_status()
+    -- 
+    event_status = self.sc_common:ifnil_or_empty(self.params.dt_host_status, self.params.host_status)
+  else
+
+    -- return false if service has not an accepted severity
+    if not self:is_valid_service_severity() then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service id: " .. tostring(self.event.service_id) 
+        .. ". host_id: " .. tostring(self.event.host_id) .. ". Service has not an accepted severity")
+      return false
+    end
+
+    -- return false if service is not in an accepted servicegroup 
+    if not self:is_valid_servicegroup() then
+      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
+      return false
+    end
+  end
+
+  -- return false if host is not in an accepted hostgroup
+  if not self:is_valid_hostgroup() then
+    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service_id: " .. tostring(self.event.service_id) 
+    .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
+    return false
+  end
+end
+
+--- is_valid_author: check if the author of a comment is valid based on contact alias in Centreon
+-- return true|false (boolean)
+function ScEvent:is_valid_author()
+  -- do not handle authors if it is not configured
+  if self.params.accepted_authors == "" then
+    return true
+  end
+
+  -- check if author is accepted
+  if not self:find_author_in_list() then
+    self.sc_logger:debug("[sc_event:is_valid_author]: dropping event because author: " .. tostring(self.event.author) 
+      .. " is not in an accepted authors list. Accepted authorss are: " .. self.params.accepted_authors)
+    return false
+  end
+
+  return true
+end
+
+--- find_author_in_list: compare accepted authors from parameters with the event author
+-- @return accepted_alias or false (string|boolean) the alias of the first matching author if found or false if not found
+for _, accepted_alias in ipairs(self.sc_common:split(self.params.accepted_authors, ",")) do
+  if accepted_alias == self.event.author then
+    return accepted_alias
+  end
+
+  return false
+end
+
+--- get_downtime_host_status: retrieve the status of a host based on last_time_up/down dates found in cache (self.event.cache.host must be set)
+-- return status (number) the status code of the host
+function ScEvent:get_downtime_host_status()
+
+  -- affect the status known dates to their respective status code
+  local timestamp = {
+    [0] = tonumber(self.event.cache.host.last_time_up),
+    [1] = tonumber(self.event.cache.host.last_time_down)
+  }
+
+  return self:get_most_recent_status_code(timestamp)
+end
+
+--- get_downtime_service_status: retrieve the status of a service based on last_time_ok/warning/critical/unknown dates found in cache (self.event.cache.host must be set)
+-- return status (number) the status code of the service
+function ScEvent:get_downtime_host_status()
+
+  -- affect the status known dates to their respective status code
+  local timestamp = {
+    [0] = tonumber(self.event.cache.service.last_time_ok),
+    [1] = tonumber(self.event.cache.service.last_time_warning),
+    [2] = tonumber(self.event.cache.service.last_time_critical),
+    [3] = tonumber(self.event.cache.service.last_time_unknown)
+  }
+
+  return self:get_most_recent_status_code(timestamp)
+end
+
+--- get_most_recent_status_code: retrieve the last status code from a list of status and timestamp 
+-- @param timestamp (table) a table with the association of the last known timestamp of a status and its corresponding status code
+-- @return status (number) the most recent status code of the object
+function ScEvent:get_most_recent_status_code(timestamp)
+
+  -- prepare the table in wich the latest known status timestamp and status code will be stored
+  local status_info = {
+    highest_timestamp = 0,
+    status = nil
+  }
+  
+  -- compare all status timestamp and keep the most recent one and the corresponding status code
+  for status_code, status_timestamp in ipairs(timestamp) do
+    if status_timestamp > status_info.highest_timestamp then
+      status_info.highest_timestamp = status_timestamp
+      status_info.status = status_code
+    end
+  end
+
+  return status_info.status
+end
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead
--- return true (boolean)
+-- @return true (boolean)
 function ScEvent:is_valid_storage_event()
   return true
 end
 
 return sc_event
+

@@ -218,6 +218,10 @@ function ScParams:check_params()
   self.params.service_severity_threshold = self.common:if_wrong_type(self.params.service_severity_threshold, "number", nil)
   self.params.host_severity_operator = self.common:if_wrong_type(self.params.host_severity_operator, "string", ">=")
   self.params.service_severity_operator = self.common:if_wrong_type(self.params.service_severity_operator, "string", ">=")
+  self.params.ack_host_status = self.common:ifnil_or_empty(self.params.ack_host_status,self.params.host_status)
+  self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status,self.params.service_status)
+  self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status,self.params.host_status)
+  self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status,self.params.service_status)
 end
 
 return sc_params
