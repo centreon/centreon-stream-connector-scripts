@@ -884,6 +884,76 @@ function ScEvent:get_most_recent_status_code(timestamp)
   return status_info.status
 end
 
+--- is_service_status_event_duplicated
+-- @return true|false (boolean)
+function ScEvent:is_service_status_event_duplicated()
+  -- return false if option is not activated
+  if self.params.enable_service_status_dedup ~= 1 then
+    self.sc_logger:debug("[sc_event:is_service_status_event_duplicated]: service status is not enabled option enable_service_status_dedup is set to: " .. tostring(self.params.enable_service_status_dedup))
+    return false
+  end
+
+  -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
+  if self.event.last_hard_state_change == self.event.last_check then
+    return false
+  end
+
+  -- map the status known dates to their respective status code
+  local timestamp = {
+    [0] = tonumber(self.event.cache.service.last_time_ok),
+    [1] = tonumber(self.event.cache.service.last_time_warning),
+    [2] = tonumber(self.event.cache.service.last_time_critical),
+    [3] = tonumber(self.event.cache.service.last_time_unknown)
+  }
+
+  -- if we find a last time status older than the last_hard_state_change then we are not facing a duplicated event
+  for status_code, status_timestamp in ipairs(timestamp) do
+    -- of course it needs to be a different status code than the actual one
+    if status_code ~= self.event.state and status_timestamp >= self.event.last_hard_state_change then
+      return false
+    end
+  end
+
+  -- at the end, it only remains two cases, the first one is a duplicated event. The second one is when we have:
+  -- OK(H) --> NOT-OK(S) --> OK(H) 
+  return true
+end
+
+--- is_host_status_event_duplicated
+-- @return true|false (boolean)
+function ScEvent:is_host_status_event_duplicated()
+  -- return false if option is not activated
+  if self.params.enable_host_status_dedup ~= 1 then
+    self.sc_logger:debug("[sc_event:is_host_status_event_duplicated]: host status is not enabled option enable_host_status_dedup is set to: " .. tostring(self.params.enable_host_status_dedup))
+    return false
+  end
+
+  -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
+  if self.event.last_hard_state_change == self.event.last_check then
+    return false
+  end
+
+  -- map the status known dates to their respective status code
+  local timestamp = {
+    [0] = tonumber(self.event.cache.service.last_time_up),
+    [1] = tonumber(self.event.cache.service.last_time_down),
+    [2] = tonumber(self.event.cache.service.last_time_unreachable),
+  }
+
+  -- if we find a last time status older than the last_hard_state_change then we are not facing a duplicated event
+  for status_code, status_timestamp in ipairs(timestamp) do
+    -- of course it needs to be a different status code than the actual one
+    if status_code ~= self.event.state and status_timestamp >= self.event.last_hard_state_change then
+      return false
+    end
+  end
+
+  -- at the end, it only remains two cases, the first one is a duplicated event. The second one is when we have:
+  -- UP(H) --> NOT-UP(S) --> UP(H) 
+  return true
+end
+
+
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead
 -- @return true (boolean)
 function ScEvent:is_valid_storage_event()
