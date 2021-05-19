@@ -93,6 +93,24 @@
   - [is_valid_acknowledgement_event method](#is_valid_acknowledgement_event-method)
     - [is_valid_acknowledgement_event: returns](#is_valid_acknowledgement_event-returns)
     - [is_valid_acknowledgement_event: example](#is_valid_acknowledgement_event-example)
+  - [is_host_status_event_duplicated method](#is_host_status_event_duplicated-method)
+    - [is_host_status_event_duplicated: returns](#is_host_status_event_duplicated-returns)
+    - [is_host_status_event_duplicated: example](#is_host_status_event_duplicated-example)
+  - [is_service_status_event_duplicated method](#is_service_status_event_duplicated-method)
+    - [is_service_status_event_duplicated: returns](#is_service_status_event_duplicated-returns)
+    - [is_service_status_event_duplicated: example](#is_service_status_event_duplicated-example)
+  - [is_valid_downtime_event method](#is_valid_downtime_event-method)
+    - [is_valid_downtime_event: returns](#is_valid_downtime_event-returns)
+    - [is_valid_downtime_event: example](#is_valid_downtime_event-example)
+  - [get_downtime_host_status method](#get_downtime_host_status-method)
+    - [get_downtime_host_status: returns](#get_downtime_host_status-returns)
+    - [get_downtime_host_status: example](#get_downtime_host_status-example)
+  - [get_downtime_service_status method](#get_downtime_service_status-method)
+    - [get_downtime_service_status: returns](#get_downtime_service_status-returns)
+    - [get_downtime_service_status: example](#get_downtime_service_status-example)
+  - [is_valid_author method](#is_valid_author-method)
+    - [is_valid_author: returns](#is_valid_author-returns)
+    - [is_valid_author: example](#is_valid_author-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -238,6 +256,7 @@ head over the following chapters for more information
 - [is_valid_poller](#is_valid_poller-method)
 - [is_valid_host_severity](#is_valid_host_severity-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
+- [is_host_status_event_duplicated](#is_host_status_event_duplicated-method)
 
 ### is_valid_host_status_event: returns
 
@@ -846,6 +865,7 @@ The **is_valid_acknowledgement_event** method checks if the acknowledgement even
 head over the following chapters for more information
 
 - [is_valid_host](#is_valid_host-method)
+- [is_valid_author](#is_valid_author-method)
 - [is_valid_poller](#is_valid_poller-method)
 - [is_valid_host_severity](#is_valid_host_severity-method)
 - [is_valid_event_status](#is_valid_event_status-method)
@@ -865,6 +885,122 @@ head over the following chapters for more information
 ```lua
 local result = test_event:is_valid_acknowledgement_event()
 --> result is true or false 
+```
+
+## is_host_status_event_duplicated method
+
+The **is_host_status_event_duplicated** method checks if the event is a duplicated one. for example, if host down event has already been received, it will consider the next down host event as a duplicated one. To enable this feature you must set the [**enable_host_status_dedup option to 1**](sc_param.md#default-parameters)
+
+### is_host_status_event_duplicated: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_host_status_event_duplicated: example
+
+```lua
+local result = test_event:is_host_status_event_duplicated()
+--> result is true or false
+```
+
+## is_service_status_event_duplicated method
+
+The **is_service_status_event_duplicated** method checks if the event is a duplicated one. for example, if service critical event has already been received, it will consider the next critical service event as a duplicated one. To enable this feature you must set the [**enable_service_status_dedup option to 1**](sc_param.md#default-parameters)
+
+### is_service_status_event_duplicated: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_service_status_event_duplicated: example
+
+```lua
+local result = test_event:is_service_status_event_duplicated()
+--> result is true or false
+```
+
+## is_valid_downtime_event method
+
+The **is_valid_downtime_event** method checks if the downtime event is valid based on [**default_parameters**](sc_param.md#default-parameters) in the **downtime** scope
+
+head over the following chapters for more information
+
+- [is_valid_host](#is_valid_host-method)
+- [is_valid_author](#is_valid_author-method)
+- [is_valid_poller](#is_valid_poller-method)
+- [is_valid_host_severity](#is_valid_host_severity-method)
+- [is_valid_event_status](#is_valid_event_status-method)
+- [is_valid_service](#is_valid_service-method)
+- [is_valid_service_severity](#is_valid_service_severity-method)
+- [is_valid_servicegroup](#is_valid_servicegroup-method)
+- [is_valid_hostgroup](#is_valid_hostgroup-method)
+- [get_downtime_host_status](#get_downtime_host_status-method)
+- [get_downtime_service_status](#get_downtime_service_status-method)
+
+### is_valid_downtime_event: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_downtime_event: example
+
+```lua
+local result = test_event:is_valid_downtime_event()
+--> result is true or false 
+```
+
+## get_downtime_host_status method
+
+The **get_downtime_host_status** method retrieve the status of the host in a host downtime event
+
+### get_downtime_host_status: returns
+
+| return            | type   | always | condition |
+| ----------------- | ------ | ------ | --------- |
+| event status code | number | yes    |           |
+
+### get_downtime_host_status: example
+
+```lua
+  local result = test_event:get_downtime_host_status()
+  --> result is 0 or 1 (UP or DOWN)
+```
+
+## get_downtime_service_status method
+
+The **get_downtime_service_status** method retrieve the status of the host in a host downtime event
+
+### get_downtime_service_status: returns
+
+| return            | type   | always | condition |
+| ----------------- | ------ | ------ | --------- |
+| event status code | number | yes    |           |
+
+### get_downtime_service_status: example
+
+```lua
+  local result = test_event:get_downtime_service_status()
+  --> result is 0 or 1 or 2 or 3 (OK, WARNING, CRITICAL, UNKNOWN)
+```
+
+## is_valid_author method
+
+The **is_valid_author** method checks if the author of a comment is valid according to the [**accepted_authors parameter**](sc_param.md#default-parameters).
+
+### is_valid_author: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_author: example
+
+```lua
+local result = test_event:is_valid_author()
+--> result is true or false
 ```
 
 ## is_valid_storage_event method

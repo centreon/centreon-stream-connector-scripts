@@ -48,6 +48,7 @@ function sc_params.new(common, logger)
     accepted_servicegroups = "",
     accepted_bvs = "",
     accepted_pollers = "",
+    accepted_authors = "",
     service_severity_threshold = nil,
     service_severity_operator = ">=",
     host_severity_threshold = nil,
@@ -56,6 +57,10 @@ function sc_params.new(common, logger)
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
+
+    -- enable or disable dedup
+    enable_host_status_dedup = 0,
+    enable_service_status_dedup = 0,
     
     -- communication parameters
     max_buffer_size = 1,
@@ -210,6 +215,7 @@ function ScParams:check_params()
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
+  self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
@@ -222,6 +228,8 @@ function ScParams:check_params()
   self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status,self.params.service_status)
   self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status,self.params.host_status)
   self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status,self.params.service_status)
+  self.params.enable_host_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_host_status_dedup, 0)
+  self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
 end
 
 return sc_params

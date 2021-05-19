@@ -112,6 +112,13 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
+  -- return false if event status is a duplicate and dedup is enabled 
+  if self:is_host_status_event_duplicated() then
+    self.sc_logger:warning("[sc_event:is_host_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
+      .. " is sending a duplicated event. Dedup option (enable_host_status_dedup) is set to: " .. tostring(self.params.enable_host_status_dedup))
+    return false
+  end
+
   -- return false if one of event ack, downtime or state type (hard soft) aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
@@ -160,6 +167,13 @@ function ScEvent:is_valid_service_status_event()
   if not self:is_valid_event_status(self.params.service_status) then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) 
       .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+    return false
+  end
+
+  -- return false if event status is a duplicate and dedup is enabled 
+  if self:is_service_status_event_duplicated() then
+    self.sc_logger:warning("[sc_event:is_service_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
+      .. " service_id: " .. tostring(self.event.service_id) .. " is sending a duplicated event. Dedup option (enable_service_status_dedup) is set to: " .. tostring(self.params.enable_service_status_dedup))
     return false
   end
 
@@ -709,7 +723,7 @@ function ScEvent:is_valid_acknowledgement_event()
     -- return false if event status is not accepted
     if not self:is_valid_event_status(event_status) then
       self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) 
-        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][14][self.event.state]))
       return false
     end
   -- service_id != 0 means ack is on a service
@@ -726,7 +740,7 @@ function ScEvent:is_valid_acknowledgement_event()
     -- return false if event status is not accepted
     if not self:is_valid_event_status(event_status) then
       self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service with id: " .. tostring(self.event.service_id) 
-        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][24][self.event.state]))
       return false
     end
 
@@ -759,20 +773,20 @@ end
 function ScEvent:is_valid_downtime_event()
   -- return false if we can't get hostname or host id is nil
   if not self:is_valid_host() then
-    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
+    self.sc_logger:warning("[sc_event:is_valid_downtime_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
     return false
   end
 
   -- check if downtime author is valid 
   if not self:is_valid_author() then
-    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: downtime with internal ID: " .. tostring(self.event.internal_id)
+    self.sc_logger:warning("[sc_event:is_valid_downtime_event]: downtime with internal ID: " .. tostring(self.event.internal_id)
       .. " is not made by a valid author. Author is: " .. tostring(self.event.author) .. " Accepted authors are: " .. self.params.accepted_authors)
     return false
   end
 
   -- return false if host is not monitored from an accepted poller
   if not self:is_valid_poller() then
-    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+    self.sc_logger:warning("[sc_event:is_valid_downtime_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
     return false
   end
 
@@ -780,28 +794,44 @@ function ScEvent:is_valid_downtime_event()
   if self.event.downtime_type == 2 then
     -- store the result in the self.event.state because doing that allow us to use the is_valid_event_status method
     self.event.state = self:get_downtime_host_status()
-    -- 
-    event_status = self.sc_common:ifnil_or_empty(self.params.dt_host_status, self.params.host_status)
+
+    local accepted_event_status = self.sc_common:ifnil_or_empty(self.params.dt_host_status, self.params.host_status)
+    
+    if not self:is_valid_event_status(accepted_event_status) then
+      self.sc_logger:warning("[sc_event:is_valid_downtime_event]: host_id: " .. tostring(self.event.host_id) 
+        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][14][self.event.state]))
+      return false
+    end
   else
+    -- store the result in the self.event.state because doing that allow us to use the is_valid_event_status method
+    self.event.state = self:get_downtime_service_status()
+    local accepted_event_status = self.sc_common:ifnil_or_empty(self.params.dt_service_status, self.params.service_status)
+    
+    -- return false if event status is not accepted
+    if not self:is_valid_event_status(event_status) then
+      self.sc_logger:warning("[sc_event:is_valid_downtime_event]: service with id: " .. tostring(self.event.service_id) 
+        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][24][self.event.state]))
+      return false
+    end
 
     -- return false if service has not an accepted severity
     if not self:is_valid_service_severity() then
-      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service id: " .. tostring(self.event.service_id) 
+      self.sc_logger:warning("[sc_event:is_valid_downtime_event]: service id: " .. tostring(self.event.service_id) 
         .. ". host_id: " .. tostring(self.event.host_id) .. ". Service has not an accepted severity")
       return false
     end
 
     -- return false if service is not in an accepted servicegroup 
     if not self:is_valid_servicegroup() then
-      self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
+      self.sc_logger:warning("[sc_event:is_valid_downtime_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
       return false
     end
   end
 
   -- return false if host is not in an accepted hostgroup
   if not self:is_valid_hostgroup() then
-    self.sc_logger:warning("[sc_event:is_valid_acknowledge_event]: service_id: " .. tostring(self.event.service_id) 
-    .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
+    self.sc_logger:warning("[sc_event:is_valid_downtime_event]: service_id: " .. tostring(self.event.service_id) 
+      .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
     return false
   end
 end
@@ -849,7 +879,7 @@ end
 
 --- get_downtime_service_status: retrieve the status of a service based on last_time_ok/warning/critical/unknown dates found in cache (self.event.cache.host must be set)
 -- return status (number) the status code of the service
-function ScEvent:get_downtime_host_status()
+function ScEvent:get_downtime_service_status()
 
   -- affect the status known dates to their respective status code
   local timestamp = {
@@ -884,7 +914,7 @@ function ScEvent:get_most_recent_status_code(timestamp)
   return status_info.status
 end
 
---- is_service_status_event_duplicated
+--- is_service_status_event_duplicated: check if the service event is the same than the last one (will not work for OK(H) -> CRITICAL(S) -> OK(H))
 -- @return true|false (boolean)
 function ScEvent:is_service_status_event_duplicated()
   -- return false if option is not activated
@@ -919,7 +949,7 @@ function ScEvent:is_service_status_event_duplicated()
   return true
 end
 
---- is_host_status_event_duplicated
+--- is_host_status_event_duplicated: check if the host event is the same than the last one (will not work for UP(H) -> DOWN(S) -> UP(H))
 -- @return true|false (boolean)
 function ScEvent:is_host_status_event_duplicated()
   -- return false if option is not activated
