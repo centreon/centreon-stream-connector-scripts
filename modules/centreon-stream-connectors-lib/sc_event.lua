@@ -72,8 +72,6 @@ function ScEvent:is_valid_event()
     is_valid_event = self:is_valid_neb_event()
   elseif self.event.category == 3 then
     is_valid_event = self:is_valid_storage_event()
-  elseif self.event.category == 5 then
-    is_valid_event = self:is_valid_downtime_event()
   elseif self.event.category == 6 then
     is_valid_event = self:is_valid_bam_event()
   end
@@ -93,6 +91,8 @@ function ScEvent:is_valid_neb_event()
     is_valid_event = self:is_valid_service_status_event()
   elseif self.event.element == 1 then 
     is_valid_event = self:is_valid_acknowledgement_event()
+  elseif self.event.element == 5 then
+    is_valid_event = self:is_valid_downtime_event()
   end
 
   return is_valid_event
