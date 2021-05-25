@@ -6,6 +6,9 @@
     - [Downtime](#downtime)
       - [Downtime actual start](#downtime-actual-start)
       - [Downtime actual end](#downtime-actual-end)
+    - [Acknowledgements](#acknowledgements)
+      - [Acknowledgement actual start](#acknowledgement-actual-start)
+      - [Acknowledgement actual end](#acknowledgement-actual-end)
 
 ## Introduction
 
@@ -65,3 +68,44 @@ if you are using the [**is_valid_downtime_event method**](sc_event.md#is_valid_d
 | start_time        | number  |
 | started           | boolean |
 | type              | number  |
+
+### Acknowledgements
+
+[BBDO documentation](https://docs.centreon.com/current/en/developer/developer-broker-mapping.html#acknowledgement)
+
+#### Acknowledgement actual start
+
+| index              | type    |
+| ------------------ | ------- |
+| author             | string  |
+| category           | number  |
+| comment_data       | string  |
+| element            | number  |
+| entry_time         | number  |
+| host_id            | number  |
+| instance_id        | number  |
+| notify_contacts    | boolean |
+| persistent_comment | boolean |
+| service_id         | number  |
+| state              | number  |
+| sticky             | boolean |
+| type               | number  |
+
+#### Acknowledgement actual end
+
+| index              | type    |
+| ------------------ | ------- |
+| author             | string  |
+| category           | number  |
+| comment_data       | string  |
+| deletion_time      | number  |
+| element            | number  |
+| entry_time         | number  |
+| host_id            | number  |
+| instance_id        | number  |
+| notify_contacts    | boolean |
+| persistent_comment | boolean |
+| service_id         | number  |
+| state              | number  |
+| sticky             | boolean |
+| type               | number  |
