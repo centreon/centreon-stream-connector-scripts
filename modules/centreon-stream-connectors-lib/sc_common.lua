@@ -78,14 +78,15 @@ function ScCommon:check_boolean_number_option_syntax(number, default)
 end
 
 --- split: convert a string into a table
--- @param string (string) the string that is going to be splitted into a table
+-- @param text (string) the string that is going to be splitted into a table
 -- @param [opt] separator (string) the separator character that will be used to split the string
+-- @return false (boolean) if text param is empty or nil
 -- @return table (table) a table of strings
 function ScCommon:split (text, separator)
-  -- return empty string if text is nil
+  -- return false if text is nil or empty
   if text == nil or text == "" then
     self.logger:error("[sc_common:split]: could not split text because it is nil or empty")
-    return ""
+    return false
   end
 
   local hash = {}

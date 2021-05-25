@@ -200,10 +200,10 @@ The **split** method split a string using a separator and returns a table of all
 
 ### split: returns
 
-| return                          | type   | always | condition                                   |
-| ------------------------------- | ------ | ------ | ------------------------------------------- |
-| a table with all splitted parts | table  | no     | the string to split mustn't be empty or nil |
-| empty string                    | string | no     | the string to split is empty or nil         |
+| return                          | type    | always | condition                                   |
+| ------------------------------- | ------- | ------ | ------------------------------------------- |
+| a table with all splitted parts | table   | no     | the string to split mustn't be empty or nil |
+| false                           | boolean | no     | if the string to split is empty or nil      |
 
 ### split: example
 
@@ -229,7 +229,7 @@ local result = test_common:split(my_string, separator)
 
 my_string = ""
 result = test_common:split(my_string, separator)
---> result is "" (empty string)
+--> result is false 
 ```
 
 ## compare_numbers method
