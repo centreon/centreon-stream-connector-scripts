@@ -185,6 +185,28 @@ function sc_params.new(common, logger)
     [2] = "CRITICAL"
   }
 
+  -- map downtime category statuses 
+  self.params.status_mapping[1][5] = {
+    [1] = {},
+    [2] = {}
+  }
+
+  -- service downtime mapping
+  self.params.status_mapping[1][5][1] = {
+    [0] = "OK",
+    [1] = "WARNING",
+    [2] = "CRITICAL",
+    [3] = "UNKNOWN"
+  }
+  
+  -- host donwtime mapping
+  self.params.status_mapping[1][5][2] = {
+    [0] = "UP",
+    [1] = "DOWN",
+    [2] = "UNREACHABLE"
+  }
+
+
   setmetatable(self, { __index = ScParams })
 
   return self
