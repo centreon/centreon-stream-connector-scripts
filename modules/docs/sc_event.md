@@ -111,6 +111,15 @@
   - [is_valid_author method](#is_valid_author-method)
     - [is_valid_author: returns](#is_valid_author-returns)
     - [is_valid_author: example](#is_valid_author-example)
+  - [is_downtime_event_useless method](#is_downtime_event_useless-method)
+    - [is_downtime_event_useless: returns](#is_downtime_event_useless-returns)
+    - [is_downtime_event_useless: example](#is_downtime_event_useless-example)
+  - [is_valid_downtime_event_start method](#is_valid_downtime_event_start-method)
+    - [is_valid_downtime_event_start: returns](#is_valid_downtime_event_start-returns)
+    - [is_valid_downtime_event_start: example](#is_valid_downtime_event_start-example)
+  - [is_valid_downtime_event_end method](#is_valid_downtime_event_end-method)
+    - [is_valid_downtime_event_end: returns](#is_valid_downtime_event_end-returns)
+    - [is_valid_downtime_event_end: example](#is_valid_downtime_event_end-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -1000,6 +1009,62 @@ The **is_valid_author** method checks if the author of a comment is valid accord
 
 ```lua
 local result = test_event:is_valid_author()
+--> result is true or false
+```
+
+## is_downtime_event_useless method
+
+The **is_downtime_event_useless** method checks if the downtime event is a true start or end of a downtime.
+
+head over the following chapters for more information
+
+- [is_valid_downtime_event_start](#is_valid_downtime_event_start-method)
+- [is_valid_downtime_event_end](#is_valid_downtime_event_end-method)
+
+### is_downtime_event_useless: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_downtime_event_useless: example
+
+```lua
+local result = test_event:is_downtime_event_useless()
+--> result is true or false
+```
+
+## is_valid_downtime_event_start method
+
+The **is_valid_downtime_event_start** method checks if the downtime event is a true start of downtime event. It checks if there is no `actual_end_time` information in the downtime and that the `actual_start_time` is set. Otherwise it is not a true start of downtime event.
+
+### is_valid_downtime_event_start: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_downtime_event_start: example
+
+```lua
+local result = test_event:is_valid_downtime_event_start()
+--> result is true or false
+```
+
+## is_valid_downtime_event_end method
+
+The **is_valid_downtime_event_end** method checks if the downtime event is a true end of downtime event. It checks if there the `deletion_time` is set. Otherwise it is not a true end of downtime event.
+
+### is_valid_downtime_event_end: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_downtime_event_end: example
+
+```lua
+local result = test_event:is_valid_downtime_event_end()
 --> result is true or false
 ```
 

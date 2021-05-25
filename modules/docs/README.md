@@ -103,4 +103,10 @@
 | [Documentation](sc_event.md#is_host_status_event_duplicated-method)    |
 | is_service_status_event_duplicated                                     | check if the service_status event is duplicated                                                                                                              |
 | [Documentation](sc_event.md#is_service_status_event_duplicated-method) |
+| is_downtime_event_useless                                              | checks if the downtime event is a usefull one. Meaning that it carries valuable data regarding the actual end or start of the downtime                       |
+| [Documentation](sc_event.md#is_downtime_event_useless-method)          |
+| is_valid_downtime_event_start                                          | checks that the downtime event is about the actual start of the downtime                                                                                     |
+| [Documentation](sc_event.md#is_valid_downtime_event_start-method)      |
+| is_valid_downtime_event_end                                            | checks that the downtime event is about the actual end of the downtime                                                                                       |
+| [Documentation](sc_event.md#is_valid_downtime_event_end-method)        |
 | is_valid_storage_event                                                 | DO NOTHING (deprecated, you should use neb event to send metrics)                                                                                            | [Documentation](sc_event.md#is_valid_storage_event-method)           |

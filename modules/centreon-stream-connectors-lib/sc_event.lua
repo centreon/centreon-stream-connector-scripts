@@ -17,9 +17,9 @@ local ScEvent = {}
 function sc_event.new(event, params, common, logger, broker)
   local self = {}
 
-  self.logger = logger
-  if not self.logger then 
-    self.logger = sc_logger.new()
+  self.sc_logger = logger
+  if not self.sc_logger then 
+    self.sc_logger = sc_logger.new()
   end
   self.sc_common = common
   self.params = params
@@ -307,12 +307,27 @@ end
 -- @param accepted_status_list (string) a coma separated list of accepted status ("ok,warning,critical")
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_status(accepted_status_list)
-  for _, status_id in ipairs(self.sc_common:split(accepted_status_list, ",")) do
+  local status_list = self.sc_common:split(accepted_status_list, ",")
+  
+  if not status_list then
+    self.sc_logger:error("[sc_event:is_valid_event_status]: accepted_status list is nil or empty")
+    return false
+  end
+
+  for _, status_id in ipairs(status_list) do
     if tostring(self.event.state) == status_id then 
       return true
     end
   end
 
+  -- handle downtime event specific case for logging
+  if (self.event.category == 1 and self.event.element == 5) then
+    self.sc_logger:warning("[sc_event:is_valid_event_status] event has an invalid state. Current state: " 
+      .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.type][self.event.state]) .. ". Accepted states are: " .. tostring(accepted_status_list))
+    return false
+  end
+
+  -- log for everything else
   self.sc_logger:warning("[sc_event:is_valid_event_status] event has an invalid state. Current state: " 
     .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]) .. ". Accepted states are: " .. tostring(accepted_status_list))
   return false
@@ -380,7 +395,7 @@ function ScEvent:is_valid_hostgroup()
     return false
   else
     self.sc_logger:debug("[sc_event:is_valid_hostgroup]: event for host with id: " .. tostring(self.event.host_id)
-      .. "matched hostgroup: " .. accepted_hostgroup_name)
+      .. " matched hostgroup: " .. accepted_hostgroup_name)
   end
 
   return true
@@ -665,7 +680,7 @@ end
 
 --- is_valid_service_severity: checks if the service severity is accepted
 -- @return true|false (boolean)
-function ScEvent:is_valid_host_severity()
+function ScEvent:is_valid_service_severity()
   -- return true if there is no severity filter
   if self.params.service_severity_threshold == nil then
     return true
@@ -773,6 +788,12 @@ end
 --- is_vaid_downtime_event: check if the event is a valid downtime event
 -- return true|false (boolean)
 function ScEvent:is_valid_downtime_event()
+  -- return false if the event is one of all the "fake" start or end downtime event received from broker
+  if not self:is_downtime_event_useless() then
+    self.sc_logger:debug("[sc_event:is_valid_downtime_event]: dropping downtime event because it is not a start nor end of downtime event.")
+    return false
+  end
+
   -- return false if we can't get hostname or host id is nil
   if not self:is_valid_host() then
     self.sc_logger:warning("[sc_event:is_valid_downtime_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
@@ -793,26 +814,32 @@ function ScEvent:is_valid_downtime_event()
   end
 
   -- this is a host event
-  if self.event.downtime_type == 2 then
+  if self.event.type == 2 then
     -- store the result in the self.event.state because doing that allow us to use the is_valid_event_status method
     self.event.state = self:get_downtime_host_status()
-
-    local accepted_event_status = self.sc_common:ifnil_or_empty(self.params.dt_host_status, self.params.host_status)
     
-    if not self:is_valid_event_status(accepted_event_status) then
+    -- checks if the current host downtime state is an accpeted status
+    if not self:is_valid_event_status(self.params.dt_host_status) then
       self.sc_logger:warning("[sc_event:is_valid_downtime_event]: host_id: " .. tostring(self.event.host_id) 
-        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][14][self.event.state]))
+        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][14][self.event.state])
+        .. " Accepted states are: " .. tostring(self.params.dt_host_status))
       return false
     end
   else
+    -- return false if we can't get service description or service id is nil
+    if not self:is_valid_service() then
+      self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) .. " hasn't been validated")
+      return false
+    end
+
     -- store the result in the self.event.state because doing that allow us to use the is_valid_event_status method
     self.event.state = self:get_downtime_service_status()
-    local accepted_event_status = self.sc_common:ifnil_or_empty(self.params.dt_service_status, self.params.service_status)
     
     -- return false if event status is not accepted
-    if not self:is_valid_event_status(event_status) then
+    if not self:is_valid_event_status(self.params.dt_service_status) then
       self.sc_logger:warning("[sc_event:is_valid_downtime_event]: service with id: " .. tostring(self.event.service_id) 
-        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][24][self.event.state]))
+        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][24][self.event.state])
+        .. " Accepted states are: " .. tostring(self.params.dt_service_status))
       return false
     end
 
@@ -836,6 +863,8 @@ function ScEvent:is_valid_downtime_event()
       .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
     return false
   end
+
+  return true
 end
 
 --- is_valid_author: check if the author of a comment is valid based on contact alias in Centreon
@@ -987,6 +1016,54 @@ function ScEvent:is_host_status_event_duplicated()
   return true
 end
 
+
+--- is_downtime_event_useless: the purpose of this method is to filter out unnecessary downtime event. It appears that broker
+-- is sending many downtime events before sending the one we want
+-- @return true|false (boolean)
+function ScEvent:is_downtime_event_useless()
+  -- return false if downtime event is not a valid start of downtime event
+  if self:is_valid_downtime_event_start() then
+    return true
+  end
+  
+  -- return false if downtime event is not a valid end of downtime event
+  if self:is_valid_downtime_event_end() then
+    return true
+  end
+
+  return false
+end
+
+--- is_valid_downtime_event_start: make sure that the event is the one notifying us that a downtime has just started
+-- @return true|false (boolean)
+function ScEvent:is_valid_downtime_event_start()
+  -- event is about the end of the downtime (actual_end_time key is not present in a start downtime event)
+  if self.event.actual_end_time then
+    self.sc_logger:debug("[sc_event:is_valid_downtime_event_start]: actual_end_time found in the downtime event. It can't be a downtime start event")
+    return false
+  end
+
+  -- event hasn't actually started until the actual_start_time key is present in the start downtime event
+  if not self.event.actual_start_time then
+    self.sc_logger:debug("[sc_event:is_valid_downtime_event_start]: actual_start_time not found in the downtime event. The downtime hasn't yet started")
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_downtime_event_end: make sure that the event is the one notifying us that a downtime has just ended
+-- @return true|false (boolean)
+function ScEvent:is_valid_downtime_event_end()
+  -- event is about the end of the downtime (deletion_time key is only present in a end downtime event)
+  if self.event.deletion_time then
+    return true
+  end
+  
+  -- any other downtime event is not about the actual end of a downtime so we return false
+  self.sc_logger:debug("[sc_event:is_valid_downtime_event_end]: deletion_time not found in the downtime event. The downtime event is not about the end of a downtime")
+  return false
+end
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead
 -- @return true (boolean)
