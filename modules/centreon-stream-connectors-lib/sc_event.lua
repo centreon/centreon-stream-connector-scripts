@@ -858,9 +858,11 @@ end
 
 --- find_author_in_list: compare accepted authors from parameters with the event author
 -- @return accepted_alias or false (string|boolean) the alias of the first matching author if found or false if not found
-for _, accepted_alias in ipairs(self.sc_common:split(self.params.accepted_authors, ",")) do
-  if accepted_alias == self.event.author then
-    return accepted_alias
+function ScEvent:find_author_in_list()
+  for _, accepted_alias in ipairs(self.sc_common:split(self.params.accepted_authors, ",")) do
+    if accepted_alias == self.event.author then
+      return accepted_alias
+    end
   end
 
   return false
@@ -993,4 +995,3 @@ function ScEvent:is_valid_storage_event()
 end
 
 return sc_event
-
