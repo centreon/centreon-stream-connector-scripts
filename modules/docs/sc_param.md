@@ -142,10 +142,10 @@ test_param:check_params()
 
 ## get_kafka_parameters method
 
-The **get_kafka_parameters** method find the configuration parameters that are related to a stream connector that sends data to **Kafka**. 
+The **get_kafka_parameters** method find the configuration parameters that are related to a stream connector that sends data to **Kafka**.
 To achieve this, parameters must match the following regular expression `^_sc_kafka_`. It will then exclude the `_sc_kafka_` prefix from the parameter name and add the parameter to the kafka_config object.
 
-A list of Kafka parameters is available [**here**](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md). You must put **_sc_kafka_** as a prefix to use them. 
+A list of Kafka parameters is available [**here**](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md). You must put **_sc_kafka_** as a prefix to use them.
 For example the parameter `security.protocol` becomes `_sc_kafka_security.protocol`
 
 ### get_kafka_params: parameters
@@ -178,7 +178,7 @@ test_param:get_kafka_params(test_kafka_config, params)
 
 ## is_mandatory_config_set method
 
-The **is_mandatory_config_set** method checks if all mandatory parameters for a stream connector are set up. If one is missing, it will print an error and return false. 
+The **is_mandatory_config_set** method checks if all mandatory parameters for a stream connector are set up. If one is missing, it will print an error and return false.
 
 ### is_mandatory_config_set: parameters
 
@@ -212,4 +212,3 @@ local result = test_param:is_mandatory_config_set(mandatory_params, params)
 
 --> result is false because the "password" parameter is not in the list of parameters
 ```
-
