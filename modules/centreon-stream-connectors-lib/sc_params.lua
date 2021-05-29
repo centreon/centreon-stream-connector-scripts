@@ -260,9 +260,11 @@ end
 function ScParams:get_kafka_params(kafka_config, params)
   for param_name, param_value in pairs(params) do
     -- check if param starts with sc_kafka (meaning it is a parameter for kafka)
-    if string.find(param_name, "^sc_kafka_") ~= nil then
+    if string.find(param_name, "^_sc_kafka_") ~= nil then
       -- remove the _sc_kafka_ prefix and store the param in a dedicated kafka table
       kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
+      self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name) 
+        .. " parameter with value " .. tostring(param_value) .. " added to kafka_config")
     end
   end
 end
@@ -271,7 +273,7 @@ end
 -- @param mandatory_params (table) the list of mandatory parameters
 -- @param params (table) the list of parameters from broker web configuration
 -- @eturn true|false (boolean) 
-function ScParmas:is_mandatory_config_set(mandatory_params, params)
+function ScParams:is_mandatory_config_set(mandatory_params, params)
   for index, mandatory_param in ipairs(mandatory_params) do
     if not params[mandatory_param] then
       self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param) 
