@@ -11,6 +11,13 @@
     - [param_override: example](#param_override-example)
   - [check_params method](#check_params-method)
     - [check_params: example](#check_params-example)
+  - [get_kafka_parameters method](#get_kafka_parameters-method)
+    - [get_kafka_params: parameters](#get_kafka_params-parameters)
+    - [get_kafka_params: example](#get_kafka_params-example)
+  - [is_mandatory_config_set method](#is_mandatory_config_set-method)
+    - [is_mandatory_config_set: parameters](#is_mandatory_config_set-parameters)
+    - [is_mandatory_config_set: returns](#is_mandatory_config_set-returns)
+    - [is_mandatory_config_set: example](#is_mandatory_config_set-example)
 
 ## Introduction
 
@@ -132,3 +139,77 @@ test_param:check_params()
 --> test_param.param.accepted_elements is: "ba_status"
 --> test_param.param.in_downtime is: 0 (12 is not a valid value, it goes back to the default one)
 ```
+
+## get_kafka_parameters method
+
+The **get_kafka_parameters** method find the configuration parameters that are related to a stream connector that sends data to **Kafka**. 
+To achieve this, parameters must match the following regular expression `^_sc_kafka_`. It will then exclude the `_sc_kafka_` prefix from the parameter name and add the parameter to the kafka_config object.
+
+A list of Kafka parameters is available [**here**](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md). You must put **_sc_kafka_** as a prefix to use them. 
+For example the parameter `security.protocol` becomes `_sc_kafka_security.protocol`
+
+### get_kafka_params: parameters
+
+| parameter    | type   | optional | default value |
+| ------------ | ------ | -------- | ------------- |
+| kafka_config | object | no       |               |
+| params       | table  | no       |               |
+
+### get_kafka_params: example
+
+```lua
+-- create the kafka_config object
+local test_kafka_config = kafka_config.create()
+
+-- set up a parameter list
+local params = {
+  broker = "localhost:9093",
+  ["_sc_kafka_sasl.username"] = "john",
+  topic = "pasta",
+  ["_sc_kafka_sasl.password"] = "doe"
+}
+
+test_param:get_kafka_params(test_kafka_config, params)
+
+--> test_kafka_config["sasl.username"] is "john"
+--> test_kafka_config["sasl.password"] is "doe"
+--> test_kafka_config["topic"] is nil
+```
+
+## is_mandatory_config_set method
+
+The **is_mandatory_config_set** method checks if all mandatory parameters for a stream connector are set up. If one is missing, it will print an error and return false. 
+
+### is_mandatory_config_set: parameters
+
+| parameter        | type  | optional | default value |
+| ---------------- | ----- | -------- | ------------- |
+| mandatory_params | table | no       |               |
+| params           | table | no       |               |
+
+### is_mandatory_config_set: returns
+
+| return           | type    | always | condition                                                |
+| ---------------- | ------- | ------ | -------------------------------------------------------- |
+| true    or false | boolean | yes    | if a mandatory configuration parameter is missing or not |
+
+### is_mandatory_config_set: example
+
+```lua
+-- create a list of mandatory parameters
+local mandatory_parameters = {
+  [1] = "username",
+  [2] = "password"
+}
+
+-- list of parameters configured by the user
+local params = {
+  username = "John",
+  address = "localhost",
+}
+
+local result = test_param:is_mandatory_config_set(mandatory_params, params)
+
+--> result is false because the "password" parameter is not in the list of parameters
+```
+
