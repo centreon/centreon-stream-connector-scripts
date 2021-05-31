@@ -35,6 +35,8 @@ function sc_params.new(common, logger)
     host_status = "0,1,2", -- = ok, down, unreachable
     service_status = "0,1,2,3", -- = ok, warning, critical, unknown,
     ba_status = "0,1,2", -- = ok, warning, critical
+    ack_host_status = "", -- will use host_status if empty
+    ack_service_status = "", -- wil use service_status if empty
     
     -- filter state type 
     hard_only = 1,
@@ -46,6 +48,7 @@ function sc_params.new(common, logger)
     accepted_servicegroups = "",
     accepted_bvs = "",
     accepted_pollers = "",
+    accepted_authors = "",
     service_severity_threshold = nil,
     service_severity_operator = ">=",
     host_severity_threshold = nil,
@@ -54,6 +57,10 @@ function sc_params.new(common, logger)
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
+
+    -- enable or disable dedup
+    enable_host_status_dedup = 0,
+    enable_service_status_dedup = 0,
     
     -- communication parameters
     max_buffer_size = 1,
@@ -178,6 +185,28 @@ function sc_params.new(common, logger)
     [2] = "CRITICAL"
   }
 
+  -- map downtime category statuses 
+  self.params.status_mapping[1][5] = {
+    [1] = {},
+    [2] = {}
+  }
+
+  -- service downtime mapping
+  self.params.status_mapping[1][5][1] = {
+    [0] = "OK",
+    [1] = "WARNING",
+    [2] = "CRITICAL",
+    [3] = "UNKNOWN"
+  }
+  
+  -- host donwtime mapping
+  self.params.status_mapping[1][5][2] = {
+    [0] = "UP",
+    [1] = "DOWN",
+    [2] = "UNREACHABLE"
+  }
+
+
   setmetatable(self, { __index = ScParams })
 
   return self
@@ -192,7 +221,7 @@ function ScParams:param_override(user_params)
   end
 
   for param_name, param_value in pairs(user_params) do
-    if self.params[param_name] then
+    if self.params[param_name] or string.find(param_name, "^_sc_kafka_") ~= nil then
       self.params[param_name] = param_value
       self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
     else 
@@ -208,6 +237,7 @@ function ScParams:check_params()
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
+  self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
@@ -216,6 +246,43 @@ function ScParams:check_params()
   self.params.service_severity_threshold = self.common:if_wrong_type(self.params.service_severity_threshold, "number", nil)
   self.params.host_severity_operator = self.common:if_wrong_type(self.params.host_severity_operator, "string", ">=")
   self.params.service_severity_operator = self.common:if_wrong_type(self.params.service_severity_operator, "string", ">=")
+  self.params.ack_host_status = self.common:ifnil_or_empty(self.params.ack_host_status,self.params.host_status)
+  self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status,self.params.service_status)
+  self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status,self.params.host_status)
+  self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status,self.params.service_status)
+  self.params.enable_host_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_host_status_dedup, 0)
+  self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
+end
+
+--- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
+-- @param kafka_config (object) object instance of kafka_config
+-- @param params (table) the list of parameters from broker web configuration
+function ScParams:get_kafka_params(kafka_config, params)
+  for param_name, param_value in pairs(params) do
+    -- check if param starts with sc_kafka (meaning it is a parameter for kafka)
+    if string.find(param_name, "^_sc_kafka_") ~= nil then
+      -- remove the _sc_kafka_ prefix and store the param in a dedicated kafka table
+      kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
+      self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name) 
+        .. " parameter with value " .. tostring(param_value) .. " added to kafka_config")
+    end
+  end
+end
+
+--- is_mandatory_config_set: check if the mandatory parameters required by a stream connector are set
+-- @param mandatory_params (table) the list of mandatory parameters
+-- @param params (table) the list of parameters from broker web configuration
+-- @eturn true|false (boolean) 
+function ScParams:is_mandatory_config_set(mandatory_params, params)
+  for index, mandatory_param in ipairs(mandatory_params) do
+    if not params[mandatory_param] then
+      self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param) 
+        .. " parameter is not set in the stream connector web configuration")
+      return false
+    end
+  end
+
+  return true
 end
 
 return sc_params

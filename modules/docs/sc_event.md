@@ -33,6 +33,7 @@
     - [is_valid_event_states: returns](#is_valid_event_states-returns)
     - [is_valid_event_states: example](#is_valid_event_states-example)
   - [is_valid_event_status method](#is_valid_event_status-method)
+    - [is_valid_event_status: parameters](#is_valid_event_status-parameters)
     - [is_valid_event_status: returns](#is_valid_event_status-returns)
     - [is_valid_event_status: example](#is_valid_event_status-example)
   - [is_valid_event_state_type method](#is_valid_event_state_type-method)
@@ -89,6 +90,36 @@
   - [is_valid_service_severity method](#is_valid_service_severity-method)
     - [is_valid_service_severity: returns](#is_valid_service_severity-returns)
     - [is_valid_service_severity: example](#is_valid_service_severity-example)
+  - [is_valid_acknowledgement_event method](#is_valid_acknowledgement_event-method)
+    - [is_valid_acknowledgement_event: returns](#is_valid_acknowledgement_event-returns)
+    - [is_valid_acknowledgement_event: example](#is_valid_acknowledgement_event-example)
+  - [is_host_status_event_duplicated method](#is_host_status_event_duplicated-method)
+    - [is_host_status_event_duplicated: returns](#is_host_status_event_duplicated-returns)
+    - [is_host_status_event_duplicated: example](#is_host_status_event_duplicated-example)
+  - [is_service_status_event_duplicated method](#is_service_status_event_duplicated-method)
+    - [is_service_status_event_duplicated: returns](#is_service_status_event_duplicated-returns)
+    - [is_service_status_event_duplicated: example](#is_service_status_event_duplicated-example)
+  - [is_valid_downtime_event method](#is_valid_downtime_event-method)
+    - [is_valid_downtime_event: returns](#is_valid_downtime_event-returns)
+    - [is_valid_downtime_event: example](#is_valid_downtime_event-example)
+  - [get_downtime_host_status method](#get_downtime_host_status-method)
+    - [get_downtime_host_status: returns](#get_downtime_host_status-returns)
+    - [get_downtime_host_status: example](#get_downtime_host_status-example)
+  - [get_downtime_service_status method](#get_downtime_service_status-method)
+    - [get_downtime_service_status: returns](#get_downtime_service_status-returns)
+    - [get_downtime_service_status: example](#get_downtime_service_status-example)
+  - [is_valid_author method](#is_valid_author-method)
+    - [is_valid_author: returns](#is_valid_author-returns)
+    - [is_valid_author: example](#is_valid_author-example)
+  - [is_downtime_event_useless method](#is_downtime_event_useless-method)
+    - [is_downtime_event_useless: returns](#is_downtime_event_useless-returns)
+    - [is_downtime_event_useless: example](#is_downtime_event_useless-example)
+  - [is_valid_downtime_event_start method](#is_valid_downtime_event_start-method)
+    - [is_valid_downtime_event_start: returns](#is_valid_downtime_event_start-returns)
+    - [is_valid_downtime_event_start: example](#is_valid_downtime_event_start-example)
+  - [is_valid_downtime_event_end method](#is_valid_downtime_event_end-method)
+    - [is_valid_downtime_event_end: returns](#is_valid_downtime_event_end-returns)
+    - [is_valid_downtime_event_end: example](#is_valid_downtime_event_end-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -207,6 +238,7 @@ head over the following chapters for more information
 
 - [is_valid_host_status_event](#is_valid_host_status_event-method)
 - [is_valid_service_status_event](#is_valid_service_status_event-method)
+- [is_valid_acknowledgement_event](#is_valid_acknowledgement_event-method)
 
 ### is_valid_neb_event: returns
 
@@ -233,6 +265,7 @@ head over the following chapters for more information
 - [is_valid_poller](#is_valid_poller-method)
 - [is_valid_host_severity](#is_valid_host_severity-method)
 - [is_valid_hostgroup](#is_valid_hostgroup-method)
+- [is_host_status_event_duplicated](#is_host_status_event_duplicated-method)
 
 ### is_valid_host_status_event: returns
 
@@ -357,13 +390,19 @@ head over the following chapters for more information
 ### is_valid_event_states: example
 
 ```lua
-local result = test_event:is_valid_event_states()
---> result is true or false
+local result = test_event:is_valid_event_states(test_param.params.host_status)
+--> result is true or false 
 ```
 
 ## is_valid_event_status method
 
 The **is_valid_event_states** method checks if the event status is valid based on [**host_status, service_status or ba_status**](sc_param.md#default-parameters) in the **host_status, service_status or ba_status** scope
+
+### is_valid_event_status: parameters
+
+| parameter                                        | type   | optional | default value |
+| ------------------------------------------------ | ------ | -------- | ------------- |
+| the list of accepted status code from parameters | string | no       |               |
 
 ### is_valid_event_status: returns
 
@@ -826,6 +865,207 @@ local result = test_event:is_valid_service_severity()
     }
   }
 ]]
+```
+
+## is_valid_acknowledgement_event method
+
+The **is_valid_acknowledgement_event** method checks if the acknowledgement event is accepted based on [**default_parameters**](sc_param.md#default-parameters) in the **acknowledgement** scope
+
+head over the following chapters for more information
+
+- [is_valid_host](#is_valid_host-method)
+- [is_valid_author](#is_valid_author-method)
+- [is_valid_poller](#is_valid_poller-method)
+- [is_valid_host_severity](#is_valid_host_severity-method)
+- [is_valid_event_status](#is_valid_event_status-method)
+- [is_valid_service](#is_valid_service-method)
+- [is_valid_service_severity](#is_valid_service_severity-method)
+- [is_valid_servicegroup](#is_valid_servicegroup-method)
+- [is_valid_hostgroup](#is_valid_hostgroup-method)
+
+### is_valid_acknowledgement_event: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_acknowledgement_event: example
+
+```lua
+local result = test_event:is_valid_acknowledgement_event()
+--> result is true or false 
+```
+
+## is_host_status_event_duplicated method
+
+The **is_host_status_event_duplicated** method checks if the event is a duplicated one. for example, if host down event has already been received, it will consider the next down host event as a duplicated one. To enable this feature you must set the [**enable_host_status_dedup option to 1**](sc_param.md#default-parameters)
+
+### is_host_status_event_duplicated: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_host_status_event_duplicated: example
+
+```lua
+local result = test_event:is_host_status_event_duplicated()
+--> result is true or false
+```
+
+## is_service_status_event_duplicated method
+
+The **is_service_status_event_duplicated** method checks if the event is a duplicated one. for example, if service critical event has already been received, it will consider the next critical service event as a duplicated one. To enable this feature you must set the [**enable_service_status_dedup option to 1**](sc_param.md#default-parameters)
+
+### is_service_status_event_duplicated: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_service_status_event_duplicated: example
+
+```lua
+local result = test_event:is_service_status_event_duplicated()
+--> result is true or false
+```
+
+## is_valid_downtime_event method
+
+The **is_valid_downtime_event** method checks if the downtime event is valid based on [**default_parameters**](sc_param.md#default-parameters) in the **downtime** scope
+
+head over the following chapters for more information
+
+- [is_valid_host](#is_valid_host-method)
+- [is_valid_author](#is_valid_author-method)
+- [is_valid_poller](#is_valid_poller-method)
+- [is_valid_host_severity](#is_valid_host_severity-method)
+- [is_valid_event_status](#is_valid_event_status-method)
+- [is_valid_service](#is_valid_service-method)
+- [is_valid_service_severity](#is_valid_service_severity-method)
+- [is_valid_servicegroup](#is_valid_servicegroup-method)
+- [is_valid_hostgroup](#is_valid_hostgroup-method)
+- [get_downtime_host_status](#get_downtime_host_status-method)
+- [get_downtime_service_status](#get_downtime_service_status-method)
+
+### is_valid_downtime_event: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_downtime_event: example
+
+```lua
+local result = test_event:is_valid_downtime_event()
+--> result is true or false 
+```
+
+## get_downtime_host_status method
+
+The **get_downtime_host_status** method retrieve the status of the host in a host downtime event
+
+### get_downtime_host_status: returns
+
+| return            | type   | always | condition |
+| ----------------- | ------ | ------ | --------- |
+| event status code | number | yes    |           |
+
+### get_downtime_host_status: example
+
+```lua
+  local result = test_event:get_downtime_host_status()
+  --> result is 0 or 1 (UP or DOWN)
+```
+
+## get_downtime_service_status method
+
+The **get_downtime_service_status** method retrieve the status of the host in a host downtime event
+
+### get_downtime_service_status: returns
+
+| return            | type   | always | condition |
+| ----------------- | ------ | ------ | --------- |
+| event status code | number | yes    |           |
+
+### get_downtime_service_status: example
+
+```lua
+  local result = test_event:get_downtime_service_status()
+  --> result is 0 or 1 or 2 or 3 (OK, WARNING, CRITICAL, UNKNOWN)
+```
+
+## is_valid_author method
+
+The **is_valid_author** method checks if the author of a comment is valid according to the [**accepted_authors parameter**](sc_param.md#default-parameters).
+
+### is_valid_author: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_author: example
+
+```lua
+local result = test_event:is_valid_author()
+--> result is true or false
+```
+
+## is_downtime_event_useless method
+
+The **is_downtime_event_useless** method checks if the downtime event is a true start or end of a downtime.
+
+head over the following chapters for more information
+
+- [is_valid_downtime_event_start](#is_valid_downtime_event_start-method)
+- [is_valid_downtime_event_end](#is_valid_downtime_event_end-method)
+
+### is_downtime_event_useless: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_downtime_event_useless: example
+
+```lua
+local result = test_event:is_downtime_event_useless()
+--> result is true or false
+```
+
+## is_valid_downtime_event_start method
+
+The **is_valid_downtime_event_start** method checks if the downtime event is a true start of downtime event. It checks if there is no `actual_end_time` information in the downtime and that the `actual_start_time` is set. Otherwise it is not a true start of downtime event.
+
+### is_valid_downtime_event_start: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_downtime_event_start: example
+
+```lua
+local result = test_event:is_valid_downtime_event_start()
+--> result is true or false
+```
+
+## is_valid_downtime_event_end method
+
+The **is_valid_downtime_event_end** method checks if the downtime event is a true end of downtime event. It checks if there the `deletion_time` is set. Otherwise it is not a true end of downtime event.
+
+### is_valid_downtime_event_end: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_downtime_event_end: example
+
+```lua
+local result = test_event:is_valid_downtime_event_end()
+--> result is true or false
 ```
 
 ## is_valid_storage_event method
