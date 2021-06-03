@@ -15,6 +15,9 @@
   - [debug method](#debug-method)
     - [debug: parameters](#debug-parameters)
     - [debug: example](#debug-example)
+  - [info method](#info-method)
+    - [info: parameters](#info-parameters)
+    - [info: example](#info-example)
   - [notice method](#notice-method)
     - [notice: parameters](#notice-parameters)
     - [notice: example](#notice-example)
@@ -111,6 +114,21 @@ The **debug** method will print a debug message in the logfile if **severity is 
 ```lua
 -- call debug method
 test_logger:debug("[module_name:method_name]: This is a debug message.")
+```
+
+## info method
+
+The **info** method will print an info message in the logfile if **severity is equal or superior to 2**.
+
+### info: parameters
+
+- message. A string that is the info message you want to display in your logfile
+
+### info: example
+
+```lua
+-- call info method
+test_logger:info("[module_name:method_name]: This is a info message.")
 ```
 
 ## notice method

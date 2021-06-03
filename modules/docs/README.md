@@ -37,6 +37,7 @@
 | error       | write an error message in the log file      | [Documentation](sc_logger.md#error-method)   |
 | warning     | write a warning message in the log file     | [Documentation](sc_logger.md#warning-method) |
 | notice      | write a notice/info message in the log file | [Documentation](sc_logger.md#notice-method)  |
+| info        | write an info message in the log file       | [Documentation](sc_logger.md#info-method)    |
 | debug       | write a debug message in the log file       | [Documentation](sc_logger.md#debug-method)   |
 
 ## sc_broker methods
