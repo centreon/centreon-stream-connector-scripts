@@ -28,6 +28,7 @@
 | check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value | [Documentation](sc_common.md#check_boolean_number_option_syntax-method) |
 | split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](sc_common.md#split-method)                              |
 | compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](sc_common.md#compare_numbers-method)                    |
+| generate_postfield_param_string    | convert a table of parameters into an url encoded parameters string                         | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
 
 ## sc_logger methods
 
