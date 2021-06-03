@@ -26,7 +26,7 @@ build = {
      ["centreon-stream-connectors-lib.sc_test"] = "modules/centreon-stream-connectors-lib/sc_test.lua",
      ["centreon-stream-connectors-lib.rdkafka.config"] = "modules/centreon-stream-connectors-lib/config.lua",
      ["centreon-stream-connectors-lib.rdkafka.librdkafka"] = "modules/centreon-stream-connectors-lib/librdkafka.lua",
-     ["centreon-stream-connectors-lib.rdkafka.producer.lua"] = "modules/centreon-stream-connectors-lib/producer.lua",
+     ["centreon-stream-connectors-lib.rdkafka.producer"] = "modules/centreon-stream-connectors-lib/producer.lua",
      ["centreon-stream-connectors-lib.rdkafka.topic_config"] = "modules/centreon-stream-connectors-lib/topic_config.lua",
      ["centreon-stream-connectors-lib.rdkafka.topic"] = "modules/centreon-stream-connectors-lib/topic.lua"
    }
