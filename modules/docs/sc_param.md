@@ -180,7 +180,7 @@ test_param:get_kafka_params(test_kafka_config, params)
 
 ## is_mandatory_config_set method
 
-The **is_mandatory_config_set** method checks if all mandatory parameters for a stream connector are set up. If one is missing, it will print an error and return false.
+The **is_mandatory_config_set** method checks if all mandatory parameters for a stream connector are set up. If one is missing, it will print an error and return false. Each mandatory parameter that is found is going to be stored in the standard parameters list.
 
 ### is_mandatory_config_set: parameters
 
@@ -213,4 +213,15 @@ local params = {
 local result = test_param:is_mandatory_config_set(mandatory_params, params)
 
 --> result is false because the "password" parameter is not in the list of parameters
+--[[
+  since username index (1) is lower than password index (2), the username property will still be available in the test_param.param table
+  --> test_param.param.username is "John"
+]]
+
+params.password = "hello"
+
+result = test_param:is_mandatory_config_set(mandatory_params, params)
+--> result is truc because password and username are in the params table
+--> test_param.param.username is "John"
+--> test_param.param.password is "hello"
 ```
