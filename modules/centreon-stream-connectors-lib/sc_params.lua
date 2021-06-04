@@ -284,7 +284,7 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
     end
 
     -- add the mandatory param name in the list of the standard params and set its value to the user provided param value
-    self.params[mandatory_param] = self.params[params[mandatory_param]]
+    self.params[mandatory_param] = params[mandatory_param]
   end
 
   return true
