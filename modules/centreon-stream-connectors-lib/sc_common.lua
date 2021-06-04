@@ -160,14 +160,14 @@ function ScCommon:generate_postfield_param_string(params)
   -- concatenate data in params table into a string
   for field, value in pairs(params) do
     if param_string == "" then
-      param_string = field .. "=" .. value
+      param_string = field .. "=" .. broker.url_encode(value)
     else
-      param_string = param_string .. "&" .. field .. "=" .. value
+      param_string = param_string .. "&" .. field .. "=" .. broker.url_encode(value)
     end
   end
 
   -- return url encoded string
-  return broker:url_encode(param_string)
+  return param_string
 end
 
 return sc_common
