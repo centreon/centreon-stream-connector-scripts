@@ -664,14 +664,19 @@ function ScEvent:is_valid_host_severity()
     return true
   end
 
+  -- initiate the severity table in the cache if it doesn't exist
+  if not self.event.cache.severity then
+    self.event.cache.severity = {}
+  end
+
   -- get severity of the host from broker cache
-  self.event.cache.host_severity = self.sc_broker:get_severity(self.event.host_id)
+  self.event.cache.severity.host = self.sc_broker:get_severity(self.event.host_id)
 
   -- return false if host severity doesn't match 
-  if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.host_severity, self.params.host_severity_operator) then
+  if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.severity.host, self.params.host_severity_operator) then
     self.sc_logger:debug("[sc_event:is_valid_host_severity]: dropping event because host with id: " .. tostring(self.event.host_id) .. " has an invalid severity. Severity is: "
-      .. tostring(self.event.cache.host_severity) .. ". host_severity_threshold (" .. tostring(self.params.host_severity_threshold) .. ") is " .. self.params.host_severity_operator 
-      .. " to the severity of the host (" .. tostring(self.event.cache.host_severity) .. ")")
+      .. tostring(self.event.cache.severity.host) .. ". host_severity_threshold (" .. tostring(self.params.host_severity_threshold) .. ") is " .. self.params.host_severity_operator 
+      .. " to the severity of the host (" .. tostring(self.event.cache.severity.host) .. ")")
     return false
   end
 
@@ -686,14 +691,19 @@ function ScEvent:is_valid_service_severity()
     return true
   end
 
+  -- initiate the severity table in the cache if it doesn't exist
+  if not self.event.cache.severity then
+    self.event.cache.severity = {}
+  end
+
   -- get severity of the host from broker cache
-  self.event.cache.service_severity = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+  self.event.cache.severity.service = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
 
   -- return false if service severity doesn't match 
-  if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.service_severity, self.params.service_severity_operator) then
+  if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.severity.service, self.params.service_severity_operator) then
     self.sc_logger:debug("[sc_event:is_valid_service_severity]: dropping event because service with id: " .. tostring(self.event.service_id) .. " has an invalid severity. Severity is: "
-      .. tostring(self.event.cache.service_severity) .. ". service_severity_threshold (" .. tostring(self.params.service_severity_threshold) .. ") is " .. self.params.service_severity_operator 
-      .. " to the severity of the host (" .. tostring(self.event.cache.service_severity) .. ")")
+      .. tostring(self.event.cache.severity.service) .. ". service_severity_threshold (" .. tostring(self.params.service_severity_threshold) .. ") is " .. self.params.service_severity_operator 
+      .. " to the severity of the host (" .. tostring(self.event.cache.severity.service) .. ")")
     return false
   end
 
