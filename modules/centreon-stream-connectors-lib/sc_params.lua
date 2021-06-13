@@ -68,6 +68,10 @@ function sc_params.new(common, logger)
     max_buffer_size = 1,
     max_buffer_age = 5,
 
+    -- time parameters
+    local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
+    timestamp_conversion_format = "%Y-%m-%d %X", -- will print 2021-06-11 10:43:38
+
     -- internal parameters
     __internal_ts_last_flush = os.time(),
     
