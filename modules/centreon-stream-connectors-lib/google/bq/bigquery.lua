@@ -16,14 +16,9 @@ function bq_send.new(sc_logger, sc_common, params)
   end
 
   self.params = params
-  self.host_structure = {}
-  self.service_structure = {}
-  self.ba_structure = {}
-  self.ack_structure = {}
-  self.dt_structure = {}
 
   self.bq_tables = bq_tables.new(self.sc_logger, self.sc_common, self.params)
-  self.bq_tables:create_tables_schema()
+  self.bq_tables:get_tables_schema()
 
   setmetatable(self, { __index = BQSend })
 
