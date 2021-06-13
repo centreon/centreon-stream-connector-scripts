@@ -106,8 +106,7 @@ function OAuth:get_key_file()
   if not file then
     self.sc_logger:error("[google.auth.oauth:get_key_file]: couldn't open file "
       .. tostring(self.jwt_info.key_file) .. ". Make sure your key file is there.")
-    
-      return false
+    return false
   end
 
   local file_content = file:read("*a")
@@ -119,7 +118,6 @@ function OAuth:get_key_file()
   if (type(key_table) ~= "table") then
     self.sc_logger:error("[google.auth.oauth:get_key_file]: the key file "
       .. tostring(self.jwt_info.key_file) .. ". Is not a valid json file.")
-    
     return false
   end
 
