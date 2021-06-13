@@ -7,16 +7,18 @@
   - [sc_broker methods](#sc_broker-methods)
   - [sc_param methods](#sc_param-methods)
   - [sc_event methods](#sc_event-methods)
+  - [google.auth.oauth methods](#googleauthoauth-methods)
 
 ## Libraries list
 
-| Lib name  | Content                                          | Usage                                                                     | Documentation                 |
-| --------- | ------------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------- |
-| sc_common | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](sc_common.md) |
-| sc_logger | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](sc_logger.md) |
-| sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             | [Documentation](sc_broker.md) |
-| sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | [Documentation](sc_param.md)  |
-| sc_event  | methods to help you interact with a broker event | when you to perform a specific action on an event                         | [Documentation](sc_event.md)  |
+| Lib name          | Content                                          | Usage                                                                     | Documentation                         |
+| ----------------- | ------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------- |
+| sc_common         | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](sc_common.md)         |
+| sc_logger         | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](sc_logger.md)         |
+| sc_broker         | wrapper methods for broker cache                 | when you need something from the broker cache                             | [Documentation](sc_broker.md)         |
+| sc_param          | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | [Documentation](sc_param.md)          |
+| sc_event          | methods to help you interact with a broker event | when you to perform a specific action on an event                         | [Documentation](sc_event.md)          |
+| google.auth.oauth | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md) |
 
 ## sc_common methods
 
@@ -105,3 +107,14 @@
 | is_valid_downtime_event_start      | checks that the downtime event is about the actual start of the downtime                                                                                     | [Documentation](sc_event.md#is_valid_downtime_event_start-method)      |
 | is_valid_downtime_event_end        | checks that the downtime event is about the actual end of the downtime                                                                                       | [Documentation](sc_event.md#is_valid_downtime_event_end-method)        |
 | is_valid_storage_event             | DO NOTHING (deprecated, you should use neb event to send metrics)                                                                                            | [Documentation](sc_event.md#is_valid_storage_event-method)             |
+
+## google.auth.oauth methods
+
+| Method name      | Method description                          | Link                                                          |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------- |
+| create_jwt_token | create a jwt token                          | [Documentation](google/auth/oauth.md#create_jwt_token-method) |
+| get_key_file     | retrieve information from a key file        | [Documentation](google/auth/oauth.md#get_key_file-method)     |
+| create_jwt_claim | create the claim for the jwt token          | [Documentation](google/auth/oauth.md#create_jwt_claim-method) |
+| create_signature | create the signature for the jwt token      | [Documentation](google/auth/oauth.md#create_signature-method) |
+| get_access_token | get a google access token using a jwt token | [Documentation](google/auth/oauth.md#get_access_token-method) |
+| curl_google      | use curl to get an access token             | [Documentation](google/auth/oauth.md#curl_google-method)      |
