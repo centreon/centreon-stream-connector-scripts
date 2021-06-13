@@ -14,6 +14,8 @@ local ScBroker = {}
 function sc_broker.new(logger)
   local self = {}
   
+  broker_api_version = 2
+  
   self.logger = logger
   if not self.logger then 
     self.logger = sc_logger.new()
