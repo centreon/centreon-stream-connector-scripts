@@ -61,12 +61,16 @@ function sc_params.new(common, logger)
     skip_nil_id = 1,
 
     -- enable or disable dedup
-    enable_host_status_dedup = 0,
-    enable_service_status_dedup = 0,
+    enable_host_status_dedup = 1,
+    enable_service_status_dedup = 1,
     
     -- communication parameters
     max_buffer_size = 1,
     max_buffer_age = 5,
+
+    -- time parameters
+    local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
+    timestamp_conversion_format = "%Y-%m-%d %X", -- will print 2021-06-11 10:43:38
 
     -- internal parameters
     __internal_ts_last_flush = os.time(),
@@ -223,7 +227,7 @@ function ScParams:param_override(user_params)
   end
 
   for param_name, param_value in pairs(user_params) do
-    if self.params[param_name] or string.find(param_name, "^_sc_kafka_") ~= nil then
+    if self.params[param_name] or string.find(param_name, "^_sc") ~= nil then
       self.params[param_name] = param_value
       self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
     else 
@@ -282,6 +286,9 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
         .. " parameter is not set in the stream connector web configuration")
       return false
     end
+
+    -- add the mandatory param name in the list of the standard params and set its value to the user provided param value
+    self.params[mandatory_param] = params[mandatory_param]
   end
 
   return true

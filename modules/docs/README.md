@@ -7,16 +7,22 @@
   - [sc_broker methods](#sc_broker-methods)
   - [sc_param methods](#sc_param-methods)
   - [sc_event methods](#sc_event-methods)
+  - [sc_macros methods](#sc_macros-methods)
+  - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
+  - [google.auth.oauth methods](#googleauthoauth-methods)
 
 ## Libraries list
 
-| Lib name  | Content                                          | Usage                                                                     | Documentation                 |
-| --------- | ------------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------- |
-| sc_common | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](sc_common.md) |
-| sc_logger | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](sc_logger.md) |
-| sc_broker | wrapper methods for broker cache                 | when you need something from the broker cache                             | [Documentation](sc_broker.md) |
-| sc_param  | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | [Documentation](sc_param.md)  |
-| sc_event  | methods to help you interact with a broker event | when you to perform a specific action on an event                         | [Documentation](sc_event.md)  |
+| Lib name                 | Content                                          | Usage                                                                     | Documentation                                |
+| ------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------- | -------------------------------------------- |
+| sc_common                | basic methods for lua                            | you can use it when you want to simplify your code                        | [Documentation](sc_common.md)                |
+| sc_logger                | methods that handle logging with centreon broker | When you want to log a message from your stream connector                 | [Documentation](sc_logger.md)                |
+| sc_broker                | wrapper methods for broker cache                 | when you need something from the broker cache                             | [Documentation](sc_broker.md)                |
+| sc_param                 | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | [Documentation](sc_param.md)                 |
+| sc_event                 | methods to help you interact with a broker event | when you want to check event data                                         | [Documentation](sc_event.md)                 |
+| sc_macros                | methods to help you convert macros               | when you want to use macros in your stream connector                      | [Documentation](sc_macros.md)                |
+| google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
+| google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
 
 ## sc_common methods
 
@@ -28,6 +34,7 @@
 | check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value | [Documentation](sc_common.md#check_boolean_number_option_syntax-method) |
 | split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](sc_common.md#split-method)                              |
 | compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](sc_common.md#compare_numbers-method)                    |
+| generate_postfield_param_string    | convert a table of parameters into an url encoded parameters string                         | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
 
 ## sc_logger methods
 
@@ -36,6 +43,7 @@
 | error       | write an error message in the log file      | [Documentation](sc_logger.md#error-method)   |
 | warning     | write a warning message in the log file     | [Documentation](sc_logger.md#warning-method) |
 | notice      | write a notice/info message in the log file | [Documentation](sc_logger.md#notice-method)  |
+| info        | write an info message in the log file       | [Documentation](sc_logger.md#info-method)    |
 | debug       | write a debug message in the log file       | [Documentation](sc_logger.md#debug-method)   |
 
 ## sc_broker methods
@@ -103,3 +111,42 @@
 | is_valid_downtime_event_start      | checks that the downtime event is about the actual start of the downtime                                                                                     | [Documentation](sc_event.md#is_valid_downtime_event_start-method)      |
 | is_valid_downtime_event_end        | checks that the downtime event is about the actual end of the downtime                                                                                       | [Documentation](sc_event.md#is_valid_downtime_event_end-method)        |
 | is_valid_storage_event             | DO NOTHING (deprecated, you should use neb event to send metrics)                                                                                            | [Documentation](sc_event.md#is_valid_storage_event-method)             |
+
+## sc_macros methods
+
+| Method name            | Method description                                                             | Link                                                        |
+| ---------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| replace_sc_macro       | replace a stream connector macro with its value                                | [Documentation](sc_macros.md#replace_sc_macro-method)       |
+| get_cache_macro        | retrieve a macro value in the cache                                            | [Documentation](sc_macros.md#get_cache_macro-method)        |
+| get_event_macro        | retrieve a macro value in the event                                            | [Documentation](sc_macros.md#get_event_macro-method)        |
+| convert_centreon_macro | replace a Centreon macro with its value                                        | [Documentation](sc_macros.md#convert_centreon_macro-method) |
+| get_centreon_macro     | transform a Centreon macro into a stream connector macro                       | [Documentation](sc_macros.md#get_centreon_macro-method)     |
+| get_transform_flag     | try to find a transformation flag in the macro name                            | [Documentation](sc_macros.md#get_transform_flag-method)     |
+| transform_date         | transform a timestamp into a human readable format                             | [Documentation](sc_macros.md#transform_date-method)         |
+| transform_short        | keep the first line of a string                                                | [Documentation](sc_macros.md#transform_short-method)        |
+| transform_type         | convert 0 or 1 into SOFT or HARD                                               | [Documentation](sc_macros.md#transform_type-method)         |
+| transform_state        | convert a status code into its matching human readable status (OK, WARNING...) | [Documentation](sc_macros.md#transform_state-method)        |
+
+## google.bigquery.bigquery methods
+
+| Method name                  | Method description                                         | Link                                                                             |
+| ---------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| get_tables_schema            | create all tables schema depending on the configuration    | [Documentation](google/bigquery/bigquery.md#get_tables_schema-method)            |
+| default_host_table_schema    | create the default table schema for host_status events     | [Documentation](google/bigquery/bigquery.md#default_host_table_schema-method)    |
+| default_service_table_schema | create the default table schema for service_status events  | [Documentation](google/bigquery/bigquery.md#default_service_table_schema-method) |
+| default_ack_table_schema     | create the default table schema for acknowledgement events | [Documentation](google/bigquery/bigquery.md#default_ack_table_schema-method)     |
+| default_dt_table_schema      | create the default table schema for downtime events        | [Documentation](google/bigquery/bigquery.md#default_dt_table_schema-method)      |
+| default_ba_table_schema      | create the default table schema for ba_status events       | [Documentation](google/bigquery/bigquery.md#default_ba_table_schema-method)      |
+| load_tables_schema_file      | create tables schema based on a json file                  | [Documentation](google/bigquery/bigquery.md#load_tables_schema_file-method)      |
+| build_table_schema           | create tables schema based on stream connector parameters  | [Documentation](google/bigquery/bigquery.md#build_table_schema-method)           |
+
+## google.auth.oauth methods
+
+| Method name      | Method description                          | Link                                                          |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------- |
+| create_jwt_token | create a jwt token                          | [Documentation](google/auth/oauth.md#create_jwt_token-method) |
+| get_key_file     | retrieve information from a key file        | [Documentation](google/auth/oauth.md#get_key_file-method)     |
+| create_jwt_claim | create the claim for the jwt token          | [Documentation](google/auth/oauth.md#create_jwt_claim-method) |
+| create_signature | create the signature for the jwt token      | [Documentation](google/auth/oauth.md#create_signature-method) |
+| get_access_token | get a google access token using a jwt token | [Documentation](google/auth/oauth.md#get_access_token-method) |
+| curl_google      | use curl to get an access token             | [Documentation](google/auth/oauth.md#curl_google-method)      |

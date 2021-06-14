@@ -239,6 +239,8 @@ function ScEvent:is_valid_host()
     self.sc_logger:warning("[sc_event:is_valid_host]: No name for host with id: " .. tostring(self.event.host_id) 
       .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
+  elseif (not self.event.cache.host and self.params.skip_anon_events == 0) then
+    self.event.cache.host.name = self.event.host_id
   end
 
   -- force host name to be its id if no name has been found
@@ -272,6 +274,8 @@ function ScEvent:is_valid_service()
     self.sc_logger:warning("[sc_event:is_valid_service]: Invalid description for service with id: " .. tostring(self.event.service_id) 
       .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
+  elseif (not self.event.cache.service and self.params.skip_anon_events == 0) then
+    self.event.cache.service.description = self.event.service_id
   end
 
   -- force service description to its id if no description has been found
@@ -515,11 +519,13 @@ function ScEvent:is_valid_ba()
     self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA with id: " .. tostring(self.event.ba_id)
       .. ". Found BA name is: " .. tostring(self.event.cache.ba.ba_name) .. ". And skip anon event param is set to: " .. tostring(self.params.skip_anon_events))
     return false
+  elseif (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 0) then 
+    self.event.cache.ba.ba_name = self.event.ba_id
   end
 
   -- force ba name to be its id if no name has been found
   if not self.event.cache.ba.ba_name then
-    self.event.cache.ba.ba_name = self.event.cache.ba.ba_name or self.event.ba_id
+    self.event.cache.ba.ba_name = self.event.ba_id
   end
 
   return true
@@ -664,14 +670,19 @@ function ScEvent:is_valid_host_severity()
     return true
   end
 
+  -- initiate the severity table in the cache if it doesn't exist
+  if not self.event.cache.severity then
+    self.event.cache.severity = {}
+  end
+
   -- get severity of the host from broker cache
-  self.event.cache.host_severity = self.sc_broker:get_severity(self.event.host_id)
+  self.event.cache.severity.host = self.sc_broker:get_severity(self.event.host_id)
 
   -- return false if host severity doesn't match 
-  if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.host_severity, self.params.host_severity_operator) then
+  if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.severity.host, self.params.host_severity_operator) then
     self.sc_logger:debug("[sc_event:is_valid_host_severity]: dropping event because host with id: " .. tostring(self.event.host_id) .. " has an invalid severity. Severity is: "
-      .. tostring(self.event.cache.host_severity) .. ". host_severity_threshold (" .. tostring(self.params.host_severity_threshold) .. ") is " .. self.params.host_severity_operator 
-      .. " to the severity of the host (" .. tostring(self.event.cache.host_severity) .. ")")
+      .. tostring(self.event.cache.severity.host) .. ". host_severity_threshold (" .. tostring(self.params.host_severity_threshold) .. ") is " .. self.params.host_severity_operator 
+      .. " to the severity of the host (" .. tostring(self.event.cache.severity.host) .. ")")
     return false
   end
 
@@ -686,14 +697,19 @@ function ScEvent:is_valid_service_severity()
     return true
   end
 
+  -- initiate the severity table in the cache if it doesn't exist
+  if not self.event.cache.severity then
+    self.event.cache.severity = {}
+  end
+
   -- get severity of the host from broker cache
-  self.event.cache.service_severity = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+  self.event.cache.severity.service = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
 
   -- return false if service severity doesn't match 
-  if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.service_severity, self.params.service_severity_operator) then
+  if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.severity.service, self.params.service_severity_operator) then
     self.sc_logger:debug("[sc_event:is_valid_service_severity]: dropping event because service with id: " .. tostring(self.event.service_id) .. " has an invalid severity. Severity is: "
-      .. tostring(self.event.cache.service_severity) .. ". service_severity_threshold (" .. tostring(self.params.service_severity_threshold) .. ") is " .. self.params.service_severity_operator 
-      .. " to the severity of the host (" .. tostring(self.event.cache.service_severity) .. ")")
+      .. tostring(self.event.cache.severity.service) .. ". service_severity_threshold (" .. tostring(self.params.service_severity_threshold) .. ") is " .. self.params.service_severity_operator 
+      .. " to the severity of the host (" .. tostring(self.event.cache.severity.service) .. ")")
     return false
   end
 
@@ -899,6 +915,10 @@ end
 --- get_downtime_host_status: retrieve the status of a host based on last_time_up/down dates found in cache (self.event.cache.host must be set)
 -- return status (number) the status code of the host
 function ScEvent:get_downtime_host_status()
+  -- if cache is not filled we can't get the state of the host
+  if not self.event.cache.host.last_time_up or not self.event.cache.host.last_time_down then
+    return "N/A"
+  end
 
   -- affect the status known dates to their respective status code
   local timestamp = {
@@ -912,6 +932,15 @@ end
 --- get_downtime_service_status: retrieve the status of a service based on last_time_ok/warning/critical/unknown dates found in cache (self.event.cache.host must be set)
 -- return status (number) the status code of the service
 function ScEvent:get_downtime_service_status()
+  -- if cache is not filled we can't get the state of the service
+  if 
+    not self.event.cache.host.last_time_ok 
+    or not self.event.cache.host.last_time_warning 
+    or not self.event.cache.service.last_time_critical 
+    or not self.event.cache.service.last_time_unknown 
+  then
+    return "N/A"
+  end
 
   -- affect the status known dates to their respective status code
   local timestamp = {
@@ -959,6 +988,10 @@ function ScEvent:is_service_status_event_duplicated()
   if self.event.last_hard_state_change == self.event.last_check then
     return false
   end
+  
+  return true
+  --[[
+    IT LOOKS LIKE THIS PIECE OF CODE IS USELESS
 
   -- map the status known dates to their respective status code
   local timestamp = {
@@ -978,7 +1011,7 @@ function ScEvent:is_service_status_event_duplicated()
 
   -- at the end, it only remains two cases, the first one is a duplicated event. The second one is when we have:
   -- OK(H) --> NOT-OK(S) --> OK(H) 
-  return true
+  ]]-- 
 end
 
 --- is_host_status_event_duplicated: check if the host event is the same than the last one (will not work for UP(H) -> DOWN(S) -> UP(H))
@@ -995,6 +1028,9 @@ function ScEvent:is_host_status_event_duplicated()
     return false
   end
 
+  return true
+  --[[
+    IT LOOKS LIKE THIS PIECE OF CODE IS USELESS
   -- map the status known dates to their respective status code
   local timestamp = {
     [0] = tonumber(self.event.cache.service.last_time_up),
@@ -1012,7 +1048,7 @@ function ScEvent:is_host_status_event_duplicated()
 
   -- at the end, it only remains two cases, the first one is a duplicated event. The second one is when we have:
   -- UP(H) --> NOT-UP(S) --> UP(H) 
-  return true
+  ]]--
 end
 
 

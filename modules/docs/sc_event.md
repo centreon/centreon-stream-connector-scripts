@@ -831,7 +831,9 @@ local result = test_event:is_valid_host_severity()
   {
     --- event data ---
     cache = {
-      host_severity = 2712
+      severity = {
+        host = 2712
+      }
       --- other cache data type ---
     }
   }
@@ -860,7 +862,9 @@ local result = test_event:is_valid_service_severity()
   {
     --- event data ---
     cache = {
-      service_severity = 2712
+      severity = {
+        service = 2712
+      }
       --- other cache data type ---
     }
   }

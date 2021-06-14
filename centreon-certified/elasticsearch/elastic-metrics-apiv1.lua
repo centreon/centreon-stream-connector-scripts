@@ -11,8 +11,8 @@ local elastic = {
 local function check_index(socket)
   -- Ask for the index
   socket:write('GET /centreon/_mapping?pretty HTTP/1.1\r\nHost: '
-           .. elastic.address .. ':' .. elastic.port
-           .. '\r\nAccept: */*\r\n\r\n')
+    .. elastic.address .. ':' .. elastic.port
+    .. '\r\nAccept: */*\r\n\r\n')
   local answer = socket:read()
   if string.match(answer, "HTTP/1.1 200 OK") then
     return true
@@ -30,8 +30,8 @@ local function init_index(socket)
   broker_log:info(1, "init_index")
   -- Initialize the index
   local header = 'PUT /centreon?pretty HTTP/1.1\r\nHost: '
-          .. elastic.address .. ':' .. elastic.port
-          .. '\r\nAccept: */*\r\nContent-Type: application/json\r\n'
+    .. elastic.address .. ':' .. elastic.port
+    .. '\r\nAccept: */*\r\nContent-Type: application/json\r\n'
   local content = [[{
     "mappings": {
       "metrics": {

@@ -60,7 +60,7 @@ Constructor can be initialized with one parameter or it will use a default value
 
 - sc_logger. This is an instance of the sc_logger module
 
-If you don't provider this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
 
 ### constructor: Example
 

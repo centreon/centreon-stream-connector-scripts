@@ -3,6 +3,8 @@
 - [Broker data structure documentation](#broker-data-structure-documentation)
   - [Introduction](#introduction)
   - [NEB Category](#neb-category)
+    - [Service_status](#service_status)
+    - [Host_status](#host_status)
     - [Downtime](#downtime)
       - [Downtime actual start](#downtime-actual-start)
       - [Downtime actual end](#downtime-actual-end)
@@ -16,6 +18,101 @@ The purpose of this documentation is to provide a quick overview of what data st
 This documentation will not explain the meaning of the structures. It is mostly a guide to help writing centreon lua modules and stream connectors
 
 ## NEB Category
+
+### Service_status
+
+[BBDO documentation](https://docs.centreon.com/current/en/developer/developer-broker-mapping.html#service-status)
+
+| index                    | type    |
+| ------------------------ | ------- |
+| acknowledged             | boolean |
+| acknowledgement_type     | number  |
+| active_checks            | boolean |
+| category                 | number  |
+| check_attempt            | number  |
+| check_command            | string  |
+| check_interval           | number  |
+| check_period             | string  |
+| check_type               | number  |
+| checked                  | boolean |
+| element                  | number  |
+| enabled                  | boolean |
+| event_handler            | string  |
+| event_handler_enabled    | boolean |
+| execution_time           | number  |
+| flap_detection           | boolean |
+| flapping                 | boolean |
+| host_id                  | number  |
+| last_check               | number  |
+| last_hard_state          | number  |
+| last_hard_state_change   | number  |
+| last_state_change        | number  |
+| last_time_up             | number  |
+| last_update              | number  |
+| latency                  | number  |
+| max_check_attempts       | number  |
+| next_check               | number  |
+| no_more_notifications    | boolean |
+| notification_number      | number  |
+| notify                   | boolean |
+| obsess_over_host         | boolean |
+| output                   | string  |
+| passive_checks           | boolean |
+| percent_state_change     | number  |
+| perfdata                 | string  |
+| retry_interval           | number  |
+| scheduled_downtime_depth | number  |
+| should_be_scheduled      | boolean |
+| state                    | number  |
+| state_type               | number  |
+
+### Host_status
+
+[BBDO documentation](https://docs.centreon.com/current/en/developer/developer-broker-mapping.html#host-status)
+
+| index                    | type    |
+| ------------------------ | ------- |
+| acknowledged             | boolean |
+| acknowledgement_type     | number  |
+| active_checks            | boolean |
+| category                 | number  |
+| check_attempt            | number  |
+| check_command            | string  |
+| check_interval           | number  |
+| check_period             | string  |
+| check_type               | number  |
+| checked                  | boolean |
+| element                  | number  |
+| enabled                  | boolean |
+| event_handler            | string  |
+| event_handler_enabled    | boolean |
+| execution_time           | number  |
+| flap_detection           | boolean |
+| flapping                 | boolean |
+| host_id                  | number  |
+| last_check               | number  |
+| last_hard_state          | number  |
+| last_hard_state_change   | number  |
+| last_state_change        | number  |
+| last_time_ok             | number  |
+| last_update              | number  |
+| latency                  | number  |
+| max_check_attempts       | number  |
+| next_check               | number  |
+| no_more_notifications    | boolean |
+| notification_number      | number  |
+| notify                   | boolean |
+| obsess_over_service      | boolean |
+| output                   | string  |
+| passive_checks           | boolean |
+| percent_state_change     | number  |
+| perfdata                 | string  |
+| retry_interval           | number  |
+| scheduled_downtime_depth | number  |
+| service_id               | number  |
+| should_be_scheduled      | boolean |
+| state                    | number  |
+| state_type               | number  |
 
 ### Downtime
 

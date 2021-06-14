@@ -29,6 +29,10 @@
     - [compare_numbers: parameters](#compare_numbers-parameters)
     - [compare_numbers: returns](#compare_numbers-returns)
     - [compare_numbers: example](#compare_numbers-example)
+  - [generate_postfield_param_string method](#generate_postfield_param_string-method)
+    - [generate_postfield_param_string: parameters](#generate_postfield_param_string-parameters)
+    - [generate_postfield_param_string: returns](#generate_postfield_param_string-returns)
+    - [generate_postfield_param_string: example](#generate_postfield_param_string-example)
 
 ## Introduction
 
@@ -44,7 +48,7 @@ Constructor can be initialized with one parameter or it will use a default value
 
 - sc_logger. This is an instance of the sc_logger module
 
-If you don't provider this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
 
 ### constructor: Example
 
@@ -270,4 +274,34 @@ result = test_common:compare_numbers(first_number, second_number, operator)
 first_number = "hello my friend"
 result = test_common:compare_numbers(first_number, second_number, operator)
 --> result is nil ("hello my friend" is not a valid number)
+```
+
+## generate_postfield_param_string method
+
+The **generate_postfield_param_string** method generate an url encoded param string based on a table with said params.
+
+### generate_postfield_param_string: parameters
+
+| parameter                                                           | type  | optional | default value |
+| ------------------------------------------------------------------- | ----- | -------- | ------------- |
+| the table with all the parameters to convert in a parameters string | table | no       |               |
+
+### generate_postfield_param_string: returns
+
+| return        | type    | always | condition                                                                          |
+| ------------- | ------- | ------ | ---------------------------------------------------------------------------------- |
+| false         | boolean | no     | if the method parameter is not a table                                             |
+| string_params | string  | no     | if the method parameter is a table, it will return an url encoded string of params |
+
+### generate_postfield_param_string: example
+
+```lua
+local param_table = {
+  key = "321Xzd",
+  option = "full"
+  name = "John Doe"
+}
+
+local result = test_common:generate_postfield_param_string(param_table)
+--> result is "key=321Xzd&option=full&name=John%20Doe"
 ```

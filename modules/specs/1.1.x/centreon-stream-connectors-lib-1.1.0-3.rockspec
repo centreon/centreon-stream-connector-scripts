@@ -1,8 +1,8 @@
 package = "centreon-stream-connectors-lib"
-version = "1.1.0-1"
+version = "1.1.0-3"
 source = {
    url = "git+https://github.com/centreon/centreon-stream-connector-scripts",
-   tag = "1.1.0"
+   tag = "1.1.0-3"
 }
 description = {
    summary = "Centreon stream connectors lua modules",
@@ -24,10 +24,10 @@ build = {
      ["centreon-stream-connectors-lib.sc_logger"] = "modules/centreon-stream-connectors-lib/sc_logger.lua",
      ["centreon-stream-connectors-lib.sc_params"] = "modules/centreon-stream-connectors-lib/sc_params.lua",
      ["centreon-stream-connectors-lib.sc_test"] = "modules/centreon-stream-connectors-lib/sc_test.lua",
-     ["centreon-stream-connectors-lib.rdkafka.config"] = "modules/centreon-stream-connectors-lib/config.lua",
-     ["centreon-stream-connectors-lib.rdkafka.librdkafka"] = "modules/centreon-stream-connectors-lib/librdkafka.lua",
-     ["centreon-stream-connectors-lib.rdkafka.producer.lua"] = "modules/centreon-stream-connectors-lib/producer.lua",
-     ["centreon-stream-connectors-lib.rdkafka.topic_config"] = "modules/centreon-stream-connectors-lib/topic_config.lua",
-     ["centreon-stream-connectors-lib.rdkafka.topic"] = "modules/centreon-stream-connectors-lib/topic.lua"
+     ["centreon-stream-connectors-lib.rdkafka.config"] = "modules/centreon-stream-connectors-lib/rdkafka/config.lua",
+     ["centreon-stream-connectors-lib.rdkafka.librdkafka"] = "modules/centreon-stream-connectors-lib/rdkafka/librdkafka.lua",
+     ["centreon-stream-connectors-lib.rdkafka.producer"] = "modules/centreon-stream-connectors-lib/rdkafka/producer.lua",
+     ["centreon-stream-connectors-lib.rdkafka.topic_config"] = "modules/centreon-stream-connectors-lib/rdkafka/topic_config.lua",
+     ["centreon-stream-connectors-lib.rdkafka.topic"] = "modules/centreon-stream-connectors-lib/rdkafka/topic.lua"
    }
 }
