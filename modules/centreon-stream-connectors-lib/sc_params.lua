@@ -61,8 +61,8 @@ function sc_params.new(common, logger)
     skip_nil_id = 1,
 
     -- enable or disable dedup
-    enable_host_status_dedup = 0,
-    enable_service_status_dedup = 0,
+    enable_host_status_dedup = 1,
+    enable_service_status_dedup = 1,
     
     -- communication parameters
     max_buffer_size = 1,
