@@ -7,15 +7,13 @@
 local sc_macros = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScMacros = {}
 
 --- sc_macros.new: sc_macros constructor
--- @param sc_common (object) object instance from sc_common module
 -- @param params (table) the stream connector parameter table
 -- @param sc_logger (object) object instance from sc_logger module
-function sc_macros.new(sc_common, params, sc_logger)
+function sc_macros.new( params, sc_logger)
   local self = {}
 
   -- initiate mandatory libs
@@ -23,7 +21,6 @@ function sc_macros.new(sc_common, params, sc_logger)
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
   end
-  self.sc_common = sc_common
 
   -- initiate params
   self.params = params
