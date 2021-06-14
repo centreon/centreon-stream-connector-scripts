@@ -5,8 +5,10 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
+local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_oauth = require("centreon-stream-connectors-lib.google.auth.oauth")
--- local google = require("google.core.oauth")
+local sc_bq = require("centreon-stream-connectors-lib.google.bigquery.bigquery")
+local curl = require("cURL")
 
 local EventQueue = {}
 
@@ -14,19 +16,50 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    [1] = "project_id",
+    [1] = "dataset",
     [2] = "key_file_path",
     [3] = "api_key",
     [4] = "scope_list"
   }
 
   -- initiate EventQueue variables
-  self.events = {}
+  self.events = {
+    [1] = {},
+    [6] = {}
+  }
+
+  self.events[1] = {
+    [1] = {},
+    [6] = {},
+    [14] = {},
+    [24] = {}
+  }
+
+  self.events[6] = {
+    [1] = {}
+  }
+
+  self.flush = {
+    [1] = {},
+    [6] = {}
+  }
+
+  self.flush[1] = {
+    [1] = function () return self:flush_ack() end,
+    [6] = function () return self:flush_dt() end,
+    [14] = function () return self:flush_host() end,
+    [24] = function () return self:flush_service() end
+  }
+
+  self.flush[6] = {
+    [1] = function () return self:flush_ba() end
+  }
+
   self.fail = false
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  local log_level = params.log_level or 1
+  local log_level = params.log_level or 2
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -48,8 +81,26 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  
+  self.sc_params.params.__internal_ts_host_last_flush = os.time()
+  self.sc_params.params.__internal_ts_service_last_flush = os.time()
+  self.sc_params.params.__internal_ts_ack_last_flush = os.time()
+  self.sc_params.params.__internal_ts_dt_last_flush = os.time()
+  self.sc_params.params.__internal_ts_ba_last_flush = os.time()
 
+  self.sc_params.params.host_table = params.host_table or "hosts"
+  self.sc_params.params.service_table = params.service_table or "services"
+  self.sc_params.params.ack_table = params.ack_table or "acknowledgements"
+  self.sc_params.params.downtime_table = params.downtime_table or "downtimes"
+  self.sc_params.params.ba_table = params.ba_table or "bas"
+  self.sc_params.params._sc_gbq_use_default_schemas = 1
+
+  self.sc_params.params.google_bq_api_url = params.google_bq_api_url or "https://content-bigquery.googleapis.com/bigquery/v2"
+
+  self.sc_macros = sc_macros.new(self.sc_common, self.sc_params.params, self.sc_logger)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
+  self.sc_bq = sc_bq.new(self.sc_common, self.sc_params.params, self.sc_logger)
+  self.sc_bq:get_tables_schema()
 
 
   -- return EventQueue object
@@ -62,19 +113,13 @@ end
 -- @return true (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
-  -- for i, v in pairs(self.sc_event.event) do
-  --   self.sc_logger:error("index: " .. tostring(i) .. " value: " .. tostring(v))
-  -- end
-  -- starting to handle shared information between host and service
-  self.sc_event.event.formated_event = {
-    -- name of host has been stored in a cache table when calling is_valid_even()
-    my_host = self.sc_event.event.cache.host.name,
-    -- states (critical, ok...) are found and converted to human format thanks to the status_mapping table
-    -- my_state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.type][self.sc_event.event.state],
-    -- my_author = self.sc_event.event.author,
-    -- my_start_time = self.sc_event.event.actual_start_time,
-    -- my_end_time = self.sc_event.event.actual_end_time,
-  }
+
+  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formated_event.json = {}
+
+  for column, value in pairs(self.sc_bq.schemas[self.sc_event.event.category][self.sc_event.event.element]) do
+    self.sc_event.event.formated_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+  end
 
   self:add()
 
@@ -85,52 +130,164 @@ end
 -- EventQueue:add, add an event to the sending queue
 --------------------------------------------------------------------------------
 function EventQueue:add ()
-  -- store event in self.events list
-  self.events[#self.events + 1] = self.sc_event.event.formated_event
+  -- store event in self.events lists
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
+  self.events[category][element][#self.events[category][element] + 1] = self.sc_event.event.formated_event
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:flush, flush stored events
+-- EventQueue:flush, flush stored host events
 -- Called when the max number of events or the max age are reached
 -- @return (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:flush ()
-  self.sc_logger:debug("EventQueue:flush: Concatenating all the events as one string")
+function EventQueue:flush_host ()
+  self.sc_logger:debug("EventQueue:flush: Concatenating all the host events as one string")
 
   -- send stored events
-  retval = self:send_data()
+  retval = self:send_data(self.sc_params.params.host_table)
 
   -- reset stored events list
-  self.events = {}
+  self.events[1][14] = {}
   
   -- and update the timestamp
-  self.sc_params.params.__internal_ts_last_flush = os.time()
+  self.sc_params.params.__internal_ts_host_last_flush = os.time()
 
   return retval
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:flush, flush stored host events
+-- Called when the max number of events or the max age are reached
+-- @return (boolean)
+--------------------------------------------------------------------------------
+function EventQueue:flush_service ()
+  self.sc_logger:debug("EventQueue:flush: Concatenating all the service events as one string")
+
+  -- send stored events
+  retval = self:send_data(self.sc_params.params.service_table)
+
+  -- reset stored events list
+  self.events[1][24] = {}
+  
+  -- and update the timestamp
+  self.sc_params.params.__internal_ts_service_last_flush = os.time()
+
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:flush, flush stored ack events
+-- Called when the max number of events or the max age are reached
+-- @return (boolean)
+--------------------------------------------------------------------------------
+function EventQueue:flush_ack ()
+  self.sc_logger:debug("EventQueue:flush: Concatenating all the ack events as one string")
+
+  -- send stored events
+  retval = self:send_data(self.sc_params.params.ack_table)
+
+  -- reset stored events list
+  self.events[1][1] = {}
+  
+  -- and update the timestamp
+  self.sc_params.params.__internal_ts_ack_last_flush = os.time()
+
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:flush, flush stored downtime events
+-- Called when the max number of events or the max age are reached
+-- @return (boolean)
+--------------------------------------------------------------------------------
+function EventQueue:flush_dt ()
+  self.sc_logger:debug("EventQueue:flush: Concatenating all the downtime events as one string")
+
+  -- send stored events
+  retval = self:send_data(self.sc_params.params.downtime_table)
+
+  -- reset stored events list
+  self.events[1][6] = {}
+  
+  -- and update the timestamp
+  self.sc_params.params.__internal_ts_dt_last_flush = os.time()
+
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:flush, flush stored BA events
+-- Called when the max number of events or the max age are reached
+-- @return (boolean)
+--------------------------------------------------------------------------------
+function EventQueue:flush_ba ()
+  self.sc_logger:debug("EventQueue:flush: Concatenating all the BA events as one string")
+
+  -- send stored events
+  retval = self:send_data(self.sc_params.params.ba_table)
+
+  -- reset stored events list
+  self.events[6][1] = {}
+  
+  -- and update the timestamp
+  self.sc_params.params.__internal_ts_ba_last_flush = os.time()
+
+  return retval
+end
+
+function EventQueue:flush_old_queues()
+  local current_time = os.time()
+  
+  -- flush old ack events
+  if #self.events[1][1] > 0 and os.time() - self.sc_params.params.__internal_ts_ack_last_flush > self.sc_params.params.max_buffer_age then
+    self:flush_ack()
+    self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_ack_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
+  end
+
+  -- flush old downtime events
+  if #self.events[1][6] > 0 and os.time() - self.sc_params.params.__internal_ts_dt_last_flush > self.sc_params.params.max_buffer_age then
+    self:flush_dt()
+    self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_dt_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
+  end
+
+  -- flush old host events
+  if #self.events[1][14] > 0 and os.time() - self.sc_params.params.__internal_ts_host_last_flush > self.sc_params.params.max_buffer_age then
+    self:flush_host()
+    self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_host_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
+  end
+
+  -- flush old service events
+  if #self.events[1][24] > 0 and os.time() - self.sc_params.params.__internal_ts_service_last_flush > self.sc_params.params.max_buffer_age then
+    self:flush_service()
+    self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_service_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
+  end
+
+  -- flush old BA events
+  if #self.events[6][1] > 0 and os.time() - self.sc_params.params.__internal_ts_ba_last_flush > self.sc_params.params.max_buffer_age then
+    self:flush_ba()
+    self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_ba_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
+  end
 end
 
 --------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:send_data ()
-  local data = ""
-  local counter = 0
+function EventQueue:send_data (table_name)
+  local data = {
+    rows = {}
+  }
 
   -- concatenate all stored event in the data variable
-  for _, formated_event in ipairs(self.events) do
-    if counter == 0 then
-      data = broker.json_encode(formated_event) 
-      counter = counter + 1
-    else
-      data = data .. "," .. broker.json_encode(formated_event)
-    end
+  for index, formated_event in ipairs(self.events[self.sc_event.event.category][self.sc_event.event.element]) do
+      data.rows[index] = formated_event
   end
 
-  self.sc_logger:debug("EventQueue:send_data:  creating json: " .. tostring(data))
+  self.sc_logger:info("EventQueue:send_data:  creating json: " .. tostring(broker.json_encode(data)))
 
   -- output data to the tool we want
-  if self:call(data) then
+  if self:call(broker.json_encode(data), table_name) then
     return true
   end
 
@@ -142,22 +299,60 @@ end
 -- @param data (string) the data we want to send
 -- @return true (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:call (data)
-  data = data or nil
+function EventQueue:call (data, table_name)
+  local res = ""
+  local headers = {
+    "Authorization: Bearer " .. self.sc_oauth:get_access_token(),
+    "Content-Type: application/json"
+  }
+  local url = self.sc_params.params.google_bq_api_url .. "/projects/" .. self.sc_oauth.key_table.project_id .. "/datasets/"
+    .. self.sc_params.params.dataset .. "/tables/" .. table_name .. "/insertAll?alt=json&key=" .. self.sc_params.params.api_key
 
-  -- open a file
-  -- self.sc_logger:debug("EventQueue:call: opening file " .. self.sc_params.params.output_file)
-
-  -- write in the file
-  -- local my_oauth = google("/usr/share/centreon-broker/lua/account2.json", "https://www.googleapis.com/auth/bigquery.insertdata")
-  self.sc_logger:debug("EventQueue:call: writing message " .. tostring(data))
-
-  self.sc_logger:error(self.sc_oauth:get_access_token())
--- self.sc_logger:error(my_oauth:GetAccessToken())
-  -- close the file
-  -- self.sc_logger:debug("EventQueue:call: closing file " .. self.sc_params.params.output_file)
+    -- initiate curl
+  local request = curl.easy()
+    :setopt_url(url)
+    :setopt_writefunction(function (response) 
+      res = res .. response
+    end)
   
+  -- add  postfields url params
+  if data then
+    request:setopt_postfields(data)
+  end
+
+  self.sc_logger:info("[EventQueue:call]: URL: " .. tostring(url))
   
+  -- set proxy address configuration
+  if (self.sc_params.params.proxy_address ~= "" and self.sc_params.params.proxy_address) then
+    if (self.sc_params.params.proxy_port ~= "" and self.sc_params.params.proxy_port) then
+      request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
+    else 
+      self.sc_logger:error("[EventQueue:call]: proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (self.sc_params.params.proxy_username ~= '' and self.sc_params.params.proxy_username) then
+    if (self.sc_params.params.proxy_password ~= '' and self.sc_params.params.proxy_username) then
+      request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+    else
+      self.sc_logger:error("[EventQueue:call]: proxy_password parameter is not set but proxy_username is used")
+    end
+  end
+
+  -- set up headers
+  request:setopt(curl.OPT_HTTPHEADER, headers)
+
+  -- run query
+  request:perform()
+  self.sc_logger:info("EventQueue:call: sending data: " .. tostring(data))
+
+  local code = request:getinfo(curl.INFO_RESPONSE_CODE)
+
+  if code ~= 200 then
+    self.sc_logger:error("[EventQueue:call]: http code is: " .. tostring(code) .. ". Result is: " ..tostring(res))
+  end
+
   return true
 end
 
@@ -188,32 +383,26 @@ function write(event)
   end
 
   -- First, are there some old events waiting in the flush queue ?
-  if (#queue.events > 0 and os.time() - queue.sc_params.params.__internal_ts_last_flush > queue.sc_params.params.max_buffer_age) then
-    queue.sc_logger:debug("write: Queue max age (" .. os.time() - queue.sc_params.params.__internal_ts_last_flush .. "/" .. queue.sc_params.params.max_buffer_age .. ") is reached, flushing data")
-    queue:flush()
-  end
+  queue:flush_old_queues()
 
   -- Then we check that the event queue is not already full
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:debug("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
-    os.execute("sleep " .. tonumber(1))
-    queue:flush()
+  if (#queue.events[queue.sc_event.event.category][queue.sc_event.event.element] >= queue.sc_params.params.max_buffer_size) then
+    queue.sc_logger:debug("write: Queue max size (" .. #queue.events[queue.sc_event.event.category][queue.sc_event.event.element] .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
+    queue.flush[queue.sc_event.event.category][queue.sc_event.event.element]()
   end
+
 
   -- drop event if it is not validated
   if queue.sc_event:is_valid_event() then
     queue:format_event()
   else
-    -- for i, v in pairs(queue.sc_event.event) do
-    --   queue.sc_logger:error("index: " .. tostring(i) .. " value: " .. tostring(v))
-    -- end
     return true
   end
 
   -- Then we check whether it is time to send the events to the receiver and flush
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:debug("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached, flushing data")
-    queue:flush()
+  if (#queue.events[queue.sc_event.event.category][queue.sc_event.event.element] >= queue.sc_params.params.max_buffer_size) then
+    queue.sc_logger:debug("write: Queue max size (" .. #queue.events[queue.sc_event.event.category][queue.sc_event.event.element] .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
+    queue.flush[queue.sc_event.event.category][queue.sc_event.event.element]()
   end
 
   return true
