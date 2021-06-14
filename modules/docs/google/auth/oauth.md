@@ -38,7 +38,7 @@ Since this is OOP, it is required to initiate your module
 Constructor can be initialized with three parameters, if the third one is not provided it will use a default value
 
 - params. This is a table of all the stream connectors parameters
-- sc_commong. This is an instance of the sc_common module
+- sc_common. This is an instance of the sc_common module
 - sc_logger. This is an instance of the sc_logger module
 
 If you don't provide the sc_logger parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
@@ -70,7 +70,7 @@ local test_oauth = oauth.new(params, test_common, test_logger)
 
 ## create_jwt_token method
 
-The **create_jwt_token** method create a jwt token. More information about the google JWT token (here)[https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests]
+The **create_jwt_token** method create a jwt token. More information about the google JWT token [here](https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests)
 
 head over the following chapters for more information
 
@@ -114,7 +114,7 @@ local result = test_oauth:get_key_file()
 
 ## create_jwt_claim method
 
-The **create_jwt_claim** method create the claim for a jwt token. To do so, the **scope_list** and **project_id** paramters must be set. More information about the google JWT token and claim (here)[https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests]
+The **create_jwt_claim** method create the claim for a jwt token. To do so, the **scope_list** and **project_id** paramters must be set. More information about the google JWT token and claim [here](https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests)
 
 ### create_jwt_claim: returns
 
@@ -133,7 +133,7 @@ local result = test_oauth:create_jwt_claim()
 
 ## create_signature method
 
-The **create_signature** method create the signature of the JWT claim and JWT header. To match google needs, the hash protocol used is **sha256WithRSAEncryption**. More information about the google JWT token (here)[https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests]
+The **create_signature** method create the signature of the JWT claim and JWT header. To match google needs, the hash protocol used is **sha256WithRSAEncryption**. More information about the google JWT token [here](https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests)
 
 
 ### create_signature: returns

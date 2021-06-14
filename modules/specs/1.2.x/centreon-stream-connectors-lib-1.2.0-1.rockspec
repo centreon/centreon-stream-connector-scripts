@@ -33,7 +33,6 @@ build = {
      ["centreon-stream-connectors-lib.rdkafka.topic_config"] = "modules/centreon-stream-connectors-lib/rdkafka/topic_config.lua",
      ["centreon-stream-connectors-lib.rdkafka.topic"] = "modules/centreon-stream-connectors-lib/rdkafka/topic.lua",
      ["centreon-stream-connectors-lib.google.auth.oauth"] = "modules/centreon-stream-connectors-lib/google/auth/oauth.lua",
-     ["centreon-stream-connectors-lib.google.bq.bigquery"] = "modules/centreon-stream-connectors-lib/google/bq/bigquery.lua",
-     ["centreon-stream-connectors-lib.google.bq.bq_tables"] = "modules/centreon-stream-connectors-lib/google/bq/bq_tables.lua",
+     ["centreon-stream-connectors-lib.google.bigquery.bigquery"] = "modules/centreon-stream-connectors-lib/google/bigquery/bigquery.lua"
    }
 }

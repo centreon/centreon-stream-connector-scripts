@@ -1,3 +1,7 @@
+--- 
+-- bigquery module for google bigquery
+-- @module bigquery
+-- @alias bigquery
 local bigquery = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
@@ -5,16 +9,22 @@ local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local BigQuery = {}
 
-function bigquery.new(sc_common, params, sc_logger)
+--- module constructor
+-- @param params (table) table of all the stream connector parameters
+-- @sc_logger (object) instance of the sc_logger module
+function bigquery.new(params, sc_logger)
   local self = {}
 
+  -- initiate sc_logger
   self.sc_logger = sc_logger
   if not self.sc_logger then
     self.sc_logger = sc_logger.new()
   end
 
+  -- initiate parameters
   self.params = params
 
+  -- initiate bigquery table schema mapping (1 = neb, 6 = bam)
   self.schemas = {
     [1] = {},
     [6] = {}
@@ -24,8 +34,11 @@ function bigquery.new(sc_common, params, sc_logger)
   return self
 end
 
+--- get_tables_schema: load tables schemas according to the stream connector configuration
+-- @return true (boolean) 
 function BigQuery:get_tables_schema()
-  if self.params._sc_gbq_use_default_schemas then
+  -- use default schema
+  if self.params._sc_gbq_use_default_schemas == 1 then
     self.schemas[1][14] = self:default_host_table_schema()
     self.schemas[1][24] = self:default_service_table_schema()
     self.schemas[1][1] = self:default_ack_table_schema()
@@ -34,13 +47,15 @@ function BigQuery:get_tables_schema()
     return true
   end
 
-  if self.params._sc_gbq_schema_config_file_path then
+  -- use a configuration file for all the schema
+  if self.params._sc_gbq_schema_config_file_path == 1 then
     if self:load_tables_schema_file() then
       return true
     end 
   end
 
-  if not self.params._sc_gbq_use_default_schemas and not self.params._sc_gbq_use_schema_config_file then
+  -- create tables schemas from stream connector configuration itself (not the best idea)
+  if self.params._sc_gbq_use_default_schemas == 0 and self.params._sc_gbq_use_schema_config_file == 0 then
     -- build hosts table schema
     self:build_table_schema("^_sc_gbq_host_column_", "_sc_gbq_host_column_", self.schemas[1][14])
 
@@ -57,9 +72,13 @@ function BigQuery:get_tables_schema()
     self:build_table_schema("^_sc_gbq_dt_column_", "_sc_gbq_dt_column_", self.schemas[1][6])
   end
 
-  return false
+  return true
 end
 
+--- build_table_schema: create a table schema using the stream connector tables configuration
+-- @param regex (string) the regex that the stream connector param must match in order to identify it as a column name in the table schema
+-- @param substract (string) the string that is going to be removed from the parameter name to isolate the name of the column
+-- @param structure (table) the schema table in which the column name and value are going to be stored
 function BigQuery:build_table_schema(regex, substract, structure)
   for param_name, param_value in pairs(self.params) do
     if string.find(param_name, regex) ~= nil then
@@ -68,6 +87,8 @@ function BigQuery:build_table_schema(regex, substract, structure)
   end
 end
 
+--- default_host_table_schema: create a standard schema for a host event table
+-- @return host_table (table) the table that is going to be used as a schema for bigquery host table
 function BigQuery:default_host_table_schema()
   return {
     host_id = "{host_id}",
@@ -79,6 +100,8 @@ function BigQuery:default_host_table_schema()
   }
 end
 
+--- default_service_table_schema: create a standard schema for a service event table
+-- @return service_table (table) the table that is going to be used as a schema for bigquery service table
 function BigQuery:default_service_table_schema()
   return {
     host_id = "{host_id}",
@@ -92,6 +115,8 @@ function BigQuery:default_service_table_schema()
   }
 end
 
+--- default_ack_table_schema: create a standard schema for an ack event table
+-- @return ack_table (table) the table that is going to be used as a schema for bigquery ack table
 function BigQuery:default_ack_table_schema()
   return {
     author = "{author}",
@@ -106,6 +131,8 @@ function BigQuery:default_ack_table_schema()
   }
 end
 
+--- default_dt_table_schema: create a standard schema for a downtime event table
+-- @return downtime_table (table) the table that is going to be used as a schema for bigquery downtime table
 function BigQuery:default_dt_table_schema()
   return {
     author = "{author}",
@@ -121,6 +148,8 @@ function BigQuery:default_dt_table_schema()
   }
 end
 
+--- default_ba_table_schema: create a standard schema for a BA event table
+-- @return ba_table (table) the table that is going to be used as a schema for bigquery BA table
 function BigQuery:default_ba_table_schema()
   return {
     ba_id = "{ba_id}",
@@ -129,6 +158,9 @@ function BigQuery:default_ba_table_schema()
   }
 end
 
+--- load_tables_schema_file: load a table schema from a json configuration file
+-- @return false (boolean) if we can't open the configuration file or it is not a valid json file
+-- @return true (boolean) if everything went fine
 function BigQuery:load_tables_schema_file()
   local file = io.open(self.params._sc_gbq_schema_config_file_path, "r")
 
@@ -151,11 +183,14 @@ function BigQuery:load_tables_schema_file()
     return false
   end
 
+  -- use default schema if we don't find a schema for a dedicated type of event
   self.schemas[1][14] = schemas.host or self:default_host_table_schema()
   self.schemas[1][24] = schemas.service or self:default_service_table_schema()
   self.schemas[1][1] = schemas.ack or self:default_ack_table_schema()
   self.schemas[1][6] = schemas.dt or self:default_dt_table_schema()
   self.schemas[6][1] = schemas.ba or self:default_ba_table_schema()
+
+  return true
 end
 
 return bigquery
