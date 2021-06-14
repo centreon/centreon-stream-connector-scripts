@@ -807,12 +807,13 @@ local queue
 --------------------------------------------------------------------------------
 function init (parameters)
   logfile = parameters.logfile or "/var/log/centreon-broker/connector-opsgenie.log"
+  log_level = parameters.log_level or 1
 
   if not parameters.app_api_token or not parameters.integration_api_token then
     broker_log:error(1,'Required parameters are: api_token. There type must be string')
   end
 
-  broker_log:set_parameters(1, logfile)
+  broker_log:set_parameters(log_level, logfile)
   broker_log:info(1, "Parameters")
   for i,v in pairs(parameters) do
     if i == 'app_api_token' or i == 'integration_api_token' then
@@ -977,8 +978,7 @@ function write (event)
 
   -- Then we check that the event queue is not already full
   if (#queue.events >= queue.max_buffer_size) then
-    broker_log:warning(2, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
-    os.execute("sleep " .. tonumber(1))
+    broker_log:warning(2, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events.")
     queue:flush()
   end
 

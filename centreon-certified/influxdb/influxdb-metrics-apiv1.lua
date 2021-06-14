@@ -35,14 +35,14 @@ local ltn12 = require("ltn12")
 --------------------------------------------------------------------------------
 
 local event_queue = {
-        __internal_ts_last_flush    = nil,
-        http_server_address         = "",
-        http_server_port            = 8086,
-        http_server_protocol        = "http",
-        events                      = {},
-        influx_database             = "mydb",
-        max_buffer_size             = 5000,
-        max_buffer_age              = 5
+    __internal_ts_last_flush    = nil,
+    http_server_address         = "",
+    http_server_port            = 8086,
+    http_server_protocol        = "http",
+    events                      = {},
+    influx_database             = "mydb",
+    max_buffer_size             = 5000,
+    max_buffer_age              = 5
 }
 
 -- Constructor: event_queue:new
