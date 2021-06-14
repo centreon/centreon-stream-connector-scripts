@@ -227,7 +227,7 @@ function ScParams:param_override(user_params)
   end
 
   for param_name, param_value in pairs(user_params) do
-    if self.params[param_name] or string.find(param_name, "^_sc_kafka_") ~= nil then
+    if self.params[param_name] or string.find(param_name, "^_sc") ~= nil then
       self.params[param_name] = param_value
       self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
     else 

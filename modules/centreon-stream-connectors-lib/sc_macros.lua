@@ -180,28 +180,26 @@ function ScMacros:replace_sc_macro(string, event)
   local event_macro_value = false
   local converted_string = string
 
-
   -- find all macros for exemple the string: 
   -- {cache.host.name} is the name of host with id: {host_id} 
   -- will generate two macros {cache.host.name} and {host_id})
   for macro in string.gmatch(string, "{.*}") do
     -- check if macro is in the cache
     cache_macro_value = self:is_cache_macro(macro, event)
-
+    
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
-      string.gsub(converted_string, macro, cache_macro_value)
+      converted_string = string.gsub(converted_string, macro, cache_macro_value)
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:is_event_macro(macro, event)
-
+      
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
-        string.gsub(converted_string, macro, event_macro_value)
+        converted_string = string.gsub(converted_string, macro, event_macro_value)
       end
     end
   end
-
   return converted_string
 end
 
