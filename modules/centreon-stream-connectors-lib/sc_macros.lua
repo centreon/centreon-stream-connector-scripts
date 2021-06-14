@@ -13,7 +13,7 @@ local ScMacros = {}
 --- sc_macros.new: sc_macros constructor
 -- @param params (table) the stream connector parameter table
 -- @param sc_logger (object) object instance from sc_logger module
-function sc_macros.new( params, sc_logger)
+function sc_macros.new(params, sc_logger)
   local self = {}
 
   -- initiate mandatory libs
@@ -184,7 +184,7 @@ function ScMacros:replace_sc_macro(string, event)
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
     
     -- check if macro is in the cache
-    cache_macro_value = self:is_cache_macro(macro, event)
+    cache_macro_value = self:get_cache_macro(macro, event)
     
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
@@ -193,7 +193,7 @@ function ScMacros:replace_sc_macro(string, event)
       converted_string = string.gsub(converted_string, macro, cache_macro_value)
     else
       -- if not in cache, try to find a matching value in the event itself
-      event_macro_value = self:is_event_macro(macro, event)
+      event_macro_value = self:get_event_macro(macro, event)
       
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
@@ -209,19 +209,19 @@ function ScMacros:replace_sc_macro(string, event)
   return converted_string
 end
 
---- is_cache_macro: check if the macro is a macro which value must be found in the cache 
+--- get_cache_macro: check if the macro is a macro which value must be found in the cache 
 -- @param macro (string) the macro we want to check (for example: {cache.host.name})
 -- @param event (table) the event table (obivously, cache must be in the event table if we want to find something in it)
 -- @return false (boolean) if the macro is not a cache macro ({host_id} instead of {cache.xxxx.yyy} for example) or we can't find the cache type or the macro in the cache
 -- @return macro_value (string|boolean|number) the value of the macro
-function ScMacros:is_cache_macro(macro, event)
+function ScMacros:get_cache_macro(macro, event)
 
   -- try to cut the macro in three parts
   local cache, cache_type, macro = string.match(macro, "^{(cache)%.(%w+)%.(.*)}")
 
   -- if cache is not set, it means that the macro wasn't a cache macro
   if not cache then
-    self.sc_logger:info("[sc_macros:is_cache_macro]: macro: " .. tostring(macro) .. " is not a cache macro")
+    self.sc_logger:info("[sc_macros:get_cache_macro]: macro: " .. tostring(macro) .. " is not a cache macro")
     return false
   end
 
@@ -233,7 +233,7 @@ function ScMacros:is_cache_macro(macro, event)
     -- check if the macro is in the cache 
     if event.cache[cache_type][macro_value] then
       if flag then
-        self.sc_logger:info("[sc_macros:is_cache_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
+        self.sc_logger:info("[sc_macros:get_cache_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
           .. ", a macro value conversion will be done.")
         -- convert the found value according to the flag that has been sent
         return self.transform_macro[flag](event.cache[cache_type][macro_value], event)
@@ -247,12 +247,12 @@ function ScMacros:is_cache_macro(macro, event)
   return false
 end
 
---- is_event_macro: check if the macro is a macro which value must be found in the event table (meaning not in the cache) 
+--- get_event_macro: check if the macro is a macro which value must be found in the event table (meaning not in the cache) 
 -- @param macro (string) the macro we want to check (for example: {host_id})
 -- @param event (table) the event table
 -- @return false (boolean) if the macro is not found in the event
 -- @return macro_value (string|boolean|number) the value of the macro
-function ScMacros:is_event_macro(macro, event)
+function ScMacros:get_event_macro(macro, event)
   -- isolate the name of the macro
   macro = string.match(macro, "{(.*)}")
 
@@ -262,7 +262,7 @@ function ScMacros:is_event_macro(macro, event)
   -- check if the macro is in the event
   if event[macro_value] then
     if flag then
-      self.sc_logger:info("[sc_macros:is_event_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
+      self.sc_logger:info("[sc_macros:get_event_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
           .. ", a macro value conversion will be done.")
       -- convert the found value according to the flag that has been sent
       return self.transform_macro[flag](event[macro_value], event)
