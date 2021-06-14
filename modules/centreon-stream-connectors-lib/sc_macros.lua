@@ -184,11 +184,15 @@ function ScMacros:replace_sc_macro(string, event)
   -- {cache.host.name} is the name of host with id: {host_id} 
   -- will generate two macros {cache.host.name} and {host_id})
   for macro in string.gmatch(string, "{.*}") do
+    self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
+    
     -- check if macro is in the cache
     cache_macro_value = self:is_cache_macro(macro, event)
     
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
+      self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
+        .. tostring(macro) .. ", value is: " .. tostring(cache_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
       converted_string = string.gsub(converted_string, macro, cache_macro_value)
     else
       -- if not in cache, try to find a matching value in the event itself
@@ -196,10 +200,15 @@ function ScMacros:replace_sc_macro(string, event)
       
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
+        self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
+          .. tostring(macro) .. ", value is: " .. tostring(event_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
         converted_string = string.gsub(converted_string, macro, event_macro_value)
+      else
+        self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
       end
     end
   end
+
   return converted_string
 end
 
@@ -215,6 +224,7 @@ function ScMacros:is_cache_macro(macro, event)
 
   -- if cache is not set, it means that the macro wasn't a cache macro
   if not cache then
+    self.sc_logger:info("[sc_macros:is_cache_macro]: macro: " .. tostring(macro) .. " is not a cache macro")
     return false
   end
 
@@ -226,6 +236,8 @@ function ScMacros:is_cache_macro(macro, event)
     -- check if the macro is in the cache 
     if event.cache[cache_type][macro_value] then
       if flag then
+        self.sc_logger:info("[sc_macros:is_cache_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
+          .. ", a macro value conversion will be done.")
         -- convert the found value according to the flag that has been sent
         return self.transform_macro[flag](event.cache[cache_type][macro_value], event)
       else
@@ -253,6 +265,8 @@ function ScMacros:is_event_macro(macro, event)
   -- check if the macro is in the event
   if event[macro_value] then
     if flag then
+      self.sc_logger:info("[sc_macros:is_event_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
+          .. ", a macro value conversion will be done.")
       -- convert the found value according to the flag that has been sent
       return self.transform_macro[flag](event[macro_value], event)
     else
@@ -275,6 +289,7 @@ function ScMacros:convert_centreon_macro(string, event)
   
   -- get all standard macros 
   for macro in string.gmatch(string, "$%w$") do
+    self.sc_logger:debug("[sc_macros:convert_centreon_macro]: found a macro, name is: " .. tostring(macro))
     -- try to find the macro in the mapping table table self.centreon_macro
     centreon_macro = self:get_centreon_macro(macro)
 
@@ -284,8 +299,12 @@ function ScMacros:convert_centreon_macro(string, event)
       
       -- if a value has been found, replace the macro with the value
       if sc_macro_value then
-        string.gsub(converted_string, centreon_macro, sc_macro_value)
+        self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a centreon macro. Macro name: "
+        .. tostring(macro) .. ", value is: " .. tostring(sc_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
+        converted_string = string.gsub(converted_string, centreon_macro, sc_macro_value)
       end
+    else
+      self.sc_logger:error("[sc_macros:convert_centreon_macro]: macro: " .. tostring(macro) .. " is not a valid centreon macro")
     end
   end
 

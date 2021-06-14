@@ -291,7 +291,7 @@ local result = test_bq:load_tables_schema_file()
 
 ## build_table_schema method
 
-The **build_table_schema** method create tables schema using stream connector parameters. 
+The **build_table_schema** method create tables schema using stream connector parameters.
 Parameters must have the following syntax to be interpreted
 
 For host_status events:

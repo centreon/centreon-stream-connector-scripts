@@ -135,7 +135,6 @@ local result = test_oauth:create_jwt_claim()
 
 The **create_signature** method create the signature of the JWT claim and JWT header. To match google needs, the hash protocol used is **sha256WithRSAEncryption**. More information about the google JWT token [here](https://developers.google.com/identity/protocols/oauth2/service-account#authorizingrequests)
 
-
 ### create_signature: returns
 
 | return        | type    | always | condition                                            |
