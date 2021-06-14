@@ -58,7 +58,7 @@ local sc_bq = require("centreon-stream-connecotrs-lib.google.bigquery.bigquery")
 local logfile = "/var/log/test_logger.log"
 local severity = 1
 
--- create a new instance of the sc_common and sc_logger module
+-- create a new instance of the sc_logger module
 local test_logger = sc_logger.new(logfile, severity)
 
 -- some stream connector params
@@ -66,7 +66,7 @@ local params = {
   my_param = "my_value"
 }
 
--- create a new instance of the google oauth param module
+-- create a new instance of the google bigquery module
 local test_bq = sc_bq.new(params, test_logger)
 ```
 
