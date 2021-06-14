@@ -1,9 +1,9 @@
-local bq_tables = {}
+local bigquery = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
-local BQTables = {}
+local BigQuery = {}
 
 function bigquery.new(sc_common, params, sc_logger)
   local self = {}
@@ -20,11 +20,11 @@ function bigquery.new(sc_common, params, sc_logger)
     [6] = {}
   }
 
-  setmetatable(self, { __index = BQTables })
+  setmetatable(self, { __index = BigQuery })
   return self
 end
 
-function BQTables:get_tables_schema()
+function BigQuery:get_tables_schema()
   if self.params._sc_gbq_use_default_schemas then
     self.schemas[1][14] = self:default_host_table_schema()
     self.schemas[1][24] = self:default_service_table_schema()
@@ -60,7 +60,7 @@ function BQTables:get_tables_schema()
   return false
 end
 
-function BQTables:build_table_schema(regex, substract, structure)
+function BigQuery:build_table_schema(regex, substract, structure)
   for param_name, param_value in pairs(self.params) do
     if string.find(param_name, regex) ~= nil then
       structure[string.gsub(param_name, substract, "")] = param_value
@@ -68,7 +68,7 @@ function BQTables:build_table_schema(regex, substract, structure)
   end
 end
 
-function BQTables:default_host_table_schema()
+function BigQuery:default_host_table_schema()
   return {
     host_id = "{host_id}",
     host_name = "{cache.host.name}",
@@ -79,7 +79,7 @@ function BQTables:default_host_table_schema()
   }
 end
 
-function BQTables:default_service_table_schema()
+function BigQuery:default_service_table_schema()
   return {
     host_id = "{host_id}",
     host_name = "{cache.host.name}",
@@ -92,7 +92,7 @@ function BQTables:default_service_table_schema()
   }
 end
 
-function BQTables:default_ack_table_schema()
+function BigQuery:default_ack_table_schema()
   return {
     author = "{author}",
     host_id = "{host_id}",
@@ -106,7 +106,7 @@ function BQTables:default_ack_table_schema()
   }
 end
 
-function BQTables:default_dt_table_schema()
+function BigQuery:default_dt_table_schema()
   return {
     author = "{author}",
     host_id = "{host_id}",
@@ -121,7 +121,7 @@ function BQTables:default_dt_table_schema()
   }
 end
 
-function BQTables:default_ba_table_schema()
+function BigQuery:default_ba_table_schema()
   return {
     ba_id = "{ba_id}",
     ba_name = "{cache.ba.ba_name}",
@@ -129,7 +129,7 @@ function BQTables:default_ba_table_schema()
   }
 end
 
-function BQTables:load_tables_schema_file()
+function BigQuery:load_tables_schema_file()
   local file = io.open(self.params._sc_gbq_schema_config_file_path, "r")
 
   -- return false if we can't open the file
@@ -157,3 +157,5 @@ function BQTables:load_tables_schema_file()
   self.schemas[1][6] = schemas.dt or self:default_dt_table_schema()
   self.schemas[6][1] = schemas.ba or self:default_ba_table_schema()
 end
+
+return bigquery

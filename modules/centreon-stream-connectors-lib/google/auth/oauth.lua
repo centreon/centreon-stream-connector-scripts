@@ -35,7 +35,6 @@ function oauth.new(params, sc_common, sc_logger)
 
   -- initiate standard params for google oauth
   self.jwt_info = {
-    project_id = params.project_id,
     scope = params.scope_list,
     api_key = params.api_key,
     key_file = params.key_file_path,
