@@ -144,4 +144,30 @@ function ScCommon:compare_numbers(firstNumber, secondNumber, operator)
   return false
 end
 
+--- generate_postfield_param_string: convert a table of parameters into an url encoded url parameters string
+-- @param params (table) the table of all url string parameters to convert
+-- @return false (boolean) if params variable is not a table
+-- @return param_string (string)  the url encoded parameters string
+function ScCommon:generate_postfield_param_string(params)
+  -- return false because params type is wrong
+  if (type(params) ~= "table") then
+    self.logger:error("[sc_common:generate_postfield_param_string]: parameters to convert aren't in a table")
+    return false
+  end
+
+  local param_string = ""
+
+  -- concatenate data in params table into a string
+  for field, value in pairs(params) do
+    if param_string == "" then
+      param_string = field .. "=" .. broker.url_encode(value)
+    else
+      param_string = param_string .. "&" .. field .. "=" .. broker.url_encode(value)
+    end
+  end
+
+  -- return url encoded string
+  return param_string
+end
+
 return sc_common

@@ -76,6 +76,12 @@ function ScLogger:notice(message)
   broker_log:info(1, message)
 end
 
+-- info: write an informational message
+-- @param message (string) the message that will be written
+function ScLogger:info(message)
+  broker_log:info(2,message)
+end
+
 --- debug: write a debug message
 -- @param message (string) the message that will be written
 function ScLogger:debug(message)

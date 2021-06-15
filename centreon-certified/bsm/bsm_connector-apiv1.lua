@@ -301,8 +301,7 @@ function write(e)
 
     -- Then we check whether the event queue is already full
     if (#queue.events >= queue.max_buffer_size) then
-      broker_log:warning(1, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, flushing data after a 1s sleep.")
-      os.execute("sleep " .. tonumber(1))
+      broker_log:warning(1, "write: Queue max size (" .. #queue.events .. "/" .. queue.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, flushing data.")
       return queue:flush()
     end
 
