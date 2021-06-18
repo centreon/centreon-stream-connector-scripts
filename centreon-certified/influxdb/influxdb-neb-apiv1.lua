@@ -152,14 +152,16 @@ function EventQueue:add(e)
     end
     -- message format : <measurement>[,<tag-key>=<tag-value>...]
     --  <field-key>=<field-value>[,<field2-key>=<field2-value>...] [unix-nano-timestamp]
-    -- some characters [ ,=] must be escaped, let's replace them by _ for better handling
+    -- some characters [ ,=] must be escaped, let's replace them by the replacement_character for better handling
+    -- backslash at the end of a tag value is not supported, let's also replace it
     -- consider last space in service_description as a separator for an item tag
     local item = ""
     if string.find(service_description, " [^ ]+$") then
-        item = ",item=" .. string.gsub(string.gsub(service_description, ".* ", "", 1), "[ ,=]+", self.replacement_character)
+        item = string.gsub(service_description, ".* ", "", 1)
+        item = ",item=" .. string.gsub(string.gsub(item, "[ ,=]", self.replacement_character), "\\$", self.replacement_character)
         service_description = string.gsub(service_description, " +[^ ]+$", "", 1)
     end
-    service_description = string.gsub(service_description, "[ ,=]+", self.replacement_character)
+    service_description = string.gsub(string.gsub(service_description, "[ ,=]", self.replacement_character), "\\$", self.replacement_character)
     -- define messages from perfata, transforming instance names to inst tags, which leads to one message per instance
     -- consider new perfdata (dot-separated metric names) only (of course except for host-latency)
     local instances = {}
@@ -170,7 +172,7 @@ function EventQueue:add(e)
             inst = ""
             metric = m
         else
-            inst = ",inst=" .. string.gsub(inst, "[ ,=]+", self.replacement_character)
+            inst = ",inst=" .. string.gsub(string.gsub(inst, "[ ,=]", self.replacement_character), "\\$", self.replacement_character)
         end
         if (not e.service_id and metric ~= "time") or string.match(metric, ".+[.].+") then
             if not instances[inst] then
