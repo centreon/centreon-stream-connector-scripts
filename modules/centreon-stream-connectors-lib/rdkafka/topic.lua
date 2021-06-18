@@ -2,7 +2,7 @@
 
 local librdkafka = require("centreon-stream-connectors-lib.rdkafka.librdkafka")
 local KafkaTopicConfig = require("centreon-stream-connectors-lib.rdkafka.topic_config")
-local ffi = require 'ffi'
+local ffi = require 'ffi' or 'cffi'
 
 local KafkaTopic = { kafka_topic_map_ = {} }
 -- KafkaProducer will delete all topics on destroy

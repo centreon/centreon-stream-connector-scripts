@@ -3,7 +3,7 @@
 local librdkafka = require("centreon-stream-connectors-lib.rdkafka.librdkafka")
 local KafkaConfig = require("centreon-stream-connectors-lib.rdkafka.config")
 local KafkaTopic = require("centreon-stream-connectors-lib.rdkafka.topic")
-local ffi = require 'ffi'
+local ffi = require 'ffi' or 'cffi'
 
 local DEFAULT_DESTROY_TIMEOUT_MS = 3000
 

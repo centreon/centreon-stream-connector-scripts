@@ -14,8 +14,7 @@ description = {
 }
 dependencies = {
    "lua >= 5.1, < 5.4",
-   "luasocket >= 3.0rc1-2",
-   "luaossl = 20181207-0"
+   "luasocket >= 3.0rc1-2"
 }
 build = {
    type = "builtin",
