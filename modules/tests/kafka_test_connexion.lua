@@ -20,9 +20,9 @@ local message = "This is a test message"
 ------ END OF PARAMETERS ---------
 
 
-
-config:set_delivery_cb(function (payload, err) print("Delivery Callback '"..payload.."'") end)
-config:set_stat_cb(function (payload) print("Stat Callback '"..payload.."'") end)
+-- you can uncomment this if you are on el7
+-- config:set_delivery_cb(function (payload, err) print("Delivery Callback '"..payload.."'") end)
+-- config:set_stat_cb(function (payload) print("Stat Callback '"..payload.."'") end)
 
 local producer = require 'centreon-stream-connectors-lib.rdkafka.producer'.new(config)
 

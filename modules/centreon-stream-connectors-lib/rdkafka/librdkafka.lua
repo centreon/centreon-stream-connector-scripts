@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local ffi = require 'ffi'
+local ffi = require 'ffi' or 'cffi'
 
 ffi.cdef[[
     typedef struct rd_kafka_s rd_kafka_t;
