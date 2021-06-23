@@ -119,7 +119,7 @@ function EventQueue:add(e)
         perfdata = {}
     end
     -- retrieve and store state for further processing
-    if self.skip_events_state == 0 then
+    if self.skip_events_state == 0 and e.last_check ~= nil then
         perfdata["centreon.state"] = e.state
         perfdata["centreon.state_type"] = e.state_type
     elseif perfdata_err then
