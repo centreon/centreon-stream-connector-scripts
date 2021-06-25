@@ -77,6 +77,8 @@ function EventQueue.new(params)
   params.accepted_elements = "host_status,service_status,downtime,acknowledgement,ba_status"
   self.sc_params.params.proxy_address = params.proxy_address
   self.sc_params.params.proxy_port = params.proxy_port
+  self.sc_params.params.proxy_username = params.proxy_username
+  self.sc_params.params.proxy_password = params.proxy_password
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)

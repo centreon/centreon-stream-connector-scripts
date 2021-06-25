@@ -1,7 +1,7 @@
 #!/usr/bin/lua
 
 local librdkafka = require("centreon-stream-connectors-lib.rdkafka.librdkafka")
-local ffi = require 'ffi'
+local ffi = require 'ffi' or 'cffi'
 
 local KafkaConfig = {}
 KafkaConfig.__index = KafkaConfig
