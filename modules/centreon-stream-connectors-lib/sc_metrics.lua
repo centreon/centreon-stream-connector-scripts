@@ -119,6 +119,12 @@ function ScMetrics:is_valid_bbdo_element()
       self.sc_logger:warning("[sc_metrics:is_valid_host_metric_event]: host_id: " .. tostring(self.sc_event.event.host_id) .. " is not in an accepted hostgroup")
       return false
     end
+
+    if not self:is_valid_perfdata(self.sc_event.event.perf_data) then
+      self.sc_logger:warning("[sc_metrics:is_vaild_host_metric_event]: host_id: "
+        .. tostring(self.sc_event.event.host_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
+      return false
+    end
   end
 
   function ScMetrics:is_valid_service_metric_event()
@@ -168,10 +174,22 @@ function ScMetrics:is_valid_bbdo_element()
       return false
     end
 
+    if not self:is_valid_perfdata(self.sc_event.event.perf_data) then
+      self.sc_logger:warning("[sc_metrics:is_vaild_service_metric_event]: service_id: "
+        .. tostring(self.sc_event.event.service_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
+      return false
+    end
+
     return true
   end
 
   function ScMetrics:is_valid_kpi_metric_event()
+    if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
+      self.sc_logger:warning("[sc_metrics:is_vaild_kpi_metric_event]: kpi_id: "
+        .. tostring(self.sc_event.event.kpi_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
+      return false
+    end
+
     return true
   end
 
@@ -198,7 +216,5 @@ function ScMetrics:is_valid_bbdo_element()
 
   return true
 end
-
-
 
 return sc_metrics
