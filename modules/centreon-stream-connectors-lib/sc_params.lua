@@ -77,6 +77,9 @@ function sc_params.new(common, logger)
 
     -- internal parameters
     __internal_ts_last_flush = os.time(),
+
+    -- testing parameters
+    send_data_test = 0,
     
     -- initiate mappings
     element_mapping = {},
@@ -506,6 +509,7 @@ function ScParams:check_params()
   self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status,self.params.service_status)
   self.params.enable_host_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_host_status_dedup, 0)
   self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
+  self.params.send_data_test = self.common:check_boolean_number_option_syntax(self.params.send_data_test, 0)
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -542,6 +546,8 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
   return true
 end
 
+--- load_event_format_file: load a json file which purpose is to serve as a template to format events
+-- @return true|false (boolean) if file is valid template file or not
 function ScParams:load_event_format_file()
   if self.params.format_file == "" or self.params.format_file == nil then
     return false

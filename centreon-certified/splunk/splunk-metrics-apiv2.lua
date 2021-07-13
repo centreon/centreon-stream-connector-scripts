@@ -145,6 +145,12 @@ end
 function EventQueue.send_data(data, element)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(data))
+    return true
+  end
+
   local http_post_data = ""
   
   
