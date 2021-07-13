@@ -117,6 +117,7 @@ function EventQueue:format_event()
   else
     self.format_event[self.sc_event.event.category][self.sc_event.event.element]()
   end
+
   self:add()
 end
 
@@ -159,7 +160,7 @@ function EventQueue:add()
   }
 end
 
-function EventQueue:send_data(data, element)
+function EventQueue.send_data(data, element)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   local http_post_data = ""
