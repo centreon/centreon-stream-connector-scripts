@@ -80,6 +80,7 @@ function EventQueue.new(conf)
   
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
   self.sc_macros = sc_macros.new(self.sc_common, self.sc_params.params, self.sc_logger)
+  self.format_template = self.sc_params:load_event_format_file()
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -105,7 +106,17 @@ end
 ---- EventQueue:format_event method
 ----------------------------------------------------------------------------------
 function EventQueue:format_event()
-  self.format_event[self.sc_event.event.category][self.sc_event.event.element]()
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
+  local template = self.sc_params.params.format_template[category][element]
+
+  if self.format_template and template ~= nil and template ~= "" then
+    for index, value in template do
+      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value)
+    end
+  else
+    self.format_event[self.sc_event.event.category][self.sc_event.event.element]()
+  end
   self:add()
 end
 
@@ -128,75 +139,6 @@ function EventQueue:format_event_service()
     service_description = self.sc_event.event.cache.service.description,
     output = string.gsub(self.sc_event.event.output, "\n", ""),
   }
-end
-
---------------------------------------------------------------------------------
----- EventQueue:flush method
----- Called when the max number of events or the max age are reached
-----------------------------------------------------------------------------------
-
-function EventQueue:flush()
-
-  broker_log:info(3, "EventQueue:flush: Concatenating all the events as one string")
-  local http_post_data = ""
-  for _, raw_event in ipairs(self.events) do
-    http_post_data = http_post_data .. broker.json_encode(raw_event)
-  end
-  for s in http_post_data:gmatch("[^\r\n]+") do
-    broker_log:info(3, "EventQueue:flush: HTTP POST data:   " .. s .. "")
-  end
-  
-  broker_log:info(3, "EventQueue:flush: HTTP POST url: \"" .. self.http_server_url .. "\"")
-
-  local http_response_body = ""
-  local http_request = curl.easy()
-    :setopt_url(self.http_server_url)
-    :setopt_writefunction(
-      function (response)
-        http_response_body = http_response_body .. tostring(response)
-      end
-    )
-    :setopt(curl.OPT_TIMEOUT, self.http_timeout)
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "content-type: application/json",
-        "content-length:" .. string.len(http_post_data),
-        "authorization: Splunk " .. self.splunk_token,
-      }
-  )
-
-  -- setting the CURLOPT_PROXY
-  if self.http_proxy_string and self.http_proxy_string ~= "" then
-    broker_log:info(3, "EventQueue:flush: HTTP PROXY string is '" .. self.http_proxy_string .. "'")
-    http_request:setopt(curl.OPT_PROXY, self.http_proxy_string)
-  end
-
-  -- adding the HTTP POST data
-  http_request:setopt_postfields(http_post_data)
-
-  -- performing the HTTP request
-  http_request:perform()
-  
-  -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
-
-  http_request:close()
-  
-  -- Handling the return code
-  local retval = false
-  if http_response_code == 200 then
-    broker_log:info(2, "EventQueue:flush: HTTP POST request successful: return code is " .. http_response_code)
-    -- now that the data has been sent, we empty the events array
-    self.events = {}
-    retval = true
-  else
-    broker_log:error(0, "EventQueue:flush: HTTP POST request FAILED, return code is " .. http_response_code)
-    broker_log:error(1, "EventQueue:flush: HTTP POST request FAILED, message is:\n\"" .. http_response_body .. "\n\"\n")
-  end
-  -- and update the timestamp
-  self.__internal_ts_last_flush = os.time()
-  return retval
 end
 
 --------------------------------------------------------------------------------
