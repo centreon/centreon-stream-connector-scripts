@@ -26,8 +26,8 @@ function bigquery.new(params, sc_logger)
 
   -- initiate bigquery table schema mapping (1 = neb, 6 = bam)
   self.schemas = {
-    [1] = {},
-    [6] = {}
+    [self.params.bbdo.categories.neb] = {},
+    [self.params.bbdo.categories.bam] = {}
   }
 
   setmetatable(self, { __index = BigQuery })
@@ -37,13 +37,16 @@ end
 --- get_tables_schema: load tables schemas according to the stream connector configuration
 -- @return true (boolean) 
 function BigQuery:get_tables_schema()
+  local categories = self.params.bbdo.categories
+  local elements = self.params.bbdo.elements
+  
   -- use default schema
   if self.params._sc_gbq_use_default_schemas == 1 then
-    self.schemas[1][14] = self:default_host_table_schema()
-    self.schemas[1][24] = self:default_service_table_schema()
-    self.schemas[1][1] = self:default_ack_table_schema()
-    self.schemas[1][6] = self:default_dt_table_schema()
-    self.schemas[6][1] = self:default_ba_table_schema()
+    self.schemas[categories.neb][elements.host_status] = self:default_host_table_schema()
+    self.schemas[categories.neb][elements.service_status] = self:default_service_table_schema()
+    self.schemas[categories.neb][elements.acknowledgement] = self:default_ack_table_schema()
+    self.schemas[categories.neb][elements.downtime] = self:default_dt_table_schema()
+    self.schemas[categories.bam][elements.ba_status] = self:default_ba_table_schema()
     return true
   end
 
@@ -57,19 +60,19 @@ function BigQuery:get_tables_schema()
   -- create tables schemas from stream connector configuration itself (not the best idea)
   if self.params._sc_gbq_use_default_schemas == 0 and self.params._sc_gbq_use_schema_config_file == 0 then
     -- build hosts table schema
-    self:build_table_schema("^_sc_gbq_host_column_", "_sc_gbq_host_column_", self.schemas[1][14])
+    self:build_table_schema("^_sc_gbq_host_column_", "_sc_gbq_host_column_", self.schemas[categories.neb][elements.host_status])
 
     -- build services table schema
-    self:build_table_schema("^_sc_gbq_service_column_", "_sc_gbq_service_column_", self.schemas[1][24])
+    self:build_table_schema("^_sc_gbq_service_column_", "_sc_gbq_service_column_", self.schemas[categories.neb][elements.service_status])
 
     -- build ba table schema
-    self:build_table_schema("^_sc_gbq_ba_column_", "_sc_gbq_ba_column_", self.schemas[6][1])
+    self:build_table_schema("^_sc_gbq_ba_column_", "_sc_gbq_ba_column_", self.schemas[categories.bam][elements.ba_status])
 
     -- build ack table schema
-    self:build_table_schema("^_sc_gbq_ack_column_", "_sc_gbq_ack_column_", self.schemas[1][1])
+    self:build_table_schema("^_sc_gbq_ack_column_", "_sc_gbq_ack_column_", self.schemas[categories.neb][elements.acknowledgement])
 
     -- build dowtime table schema
-    self:build_table_schema("^_sc_gbq_dt_column_", "_sc_gbq_dt_column_", self.schemas[1][6])
+    self:build_table_schema("^_sc_gbq_dt_column_", "_sc_gbq_dt_column_", self.schemas[categories.neb][elements.downtime])
   end
 
   return true
@@ -183,12 +186,15 @@ function BigQuery:load_tables_schema_file()
     return false
   end
 
+  local categories = self.params.bbdo.categories
+  local elements = self.params.bbdo.elements
+
   -- use default schema if we don't find a schema for a dedicated type of event
-  self.schemas[1][14] = schemas.host or self:default_host_table_schema()
-  self.schemas[1][24] = schemas.service or self:default_service_table_schema()
-  self.schemas[1][1] = schemas.ack or self:default_ack_table_schema()
-  self.schemas[1][6] = schemas.dt or self:default_dt_table_schema()
-  self.schemas[6][1] = schemas.ba or self:default_ba_table_schema()
+  self.schemas[categories.neb][elements.host_status] = schemas.host or self:default_host_table_schema()
+  self.schemas[categories.neb][elements.service_status] = schemas.service or self:default_service_table_schema()
+  self.schemas[categories.neb][elements.acknowledgement] = schemas.ack or self:default_ack_table_schema()
+  self.schemas[categories.neb][elements.downtime] = schemas.dt or self:default_dt_table_schema()
+  self.schemas[categories.bam][elements.ba_status] = schemas.ba or self:default_ba_table_schema()
 
   return true
 end
