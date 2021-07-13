@@ -68,6 +68,9 @@ function sc_params.new(common, logger)
     max_buffer_size = 1,
     max_buffer_age = 5,
 
+    -- event formatting parameters
+    format_file = "",
+
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
     timestamp_conversion_format = "%Y-%m-%d %X", -- will print 2021-06-11 10:43:38
@@ -362,58 +365,58 @@ function sc_params.new(common, logger)
 
   self.params.reverse_element_mapping = {
     [categories.neb] = {
-      [elements.acknowledgement] = "acknowledgement",
-      [elements.comment] = "comment",
-      [elements.custom_variable] = "custom_variable",
-      [elements.custom_variable_status] = "custom_variable_status",
-      [elements.downtime] = "downtime",
-      [elements.event_handler] = "event_handler",
-      [elements.flapping_status] = "flapping_status",
-      [elements.host_check] = "host_check",
-      [elements.host_dependency] = "host_dependency",
-      [elements.host_group] = "host_group",
-      [elements.host_group_member] = "host_group_member",
-      [elements.host] = "host",
-      [elements.host_parent] = "host_parent",
-      [elements.host_status] = "host_status",
-      [elements.instance] = "instance",
-      [elements.instance_status] = "instance_status",
-      [elements.log_entry] = "log_entry",
-      [elements.module] = "module",
-      [elements.service_check] = "service_check",
-      [elements.service_dependency] = "service_dependency",
-      [elements.service_group] = "service_group",
-      [elements.service_group_member] = "service_group_member",
-      [elements.service] = "service",
-      [elements.service_status] = "service_status",
-      [elements.instance_configuration] = "instance_configuration"
+      [elements.acknowledgement.element] = "acknowledgement",
+      [elements.comment.element] = "comment",
+      [elements.custom_variable.element] = "custom_variable",
+      [elements.custom_variable_status.element] = "custom_variable_status",
+      [elements.downtime.element] = "downtime",
+      [elements.event_handler.element] = "event_handler",
+      [elements.flapping_status.element] = "flapping_status",
+      [elements.host_check.element] = "host_check",
+      [elements.host_dependency.element] = "host_dependency",
+      [elements.host_group.element] = "host_group",
+      [elements.host_group_member.element] = "host_group_member",
+      [elements.host.element] = "host",
+      [elements.host_parent.element] = "host_parent",
+      [elements.host_status.element] = "host_status",
+      [elements.instance.element] = "instance",
+      [elements.instance_status.element] = "instance_status",
+      [elements.log_entry.element] = "log_entry",
+      [elements.module.element] = "module",
+      [elements.service_check.element] = "service_check",
+      [elements.service_dependency.element] = "service_dependency",
+      [elements.service_group.element] = "service_group",
+      [elements.service_group_member.element] = "service_group_member",
+      [elements.service.element] = "service",
+      [elements.service_status.element] = "service_status",
+      [elements.instance_configuration.element] = "instance_configuration"
     },
     [categories.storage] = {
-      [elements.metric] = "metric",
-      [elements.rebuild] = "rebuild",
-      [elements.remove_graph] = "remove_graph",
-      [elements.status] = "status",
-      [elements.index_mapping] = "index_mapping",
-      [elements.metric_mapping] = "metric_mapping"
+      [elements.metric.element] = "metric",
+      [elements.rebuild.element] = "rebuild",
+      [elements.remove_graph.element] = "remove_graph",
+      [elements.status.element] = "status",
+      [elements.index_mapping.element] = "index_mapping",
+      [elements.metric_mapping.element] = "metric_mapping"
     },
     [categories.bam] = {
-      [elements.ba_status] = "ba_status",
-      [elements.kpi_status] = "kpi_status",
-      [elements.meta_service_status] = "meta_service_status",
-      [elements.ba_event] = "ba_event",
-      [elements.kpi_event] = "kpi_event",
-      [elements.ba_duration_event] = "ba_duration_event",
-      [elements.dimension_ba_event] = "dimension_ba_event",
-      [elements.dimension_kpi_event] = "dimension_kpi_event",
-      [elements.dimension_ba_bv_relation_event] = "dimension_ba_bv_relation_event",
-      [elements.dimension_bv_event] = "dimension_bv_event",
-      [elements.dimension_truncate_table_signal] = "dimension_truncate_table_signal",
-      [elements.bam_rebuild] = "bam_rebuild",
-      [elements.dimension_timeperiod] = "dimension_timeperiod",
-      [elements.dimension_ba_timeperiod_relation] = "dimension_ba_timeperiod_relation",
-      [elements.dimension_timeperiod_exception] = "dimension_timeperiod_exception",
-      [elements.dimension_timeperiod_exclusion] = "dimension_timeperiod_exclusion",
-      [elements.inherited_downtime] = "inherited_downtime"
+      [elements.ba_status.element] = "ba_status",
+      [elements.kpi_status.element] = "kpi_status",
+      [elements.meta_service_status.element] = "meta_service_status",
+      [elements.ba_event.element] = "ba_event",
+      [elements.kpi_event.element] = "kpi_event",
+      [elements.ba_duration_event.element] = "ba_duration_event",
+      [elements.dimension_ba_event.element] = "dimension_ba_event",
+      [elements.dimension_kpi_event.element] = "dimension_kpi_event",
+      [elements.dimension_ba_bv_relation_event.element] = "dimension_ba_bv_relation_event",
+      [elements.dimension_bv_event.element] = "dimension_bv_event",
+      [elements.dimension_truncate_table_signal.element] = "dimension_truncate_table_signal",
+      [elements.bam_rebuild.element] = "bam_rebuild",
+      [elements.dimension_timeperiod.element] = "dimension_timeperiod",
+      [elements.dimension_ba_timeperiod_relation.element] = "dimension_ba_timeperiod_relation",
+      [elements.dimension_timeperiod_exception.element] = "dimension_timeperiod_exception",
+      [elements.dimension_timeperiod_exclusion.element] = "dimension_timeperiod_exclusion",
+      [elements.inherited_downtime.element] = "inherited_downtime"
     }
   }
 
@@ -444,8 +447,20 @@ function sc_params.new(common, logger)
     }
   }
 
-  self.params.status_mapping[categories.neb][elements.downtime][1] = self.params.status_mapping[categories.neb][elements.service_status]
-  self.params.status_mapping[categories.neb][elements.downtime][2] = self.params.status_mapping[categories.neb][elements.host_status]
+  self.params.format_template = {
+    [categories.neb] = {
+      [elements.acknowledgement.element] = "",
+      [elements.downtime.element] = "",
+      [elements.host_status.element] = "",
+      [elements.service_status.element] = ""
+    },
+    [categories.bam] = {
+      [elements.ba_status.element] = ""
+    }
+  }
+
+  self.params.status_mapping[categories.neb][elements.downtime.element][1] = self.params.status_mapping[categories.neb][elements.service_status.element]
+  self.params.status_mapping[categories.neb][elements.downtime.element][2] = self.params.status_mapping[categories.neb][elements.host_status.element]
 
   setmetatable(self, { __index = ScParams })
   return self
@@ -523,6 +538,28 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
     -- add the mandatory param name in the list of the standard params and set its value to the user provided param value
     self.params[mandatory_param] = params[mandatory_param]
   end
+
+  return true
+end
+
+function ScParams:load_event_format_file()
+  if self.params.format_file == "" or self.params.format_file == nil then
+    return false
+  end 
+  
+  local retval, content = self.sc_common:load_json_file(self.params.format_file)
+  
+  if not retval then
+    return false
+  end
+
+  local categories = self.params.bbdo.categories
+  local elements = self.params.bbdo.elements
+  self.params.format_template[categories.neb][elements.host_status.element] = content.host
+  self.params.format_template[categories.neb][elements.service_status.element] = content.service
+  self.params.format_template[categories.neb][elements.acknowledgement.element] = content.ack
+  self.params.format_template[categories.neb][elements.downtime.element] = content.dt
+  self.params.format_template[categories.bam][elements.ba_status.element] = content.ba
 
   return true
 end
