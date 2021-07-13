@@ -33,6 +33,10 @@
     - [generate_postfield_param_string: parameters](#generate_postfield_param_string-parameters)
     - [generate_postfield_param_string: returns](#generate_postfield_param_string-returns)
     - [generate_postfield_param_string: example](#generate_postfield_param_string-example)
+  - [load_json_file method](#load_json_file-method)
+    - [load_json_file: parameters](#load_json_file-parameters)
+    - [load_json_file: returns](#load_json_file-returns)
+    - [load_json_file: example](#load_json_file-example)
 
 ## Introduction
 
@@ -304,4 +308,34 @@ local param_table = {
 
 local result = test_common:generate_postfield_param_string(param_table)
 --> result is "key=321Xzd&option=full&name=John%20Doe"
+```
+
+## load_json_file method
+
+The **load_json_file** method loads a json file and parse it.
+
+### load_json_file: parameters
+
+| parameter                                                       | type   | optional | default value |
+| --------------------------------------------------------------- | ------ | -------- | ------------- |
+| the path to the json file (must be readable by centreon-broker) | string | no       |               |
+
+### load_json_file: returns
+
+| return                         | type  | always  | condition                  |
+| ------------------------------ | ----- | ------- | -------------------------- |
+| true                           | false | boolean | yes                        | false if the json file couldn't be loaded or parsed, true otherwise |
+| the parsed content of the json | table | no      | only when true is returned |
+
+### load_json_file: example
+
+```lua
+local json_file = "/etc/centreon-broker/sc_config.json"
+
+local result, content = test_common:load_json_file(json_file)
+--> result is true, content is a table
+
+json_file = 3
+result, content = test_common:load_json_file(json_file)
+--> result is false, content is nil
 ```
