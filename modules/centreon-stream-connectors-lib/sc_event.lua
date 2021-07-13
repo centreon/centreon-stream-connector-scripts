@@ -29,7 +29,6 @@ function sc_event.new(event, params, common, logger, broker)
   self.event.cache = {}
 
   setmetatable(self, { __index = ScEvent })
-
   return self
 end
 
@@ -135,8 +134,7 @@ function ScEvent:is_valid_host_status_event()
 
   -- return false if host has not an accepted severity
   if not self:is_valid_host_severity() then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: service id: " .. tostring(self.event.service_id) 
-      .. ". host_id: " .. tostring(self.event.host_id) .. ". Host has not an accepted severity")
+    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " has not an accepted severity")
     return false
   end
 
