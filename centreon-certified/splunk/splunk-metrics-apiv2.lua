@@ -3,22 +3,13 @@
 -- Centreon Broker Splunk Connector Events
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
--- Parameters:
--- [MANDATORY] http_server_url: your splunk API url
--- [MANDATORY] splunk_token: see above, this will be your authentication token
--- [MANDATORY] splunk_index: index where you want to store the events
--- [OPTIONAL] splunk_source: source of the HTTP events collector, must be http:something
--- [OPTIONAL] splunk_sourcetype: sourcetype of the HTTP events collector, default _json
--- [OPTIONAL] splunk_host: host field for the HTTP events collector, default Central
--- [OPTIONAL] http_proxy_string: default empty
---
---------------------------------------------------------------------------------
-
 -- Libraries
 local curl = require "cURL"
--- Global variables
-local previous_event = ""
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
+local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
+local sc_params = require("centreon-stream-connectors-lib.sc_params")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
