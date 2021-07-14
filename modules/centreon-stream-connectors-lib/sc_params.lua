@@ -97,353 +97,464 @@ function sc_params.new(common, logger)
   -- maps categories name and id
   self.params.bbdo = {
     categories = {
-      neb = 1,
-      bbdo = 2,
-      storage = 3,
-      correlation = 4,
-      dumper = 5,
-      bam = 6,
-      extcmd = 7
-    },
-    elements = {
-      acknowledgement = {
-        category = 1,
-        element = 1
+      neb = {
+        id = 1,
+        name = "neb"
       },
-      comment = {
-        category = 1,
-        element = 2
+      storage = {
+        id = 3,
+        name = "bbdo"
       },
-      custom_variable = {
-        category = 1,
-        element = 3
-      },
-      custom_variable_status = {
-        category = 1,
-        element = 4
-      },
-      downtime = {
-        category = 1,
-        element = 5
-      },
-      event_handler = {
-        category = 1,
-        element = 6
-      },
-      flapping_status = {
-        category = 1,
-        element = 7
-      },
-      host_check = {
-        category = 1,
-        element = 8
-      },
-      host_dependency = {
-        category = 1,
-        element = 9
-      },
-      host_group = {
-        category = 1,
-        element = 10
-      },
-      host_group_member = {
-        category = 1,
-        element = 11
-      },
-      host = {
-        category = 1,
-        element = 12,
-      },
-      host_parent = {
-        category = 1,
-        element = 13
-      },
-      host_status = {
-        category = 1,
-        element = 14
-      },
-      instance = {
-        category = 1,
-        element = 15
-      },
-      instance_status = {
-        category = 1,
-        element = 16
-      },
-      log_entry = {
-        category = 1,
-        element = 17
-      },
-      module = {
-        category = 1,
-        element = 18
-      },
-      service_check = {
-        category = 1,
-        element = 19
-      },
-      service_dependency = {
-        category = 1,
-        element = 20
-      },
-      service_group = {
-        category = 1,
-        element = 21
-      },
-      service_group_member = {
-        category = 1,
-        element = 22
-      },
-      service = {
-        category = 1,
-        element = 23
-      },
-      service_status = {
-        category = 1,
-        element = 24
-      },
-      instance_configuration = {
-        category = 1,
-        element = 25
-      },
-      metric = {
-        category = 3,
-        element = 1
-      },
-      rebuild = {
-        category = 3,
-        element = 2
-      },
-      remove_graph = {
-        category = 3,
-        element = 3
-      },
-      status = {
-        category = 3,
-        element = 4
-      },
-      index_mapping = {
-        category = 3,
-        element = 5
-      },
-      metric_mapping = {
-        category = 3,
-        element = 6
-      },
-      ba_status = {
-        category = 6,
-        element = 1
-      },
-      kpi_status = {
-        category = 6,
-        element = 2
-      },
-      meta_service_status = {
-        category = 6,
-        element = 3
-      },
-      ba_event = {
-        category = 6,
-        element = 4
-      },
-      kpi_event = {
-        category = 6,
-        element = 5
-      },
-      ba_duration_event = {
-        category = 6,
-        element = 6
-      },
-      dimension_ba_event = {
-        category = 6,
-        element = 7
-      },
-      dimension_kpi_event = {
-        category = 6,
-        element = 8
-      },
-      dimension_ba_bv_relation_event = {
-        category = 6,
-        element = 9
-      },
-      dimension_bv_event = {
-        category = 6,
-        element = 10
-      },
-      dimension_truncate_table_signal = {
-        category = 6,
-        element = 11
-      },
-      bam_rebuild = {
-        category = 6,
-        element = 12
-      },
-      dimension_timeperiod = {
-        category = 6,
-        element = 13
-      },
-      dimension_ba_timeperiod_relation = {
-        category = 6,
-        element = 14
-      },
-      dimension_timeperiod_exception = {
-        category = 6,
-        element = 15
-      },
-      dimension_timeperiod_exclusion = {
-        category = 6,
-        element = 16
-      },
-      inherited_downtime = {
-        category = 6,
-        element = 17
+      bam = {
+        id = 6,
+        name = "bam"
       }
     }
   }
-
+  
   local categories = self.params.bbdo.categories
+  self.params.bbdo.elements = {
+    acknowledgement = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 1,
+      name = "acknowledgement"
+    },
+    comment = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 2,
+      name = "comment"
+    },
+    custom_variable = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 3,
+      name = "custom_variable"
+    },
+    custom_variable_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 4,
+      name = "custom_variable_status"
+    },
+    downtime = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 5,
+      name = "downtime"
+    },
+    event_handler = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 6,
+      name = "event_handler"
+    },
+    flapping_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 7,
+      name = "flapping_status"
+    },
+    host_check = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 8,
+      name = "host_check"
+    },
+    host_dependency = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 9,
+      name = "host_dependency"
+    },
+    host_group = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 10,
+      name = "host_group"
+    },
+    host_group_member = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 11,
+      name = "host_group_member"
+    },
+    host = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 12,
+      name = "host"
+    },
+    host_parent = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 13,
+      name = "host_parent"
+    },
+    host_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 14,
+      name = "host_status"
+    },
+    instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 15,
+      name = "instance"
+    },
+    instance_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 16,
+      name = "instance_status"
+    },
+    log_entry = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 17,
+      name = "log_entry"
+    },
+    module = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 18,
+      name = "module"
+    },
+    service_check = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 19,
+      name = "service_check"
+    },
+    service_dependency = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 20,
+      name = "service_dependency"
+    },
+    service_group = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 21,
+      name = "service_group"
+    },
+    service_group_member = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 22,
+      name = "service_group_member"
+    },
+    service = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 23,
+      name = "service"
+    },
+    service_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 24,
+      name = "service_status"
+    },
+    instance_configuration = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 25,
+      name = "instance_configuration"
+    },
+    metric = {
+      category_id = categories.storage.id,
+      category_name = categories.storage.name,
+      id = 1,
+      name = "metric"
+    },
+    rebuild = {
+      category_id = categories.storage.id,
+      category_name = categories.storage.name,
+      id = 2,
+      name = "rebuild"
+    },
+    remove_graph = {
+      category_id = categories.storage.id,
+      category_name = categories.storage.name,
+      id = 3,
+      name = "remove_graph"
+    },
+    status = {
+      category_id = categories.storage.id,
+      category_name = categories.storage.name,
+      id = 4,
+      name = "status"
+    },
+    index_mapping = {
+      category_id = categories.storage.id,
+      category_name = categories.storage.name,
+      id = 5,
+      name = "index_mapping"
+    },
+    metric_mapping = {
+      category_id = categories.storage.id,
+      category_name = categories.storage.name,
+      id = 6,
+      name = "metric_mapping"
+    },
+    ba_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 1,
+      name = "ba_status"
+    },
+    kpi_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 2,
+      name = "kpi_status"
+    },
+    meta_service_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 3,
+      name = "meta_service_status"
+    },
+    ba_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 4,
+      name = "ba_event"
+    },
+    kpi_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 5,
+      name = "kpi_event"
+    },
+    ba_duration_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 6,
+      name = "ba_duration_event"
+    },
+    dimension_ba_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 7,
+      name = "dimension_ba_event"
+    },
+    dimension_kpi_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 8,
+      name = "dimension_kpi_event"
+    },
+    dimension_ba_bv_relation_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 9,
+      name = "dimension_ba_bv_relation_event"
+    },
+    dimension_bv_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 10,
+      name = "dimension_bv_event"
+    },
+    dimension_truncate_table_signal = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 11,
+      name = "dimension_truncate_table_signal"
+    },
+    bam_rebuild = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 12,
+      name = "bam_rebuild"
+    },
+    dimension_timeperiod = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 13,
+      name = "dimension_timeperiod"
+    },
+    dimension_ba_timeperiod_relation = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 14,
+      name = "dimension_ba_timeperiod_relation"
+    },
+    dimension_timeperiod_exception = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 15,
+      name = "dimension_timeperiod_exception"
+    },
+    dimension_timeperiod_exclusion = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 16,
+      name = "dimension_timeperiod_exclusion"
+    },
+    inherited_downtime = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 17,
+      name = "inherited_downtime"
+    }
+  }
+
   local elements = self.params.bbdo.elements
   
   -- initiate category and element mapping
   self.params.element_mapping = {
-    [categories.neb] = {},
-    [categories.storage] = {},
-    [categories.bam] = {}
+    [categories.neb.id] = {},
+    [categories.storage.id] = {},
+    [categories.bam.id] = {}
   }
 
   -- maps category id with element name and element id
   -- neb elements
-  self.params.element_mapping[categories.neb].acknowledgement = elements.acknowledgement.element
-  self.params.element_mapping[categories.neb].comment = elements.comment.element
-  self.params.element_mapping[categories.neb].custom_variable = elements.custom_variable.element
-  self.params.element_mapping[categories.neb].custom_variable_status = elements.custom_variable_status.element
-  self.params.element_mapping[categories.neb].downtime = elements.downtime.element
-  self.params.element_mapping[categories.neb].event_handler = elements.event_handler.element
-  self.params.element_mapping[categories.neb].flapping_status = elements.flapping_status.element
-  self.params.element_mapping[categories.neb].host_check = elements.host_check.element
-  self.params.element_mapping[categories.neb].host_dependency = elements.host_dependency.element
-  self.params.element_mapping[categories.neb].host_group = elements.host_group.element
-  self.params.element_mapping[categories.neb].host_group_member = elements.host_group_member.element
-  self.params.element_mapping[categories.neb].host = elements.host.element
-  self.params.element_mapping[categories.neb].host_parent = elements.host_parent.element
-  self.params.element_mapping[categories.neb].host_status = elements.host_status.element
-  self.params.element_mapping[categories.neb].instance = elements.instance.element
-  self.params.element_mapping[categories.neb].instance_status = elements.instance_status.element
-  self.params.element_mapping[categories.neb].log_entry = elements.log_entry.element
-  self.params.element_mapping[categories.neb].module = elements.module.element
-  self.params.element_mapping[categories.neb].service_check = elements.service_check.element
-  self.params.element_mapping[categories.neb].service_dependency = elements.service_dependency.element
-  self.params.element_mapping[categories.neb].service_group = elements.service_group.element
-  self.params.element_mapping[categories.neb].service_group_member = elements.service_group_member.element
-  self.params.element_mapping[categories.neb].service = elements.service.element
-  self.params.element_mapping[categories.neb].service_status = elements.service_status.element
-  self.params.element_mapping[categories.neb].instance_configuration = elements.instance_configuration.element
+  self.params.element_mapping[categories.neb.id].acknowledgement = elements.acknowledgement.id
+  self.params.element_mapping[categories.neb.id].comment = elements.comment.id
+  self.params.element_mapping[categories.neb.id].custom_variable = elements.custom_variable.id
+  self.params.element_mapping[categories.neb.id].custom_variable_status = elements.custom_variable_status.id
+  self.params.element_mapping[categories.neb.id].downtime = elements.downtime.id
+  self.params.element_mapping[categories.neb.id].event_handler = elements.event_handler.id
+  self.params.element_mapping[categories.neb.id].flapping_status = elements.flapping_status.id
+  self.params.element_mapping[categories.neb.id].host_check = elements.host_check.id
+  self.params.element_mapping[categories.neb.id].host_dependency = elements.host_dependency.id
+  self.params.element_mapping[categories.neb.id].host_group = elements.host_group.id
+  self.params.element_mapping[categories.neb.id].host_group_member = elements.host_group_member.id
+  self.params.element_mapping[categories.neb.id].host = elements.host.id
+  self.params.element_mapping[categories.neb.id].host_parent = elements.host_parent.id
+  self.params.element_mapping[categories.neb.id].host_status = elements.host_status.id
+  self.params.element_mapping[categories.neb.id].instance = elements.instance.id
+  self.params.element_mapping[categories.neb.id].instance_status = elements.instance_status.id
+  self.params.element_mapping[categories.neb.id].log_entry = elements.log_entry.id
+  self.params.element_mapping[categories.neb.id].module = elements.module.id
+  self.params.element_mapping[categories.neb.id].service_check = elements.service_check.id
+  self.params.element_mapping[categories.neb.id].service_dependency = elements.service_dependency.id
+  self.params.element_mapping[categories.neb.id].service_group = elements.service_group.id
+  self.params.element_mapping[categories.neb.id].service_group_member = elements.service_group_member.id
+  self.params.element_mapping[categories.neb.id].service = elements.service.id
+  self.params.element_mapping[categories.neb.id].service_status = elements.service_status.id
+  self.params.element_mapping[categories.neb.id].instance_configuration = elements.instance_configuration.id
 
   -- metric elements mapping
-  self.params.element_mapping[categories.storage].metric = elements.metric.element
-  self.params.element_mapping[categories.storage].rebuild = elements.rebuild.element
-  self.params.element_mapping[categories.storage].remove_graph = elements.remove_graph.element
-  self.params.element_mapping[categories.storage].status = elements.status.element
-  self.params.element_mapping[categories.storage].index_mapping = elements.index_mapping.element
-  self.params.element_mapping[categories.storage].metric_mapping = elements.metric_mapping.element
+  self.params.element_mapping[categories.storage.id].metric = elements.metric.id
+  self.params.element_mapping[categories.storage.id].rebuild = elements.rebuild.id
+  self.params.element_mapping[categories.storage.id].remove_graph = elements.remove_graph.id
+  self.params.element_mapping[categories.storage.id].status = elements.status.id
+  self.params.element_mapping[categories.storage.id].index_mapping = elements.index_mapping.id
+  self.params.element_mapping[categories.storage.id].metric_mapping = elements.metric_mapping.id
 
   -- bam elements mapping
-  self.params.element_mapping[categories.bam].ba_status = elements.ba_status.element
-  self.params.element_mapping[categories.bam].kpi_status = elements.kpi_status.element
-  self.params.element_mapping[categories.bam].meta_service_status = elements.meta_service_status.element
-  self.params.element_mapping[categories.bam].ba_event = elements.ba_event.element
-  self.params.element_mapping[categories.bam].kpi_event = elements.kpi_event.element
-  self.params.element_mapping[categories.bam].ba_duration_event = elements.ba_duration_event.element
-  self.params.element_mapping[categories.bam].dimension_ba_event = elements.dimension_ba_event.element
-  self.params.element_mapping[categories.bam].dimension_kpi_event = elements.dimension_kpi_event.element
-  self.params.element_mapping[categories.bam].dimension_ba_bv_relation_event = elements.dimension_ba_bv_relation_event.element
-  self.params.element_mapping[categories.bam].dimension_bv_event = elements.dimension_bv_event.element
-  self.params.element_mapping[categories.bam].dimension_truncate_table_signal = elements.dimension_truncate_table_signal.element
-  self.params.element_mapping[categories.bam].bam_rebuild = elements.bam_rebuild.element
-  self.params.element_mapping[categories.bam].dimension_timeperiod = elements.dimension_timeperiod.element
-  self.params.element_mapping[categories.bam].dimension_ba_timeperiod_relation = elements.dimension_ba_timeperiod_relation.element
-  self.params.element_mapping[categories.bam].dimension_timeperiod_exception = elements.dimension_timeperiod_exception.element
-  self.params.element_mapping[categories.bam].dimension_timeperiod_exclusion = elements.dimension_timeperiod_exclusion.element
-  self.params.element_mapping[categories.bam].inherited_downtime = elements.inherited_downtime.element
+  self.params.element_mapping[categories.bam.id].ba_status = elements.ba_status.id
+  self.params.element_mapping[categories.bam.id].kpi_status = elements.kpi_status.id
+  self.params.element_mapping[categories.bam.id].meta_service_status = elements.meta_service_status.id
+  self.params.element_mapping[categories.bam.id].ba_event = elements.ba_event.id
+  self.params.element_mapping[categories.bam.id].kpi_event = elements.kpi_event.id
+  self.params.element_mapping[categories.bam.id].ba_duration_event = elements.ba_duration_event.id
+  self.params.element_mapping[categories.bam.id].dimension_ba_event = elements.dimension_ba_event.id
+  self.params.element_mapping[categories.bam.id].dimension_kpi_event = elements.dimension_kpi_event.id
+  self.params.element_mapping[categories.bam.id].dimension_ba_bv_relation_event = elements.dimension_ba_bv_relation_event.id
+  self.params.element_mapping[categories.bam.id].dimension_bv_event = elements.dimension_bv_event.id
+  self.params.element_mapping[categories.bam.id].dimension_truncate_table_signal = elements.dimension_truncate_table_signal.id
+  self.params.element_mapping[categories.bam.id].bam_rebuild = elements.bam_rebuild.id
+  self.params.element_mapping[categories.bam.id].dimension_timeperiod = elements.dimension_timeperiod.id
+  self.params.element_mapping[categories.bam.id].dimension_ba_timeperiod_relation = elements.dimension_ba_timeperiod_relation.id
+  self.params.element_mapping[categories.bam.id].dimension_timeperiod_exception = elements.dimension_timeperiod_exception.id
+  self.params.element_mapping[categories.bam.id].dimension_timeperiod_exclusion = elements.dimension_timeperiod_exclusion.id
+  self.params.element_mapping[categories.bam.id].inherited_downtime = elements.inherited_downtime.id
 
   self.params.reverse_element_mapping = {
-    [categories.neb] = {
-      [elements.acknowledgement.element] = "acknowledgement",
-      [elements.comment.element] = "comment",
-      [elements.custom_variable.element] = "custom_variable",
-      [elements.custom_variable_status.element] = "custom_variable_status",
-      [elements.downtime.element] = "downtime",
-      [elements.event_handler.element] = "event_handler",
-      [elements.flapping_status.element] = "flapping_status",
-      [elements.host_check.element] = "host_check",
-      [elements.host_dependency.element] = "host_dependency",
-      [elements.host_group.element] = "host_group",
-      [elements.host_group_member.element] = "host_group_member",
-      [elements.host.element] = "host",
-      [elements.host_parent.element] = "host_parent",
-      [elements.host_status.element] = "host_status",
-      [elements.instance.element] = "instance",
-      [elements.instance_status.element] = "instance_status",
-      [elements.log_entry.element] = "log_entry",
-      [elements.module.element] = "module",
-      [elements.service_check.element] = "service_check",
-      [elements.service_dependency.element] = "service_dependency",
-      [elements.service_group.element] = "service_group",
-      [elements.service_group_member.element] = "service_group_member",
-      [elements.service.element] = "service",
-      [elements.service_status.element] = "service_status",
-      [elements.instance_configuration.element] = "instance_configuration"
+    [categories.neb.id] = {
+      [elements.acknowledgement.id] = "acknowledgement",
+      [elements.comment.id] = "comment",
+      [elements.custom_variable.id] = "custom_variable",
+      [elements.custom_variable_status.id] = "custom_variable_status",
+      [elements.downtime.id] = "downtime",
+      [elements.event_handler.id] = "event_handler",
+      [elements.flapping_status.id] = "flapping_status",
+      [elements.host_check.id] = "host_check",
+      [elements.host_dependency.id] = "host_dependency",
+      [elements.host_group.id] = "host_group",
+      [elements.host_group_member.id] = "host_group_member",
+      [elements.host.id] = "host",
+      [elements.host_parent.id] = "host_parent",
+      [elements.host_status.id] = "host_status",
+      [elements.instance.id] = "instance",
+      [elements.instance_status.id] = "instance_status",
+      [elements.log_entry.id] = "log_entry",
+      [elements.module.id] = "module",
+      [elements.service_check.id] = "service_check",
+      [elements.service_dependency.id] = "service_dependency",
+      [elements.service_group.id] = "service_group",
+      [elements.service_group_member.id] = "service_group_member",
+      [elements.service.id] = "service",
+      [elements.service_status.id] = "service_status",
+      [elements.instance_configuration.id] = "instance_configuration"
     },
-    [categories.storage] = {
-      [elements.metric.element] = "metric",
-      [elements.rebuild.element] = "rebuild",
-      [elements.remove_graph.element] = "remove_graph",
-      [elements.status.element] = "status",
-      [elements.index_mapping.element] = "index_mapping",
-      [elements.metric_mapping.element] = "metric_mapping"
+    [categories.storage.id] = {
+      [elements.metric.id] = "metric",
+      [elements.rebuild.id] = "rebuild",
+      [elements.remove_graph.id] = "remove_graph",
+      [elements.status.id] = "status",
+      [elements.index_mapping.id] = "index_mapping",
+      [elements.metric_mapping.id] = "metric_mapping"
     },
-    [categories.bam] = {
-      [elements.ba_status.element] = "ba_status",
-      [elements.kpi_status.element] = "kpi_status",
-      [elements.meta_service_status.element] = "meta_service_status",
-      [elements.ba_event.element] = "ba_event",
-      [elements.kpi_event.element] = "kpi_event",
-      [elements.ba_duration_event.element] = "ba_duration_event",
-      [elements.dimension_ba_event.element] = "dimension_ba_event",
-      [elements.dimension_kpi_event.element] = "dimension_kpi_event",
-      [elements.dimension_ba_bv_relation_event.element] = "dimension_ba_bv_relation_event",
-      [elements.dimension_bv_event.element] = "dimension_bv_event",
-      [elements.dimension_truncate_table_signal.element] = "dimension_truncate_table_signal",
-      [elements.bam_rebuild.element] = "bam_rebuild",
-      [elements.dimension_timeperiod.element] = "dimension_timeperiod",
-      [elements.dimension_ba_timeperiod_relation.element] = "dimension_ba_timeperiod_relation",
-      [elements.dimension_timeperiod_exception.element] = "dimension_timeperiod_exception",
-      [elements.dimension_timeperiod_exclusion.element] = "dimension_timeperiod_exclusion",
-      [elements.inherited_downtime.element] = "inherited_downtime"
+    [categories.bam.id] = {
+      [elements.ba_status.id] = "ba_status",
+      [elements.kpi_status.id] = "kpi_status",
+      [elements.meta_service_status.id] = "meta_service_status",
+      [elements.ba_event.id] = "ba_event",
+      [elements.kpi_event.id] = "kpi_event",
+      [elements.ba_duration_event.id] = "ba_duration_event",
+      [elements.dimension_ba_event.id] = "dimension_ba_event",
+      [elements.dimension_kpi_event.id] = "dimension_kpi_event",
+      [elements.dimension_ba_bv_relation_event.id] = "dimension_ba_bv_relation_event",
+      [elements.dimension_bv_event.id] = "dimension_bv_event",
+      [elements.dimension_truncate_table_signal.id] = "dimension_truncate_table_signal",
+      [elements.bam_rebuild.id] = "bam_rebuild",
+      [elements.dimension_timeperiod.id] = "dimension_timeperiod",
+      [elements.dimension_ba_timeperiod_relation.id] = "dimension_ba_timeperiod_relation",
+      [elements.dimension_timeperiod_exception.id] = "dimension_timeperiod_exception",
+      [elements.dimension_timeperiod_exclusion.id] = "dimension_timeperiod_exclusion",
+      [elements.inherited_downtime.id] = "inherited_downtime"
     }
   }
 
+  self.params.reverse_category_mapping = {
+    [1] = "neb",
+    [2] = "bbdo",
+    [3] = "storage",
+    [4] = "correlation",
+    [5] = "dumper",
+    [6] = "bam",
+    [7] = "extcmd"
+  }
 
   -- initiate category and status mapping
   self.params.status_mapping = {
-    [categories.neb] = {
-      [elements.downtime] = {
+    [categories.neb.id] = {
+      [elements.downtime.id] = {
         [1] = {},
         [2] = {}
       },
-      [elements.host_status] = {
+      [elements.host_status.id] = {
         [0] = "UP",
         [1] = "DOWN",
         [2] = "UNREACHABLE"
       },
-      [elements.service_status] = {
+      [elements.service_status.id] = {
         [0] = "OK",
         [1] = "WARNING",
         [2] = "CRITICAL",
         [3] = "UNKNOWN"
       }
     },
-    [categories.bam] = {
+    [categories.bam.id] = {
       [0] = "OK",
       [1] = "WARNING",
       [2] = "CRITICAL"
@@ -451,19 +562,12 @@ function sc_params.new(common, logger)
   }
 
   self.params.format_template = {
-    [categories.neb] = {
-      [elements.acknowledgement.element] = "",
-      [elements.downtime.element] = "",
-      [elements.host_status.element] = "",
-      [elements.service_status.element] = ""
-    },
-    [categories.bam] = {
-      [elements.ba_status.element] = ""
-    }
+    [categories.neb.id] = {},
+    [categories.bam.id] = {}
   }
 
-  self.params.status_mapping[categories.neb][elements.downtime.element][1] = self.params.status_mapping[categories.neb][elements.service_status.element]
-  self.params.status_mapping[categories.neb][elements.downtime.element][2] = self.params.status_mapping[categories.neb][elements.host_status.element]
+  self.params.status_mapping[categories.neb.id][elements.downtime.id][1] = self.params.status_mapping[categories.neb.id][elements.service_status.id]
+  self.params.status_mapping[categories.neb.id][elements.downtime.id][2] = self.params.status_mapping[categories.neb.id][elements.host_status.id]
 
   setmetatable(self, { __index = ScParams })
   return self
@@ -561,13 +665,38 @@ function ScParams:load_event_format_file()
 
   local categories = self.params.bbdo.categories
   local elements = self.params.bbdo.elements
-  self.params.format_template[categories.neb][elements.host_status.element] = content.host
-  self.params.format_template[categories.neb][elements.service_status.element] = content.service
-  self.params.format_template[categories.neb][elements.acknowledgement.element] = content.ack
-  self.params.format_template[categories.neb][elements.downtime.element] = content.dt
-  self.params.format_template[categories.bam][elements.ba_status.element] = content.ba
+
+  local tpl_category
+  local tpl_element
+  
+  -- store format template in their appropriate category/element table
+  for cat_el, format in pairs(content) do
+    tpl_category, tpl_element = string.match(cat_el, "^(%w+)_(.*)")
+    self.params.format_template[categories[tpl_category].id][elements[tpl_element].id] = format
+  end
 
   return true
+end
+
+function ScParams:build_accepted_elements_info()
+  categories = self.params.bbdo.categories
+  self.accepted_elements_info = {}
+
+  -- list all accepted elements
+  for _, accepted_element in ipairs(self.sc_common:split(self.params.accepted_elements, ",")) do
+    -- try to find element in known categories
+    for id, info in ipairs(categories) do
+      if self.element_mapping[id][accepted_element] then
+        -- if found, store information in a dedicated table
+        self.params.accepted_elements_info[accepted_element] = {
+          category_id = id,
+          category_name = category,
+          element_id = self.params.element_mapping[id][accepted_element],
+          element_name = accepted_element
+        }
+      end
+    end
+  end
 end
 
 return sc_params
