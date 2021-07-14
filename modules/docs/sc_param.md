@@ -26,7 +26,7 @@
 
 ## Introduction
 
-The sc_param module provides methods to help you handle parameters for your stream connectors. It also provides a list of default parameters that are available for every stream connectors (the complete list is below). It has been made in OOP (object oriented programming)
+The sc_param module provides methods to help you handle parameters for your stream connectors. It also provides a list of default parameters that are available for every stream connectors (the complete list is below) and a set of mappings to convert ID to human readable text or the other way around. Head over [**the mappings documentation**](mappings.md) for more information. It has been made in OOP (object oriented programming)
 
 ### Default parameters
 
