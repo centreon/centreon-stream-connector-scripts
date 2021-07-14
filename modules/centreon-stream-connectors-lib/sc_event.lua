@@ -67,11 +67,11 @@ function ScEvent:is_valid_event()
   local is_valid_event = false
   
   -- run validation tests depending on the category of the event
-  if self.event.category == self.params.bbdo.categories.neb then
+  if self.event.category == self.params.bbdo.categories.neb.id then
     is_valid_event = self:is_valid_neb_event()
-  elseif self.event.category == self.params.bbdo.categories.storage then
+  elseif self.event.category == self.params.bbdo.categories.storage.id then
     is_valid_event = self:is_valid_storage_event()
-  elseif self.event.category == self.params.bbdo.categories.bam then
+  elseif self.event.category == self.params.bbdo.categories.bam.id then
     is_valid_event = self:is_valid_bam_event()
   end
 
@@ -84,13 +84,13 @@ function ScEvent:is_valid_neb_event()
   local is_valid_event = false
   
   -- run validation tests depending on the element type of the neb event
-  if self.event.element == self.params.bbdo.elements.host_status.element then
+  if self.event.element == self.params.bbdo.elements.host_status.id then
     is_valid_event = self:is_valid_host_status_event()
-  elseif self.event.element == self.params.bbdo.elements.service_status.element then
+  elseif self.event.element == self.params.bbdo.elements.service_status.id then
     is_valid_event = self:is_valid_service_status_event()
-  elseif self.event.element == self.params.bbdo.elements.acknowledgement.element then 
+  elseif self.event.element == self.params.bbdo.elements.acknowledgement.id then 
     is_valid_event = self:is_valid_acknowledgement_event()
-  elseif self.event.element == self.params.bbdo.elements.downtime.element then
+  elseif self.event.element == self.params.bbdo.elements.downtime.id then
     is_valid_event = self:is_valid_downtime_event()
   end
 
@@ -323,7 +323,7 @@ function ScEvent:is_valid_event_status(accepted_status_list)
   end
 
   -- handle downtime event specific case for logging
-  if (self.event.category == self.params.bbdo.categories.neb and self.event.element == self.params.bbdo.elements.downtime.element) then
+  if (self.event.category == self.params.bbdo.categories.neb.id and self.event.element == self.params.bbdo.elements.downtime.id) then
     self.sc_logger:warning("[sc_event:is_valid_event_status] event has an invalid state. Current state: " 
       .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.type][self.event.state]) .. ". Accepted states are: " .. tostring(accepted_status_list))
     return false
@@ -753,7 +753,7 @@ function ScEvent:is_valid_acknowledgement_event()
     -- return false if event status is not accepted
     if not self:is_valid_event_status(event_status) then
       self.sc_logger:warning("[sc_event:is_valid_acknowledgement_event]: host_id: " .. tostring(self.event.host_id) 
-        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.params.bbdo.elements.host_status.element][self.event.state]))
+        .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.params.bbdo.elements.host_status.id][self.event.state]))
       return false
     end
   -- service_id != 0 means ack is on a service
@@ -770,7 +770,7 @@ function ScEvent:is_valid_acknowledgement_event()
     -- return false if event status is not accepted
     if not self:is_valid_event_status(event_status) then
       self.sc_logger:warning("[sc_event:is_valid_acknowledgement_event]: service with id: " .. tostring(self.event.service_id) 
-        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.params.bbdo.elements.service_status.element][self.event.state]))
+        .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.params.bbdo.elements.service_status.id][self.event.state]))
       return false
     end
 
