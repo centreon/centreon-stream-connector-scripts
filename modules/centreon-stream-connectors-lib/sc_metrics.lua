@@ -38,14 +38,14 @@ function sc_metrics.new(event, params, common, broker, logger)
 
   -- store metric validation functions inside a table linked to category/element
   self.metric_validation = {
-    [categories.neb] = {
-      [elements.host.element] = function () return self:is_valid_host_metric_event() end,
-      [elements.host_status.element] = function() return self:is_valid_host_metric_event() end,
-      [elements.service.element] = function () return self:is_valid_service_metric_event() end,
-      [elements.service_status.element] = function () return self:is_valid_service_metric_event() end
+    [categories.neb.id] = {
+      [elements.host.id] = function () return self:is_valid_host_metric_event() end,
+      [elements.host_status.id] = function() return self:is_valid_host_metric_event() end,
+      [elements.service.id] = function () return self:is_valid_service_metric_event() end,
+      [elements.service_status.id] = function () return self:is_valid_service_metric_event() end
     },
-    [categories.bam] = {
-      [elements.kpi_event.element] = function () return self:is_valid_kpi_metric_event() end
+    [categories.bam.id] = {
+      [elements.kpi_event.id] = function () return self:is_valid_kpi_metric_event() end
     }
   }
 
@@ -72,7 +72,7 @@ function ScMetrics:is_valid_bbdo_element()
     return false
   else
     -- drop event if accepted category is not supposed to be used for a metric stream connector
-    if event_category ~= categories.neb and event_category ~= categories.bam then
+    if event_category ~= categories.neb.id and event_category ~= categories.bam.id then
       self.sc_logger:warning("[sc_metrics:is_valid_bbdo_element] Configuration error. accepted categories from paramters are: "
         .. tostring(self.params.accepted_categories) .. ". Only bam and neb can be used for metrics")
       return false
@@ -82,11 +82,11 @@ function ScMetrics:is_valid_bbdo_element()
         return false
       else
         -- drop event if element is not an element that carries perfdata
-        if event_element ~= elements.host.element
-          and event_element ~= elements.host_status.element
-          and event_element ~= elements.service.element
-          and event_element ~= elements.service_status.element
-          and event_element ~= elements.kpi_event.element
+        if event_element ~= elements.host.id
+          and event_element ~= elements.host_status.id
+          and event_element ~= elements.service.id
+          and event_element ~= elements.service_status.id
+          and event_element ~= elements.kpi_event.id
         then
           self.sc_logger:warning("[sc_metrics:is_valid_bbdo_element] Configuration error. accepted elements from paramters are: "
             .. tostring(self.params.accepted_elements) .. ". Only host, host_status, service, service_status and kpi_event can be used for metrics")

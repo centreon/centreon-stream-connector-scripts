@@ -64,12 +64,8 @@ function EventQueue.new(conf)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_params:build_accepted_elements_info()
   
-  self.sc_params.params.__internal_ts_host_last_flush = os.time()
-  self.sc_params.params.__internal_ts_service_last_flush = os.time()
-  self.sc_params.params.__internal_ts_ack_last_flush = os.time()
-  self.sc_params.params.__internal_ts_dt_last_flush = os.time()
-  self.sc_params.params.__internal_ts_ba_last_flush = os.time()
   
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
@@ -77,10 +73,11 @@ function EventQueue.new(conf)
   local elements = self.sc_params.params.bbdo.elements
 
   self.format_event = {
-    [categories.neb] = {
-      [elements.host_status] = function () return self:format_metrics_host() end,
-      [elements.service_status] = function () return self:format_metrics_service() end
-    }
+    [categories.neb.id] = {
+      [elements.host_status.id] = function () return self:format_metrics_host() end,
+      [elements.service_status.id] = function () return self:format_metrics_service() end
+    },
+    [categories.bam.id] = {}
   }
 
   -- return EventQueue object
@@ -94,8 +91,16 @@ end
 function EventQueue:format_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
-  
-  self.format_event[self.sc_event.event.category][self.sc_event.event.element]()
+
+  -- can't format event if stream connector is not handling this kind of event
+  if not self.format_event[category][element] then
+    self.sc_logger:error("[format_event]: You are trying to format an event with category: "
+      .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+      .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+      .. ". If it is a not a misconfiguration, you can open an issue at https://github.com/centreon/centreon-stream-connector-scripts/issues")
+  else
+    self.format_event[category][element]()
+  end
 
   self:add()
 end
@@ -132,7 +137,7 @@ function EventQueue:add()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
 
-  self.sc_flush.queue[category][element].events[#self.sc_flush.queue[category][element].events + 1] = {
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = {
     sourcetype = self.sc_params.param.splunk_sourcetype,
     source = self.sc_params.param.splunk_source,
     index = self.sc_params.param.splunk_index,
@@ -258,6 +263,6 @@ function write(e)
   end
 
   -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.sc_flush.flush[self.sc_event.event.category][self.sc_event.event.element](queue.send_data)
+  queue.sc_flush:flush_queue(queue.send_data, self.sc_event.event.category, self.sc_event.event.element)
   return true
 end
