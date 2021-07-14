@@ -62,7 +62,7 @@ The **flush_all_queues** method tries to flush all the possible queues that can 
 
 head over the following chapters for more information
 
-- [flush_queue](#flush_queue)
+- [flush_queue](#flush_queue-method)
 
 ### flush_all_queues: parameters
 
@@ -89,7 +89,7 @@ The **flush_queue** method tries to flush a specific queue. It flushes a  queue 
 
 head over the following chapters for more information
 
-- [reset_queue](#reset_queue)
+- [reset_queue](#reset_queue-method)
 
 ### flush_queue: parameters
 
@@ -125,7 +125,7 @@ local result = test_flush:flush_queue(send_data, 1, 14)
 -- initiate a empty queue for service_status events
 test_.queues[1][24].events = {}
 
-result = test_flus:flush_queue(send_data, 1, 24)
+result = test_flush:flush_queue(send_data, 1, 24)
 --> result is false because buffer size is 0
 ```
 
