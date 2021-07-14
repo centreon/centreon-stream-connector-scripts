@@ -65,7 +65,7 @@ local element_name = params_object.params.bbdo.elements["host_status"].name
 
 ### get element name from ID
 
-You can't get a element name from its ID only. You must have its category too. For example, there are many elements that shares the ID 1. Because each category has its own elements and their ID start at 1. 
+You can't get a element name from its ID only. You must have its category too. For example, there are many elements that shares the ID 1. Because each category has its own elements and their ID start at 1.
 For example, the **acknowledgement** element and the **ba_status** element have 1 as an element ID. The first element is part of the **neb category**, the second one is part of the **bam category**
 
 ```lua
