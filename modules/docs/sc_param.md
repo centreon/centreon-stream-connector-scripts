@@ -18,6 +18,11 @@
     - [is_mandatory_config_set: parameters](#is_mandatory_config_set-parameters)
     - [is_mandatory_config_set: returns](#is_mandatory_config_set-returns)
     - [is_mandatory_config_set: example](#is_mandatory_config_set-example)
+  - [load_event_format_file method](#load_event_format_file-method)
+    - [load_event_format_file: returns](#load_event_format_file-returns)
+    - [load_event_format_file: example](#load_event_format_file-example)
+  - [build_accepted_elements_info method](#build_accepted_elements_info-method)
+    - [build_accepted_elements_info: example](#build_accepted_elements_info-example)
 
 ## Introduction
 
@@ -47,15 +52,17 @@ The sc_param module provides methods to help you handle parameters for your stre
 | service_severity_operator   | string | >=                                                                            | the mathematical operator used to compare the accepted service severity threshold and the service severity (operation order is: threshold >= service severity) | service_status(neb), acknowledgement(neb)                                                                                                                                     |                                                                                                                                                                                                                                                                                               |
 | host_severity_threshold     | number | nil                                                                           | the threshold that will be used to filter severity for hosts. it must be used with host_severity_operator option                                               | host_status(neb), service_status(neb) , acknowledgement(neb)                                                                                                                  |                                                                                                                                                                                                                                                                                               |
 | host_severity_operator      | string | >=                                                                            | the mathematical operator used to compare the accepted host severity threshold and the host severity (operation order is: threshold >= host severity)          | host_status(neb), service_status(neb), acknowledgement(neb)                                                                                                                   |                                                                                                                                                                                                                                                                                               |
-| ack_host_status             | string |                                                                               |                                                                                                                                                                | coma separated list of accepted host status for an acknowledgement event. It uses the host_status parameter by default (0 = UP, 1 = DOWN, 2 = UNREACHABLE)                    | acknowledgement(neb)                                                                                                                                                                                                                                                                          |                                                              |
-| ack_service_status          | string |                                                                               |                                                                                                                                                                | coma separated list of accepted service status for an acknowledgement event. It uses the service_status parameter by default (0 = OK, 1 = WARNING, 2 = CRITICAL, 3 = UNKNOWN) | acknowledgement(neb)                                                                                                                                                                                                                                                                          |                                                              |
-| dt_host_status              | string |                                                                               |                                                                                                                                                                | coma separated list of accepted host status for a downtime event. It uses the host_status parameter by default (0 = UP, 1 = DOWN, 2 = UNREACHABLE)                            | downtime(neb)                                                                                                                                                                                                                                                                                 |                                                              |
-| dt_service_status           | string |                                                                               |                                                                                                                                                                | coma separated list of accepted service status for a downtime event. It uses the service_status parameter by default (0 = OK, 1 = WARNING, 2 = CRITICAL, 3 = UNKNOWN)         | downtime(neb)                                                                                                                                                                                                                                                                                 |                                                              |
-| enable_host_status_dedup    | number | 1                                                                             |                                                                                                                                                                | enable the deduplication of host status event when set to 1                                                                                                                   | host_status(neb)                                                                                                                                                                                                                                                                              |                                                              |
-| enable_service_status_dedup | number | 1                                                                             |                                                                                                                                                                | enable the deduplication of service status event when set to 1                                                                                                                | service_status(neb)                                                                                                                                                                                                                                                                           |                                                              |
-| accepted_authors            | string |                                                                               |                                                                                                                                                                | coma separated list of accepted authors for a comment. It uses the alias (login) of the Centreon contacts                                                                     | downtime(neb), acknowledgement(neb)                                                                                                                                                                                                                                                           |                                                              |
-| local_time_diff_from_utc    | number | default value is the time difference the centreon central server has from UTC |                                                                                                                                                                | the time difference from UTC in seconds                                                                                                                                       | all                                                                                                                                                                                                                                                                                           |                                                              |
-| timestamp_conversion_format | string | %Y-%m-%d %X                                                                   |                                                                                                                                                                | the date format used to convert timestamps. Default value will print dates like this: 2021-06-11 10:43:38                                                                     | all                                                                                                                                                                                                                                                                                           | (date format information)[https://www.lua.org/pil/22.1.html] |
+| ack_host_status             | string |                                                                               |                                                                                                                                                                | coma separated list of accepted host status for an acknowledgement event. It uses the host_status parameter by default (0 = UP, 1 = DOWN, 2 = UNREACHABLE)                    | acknowledgement(neb)                                                                                                                                                                                                                                                                          |                                                                                                     |
+| ack_service_status          | string |                                                                               |                                                                                                                                                                | coma separated list of accepted service status for an acknowledgement event. It uses the service_status parameter by default (0 = OK, 1 = WARNING, 2 = CRITICAL, 3 = UNKNOWN) | acknowledgement(neb)                                                                                                                                                                                                                                                                          |                                                                                                     |
+| dt_host_status              | string |                                                                               |                                                                                                                                                                | coma separated list of accepted host status for a downtime event. It uses the host_status parameter by default (0 = UP, 1 = DOWN, 2 = UNREACHABLE)                            | downtime(neb)                                                                                                                                                                                                                                                                                 |                                                                                                     |
+| dt_service_status           | string |                                                                               |                                                                                                                                                                | coma separated list of accepted service status for a downtime event. It uses the service_status parameter by default (0 = OK, 1 = WARNING, 2 = CRITICAL, 3 = UNKNOWN)         | downtime(neb)                                                                                                                                                                                                                                                                                 |                                                                                                     |
+| enable_host_status_dedup    | number | 1                                                                             |                                                                                                                                                                | enable the deduplication of host status event when set to 1                                                                                                                   | host_status(neb)                                                                                                                                                                                                                                                                              |                                                                                                     |
+| enable_service_status_dedup | number | 1                                                                             |                                                                                                                                                                | enable the deduplication of service status event when set to 1                                                                                                                | service_status(neb)                                                                                                                                                                                                                                                                           |                                                                                                     |
+| accepted_authors            | string |                                                                               |                                                                                                                                                                | coma separated list of accepted authors for a comment. It uses the alias (login) of the Centreon contacts                                                                     | downtime(neb), acknowledgement(neb)                                                                                                                                                                                                                                                           |                                                                                                     |
+| local_time_diff_from_utc    | number | default value is the time difference the centreon central server has from UTC |                                                                                                                                                                | the time difference from UTC in seconds                                                                                                                                       | all                                                                                                                                                                                                                                                                                           |                                                                                                     |
+| timestamp_conversion_format | string | %Y-%m-%d %X                                                                   |                                                                                                                                                                | the date format used to convert timestamps. Default value will print dates like this: 2021-06-11 10:43:38                                                                     | all                                                                                                                                                                                                                                                                                           | (date format information)[https://www.lua.org/pil/22.1.html]                                        |
+| send_data_test              | number | 0                                                                             |                                                                                                                                                                | When set to 1, send data in the logfile of the stream connector instead of sending it where the stream connector was designed to                                              | all                                                                                                                                                                                                                                                                                           |                                                                                                     |
+| format_file                 | string |                                                                               |                                                                                                                                                                | Path to a file that will be used as a template to format events instead of using default format                                                                               | only usable for events stream connectors (\*-events-apiv2.lua) and not metrics stream connectors (\*-metrics-apiv2.lua)                                                                                                                                                                       | you should put the file in /etc/centreon-broker to keep your broker configuration in a single place |
 
 ## Module initialization
 
@@ -193,9 +200,9 @@ The **is_mandatory_config_set** method checks if all mandatory parameters for a 
 
 ### is_mandatory_config_set: returns
 
-| return           | type    | always | condition                                                |
-| ---------------- | ------- | ------ | -------------------------------------------------------- |
-| true    or false | boolean | yes    | if a mandatory configuration parameter is missing or not |
+| return        | type    | always | condition                                                |
+| ------------- | ------- | ------ | -------------------------------------------------------- |
+| true or false | boolean | yes    | if a mandatory configuration parameter is missing or not |
 
 ### is_mandatory_config_set: example
 
@@ -223,7 +230,70 @@ local result = test_param:is_mandatory_config_set(mandatory_params, params)
 params.password = "hello"
 
 result = test_param:is_mandatory_config_set(mandatory_params, params)
---> result is truc because password and username are in the params table
+--> result is true because password and username are in the params table
 --> test_param.param.username is "John"
 --> test_param.param.password is "hello"
+```
+
+## load_event_format_file method
+
+The **load_event_format_file** load a json file which purpose is to serve as a template to format events. It will use the [**format_file parameter**](#default-parameters) in order to know which file to load. If a file has been successfully loaded, a template table will be created in the self.params table.
+
+### load_event_format_file: returns
+
+| return        | type    | always | condition                                                |
+| ------------- | ------- | ------ | -------------------------------------------------------- |
+| true or false | boolean | yes    | if the template file has been successfully loaded or not |
+
+### load_event_format_file: example
+
+```lua
+test_param.params.format_file = "/etc/centreon-broker/sc_template.json"
+
+
+local result = test_param:load_event_format_file()
+
+--> result is true 
+--> test_param.params.format_template is now created
+
+test_param.params.format_file = 3
+
+result = test_param:load_event_format_file(mandatory_params, params)
+--> result is false
+```
+
+## build_accepted_elements_info method
+
+The **build_accepted_elements_info** creates a table with information related to the accepted elements. It will use the [**accepted_elements parameter**](#default-parameters) in order to create this table.
+
+### build_accepted_elements_info: example
+
+```lua
+test_param.params.accepted_elements = "host_status,service_status,ba_status"
+
+test_param:build_accepted_elements_info()
+
+--> a test_param.params.accepted_elements_info table is now created and here is its content
+--[[
+  test_param.params.accepted_elements_info = {
+    host_status = {
+      category_id = 1,
+      category_name = "neb",
+      id = 14,
+      name = "host_status"
+    },
+    service_status = {
+      category_id = 1,
+      category_name = "neb",
+      id = 24,
+      name = "service_status"
+    },
+    ba_status = {
+      category_id = 6,
+      category_name = "bam",
+      id = 1,
+      name = "ba_status
+    }
+  }
+]]--
 ```
