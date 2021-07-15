@@ -101,7 +101,7 @@ function EventQueue.new(params)
 
   self.sc_macros = sc_macros.new(self.sc_common, self.sc_params.params, self.sc_logger)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
-  self.sc_bq = sc_bq.new(self.sc_common, self.sc_params.params, self.sc_logger)
+  self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
 
 
