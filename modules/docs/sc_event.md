@@ -124,7 +124,7 @@
 
 ## Introduction
 
-The sc_param module provides methods to help you handle parameters for your stream connectors. It also provides a list of default parameters that are available for every stream connectors (the complete list is below). It has been made in OOP (object oriented programming)
+The sc_event module provides methods to help you handle events for your stream connectors. It has been made in OOP (object oriented programming)
 
 ## Module initialization
 
@@ -132,7 +132,7 @@ Since this is OOP, it is required to initiate your module.
 
 ### module constructor
 
-Constructor must be initialized with two parameters
+Constructor must be initialized with 5 parameters
 
 - an event table
 - a params table
