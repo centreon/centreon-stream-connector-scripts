@@ -66,9 +66,10 @@ function ScMetrics:is_valid_bbdo_element()
   local elements = self.params.bbdo.elements
   local event_category = self.sc_event.event.category
   local event_element = self.sc_event.event.element
+  -- self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element]: event cat: " .. tostring(event_category) .. ". Event element: " .. tostring(event_element))
 
   -- drop event if event category is not accepted
-  if not self.sc_event:find_in_mapping(categories, self.params.accepted_categories, event_category) then
+  if not self.sc_event:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, event_category) then
     return false
   else
     -- drop event if accepted category is not supposed to be used for a metric stream connector
@@ -105,6 +106,8 @@ function ScMetrics:is_valid_metric_event()
   category = self.sc_event.event.category
   element = self.sc_event.event.element
   
+  self.sc_logger:debug("[sc_metrics:is_valid_metric_event]: starting validation for event with category: "
+    .. tostring(category) .. ". And element: " .. tostring(element))
   return self.metric_validation[category][element]()
 end
 
@@ -136,7 +139,7 @@ function ScMetrics:is_valid_host_metric_event()
   end
 
   -- return false if there is no perfdata or they it can't be parsed
-  if not self:is_valid_perfdata(self.sc_event.event.perf_data) then
+  if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
     self.sc_logger:warning("[sc_metrics:is_vaild_host_metric_event]: host_id: "
       .. tostring(self.sc_event.event.host_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
     return false
@@ -195,9 +198,9 @@ function ScMetrics:is_valid_service_metric_event()
   end
 
   -- return false if there is no perfdata or they it can't be parsed
-  if not self:is_valid_perfdata(self.sc_event.event.perf_data) then
-    self.sc_logger:warning("[sc_metrics:is_vaild_service_metric_event]: service_id: "
-      .. tostring(self.sc_event.event.service_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
+  if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
+    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service_id: "
+      .. tostring(self.sc_event.event.service_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perfdata))
     return false
   end
 

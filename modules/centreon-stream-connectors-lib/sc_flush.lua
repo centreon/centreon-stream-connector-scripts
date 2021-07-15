@@ -36,7 +36,7 @@ function sc_flush.new(params, logger)
   
   -- link queue flush info to their respective categories and elements
   for element_name, element_info in pairs(self.params.accepted_elements_info) do
-    self.queues[element_info.category_id][element_info.id] = {
+    self.queues[element_info.category_id][element_info.element_id] = {
       flush_date = os_time,
       events = {}
     }
@@ -53,9 +53,7 @@ function ScFlush:flush_all_queues(send_method)
   
   -- flush and reset queues of accepted elements
   for element_name, element_info in pairs(self.params.accepted_elements_info) do
-    if self:flush_queue(send_method, element_info.category_id, element_info.id) then
-      self:reset_queue(element_info.category_id, element_info.id)
-    end
+    self:flush_queue(send_method, element_info.category_id, element_info.element_id)
   end
   
   self.sc_logger:debug("[sc_flush:flush_all_queues]: All queues have been flushed")
@@ -83,6 +81,10 @@ function ScFlush:flush_queue(send_method, category, element)
   then
     self.sc_logger:debug("sc_queue:flush_queue: flushing all the " .. rem[category][element] .. " events")
     local retval = send_method(self.queues[category][element].events, rem[category][element])
+
+    if retval then
+      self:reset_queue(category, element)
+    end
   else
     return true
   end

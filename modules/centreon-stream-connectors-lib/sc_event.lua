@@ -35,7 +35,7 @@ end
 --- is_valid_category: check if the event is in an accepted category
 -- @retun true|false (boolean)
 function ScEvent:is_valid_category()
-  return self:find_in_mapping(self.params.bbdo.categories, self.params.accepted_categories, self.event.category)
+  return self:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
 end
 
 --- is_valid_element: check if the event is an accepted element

@@ -12,6 +12,7 @@ local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
+local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -26,7 +27,7 @@ EventQueue.__index = EventQueue
 ---- @return the new EventQueue
 ----------------------------------------------------------------------------------
 
-function EventQueue.new(conf)
+function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
@@ -60,8 +61,10 @@ function EventQueue.new(conf)
   self.sc_params.params.splunk_source = params.splunk_source
   self.sc_params.params.splunk_sourcetype = params.splunk_sourcetype or "_json"
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
-  self.sc_params.params.accetepd_categories = params.accetepd_categories or "neb"
-  self.sc_params.params.accetepd_elements = params.accetepd_elements or "host_status,service_status"
+  self.sc_params.params.accetepd_categories = params.acceptd_categories or "neb"
+  self.sc_params.params.accetepd_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.logfile = params.logfile or "/var/log/centreon-broker/splunk-events-apiv2.log"
+  self.sc_params.params.log_level = params.log_level or 1
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -83,6 +86,10 @@ function EventQueue.new(conf)
     [categories.bam.id] = {}
   }
 
+  self.send_data_method = {
+    [1] = function (data, element) return self:send_data(data, element) end
+  }
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -91,10 +98,11 @@ end
 --------------------------------------------------------------------------------
 ---- EventQueue:format_event method
 ----------------------------------------------------------------------------------
-function EventQueue:format_event()
+function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
   local template = self.sc_params.params.format_template[category][element]
+  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
 
   if self.format_template and template ~= nil and template ~= "" then
     for index, value in template do
@@ -113,6 +121,7 @@ function EventQueue:format_event()
   end
 
   self:add()
+  self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
 function EventQueue:format_event_host()
@@ -144,22 +153,29 @@ function EventQueue:add()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
 
+  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+
+  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = {
-    sourcetype = self.sc_params.param.splunk_sourcetype,
-    source = self.sc_params.param.splunk_source,
-    index = self.sc_params.param.splunk_index,
-    host = self.sc_params.param.splunk_host,
+    sourcetype = self.sc_params.params.splunk_sourcetype,
+    source = self.sc_params.params.splunk_source,
+    index = self.sc_params.params.splunk_index,
+    host = self.sc_params.params.splunk_host,
     time = self.sc_event.event.last_check,
     event = self.sc_event.event.formated_event
   }
+
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
-function EventQueue.send_data(data, element)
+function EventQueue:send_data(data, element)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(data))
+    self.sc_logger:notice("[send_data]: " .. tostring(broker.json_encode(data)))
     return true
   end
 
@@ -244,9 +260,9 @@ function init(conf)
 end
 
 -- Fonction write()
-function write(e)
+function write(event)
   -- First, flush all queues if needed (too old or size too big)
-  queue.sc_flush:flush_all_queues(queue.send_data)
+  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
 
   -- skip event if a mandatory parameter is missing
   if queue.fail then
@@ -259,22 +275,26 @@ function write(e)
 
   -- drop event if wrong category
   if not queue.sc_event:is_valid_category() then
+    queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
     return true
   end
 
   -- drop event if wrong element
   if not queue.sc_event:is_valid_element() then
+    queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+      .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
     return true
   end
 
   -- drop event if it is not validated
   if queue.sc_event:is_valid_event() then
-    queue:format_event()
+    queue:format_accepted_event()
   else
     return true
   end
 
   -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.sc_flush:flush_queue(queue.send_data, self.sc_event.event.category, self.sc_event.event.element)
+  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
   return true
 end

@@ -9,6 +9,7 @@ local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
+local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 
 --------------------------------------------------------------------------------
@@ -24,7 +25,7 @@ EventQueue.__index = EventQueue
 ---- @return the new EventQueue
 ----------------------------------------------------------------------------------
 
-function EventQueue.new(conf)
+function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
@@ -58,14 +59,18 @@ function EventQueue.new(conf)
   self.sc_params.params.splunk_source = params.splunk_source
   self.sc_params.params.splunk_sourcetype = params.splunk_sourcetype or "_json"
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
-  self.sc_params.params.accetepd_categories = params.accetepd_categories or "neb"
-  self.sc_params.params.accetepd_elements = params.accetepd_elements or "host_status,service_status"
+  self.sc_params.params.accetepd_categories = params.accepted_categories or "neb"
+  self.sc_params.params.accetepd_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.hard_only = params.hard_only or 0
+  self.sc_params.params.logfile = params.logfile or "/var/log/centreon-broker/splunk-metrics-apiv2.log"
+  self.sc_params.params.log_level = params.log_level or 1
+  self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
+  self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params:build_accepted_elements_info()
-  
   
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
@@ -80,6 +85,10 @@ function EventQueue.new(conf)
     [categories.bam.id] = {}
   }
 
+  self.send_data_method = {
+    [1] = function (data, element) return self:send_data(data, element) end
+  }
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -88,9 +97,10 @@ end
 --------------------------------------------------------------------------------
 ---- EventQueue:format_event method
 ----------------------------------------------------------------------------------
-function EventQueue:format_event()
+function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
+  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
 
   -- can't format event if stream connector is not handling this kind of event
   if not self.format_event[category][element] then
@@ -103,6 +113,7 @@ function EventQueue:format_event()
   end
 
   self:add()
+  self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
 function EventQueue:format_metrics_host()
@@ -137,22 +148,30 @@ function EventQueue:add()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
 
+  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+
+  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
+
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = {
-    sourcetype = self.sc_params.param.splunk_sourcetype,
-    source = self.sc_params.param.splunk_source,
-    index = self.sc_params.param.splunk_index,
-    host = self.sc_params.param.splunk_host,
+    sourcetype = self.sc_params.params.splunk_sourcetype,
+    source = self.sc_params.params.splunk_source,
+    index = self.sc_params.params.splunk_index,
+    host = self.sc_params.params.splunk_host,
     time = self.sc_event.event.last_check,
     fields = self.sc_event.event.formated_event
   }
+
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
-function EventQueue.send_data(data, element)
+function EventQueue:send_data(data, element)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(data))
+    self.sc_logger:notice("[send_data]: " .. tostring(broker.json_encode(data)))
     return true
   end
 
@@ -237,9 +256,9 @@ function init(conf)
 end
 
 -- Fonction write()
-function write(e)
+function write(event)
   -- First, flush all queues if needed (too old or size too big)
-  queue.sc_flush:flush_all_queues(queue.send_data)
+  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
 
   -- skip event if a mandatory parameter is missing
   if queue.fail then
@@ -249,20 +268,26 @@ function write(e)
 
   -- initiate event object
   queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
+  queue.sc_event = queue.sc_metrics.sc_event
 
   -- drop event if wrong category
   if not queue.sc_metrics:is_valid_bbdo_element() then
+    queue.sc_logger:debug("dropping event because category or element is not valid. Event category is: "
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category])
+      .. ". Event element is: " .. queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element])
     return true
   end
 
   -- drop event if its perfdatas aren't valid
   if queue.sc_metrics:is_valid_metric_event() then
-    queue:format_event()
+    queue.sc_logger:debug("valid Perfdata?: " .. tostring(queue.sc_event.event.perfdata))
+    queue:format_accepted_event()
   else
+    queue.sc_logger:debug("dropping event because metric event wasn't valid. Perfdata: " .. tostring(queue.sc_event.event.perf_data))
     return true
   end
 
   -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.sc_flush:flush_queue(queue.send_data, self.sc_event.event.category, self.sc_event.event.element)
+  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
   return true
 end

@@ -23,7 +23,6 @@ function bigquery.new(params, sc_logger)
 
   -- initiate parameters
   self.params = params
-
   -- initiate bigquery table schema mapping (1 = neb, 6 = bam)
   self.schemas = {
     [self.params.bbdo.categories.neb.id] = {},
