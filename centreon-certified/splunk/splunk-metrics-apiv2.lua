@@ -101,6 +101,7 @@ function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
+  self.sc_event.event.formated_event = {}
 
   -- can't format event if stream connector is not handling this kind of event
   if not self.format_event[category][element] then
