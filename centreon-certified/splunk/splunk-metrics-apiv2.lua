@@ -37,8 +37,8 @@ function EventQueue.new(params)
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  local log_level = params.log_level or 2
+  local logfile = params.logfile or "/var/log/centreon-broker/splunk-metrics.log"
+  local log_level = params.log_level or 1
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -62,8 +62,6 @@ function EventQueue.new(params)
   self.sc_params.params.accetepd_categories = params.accepted_categories or "neb"
   self.sc_params.params.accetepd_elements = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.hard_only = params.hard_only or 0
-  self.sc_params.params.logfile = params.logfile or "/var/log/centreon-broker/splunk-metrics-apiv2.log"
-  self.sc_params.params.log_level = params.log_level or 1
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
   

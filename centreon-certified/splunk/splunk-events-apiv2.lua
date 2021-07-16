@@ -39,8 +39,8 @@ function EventQueue.new(params)
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  local log_level = params.log_level or 2
+  local logfile = params.logfile or "/var/log/centreon-broker/splunk-events.log"
+  local log_level = params.log_level or 1
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -63,8 +63,6 @@ function EventQueue.new(params)
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
   self.sc_params.params.accetepd_categories = params.acceptd_categories or "neb"
   self.sc_params.params.accetepd_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.logfile = params.logfile or "/var/log/centreon-broker/splunk-events-apiv2.log"
-  self.sc_params.params.log_level = params.log_level or 1
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
