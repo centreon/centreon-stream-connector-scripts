@@ -61,8 +61,8 @@ function EventQueue.new(params)
   self.sc_params.params.splunk_source = params.splunk_source
   self.sc_params.params.splunk_sourcetype = params.splunk_sourcetype or "_json"
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
-  self.sc_params.params.accetepd_categories = params.acceptd_categories or "neb"
-  self.sc_params.params.accetepd_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
