@@ -101,17 +101,8 @@ end
 -- @param e An event
 --------------------------------------------------------------------------------
 
-local previous_event = ""
-
 function EventQueue:add(e)
-    -- workaround https://github.com/centreon/centreon-broker/issues/201
-    current_event = broker.json_encode(e)
-    if current_event == previous_event then
-        broker_log:info(3, "EventQueue:add: Duplicate event ignored.")
-        return false
-    end
-    previous_event = current_event
-    broker_log:info(3, "EventQueue:add: " .. current_event)
+    broker_log:info(3, "EventQueue:add: " .. broker.json_encode(e))
     -- let's get and verify we have perfdata
     local perfdata, perfdata_err = broker.parse_perfdata(e.perfdata)
     if perfdata_err then
