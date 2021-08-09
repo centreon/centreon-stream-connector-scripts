@@ -5,6 +5,7 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
+local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local kafka_config = require("centreon-stream-connectors-lib.rdkafka.config")
 local kafka_producer = require("centreon-stream-connectors-lib.rdkafka.producer")
 local kafka_topic_config = require("centreon-stream-connectors-lib.rdkafka.topic_config")
@@ -57,8 +58,10 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   
-  self.sc_kafka_config:set_delivery_cb(function (payload, err) print("Delivery Callback '"..payload.."'") end)
-  self.sc_kafka_config:set_stat_cb(function (payload) print("Stat Callback '"..payload.."'") end)
+  -- SEGFAULT ON EL8 (only usefull for debugging)
+  -- self.sc_kafka_config:set_delivery_cb(function (payload, err) print("Delivery Callback '"..payload.."'") end)
+  -- self.sc_kafka_config:set_stat_cb(function (payload) print("Stat Callback '"..payload.."'") end)
+  
   -- initiate a kafka producer
   self.sc_kafka_producer = kafka_producer.new(self.sc_kafka_config)
 
@@ -72,6 +75,21 @@ function EventQueue.new(params)
   self.sc_kafka_topic_config["auto.commit.enable"] = "true"
   self.sc_kafka_topic = kafka_topic.new(self.sc_kafka_producer, self.sc_params.params.topic, self.sc_kafka_topic_config)
 
+  self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
+  self.format_template = self.sc_params:load_event_format_file()
+  self.sc_params:build_accepted_elements_info()
+
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
+  self.format_event = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = function () return self:format_host_status() end,
+      [elements.service_status.id] = function () return self:format_service_status() end
+    },
+    [categories.bam.id] = function () return self:format_ba_status() end
+  }
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -84,15 +102,25 @@ end
 function EventQueue:format_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
+  local template = self.sc_params.params.format_template[category][element]
 
-  if category == 1 and element == 14 then
-    self.sc_event.event.formated_event = self:format_host_status()
-  elseif category == 1 and element == 24 then
-    self.sc_event.event.formated_event = self:format_service_status()
-  elseif category == 1 and element == 5 then
-    self.sc_event.event.formated_event = self:format_downtime()
-  elseif category == 6 and element == 1 then
-    self.sc_event.event.formated_event = self:format_ba_status()
+  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
+  self.sc_event.event.formated_event = {}
+
+  if self.format_template and template ~= nil and template ~= "" then
+    for index, value in pairs(template) do
+      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+    end
+  else
+    -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
+    if not self.format_event[category][element] then
+      self.sc_logger:error("[format_event]: You are trying to format an event with category: "
+        .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+        .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+        .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
+    else
+      self.format_event[category][element]()
+    end
   end
 
   self:add()
@@ -101,7 +129,7 @@ function EventQueue:format_event()
 end
 
 function EventQueue:format_host_status()
-  local data = {
+  self.sc_event.event.formated_event = {
     ["alerte.alerte_emetteur"] = tostring(self.sc_params.params.centreon_name) 
       .. ";" .. self.sc_event.event.cache.host.name .. ";-",
     ["alerte.alerte_libelle"] = self.sc_event.event.cache.host.name,
@@ -113,12 +141,11 @@ function EventQueue:format_host_status()
     ["alerte.custom_data.ticket_description"] = "",
     ["alerte.custom_data.ticket_note"] = ""
   }
-
-  return data
+  
 end
 
 function EventQueue:format_service_status()
-  local data = {
+  self.sc_event.event.formated_event = {
     ["alerte.alerte_emetteur"] = tostring(self.sc_params.params.centreon_name) 
       .. ";" .. self.sc_event.event.cache.host.name .. ";" .. self.sc_event.event.cache.service.description,
     ["alerte.alerte_libelle"] = self.sc_event.event.cache.host.name .. "_" .. self.sc_event.event.cache.service.description,
@@ -131,11 +158,10 @@ function EventQueue:format_service_status()
     ["alerte.custom_data.ticket_note"] = ""
   }
 
-  return data
 end
 
 function EventQueue:format_ba_status()
-  local data = {
+  self.sc_event.event.formated_event = {
     ["alerte.alerte_emetteur"] =  tostring(self.sc_params.params.centreon_name) .. ";Business Activity" .. self.sc_event.event.cache.ba.ba_name,
     ["alerte.alerte_libelle"] = "Business_Activity_" .. self.sc_event.event.cache.ba.ba_name,
     ["alerte.alerte_statut"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
@@ -146,7 +172,6 @@ function EventQueue:format_ba_status()
     ["alerte.custom_data.ticket_note"] = ""
   }
 
-  return data
 end
 
 --------------------------------------------------------------------------------
