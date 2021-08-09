@@ -13,11 +13,11 @@ local ScMacros = {}
 --- sc_macros.new: sc_macros constructor
 -- @param params (table) the stream connector parameter table
 -- @param sc_logger (object) object instance from sc_logger module
-function sc_macros.new(params, sc_logger)
+function sc_macros.new(params, logger)
   local self = {}
 
   -- initiate mandatory libs
-  self.sc_logger = sc_logger
+  self.sc_logger = logger
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
   end

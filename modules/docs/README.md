@@ -8,6 +8,8 @@
   - [sc_param methods](#sc_param-methods)
   - [sc_event methods](#sc_event-methods)
   - [sc_macros methods](#sc_macros-methods)
+  - [sc_flush methods](#sc_flush-methods)
+  - [sc_metrics methods](#sc_metrics-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
 
@@ -21,6 +23,8 @@
 | sc_param                 | handles parameters for stream connectors         | when you want to initiate a stream connector with all standard parameters | [Documentation](sc_param.md)                 |
 | sc_event                 | methods to help you interact with a broker event | when you want to check event data                                         | [Documentation](sc_event.md)                 |
 | sc_macros                | methods to help you convert macros               | when you want to use macros in your stream connector                      | [Documentation](sc_macros.md)                |
+| sc_flush                 | methods to help you handle queues of event       | when you want to flush queues of various kind of events                   | [Documentation](sc_flush.md)                 |
+| sc_metrics               | methods to help you handle metrics               | when you want to send metrics and not just events                         | [Documentation](sc_metrics.md)               |
 | google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
 | google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
 
@@ -35,6 +39,7 @@
 | split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](sc_common.md#split-method)                              |
 | compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](sc_common.md#compare_numbers-method)                    |
 | generate_postfield_param_string    | convert a table of parameters into an url encoded parameters string                         | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
+| load_json_file                     | method loads a json file and parse it                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
 
 ## sc_logger methods
 
@@ -68,7 +73,8 @@
 | param_override          | replace default values of params with the ones provided by users in the web configuration of the stream connector                             | [Documentation](sc_param.md#param_override-method)          |
 | check_params            | make sure that the default stream connectors params provided by the user from the web configuration are valid. If not, uses the default value | [Documentation](sc_param.md#check_params-method)            |
 | is_mandatory_config_set | check that all mandatory parameters for a stream connector are set                                                                            | [Documentation](sc_param.md#is_mandatory_config_set-method) |
-| get_kafka_params        | retrive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                   | [Documentation](sc_param.md#get_kafka_params-method)        |
+| get_kafka_params        | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                  | [Documentation](sc_param.md#get_kafka_params-method)        |
+| load_event_format_file  | load a file that serves as a template for formatting events                                                                                   | [Documentation](sc_param.md#load_event_format_file-method)  |
 
 ## sc_event methods
 
@@ -126,6 +132,25 @@
 | transform_short        | keep the first line of a string                                                | [Documentation](sc_macros.md#transform_short-method)        |
 | transform_type         | convert 0 or 1 into SOFT or HARD                                               | [Documentation](sc_macros.md#transform_type-method)         |
 | transform_state        | convert a status code into its matching human readable status (OK, WARNING...) | [Documentation](sc_macros.md#transform_state-method)        |
+
+## sc_flush methods
+
+| Method name      | Method description                                | Link                                                 |
+| ---------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| flush_all_queues | flush all the possible queues that can be created | [Documentation](sc_flush.md#flush_all_queues-method) |
+| flush_queue      | flush a specific queue                            | [Documentation](sc_flush.md#flush_queue-method)      |
+| reset_queue      | reset a queue after it has been flushed           | [Documentation](sc_flush.md#reset_queue-method)      |
+
+## sc_metrics methods
+
+| Method name                   | Method description                                                                                        | Link                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| is_valid_bbdo_element         | checks if the event is in an accepted category and is an appropriate element                              | [Documentation](sc_metrics.md#is_valid_bbdo_element-method)         |
+| is_valid_metric_event         | makes sure that the metric event is valid if it is a **host, service, service_status or kpi_event** event | [Documentation](sc_metrics.md#is_valid_metric_event-method)         |
+| is_valid_host_metric_event    | makes sure that the metric event is valid host metric event                                               | [Documentation](sc_metrics.md#is_valid_host_metric_event-method)    |
+| is_valid_service_metric_event | makes sure that the metric event is valid service metric event                                            | [Documentation](sc_metrics.md#is_valid_service_metric_event-method) |
+| is_valid_kpi_metric_event     | makes sure that the metric event is valid KPI metric event                                                | [Documentation](sc_metrics.md#is_valid_kpi_metric_event-method)     |
+| is_valid_perfdata             | makes sure that the performance data is valid                                                             | [Documentation](sc_metrics.md#is_valid_perfdata-method)             |
 
 ## google.bigquery.bigquery methods
 

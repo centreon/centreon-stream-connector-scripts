@@ -30,7 +30,7 @@ function EventQueue.new(params)
 
   self.events[1] = {
     [1] = {},
-    [6] = {},
+    [5] = {},
     [14] = {},
     [24] = {}
   }
@@ -46,7 +46,7 @@ function EventQueue.new(params)
 
   self.flush[1] = {
     [1] = function () return self:flush_ack() end,
-    [6] = function () return self:flush_dt() end,
+    [5] = function () return self:flush_dt() end,
     [14] = function () return self:flush_host() end,
     [24] = function () return self:flush_service() end
   }
@@ -101,7 +101,7 @@ function EventQueue.new(params)
 
   self.sc_macros = sc_macros.new(self.sc_common, self.sc_params.params, self.sc_logger)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
-  self.sc_bq = sc_bq.new(self.sc_common, self.sc_params.params, self.sc_logger)
+  self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
 
 
@@ -210,7 +210,7 @@ function EventQueue:flush_dt ()
   retval = self:send_data(self.sc_params.params.downtime_table)
 
   -- reset stored events list
-  self.events[1][6] = {}
+  self.events[1][5] = {}
   
   -- and update the timestamp
   self.sc_params.params.__internal_ts_dt_last_flush = os.time()
@@ -248,7 +248,7 @@ function EventQueue:flush_old_queues()
   end
 
   -- flush old downtime events
-  if #self.events[1][6] > 0 and os.time() - self.sc_params.params.__internal_ts_dt_last_flush > self.sc_params.params.max_buffer_age then
+  if #self.events[1][5] > 0 and os.time() - self.sc_params.params.__internal_ts_dt_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_dt()
     self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_dt_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
   end

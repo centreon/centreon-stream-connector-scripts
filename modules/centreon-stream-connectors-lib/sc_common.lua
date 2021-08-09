@@ -170,4 +170,35 @@ function ScCommon:generate_postfield_param_string(params)
   return param_string
 end
 
+--- load_json_file: load a json file
+-- @param json_file (string) path to the json file
+-- @return true|false (boolean) if json file is valid or not
+-- @return content (table) the parsed json
+function ScCommon:load_json_file(json_file)
+  local file = io.open(json_file, "r")
+
+  -- return false if we can't open the file
+  if not file then
+    self.sc_logger:error("[sc_common:load_json_file]: couldn't open file "
+      .. tostring(json_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+    return false
+  end
+
+  -- get content of the file
+  local file_content = file:read("*a")
+  io.close(file)
+
+  -- parse it
+  local content = broker.json_decode(file_content)
+
+  -- return false if json couldn't be parsed
+  if (type(content) ~= "table") then
+    self.sc_logger:error("[sc_common:load_json_file]: file "
+      .. tostring(json_file) .. ". Is not a valid json file.")
+    return false
+  end
+
+  return true, content
+end
+
 return sc_common
