@@ -68,13 +68,14 @@
 
 ## sc_param methods
 
-| Method name             | Method description                                                                                                                            | Link                                                        |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| param_override          | replace default values of params with the ones provided by users in the web configuration of the stream connector                             | [Documentation](sc_param.md#param_override-method)          |
-| check_params            | make sure that the default stream connectors params provided by the user from the web configuration are valid. If not, uses the default value | [Documentation](sc_param.md#check_params-method)            |
-| is_mandatory_config_set | check that all mandatory parameters for a stream connector are set                                                                            | [Documentation](sc_param.md#is_mandatory_config_set-method) |
-| get_kafka_params        | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                  | [Documentation](sc_param.md#get_kafka_params-method)        |
-| load_event_format_file  | load a file that serves as a template for formatting events                                                                                   | [Documentation](sc_param.md#load_event_format_file-method)  |
+| Method name                  | Method description                                                                                                                            | Link                                                             |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| param_override               | replace default values of params with the ones provided by users in the web configuration of the stream connector                             | [Documentation](sc_param.md#param_override-method)               |
+| check_params                 | make sure that the default stream connectors params provided by the user from the web configuration are valid. If not, uses the default value | [Documentation](sc_param.md#check_params-method)                 |
+| is_mandatory_config_set      | check that all mandatory parameters for a stream connector are set                                                                            | [Documentation](sc_param.md#is_mandatory_config_set-method)      |
+| get_kafka_params             | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                  | [Documentation](sc_param.md#get_kafka_params-method)             |
+| load_event_format_file       | load a file that serves as a template for formatting events                                                                                   | [Documentation](sc_param.md#load_event_format_file-method)       |
+| build_accepted_elements_info | build a table that store information about accepted elements                                                                                  | [Documentation](sc_param.md#build_accepted_elements_info-method) |
 
 ## sc_event methods
 
