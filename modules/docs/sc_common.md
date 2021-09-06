@@ -17,6 +17,10 @@
     - [boolean_to_number: parameters](#boolean_to_number-parameters)
     - [boolean_to_number: returns](#boolean_to_number-returns)
     - [boolean_to_number: example](#boolean_to_number-example)
+  - [number_to_boolean method](#number_to_boolean-method)
+    - [number_to_boolean: parameters](#number_to_boolean-parameters)
+    - [number_to_boolean: returns](#number_to_boolean-returns)
+    - [number_to_boolean: example](#number_to_boolean-example)
   - [check_boolean_number_option_syntax method](#check_boolean_number_option_syntax-method)
     - [check_boolean_number_option_syntax: parameters](#check_boolean_number_option_syntax-parameters)
     - [check_boolean_number_option_syntax: returns](#check_boolean_number_option_syntax-returns)
@@ -161,6 +165,32 @@ local my_boolean = true
 
 local result = test_common:boolean_to_number(my_boolean)
 --> result is 1
+```
+
+## number_to_boolean method
+
+The **number_to_boolean** method converts a number to its boolean equivalent.
+
+### number_to_boolean: parameters
+
+| parameter         | type   | optional | default value |
+| ----------------- | ------ | -------- | ------------- |
+| a number (0 or 1) | number | no       |               |
+
+### number_to_boolean: returns
+
+| return                    | type    | always | condition                  |
+| ------------------------- | ------- | ------ | -------------------------- |
+| a boolean (true or false) | boolean | no     | if parameter is 0 or 1     |
+| nil                       | nil     | no     | if parameter is not 0 or 1 |
+
+### number_to_boolean: example
+
+```lua
+local my_number = 1
+
+local result = test_common:number_to_boolean(my_number)
+--> result is true
 ```
 
 ## check_boolean_number_option_syntax method

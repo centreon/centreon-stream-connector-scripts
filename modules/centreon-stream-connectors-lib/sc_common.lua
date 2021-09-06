@@ -64,6 +64,22 @@ function ScCommon:boolean_to_number(boolean)
   return boolean and 1 or 0
 end
 
+--- number_to_boolean: convert a 0, 1 number to its boolean counterpart
+-- @param number (number) the number to convert
+-- @return (boolean) true if param is 1, false if param is 0
+function ScCommon:number_to_boolean(number)
+  if number ~= 0 and number ~= 1 then
+    self.sc_logger:error("[sc_common:number_to_boolean]: number is not 1 or 0. Returning nil. Parameter value is: " .. tostring(number))
+    return nil
+  end
+
+  if number == 1 then
+    return true
+  end
+
+  return false
+end
+
 
 --- check_boolean_number_option_syntax: make sure the number is either 1 or 0
 -- @param number (number)  the boolean number that must be validated
