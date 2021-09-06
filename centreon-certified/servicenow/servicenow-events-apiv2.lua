@@ -59,10 +59,6 @@ function EventQueue:new (params)
   self.sc_params.params.client_secret = params.client_secret
   self.sc_params.params.username = params.username
   self.sc_params.params.password = params.password
-  self.sc_params.params.proxy_address =  params.proxy_address or ''
-  self.sc_params.params.proxy_port = params.proxy_port or ''
-  self.sc_params.params.proxy_username = params.proxy_username or ''
-  self.sc_params.params.proxy_password = params.proxy_password or ''
 
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
@@ -200,6 +196,7 @@ function EventQueue:call (url, method, data, authToken)
     :setopt_writefunction(function (response)
       res = res .. tostring(response)
     end)
+    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
 
   self.sc_logger:debug("EventQueue:call: Request initialize")
 
