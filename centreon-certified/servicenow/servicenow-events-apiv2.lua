@@ -60,6 +60,9 @@ function EventQueue:new (params)
   self.sc_params.params.username = params.username
   self.sc_params.params.password = params.password
 
+  self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
@@ -271,18 +274,18 @@ function EventQueue:format_event()
         source = "centreon",
         event_class = "centreon",
         severity = 5,
-        node = self.sc_event.event.cache.host.name,
+        node = tostring(self.sc_event.event.cache.host.name),
         time_of_event = os.date("!%Y-%m-%d %H:%M:%S", self.sc_event.event.last_check),
         description = self.sc_event.event.output
     }
 
   if self.sc_event.event.element == 14 then
 
-    self.sc_event.event.formated_event.resource = self.sc_event.event.cache.host.name
+    self.sc_event.event.formated_event.resource = tostring(self.sc_event.event.cache.host.name)
     self.sc_event.event.formated_event.severity = self.sc_event.event.state
 
   elseif self.sc_event.event.element == 24 then
-    self.sc_event.event.formated_event.resource = self.sc_event.event.cache.service.description
+    self.sc_event.event.formated_event.resource = tostring(self.sc_event.event.cache.service.description)
     if self.sc_event.event.state == 0 then
         self.sc_event.event.formated_event.severity = 0
     elseif self.sc_event.event.state == 1 then
