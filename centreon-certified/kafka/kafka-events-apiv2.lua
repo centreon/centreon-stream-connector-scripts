@@ -130,46 +130,25 @@ end
 
 function EventQueue:format_host_status()
   self.sc_event.event.formated_event = {
-    ["alerte.alerte_emetteur"] = tostring(self.sc_params.params.centreon_name) 
-      .. ";" .. self.sc_event.event.cache.host.name .. ";-",
-    ["alerte.alerte_libelle"] = self.sc_event.event.cache.host.name,
-    ["alerte.alerte_statut"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.alerte_message"] = self.sc_common:ifnil_or_empty(string.match(string.gsub(self.sc_event.event.output, '\\', "_"), "^(.*)\n"), "no output"),
-    ["alerte.alerte_id"] = tostring(self.sc_params.params.centreon_name) 
-      .. ";" .. self.sc_event.event.cache.host.name .. ";",
-    ["alerte.alerte_criticite"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.custom_data.ticket_description"] = "",
-    ["alerte.custom_data.ticket_note"] = ""
+    host = tostring(self.sc_event.event.cache.host.name),
+    state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
+    output = self.sc_common:ifnil_or_empty(string.match(string.gsub(self.sc_event.event.output, '\\', "_"), "^(.*)\n"), "no output"),
   }
-  
 end
 
 function EventQueue:format_service_status()
   self.sc_event.event.formated_event = {
-    ["alerte.alerte_emetteur"] = tostring(self.sc_params.params.centreon_name) 
-      .. ";" .. self.sc_event.event.cache.host.name .. ";" .. self.sc_event.event.cache.service.description,
-    ["alerte.alerte_libelle"] = self.sc_event.event.cache.host.name .. "_" .. self.sc_event.event.cache.service.description,
-    ["alerte.alerte_statut"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.alerte_message"] = self.sc_common:ifnil_or_empty(string.match(string.gsub(self.sc_event.event.output, '\\', "_"), "^(.*)\n"), "no output"),
-    ["alerte.alerte_id"] =  tostring(self.sc_params.params.centreon_name) 
-      .. ";" .. self.sc_event.event.cache.host.name .. ";" .. self.sc_event.event.cache.service.description,
-    ["alerte.alerte_criticite"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.custom_data.ticket_description"] = "",
-    ["alerte.custom_data.ticket_note"] = ""
+    host = tostring(self.sc_event.event.cache.host.name),
+    service = tostring(self.sc_event.event.cache.service.description),
+    state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
+    output = self.sc_common:ifnil_or_empty(string.match(string.gsub(self.sc_event.event.output, '\\', "_"), "^(.*)\n"), "no output")
   }
-
 end
 
 function EventQueue:format_ba_status()
   self.sc_event.event.formated_event = {
-    ["alerte.alerte_emetteur"] =  tostring(self.sc_params.params.centreon_name) .. ";Business Activity" .. self.sc_event.event.cache.ba.ba_name,
-    ["alerte.alerte_libelle"] = "Business_Activity_" .. self.sc_event.event.cache.ba.ba_name,
-    ["alerte.alerte_statut"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.alerte_message"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.alerte_id"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.alerte_criticite"] = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    ["alerte.custom_data.ticket_description"] = "",
-    ["alerte.custom_data.ticket_note"] = ""
+    ba = tostring(self.sc_event.event.cache.ba.ba_name),
+    state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state]
   }
 
 end
