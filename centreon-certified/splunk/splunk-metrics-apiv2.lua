@@ -30,8 +30,7 @@ function EventQueue.new(params)
 
   local mandatory_parameters = {
     "http_server_url",
-    "splunk_token",
-    "splunk_index"
+    "splunk_token"
   }
 
   self.fail = false
@@ -52,15 +51,12 @@ function EventQueue.new(params)
   end
   
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.proxy_address = params.proxy_address
-  self.sc_params.params.proxy_port = params.proxy_port
-  self.sc_params.params.proxy_username = params.proxy_username
-  self.sc_params.params.proxy_password = params.proxy_password
-  self.sc_params.params.splunk_source = params.splunk_source
+  self.sc_params.params.splunk_index = params.splunk_index or ""
+  self.sc_params.params.splunk_source = params.splunk_source or ""
   self.sc_params.params.splunk_sourcetype = params.splunk_sourcetype or "_json"
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
-  self.sc_params.params.accetepd_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accetepd_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
@@ -192,7 +188,8 @@ function EventQueue:send_data(data, element)
         http_response_body = http_response_body .. tostring(response)
       end
     )
-    :setopt(curl.OPT_TIMEOUT, self.http_timeout)
+    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
     :setopt(
       curl.OPT_HTTPHEADER,
       {
