@@ -105,6 +105,11 @@ function EventQueue:format_accepted_event()
       .. ". If it is a not a misconfiguration, you can open an issue at https://github.com/centreon/centreon-stream-connector-scripts/issues")
   else
     self.format_event[category][element]()
+    
+    -- add metrics in the formated event
+    for metric_name, metric_data in pairs(self.sc_metrics.metrics) do
+      self.sc_event.event.formated_event["metric_name:" .. tostring(metric_name)] = metric_data.value
+    end
   end
 
   self:add()
@@ -130,10 +135,6 @@ function EventQueue:format_metrics_service()
     service_description = self.sc_event.event.cache.service.description,
     ctime = self.sc_event.event.last_check
   }
-
-  for metric_name, metric_data in pairs(self.sc_metrics.metrics) do
-    self.sc_event.event.formated_event["metric_name:" .. metric_name] = metric_data.value
-  end
 end
 
 --------------------------------------------------------------------------------
