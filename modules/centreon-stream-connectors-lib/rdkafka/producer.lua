@@ -3,7 +3,13 @@
 local librdkafka = require("centreon-stream-connectors-lib.rdkafka.librdkafka")
 local KafkaConfig = require("centreon-stream-connectors-lib.rdkafka.config")
 local KafkaTopic = require("centreon-stream-connectors-lib.rdkafka.topic")
-local ffi = require 'ffi' or 'cffi'
+-- ffi for el7
+local status, ffi = pcall(require, 'ffi')
+
+-- use cffi instead of ffi for el8
+if (not status) then
+    ffi = require 'cffi'
+end
 
 local DEFAULT_DESTROY_TIMEOUT_MS = 3000
 
