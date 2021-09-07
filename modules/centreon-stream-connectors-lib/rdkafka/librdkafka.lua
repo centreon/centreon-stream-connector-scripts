@@ -1,6 +1,12 @@
 #!/usr/bin/lua
 
-local ffi = require 'ffi' or 'cffi'
+-- ffi for el7
+local status, ffi = pcall(require, 'ffi')
+
+-- use cffi instead of ffi for el8
+if (not status) then
+    ffi = require 'cffi'
+end
 
 ffi.cdef[[
     typedef struct rd_kafka_s rd_kafka_t;

@@ -1,7 +1,14 @@
 #!/usr/bin/lua
 
 local librdkafka = require("centreon-stream-connectors-lib.rdkafka.librdkafka")
-local ffi = require 'ffi' or 'cffi'
+
+-- ffi for el7
+local status, ffi = pcall(require, 'ffi')
+
+-- use cffi instead of ffi for el8
+if (not status) then
+    ffi = require 'cffi'
+end
 
 local KafkaConfig = {}
 KafkaConfig.__index = KafkaConfig
