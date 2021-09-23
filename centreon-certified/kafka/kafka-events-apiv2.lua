@@ -99,7 +99,7 @@ end
 -- EventQueue:format_event, build your own table with the desired information
 -- @return true (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:format_event()
+function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
   local template = self.sc_params.params.format_template[category][element]
@@ -260,7 +260,7 @@ function write(event)
 
   -- drop event if it is not validated
   if queue.sc_event:is_valid_event() then
-    queue:format_event()
+    queue:format_accepted_event()
   else
     return true
   end
