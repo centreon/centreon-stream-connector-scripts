@@ -214,14 +214,14 @@ end
 -- @param event (table) the event table (obivously, cache must be in the event table if we want to find something in it)
 -- @return false (boolean) if the macro is not a cache macro ({host_id} instead of {cache.xxxx.yyy} for example) or we can't find the cache type or the macro in the cache
 -- @return macro_value (string|boolean|number) the value of the macro
-function ScMacros:get_cache_macro(macro, event)
+function ScMacros:get_cache_macro(raw_macro, event)
 
   -- try to cut the macro in three parts
-  local cache, cache_type, macro = string.match(macro, "^{(cache)%.(%w+)%.(.*)}")
+  local cache, cache_type, macro = string.match(raw_macro, "^{(cache)%.(%w+)%.(.*)}")
 
   -- if cache is not set, it means that the macro wasn't a cache macro
   if not cache then
-    self.sc_logger:info("[sc_macros:get_cache_macro]: macro: " .. tostring(macro) .. " is not a cache macro")
+    self.sc_logger:info("[sc_macros:get_cache_macro]: macro: " .. tostring(raw_macro) .. " is not a cache macro")
     return false
   end
 

@@ -118,4 +118,4 @@ Let say we would like to handle **ba_status** events. To do so, we need to add t
 }
 ```
 
-As state in the previous example, the service_status event type is not in the json file. Therefore, it will use the default format provided by the Splunk stream connector.
+As stated in the previous example, the service_status event type is not in the json file. Therefore, it will use the default format provided by the Splunk stream connector.

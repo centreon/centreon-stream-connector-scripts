@@ -22,41 +22,9 @@ function EventQueue.new(params)
     [4] = "scope_list"
   }
 
-  -- initiate EventQueue variables
-  self.events = {
-    [1] = {},
-    [6] = {}
-  }
-
-  self.events[1] = {
-    [1] = {},
-    [5] = {},
-    [14] = {},
-    [24] = {}
-  }
-
-  self.events[6] = {
-    [1] = {}
-  }
-
-  self.flush = {
-    [1] = {},
-    [6] = {}
-  }
-
-  self.flush[1] = {
-    [1] = function () return self:flush_ack() end,
-    [5] = function () return self:flush_dt() end,
-    [14] = function () return self:flush_host() end,
-    [24] = function () return self:flush_service() end
-  }
-
-  self.flush[6] = {
-    [1] = function () return self:flush_ba() end
-  }
-
+  
   self.fail = false
-
+  
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
   local log_level = params.log_level or 2
@@ -66,8 +34,8 @@ function EventQueue.new(params)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-
-    -- checking mandatory parameters and setting a fail flag
+  
+  -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
@@ -79,7 +47,7 @@ function EventQueue.new(params)
   self.sc_params.params.proxy_port = params.proxy_port
   self.sc_params.params.proxy_username = params.proxy_username
   self.sc_params.params.proxy_password = params.proxy_password
-
+  
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -89,22 +57,58 @@ function EventQueue.new(params)
   self.sc_params.params.__internal_ts_ack_last_flush = os.time()
   self.sc_params.params.__internal_ts_dt_last_flush = os.time()
   self.sc_params.params.__internal_ts_ba_last_flush = os.time()
-
+  
   self.sc_params.params.host_table = params.host_table or "hosts"
   self.sc_params.params.service_table = params.service_table or "services"
   self.sc_params.params.ack_table = params.ack_table or "acknowledgements"
   self.sc_params.params.downtime_table = params.downtime_table or "downtimes"
   self.sc_params.params.ba_table = params.ba_table or "bas"
   self.sc_params.params._sc_gbq_use_default_schemas = 1
-
+  
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+  
+  -- initiate EventQueue variables
+  self.events = {
+    [categories.neb.id] = {},
+    [categories.bam.id] = {}
+  }
+  
+  self.events[categories.neb.id] = {
+    [elements.acknowledgement.id] = {},
+    [elements.downtime.id] = {},
+    [elements.host_status.id] = {},
+    [elements.service_status.id] = {}
+  }
+  
+  self.events[categories.bam.id] = {
+    [elements.ba_status.id] = {}
+  }
+  
+  self.flush = {
+    [categories.neb.id] = {},
+    [categories.bam.id] = {}
+  }
+  
+  self.flush[categories.neb.id] = {
+    [elements.acknowledgement.id] = function () return self:flush_ack() end,
+    [elements.downtime.id] = function () return self:flush_dt() end,
+    [elements.host_status.id] = function () return self:flush_host() end,
+    [elements.service_status.id] = function () return self:flush_service() end
+  }
+  
+  self.flush[categories.bam.id] = {
+    [elements.ba_status.id] = function () return self:flush_ba() end
+  }
+  
   self.sc_params.params.google_bq_api_url = params.google_bq_api_url or "https://content-bigquery.googleapis.com/bigquery/v2"
-
-  self.sc_macros = sc_macros.new(self.sc_common, self.sc_params.params, self.sc_logger)
+  
+  self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
-
-
+  
+  
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -115,16 +119,16 @@ end
 -- @return true (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
-
+  
   self.sc_event.event.formated_event = {}
   self.sc_event.event.formated_event.json = {}
-
+  
   for column, value in pairs(self.sc_bq.schemas[self.sc_event.event.category][self.sc_event.event.element]) do
     self.sc_event.event.formated_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
   end
-
+  
   self:add()
-
+  
   return true
 end
 
@@ -144,13 +148,16 @@ end
 -- @return (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:flush_host ()
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
   self.sc_logger:debug("EventQueue:flush: Concatenating all the host events as one string")
 
   -- send stored events
   retval = self:send_data(self.sc_params.params.host_table)
 
   -- reset stored events list
-  self.events[1][14] = {}
+  self.events[categories.neb.id][elements.host_status.id] = {}
   
   -- and update the timestamp
   self.sc_params.params.__internal_ts_host_last_flush = os.time()
@@ -164,13 +171,16 @@ end
 -- @return (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:flush_service ()
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
   self.sc_logger:debug("EventQueue:flush: Concatenating all the service events as one string")
 
   -- send stored events
   retval = self:send_data(self.sc_params.params.service_table)
 
   -- reset stored events list
-  self.events[1][24] = {}
+  self.events[categories.neb.id][elements.service_status.id] = {}
   
   -- and update the timestamp
   self.sc_params.params.__internal_ts_service_last_flush = os.time()
@@ -184,13 +194,16 @@ end
 -- @return (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:flush_ack ()
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
   self.sc_logger:debug("EventQueue:flush: Concatenating all the ack events as one string")
 
   -- send stored events
   retval = self:send_data(self.sc_params.params.ack_table)
 
   -- reset stored events list
-  self.events[1][1] = {}
+  self.events[categories.neb.id][elements.acknowledgement.id] = {}
   
   -- and update the timestamp
   self.sc_params.params.__internal_ts_ack_last_flush = os.time()
@@ -204,13 +217,16 @@ end
 -- @return (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:flush_dt ()
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
   self.sc_logger:debug("EventQueue:flush: Concatenating all the downtime events as one string")
 
   -- send stored events
   retval = self:send_data(self.sc_params.params.downtime_table)
 
   -- reset stored events list
-  self.events[1][5] = {}
+  self.events[categories.neb.id][elements.downtime.id] = {}
   
   -- and update the timestamp
   self.sc_params.params.__internal_ts_dt_last_flush = os.time()
@@ -224,13 +240,16 @@ end
 -- @return (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:flush_ba ()
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
   self.sc_logger:debug("EventQueue:flush: Concatenating all the BA events as one string")
 
   -- send stored events
   retval = self:send_data(self.sc_params.params.ba_table)
 
   -- reset stored events list
-  self.events[6][1] = {}
+  self.events[categories.bam.id][elements.ba_status.id] = {}
   
   -- and update the timestamp
   self.sc_params.params.__internal_ts_ba_last_flush = os.time()
@@ -239,34 +258,36 @@ function EventQueue:flush_ba ()
 end
 
 function EventQueue:flush_old_queues()
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
   local current_time = os.time()
   
   -- flush old ack events
-  if #self.events[1][1] > 0 and os.time() - self.sc_params.params.__internal_ts_ack_last_flush > self.sc_params.params.max_buffer_age then
+  if #self.events[categories.neb.id][elements.acknowledgement.id] > 0 and os.time() - self.sc_params.params.__internal_ts_ack_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_ack()
     self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_ack_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
   end
 
   -- flush old downtime events
-  if #self.events[1][5] > 0 and os.time() - self.sc_params.params.__internal_ts_dt_last_flush > self.sc_params.params.max_buffer_age then
+  if #self.events[categories.neb.id][elements.downtime.id] > 0 and os.time() - self.sc_params.params.__internal_ts_dt_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_dt()
     self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_dt_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
   end
 
   -- flush old host events
-  if #self.events[1][14] > 0 and os.time() - self.sc_params.params.__internal_ts_host_last_flush > self.sc_params.params.max_buffer_age then
+  if #self.events[categories.neb.id][elements.host_status.id] > 0 and os.time() - self.sc_params.params.__internal_ts_host_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_host()
     self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_host_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
   end
 
   -- flush old service events
-  if #self.events[1][24] > 0 and os.time() - self.sc_params.params.__internal_ts_service_last_flush > self.sc_params.params.max_buffer_age then
+  if #self.events[categories.neb.id][elements.service_status.id] > 0 and os.time() - self.sc_params.params.__internal_ts_service_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_service()
     self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_service_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
   end
 
   -- flush old BA events
-  if #self.events[6][1] > 0 and os.time() - self.sc_params.params.__internal_ts_ba_last_flush > self.sc_params.params.max_buffer_age then
+  if #self.events[categories.bam.id][elements.ba_status.id] > 0 and os.time() - self.sc_params.params.__internal_ts_ba_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_ba()
     self.sc_logger:debug("write: Queue max age (" .. os.time() - self.sc_params.params.__internal_ts_ba_last_flush .. "/" .. self.sc_params.params.max_buffer_age .. ") is reached, flushing data")
   end

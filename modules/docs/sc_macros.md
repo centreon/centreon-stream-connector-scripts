@@ -76,7 +76,7 @@ This means that it is possible to use the following macros
 
 This one is a bit more complicated. The purpose is to retrieve information from the event cache using a macro. If you rely on the centreon-stream-connectors-lib to fill the cache, here is what you need to know.
 
-There are X kind of cache
+There are 8 kind of cache
 
 - host cache (for any event that is linked to a host, which means any event but BA events)
 - service cache (for any event that is linked to a service)
