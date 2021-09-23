@@ -238,7 +238,9 @@ function ScEvent:is_valid_host()
       .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   elseif (not self.event.cache.host and self.params.skip_anon_events == 0) then
-    self.event.cache.host.name = self.event.host_id
+    self.event.cache.host = {
+      name = self.event.host_id
+    }
   end
 
   -- force host name to be its id if no name has been found
@@ -273,7 +275,9 @@ function ScEvent:is_valid_service()
       .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
   elseif (not self.event.cache.service and self.params.skip_anon_events == 0) then
-    self.event.cache.service.description = self.event.service_id
+    self.event.cache.service = {
+      description = self.event.service_id
+    }
   end
 
   -- force service description to its id if no description has been found
@@ -442,10 +446,10 @@ function ScEvent:is_valid_servicegroup()
     self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
       .. " is not in an accepted servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
     return false
-  else
-    self.sc_logger:debug("[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
-      .. "matched servicegroup: " .. accepted_servicegroup_name)
   end
+    
+  self.sc_logger:debug("[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
+      .. "matched servicegroup: " .. accepted_servicegroup_name)
 
   return true
 end
@@ -518,12 +522,9 @@ function ScEvent:is_valid_ba()
       .. ". Found BA name is: " .. tostring(self.event.cache.ba.ba_name) .. ". And skip anon event param is set to: " .. tostring(self.params.skip_anon_events))
     return false
   elseif (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 0) then 
-    self.event.cache.ba.ba_name = self.event.ba_id
-  end
-
-  -- force ba name to be its id if no name has been found
-  if not self.event.cache.ba.ba_name then
-    self.event.cache.ba.ba_name = self.event.ba_id
+    self.event.cache.ba = {
+      ba_name = self.event.ba_id
+    }
   end
 
   return true
