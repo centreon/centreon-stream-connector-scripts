@@ -27,10 +27,10 @@ function sc_macros.new(params, logger)
 
   -- mapping of macro that we will convert if asked
   self.transform_macro = {
-    date = function () return self:transform_date(macro_value) end,
-    type = function () return self:transform_type(macro_value) end,
-    short = function () return self:transform_short(macro_value) end,
-    state = function () return self:transform_state(macro_value, event) end
+    date = function (macro_value) return self:transform_date(macro_value) end,
+    type = function (macro_value) return self:transform_type(macro_value) end,
+    short = function (macro_value) return self:transform_short(macro_value) end,
+    state = function (macro_value, event) return self:transform_state(macro_value, event) end
   }
 
   -- mapping of centreon standard macros to their stream connectors counterparts
@@ -263,7 +263,7 @@ function ScMacros:get_event_macro(macro, event)
   if event[macro_value] then
     if flag then
       self.sc_logger:info("[sc_macros:get_event_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
-          .. ", a macro value conversion will be done.")
+          .. ", a macro value conversion will be done. Macro value is: " .. tostring(macro_value))
       -- convert the found value according to the flag that has been sent
       return self.transform_macro[flag](event[macro_value], event)
     else
