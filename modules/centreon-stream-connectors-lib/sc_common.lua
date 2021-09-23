@@ -23,12 +23,12 @@ end
 
 local ScCommon = {}
 
-function sc_common.new(logger)
+function sc_common.new(sc_logger)
   local self = {}
   
-  self.logger = logger
-  if not self.logger then 
-    self.logger = sc_logger.new()
+  self.sc_logger = sc_logger
+  if not self.sc_logger then 
+    self.sc_logger = sc_logger.new()
   end
 
   setmetatable(self, { __index = ScCommon })
@@ -101,7 +101,7 @@ end
 function ScCommon:split (text, separator)
   -- return false if text is nil or empty
   if text == nil or text == "" then
-    self.logger:error("[sc_common:split]: could not split text because it is nil or empty")
+    self.sc_logger:error("[sc_common:split]: could not split text because it is nil or empty")
     return false
   end
 
@@ -167,7 +167,7 @@ end
 function ScCommon:generate_postfield_param_string(params)
   -- return false because params type is wrong
   if (type(params) ~= "table") then
-    self.logger:error("[sc_common:generate_postfield_param_string]: parameters to convert aren't in a table")
+    self.sc_logger:error("[sc_common:generate_postfield_param_string]: parameters to convert aren't in a table")
     return false
   end
 
@@ -205,12 +205,12 @@ function ScCommon:load_json_file(json_file)
   io.close(file)
 
   -- parse it
-  local content = broker.json_decode(file_content)
+  local content, error = broker.json_decode(file_content)
 
   -- return false if json couldn't be parsed
-  if (type(content) ~= "table") then
-    self.sc_logger:error("[sc_common:load_json_file]: file "
-      .. tostring(json_file) .. ". Is not a valid json file.")
+  if error then
+    self.sc_logger:error("[sc_common:load_json_file]: could not parse json file "
+      .. tostring(json_file) .. ". Error is: " .. tostring(error))
     return false
   end
 
