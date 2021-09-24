@@ -60,7 +60,6 @@ function EventQueue.new(params)
   self.sc_params.params.pdy_centreon_url = params.pdy_centreon_url or "http://set.pdy_centreon_url.parameter"
   self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
   self.sc_params.params.client = params.client or "Centreon Stream Connector"
-  self.sc_params.params.on_ok_action = params.on_ok_action or "trigger"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.pdy_source = params.pdy_source or nil
