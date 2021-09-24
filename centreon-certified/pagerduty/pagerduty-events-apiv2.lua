@@ -151,15 +151,19 @@ function EventQueue:format_event_host()
   local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
   local pdy_hostgroups = ""
 
-  -- retrieve hostgroups
+  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
   if not hostgroups then
     pdy_hostgroups = "empty host group"
   else
     for index, hg_data in ipairs(hostgroups) do
-      pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
+      if pdy_hostgroups ~= "" then
+        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
+      else
+        pdy_hostgroups = hg_data.group_name
+      end
     end
 
-    pdy_custom_details['Hostgroups'] = pdy_hostgroups
+    pdy_custom_details["Hostgroups"] = pdy_hostgroups
   end
 
   -- handle severity
@@ -172,8 +176,8 @@ function EventQueue:format_event_host()
 
   self.sc_event.event.formated_event = {
     payload = {
-      summary = tostring(event.cache.host.name) .. ": " .. ifnil_or_empty(string.match(event.output, "^(.*)\n"), 'no output'),
-      timestamp = new_from_timestamp(e.last_update):rfc_3339(),
+      summary = tostring(event.cache.host.name) .. ": " .. self.sc_common:ifnil_or_empty(string.match(event.output, "^(.*)\n"), 'no output'),
+      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
       severity = self.state_to_severity_mapping[event.state].severity,
       source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
       component = tostring(event.cache.host.name),
@@ -188,41 +192,49 @@ function EventQueue:format_event_host()
     client_url = self.sc_params.params.client_url,
     links = {
       -- should think about using the new resources page but keep it as is for compatibility reasons
-      href = self.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(self.cache.host.name),
+      href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
       text = "Link to Centreon host summary"
     }
   }
 end
 
 function EventQueue:format_event_service()
-  local event = self.sc_event.event
+    local event = self.sc_event.event
     local pdy_custom_details = {}
 
     -- handle hostgroup
     local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
     local pdy_hostgroups = ""
 
-    -- retrieve hostgroups
+    -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
     if not hostgroups then
       pdy_hostgroups = "empty host group"
     else
       for index, hg_data in ipairs(hostgroups) do
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
+        if pdy_hostgroups ~= "" then
+          pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
+        else
+          pdy_hostgroups = hg_data.group_name
+        end
       end
 
       pdy_custom_details["Hostgroups"] = pdy_hostgroups
     end
 
     -- handle servicegroups
-    local servicegroups = self.sc_broker:get_servicegroups(event.service_id)
+    local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
     local pdy_servicegroups = ""
 
-    -- retrieve servicegroups
+    -- retrieve servicegroups and store them in pdy_custom_details["Servicegroups"]
     if not servicegroups then
       pdy_servicegroups = "empty service group"
     else
       for index, sg_data in ipairs(servicegroups) do
-        pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
+        if pdy_servicegroups ~= "" then
+          pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
+        else
+          pdy_servicegroups = sg_data.group_name
+        end
       end
 
       pdy_custom_details["Servicegroups"] = pdy_servicegroups
@@ -244,8 +256,8 @@ function EventQueue:format_event_service()
 
   self.sc_event.event.formated_event = {
     payload = {
-      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. ifnil_or_empty(string.match(event.output, "^(.*)\n"), 'no output'),
-      timestamp = new_from_timestamp(e.last_update):rfc_3339(),
+      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. self.sc_common:ifnil_or_empty(string.match(event.output, "^(.*)\n"), 'no output'),
+      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
       severity = self.state_to_severity_mapping[event.state].severity,
       source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
       component = tostring(event.cache.service.description),
@@ -260,7 +272,7 @@ function EventQueue:format_event_service()
     client_url = self.sc_params.params.client_url,
     links = {
       -- should think about using the new resources page but keep it as is for compatibility reasons
-      href = self.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(self.cache.host.name),
+      href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
       text = "Link to Centreon host summary"
     }
   }
@@ -278,7 +290,7 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.format_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
