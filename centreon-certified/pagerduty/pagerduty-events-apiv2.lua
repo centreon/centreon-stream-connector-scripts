@@ -124,6 +124,7 @@ function EventQueue:format_accepted_event()
   self.sc_event.event.formated_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
+    -- self.sc_event.event.formated_event = self:recursive_macro({}, template, nil, "")
     for index, value in pairs(template) do
       self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
     end
@@ -185,74 +186,76 @@ function EventQueue:format_event_host()
       class = "host",
       custom_details = pdy_custom_details,
     },
-    routing_key = self.sc_params.params.routing_key,
+    routing_key = self.sc_params.params.pdy_routing_key,
     event_action = self.state_to_severity_mapping[event.state].action,
     dedup_key = event.host_id .. "_H",
     client = self.sc_params.params.client,
     client_url = self.sc_params.params.client_url,
     links = {
-      -- should think about using the new resources page but keep it as is for compatibility reasons
-      href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-      text = "Link to Centreon host summary"
+      {
+        -- should think about using the new resources page but keep it as is for compatibility reasons
+        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
+        text = "Link to Centreon host summary"
+      }
     }
   }
 end
 
 function EventQueue:format_event_service()
-    local event = self.sc_event.event
-    local pdy_custom_details = {}
+  local event = self.sc_event.event
+  local pdy_custom_details = {}
 
-    -- handle hostgroup
-    local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-    local pdy_hostgroups = ""
+  -- handle hostgroup
+  local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
+  local pdy_hostgroups = ""
 
-    -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-    if not hostgroups then
-      pdy_hostgroups = "empty host group"
-    else
-      for index, hg_data in ipairs(hostgroups) do
-        if pdy_hostgroups ~= "" then
-          pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-        else
-          pdy_hostgroups = hg_data.group_name
-        end
+  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
+  if not hostgroups then
+    pdy_hostgroups = "empty host group"
+  else
+    for index, hg_data in ipairs(hostgroups) do
+      if pdy_hostgroups ~= "" then
+        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
+      else
+        pdy_hostgroups = hg_data.group_name
       end
-
-      pdy_custom_details["Hostgroups"] = pdy_hostgroups
     end
 
-    -- handle servicegroups
-    local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
-    local pdy_servicegroups = ""
+    pdy_custom_details["Hostgroups"] = pdy_hostgroups
+  end
 
-    -- retrieve servicegroups and store them in pdy_custom_details["Servicegroups"]
-    if not servicegroups then
-      pdy_servicegroups = "empty service group"
-    else
-      for index, sg_data in ipairs(servicegroups) do
-        if pdy_servicegroups ~= "" then
-          pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
-        else
-          pdy_servicegroups = sg_data.group_name
-        end
+  -- handle servicegroups
+  local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
+  local pdy_servicegroups = ""
+
+  -- retrieve servicegroups and store them in pdy_custom_details["Servicegroups"]
+  if not servicegroups then
+    pdy_servicegroups = "empty service group"
+  else
+    for index, sg_data in ipairs(servicegroups) do
+      if pdy_servicegroups ~= "" then
+        pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
+      else
+        pdy_servicegroups = sg_data.group_name
       end
-
-      pdy_custom_details["Servicegroups"] = pdy_servicegroups
     end
 
-    -- handle host severity
-    local host_severity = self.sc_broker:get_severity(event.host_id)
-    
-    if host_severity then
-      pdy_custom_details["Hostseverity"] = host_severity
-    end
+    pdy_custom_details["Servicegroups"] = pdy_servicegroups
+  end
 
-    -- handle service severity
-    local service_severity = self.sc_broker:get_severity(event.host_id, event.service_id)
+  -- handle host severity
+  local host_severity = self.sc_broker:get_severity(event.host_id)
+  
+  if host_severity then
+    pdy_custom_details["Hostseverity"] = host_severity
+  end
 
-    if service_severity then
-      pdy_custom_details["Serviceseverity"] = service_severity
-    end
+  -- handle service severity
+  local service_severity = self.sc_broker:get_severity(event.host_id, event.service_id)
+
+  if service_severity then
+    pdy_custom_details["Serviceseverity"] = service_severity
+  end
 
   self.sc_event.event.formated_event = {
     payload = {
@@ -265,15 +268,17 @@ function EventQueue:format_event_service()
       class = "service",
       custom_details = pdy_custom_details,
     },
-    routing_key = self.sc_params.params.routing_key,
+    routing_key = self.sc_params.params.pdy_routing_key,
     event_action = self.state_to_severity_mapping[event.state].action,
     dedup_key = event.host_id .. "_" .. event.service_id,
     client = self.sc_params.params.client,
     client_url = self.sc_params.params.client_url,
     links = {
-      -- should think about using the new resources page but keep it as is for compatibility reasons
-      href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-      text = "Link to Centreon host summary"
+      {
+        -- should think about using the new resources page but keep it as is for compatibility reasons
+        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
+        text = "Link to Centreon host summary"
+      }
     }
   }
 end
@@ -327,10 +332,8 @@ function EventQueue:send_data(data, element)
     :setopt(
       curl.OPT_HTTPHEADER,
       {
-        "accept: application/vnd.pagerduty+json;version=2",
         "content-type: application/json",
         "content-length:" .. string.len(http_post_data),
-        "x-routing-key: " .. self.sc_params.params.pdy_routing_key,
       }
   )
 
