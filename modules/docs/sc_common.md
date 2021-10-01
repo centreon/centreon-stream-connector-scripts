@@ -41,6 +41,10 @@
     - [load_json_file: parameters](#load_json_file-parameters)
     - [load_json_file: returns](#load_json_file-returns)
     - [load_json_file: example](#load_json_file-example)
+  - [json_escape method](#json_escape-method)
+    - [json_escape: parameters](#json_escape-parameters)
+    - [json_escape: returns](#json_escape-returns)
+    - [json_escape: example](#json_escape-example)
 
 ## Introduction
 
@@ -368,4 +372,30 @@ local result, content = test_common:load_json_file(json_file)
 json_file = 3
 result, content = test_common:load_json_file(json_file)
 --> result is false, content is nil
+```
+
+## json_escape method
+
+The **json_escape** method escape json special characters.
+
+### json_escape: parameters
+
+| parameter                     | type   | optional | default value |
+| ----------------------------- | ------ | -------- | ------------- |
+| a string that must be escaped | string | no       |               |
+
+### json_escape: returns
+
+| return                                                                 | type                             | always | condition |
+| ---------------------------------------------------------------------- | -------------------------------- | ------ | --------- |
+| an escaped string (or the raw parameter if it was nil or not a string) | string (or input parameter type) | yes    |           |
+
+### json_escape: example
+
+```lua
+local string = 'string with " and backslashes \\ and tab:\tend tab'
+--> string is 'string with " and backslashes \ and tab: end tab'
+
+local result = test_common:json_escape(string)
+--> result is 'string with \" and backslashes \\ and tab:\tend tab'
 ```
