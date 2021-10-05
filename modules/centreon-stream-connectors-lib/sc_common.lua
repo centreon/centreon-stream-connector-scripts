@@ -221,11 +221,13 @@ end
 -- @param string (string) the string that must be escaped
 -- @return string (string) the string with escaped characters
 function ScCommon:json_escape(string)
+  -- check that param is a valid string
   if string == nil or type(string) ~= "string" then
     self.sc_logger:error("[sc_common:escape_string]: the input parameter is not valid, it is either nil or not a string. Sent value: " .. tostring(string))
     return string
   end
 
+  -- escape all characters
   string = string.gsub(string, '\\', '\\\\')
   string = string.gsub(string, '\t', '\\t')
   string = string.gsub(string, '\n', '\\n')
