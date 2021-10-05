@@ -217,4 +217,34 @@ function ScCommon:load_json_file(json_file)
   return true, content
 end
 
+--- json_escape: escape json special characters in a string
+-- @param string (string) the string that must be escaped
+-- @return string (string) the string with escaped characters
+function ScCommon:json_escape(string)
+  local type = type(string)
+
+  -- check that param is a valid string
+  if string == nil or type == "table" then
+    self.sc_logger:error("[sc_common:escape_string]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+    return string
+  end
+
+  -- nothing to escape in a boolean or number value
+  if type ~= "string" then
+    return string
+  end
+
+  -- escape all characters
+  string = string.gsub(string, '\\', '\\\\')
+  string = string.gsub(string, '\t', '\\t')
+  string = string.gsub(string, '\n', '\\n')
+  string = string.gsub(string, '\b', '\\b')
+  string = string.gsub(string, '\r', '\\r')
+  string = string.gsub(string, '\f', '\\f')
+  string = string.gsub(string, '/', '\\/')
+  string = string.gsub(string, '"', '\\"')
+
+  return string
+end
+
 return sc_common

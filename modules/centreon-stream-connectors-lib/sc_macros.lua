@@ -7,19 +7,26 @@
 local sc_macros = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScMacros = {}
 
 --- sc_macros.new: sc_macros constructor
 -- @param params (table) the stream connector parameter table
--- @param sc_logger (object) object instance from sc_logger module
-function sc_macros.new(params, logger)
+-- @param logger (object) object instance from sc_logger module
+-- @param common (object) object instance from sc_common module
+function sc_macros.new(params, logger, common)
   local self = {}
 
   -- initiate mandatory libs
   self.sc_logger = logger
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
+  end
+
+  self.sc_common = common
+  if not self.sc_common then
+    self.sc_common = sc_common.new(self.sc_logger)
   end
 
   -- initiate params
@@ -171,8 +178,9 @@ end
 --- replace_sc_macro: replace any stream connector macro with it's value
 -- @param string (string) the string in which there might be some stream connector macros to replace
 -- @param event (table) the current event table
--- @return converted_string (string) the input string but with the macro replaced with their values
-function ScMacros:replace_sc_macro(string, event)
+-- @param json_string (boolean)  
+-- @return converted_string (string) the input string but with the macro replaced with their json escaped values
+function ScMacros:replace_sc_macro(string, event, json_string)
   local cache_macro_value = false
   local event_macro_value = false
   local converted_string = string
@@ -180,7 +188,7 @@ function ScMacros:replace_sc_macro(string, event)
   -- find all macros for exemple the string: 
   -- {cache.host.name} is the name of host with id: {host_id} 
   -- will generate two macros {cache.host.name} and {host_id})
-  for macro in string.gmatch(string, "{.*}") do
+  for macro in string.gmatch(string, "{[%w_.]+}") do
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
     
     -- check if macro is in the cache
@@ -190,7 +198,13 @@ function ScMacros:replace_sc_macro(string, event)
     if cache_macro_value then
       self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
         .. tostring(macro) .. ", value is: " .. tostring(cache_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-      converted_string = string.gsub(converted_string, macro, cache_macro_value)
+      
+      -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
+      if json_string then
+        cache_macro_value = self.sc_common:json_escape(cache_macro_value)
+      end
+
+      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(cache_macro_value))
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
@@ -199,11 +213,30 @@ function ScMacros:replace_sc_macro(string, event)
       if event_macro_value then
         self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
           .. tostring(macro) .. ", value is: " .. tostring(event_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-        converted_string = string.gsub(converted_string, macro, event_macro_value)
+
+        -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
+        if json_string then
+          cache_macro_value = self.sc_common:json_escape(cache_macro_value)
+        end
+        
+        converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(event_macro_value))
       else
         self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
       end
     end
+  end
+
+  -- the input string was a json, we decode the result
+  if json_string then
+    local decoded_json, error = broker.json_decode(converted_string)
+
+    if error then
+      self.sc_logger:error("[sc_macros:replace_sc_macro]: couldn't decode json string: " .. tostring(converted_string)
+        .. ". Error is: " .. tostring(error))
+      return converted_string
+    end
+
+    return decoded_json
   end
 
   return converted_string

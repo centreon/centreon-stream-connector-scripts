@@ -677,27 +677,36 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
 end
 
 --- load_event_format_file: load a json file which purpose is to serve as a template to format events
+-- @param json_string [opt] (boolean) convert template from a lua table to a json string
 -- @return true|false (boolean) if file is valid template file or not
-function ScParams:load_event_format_file()
+function ScParams:load_event_format_file(json_string)
+  -- return if there is no file configured
   if self.params.format_file == "" or self.params.format_file == nil then
     return false
   end 
   
   local retval, content = self.common:load_json_file(self.params.format_file)
   
+  -- return if we couldn't load the json file
   if not retval then
     return false
   end
 
+  -- initiate variables
   local categories = self.params.bbdo.categories
   local elements = self.params.bbdo.elements
-
   local tpl_category
   local tpl_element
   
   -- store format template in their appropriate category/element table
   for cat_el, format in pairs(content) do
     tpl_category, tpl_element = string.match(cat_el, "^(%w+)_(.*)")
+    
+    -- convert back to json if 
+    if json_string then
+      format = broker.json_encode(format)
+    end
+    
     self.params.format_template[categories[tpl_category].id][elements[tpl_element].id] = format
   end
 
