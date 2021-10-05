@@ -226,9 +226,17 @@ function ScMacros:replace_sc_macro(string, event, json_string)
     end
   end
 
-  -- 
+  -- the input string was a json, we decode the result
   if json_string then
-    return broker.json_decode(converted_string)
+    local decoded_json, error = broker.json_decode(converted_string)
+
+    if error then
+      self.sc_logger:error("[sc_macros:replace_sc_macro]: couldn't decode json string: " .. tostring(converted_string)
+        .. ". Error is: " .. tostring(error))
+      return converted_string
+    end
+
+    return decoded_json
   end
 
   return converted_string
