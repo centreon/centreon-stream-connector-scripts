@@ -188,7 +188,7 @@ function ScMacros:replace_sc_macro(string, event, json_string)
   -- find all macros for exemple the string: 
   -- {cache.host.name} is the name of host with id: {host_id} 
   -- will generate two macros {cache.host.name} and {host_id})
-  for macro in string.gmatch(string, "{.*}") do
+  for macro in string.gmatch(string, "{[%w_.]+}") do
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
     
     -- check if macro is in the cache
