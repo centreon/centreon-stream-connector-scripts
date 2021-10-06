@@ -76,10 +76,11 @@ function ScFlush:flush_queue(send_method, category, element)
   local rem = self.params.reverse_element_mapping;
 
   -- flush if events in the queue are too old or if the queue is full
-  if (self.queues[category][element].flush_date > self.params.max_buffer_age)
+  if (os.time() > self.queues[category][element].flush_date + self.params.max_buffer_age)
     or (#self.queues[category][element].events > self.params.max_buffer_size) 
   then
-    self.sc_logger:debug("sc_queue:flush_queue: flushing all the " .. rem[category][element] .. " events")
+    self.sc_logger:debug("[sc_flush:flush_queue]: flushing all the " .. rem[category][element] .. " events. Last flush date was: "
+      .. tostring(self.queues[category][element].flush_date) .. ". Buffer size is: " .. tostring(#self.queues[category][element].events))
     local retval = send_method(self.queues[category][element].events, rem[category][element])
 
     if retval then
