@@ -663,9 +663,9 @@ end
 -- @eturn true|false (boolean) 
 function ScParams:is_mandatory_config_set(mandatory_params, params)
   for index, mandatory_param in ipairs(mandatory_params) do
-    if not params[mandatory_param] then
+    if not params[mandatory_param] or params[mandatory_param] == "" then
       self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param) 
-        .. " parameter is not set in the stream connector web configuration")
+        .. " parameter is not set in the stream connector web configuration (or value is empty)")
       return false
     end
 
@@ -719,17 +719,10 @@ function ScParams:build_accepted_elements_info()
 
   -- list all accepted elements
   for _, accepted_element in ipairs(self.common:split(self.params.accepted_elements, ",")) do
-    self.logger:debug("[sc_params:build_accetped_elements_info]: accepted element: " .. tostring(accepted_element))
     -- try to find element in known categories
-    for category_name, category_info in pairs(categories) do
-      self.logger:debug("[sc_params:build_accetped_elements_info]: category id: " .. tostring(category_info.id))
-      for i, v in pairs(self.params.element_mapping) do
-        self.logger:debug("[sc_params:build_accepted_elements_info]: mapping: " .. tostring(i) .. " value: " .. tostring(v))
-      end
-        
+    for category_name, category_info in pairs(categories) do        
       if self.params.element_mapping[category_info.id][accepted_element] then
         -- if found, store information in a dedicated table
-        self.logger:debug("[sc_params:build_accetped_elements_info] dans le param setup: " .. tostring(self.params.element_mapping[category_info.id][accepted_element]))
         self.params.accepted_elements_info[accepted_element] = {
           category_id = category_info.id,
           category_name = category_name,

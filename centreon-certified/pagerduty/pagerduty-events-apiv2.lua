@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Splunk Connector Events
+-- Centreon Broker Pagerduty Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -314,7 +314,7 @@ function EventQueue:send_data(data, element)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
-  self.sc_logger:info("[EventQueue:send_data]: Splunk address is: " .. tostring(self.sc_params.params.http_server_url))
+  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(self.sc_params.params.http_server_url))
 
   local http_response_body = ""
   local http_request = curl.easy()
