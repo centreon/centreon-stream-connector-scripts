@@ -56,6 +56,9 @@ function EventQueue.new(params)
     self.fail = true
   end
   
+  -- force buffer size to 1 to avoid breaking the communication with pagerduty (can't send more than one event at once)
+  params.max_buffer_size = 1
+  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.pdy_centreon_url = params.pdy_centreon_url or "http://set.pdy_centreon_url.parameter"
   self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
