@@ -103,7 +103,7 @@ function EventQueue.new(params)
     }, 
     [3] = {
       severity = "error",
-      type = "trigger"
+      action = "trigger"
     }
   }
 
