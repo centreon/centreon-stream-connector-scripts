@@ -100,10 +100,9 @@ function EventQueue:format_accepted_event()
     self.sc_logger:debug("[EventQueue:format_event]: starting format event")
     self.sc_event.event.formated_event = {}
 
+
     if self.format_template and template ~= nil and template ~= "" then
-      for index, value in pairs(template) do
-        self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
-      end
+      self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event)
     else
       -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
       if not self.format_event[category][element] then
@@ -235,7 +234,7 @@ function EventQueue:add()
     -- Handling the return code
     local retval = false
     if http_response_code == 200 then
-      self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code)
+      self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
       retval = true
     else
       self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
