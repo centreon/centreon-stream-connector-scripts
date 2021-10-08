@@ -66,7 +66,7 @@ function EventQueue.new(params)
     self.sc_params:check_params()
 
     self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
-    self.format_template = self.sc_params:load_event_format_file()
+    self.format_template = self.sc_params:load_event_format_file(true)
     self.sc_params:build_accepted_elements_info()
     self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
@@ -101,7 +101,7 @@ function EventQueue:format_accepted_event()
     self.sc_event.event.formated_event = {}
 
     if self.format_template and template ~= nil and template ~= "" then
-      self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event)
+      self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
     else
       -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
       if not self.format_event[category][element] then
