@@ -35,7 +35,8 @@ function EventQueue.new(params)
 
     local mandatory_parameters = {
         "elastic_url",
-        "elastic_token",
+        "elastic_username",
+        "elastic_password",
         "elastic_index_status"
     }
 
@@ -124,7 +125,7 @@ function EventQueue:format_accepted_event()
         event_type = "host",
         timestamp = self.sc_event.event.last_check,
         host = self.sc_event.event.cache.host.name,
-        output = string.gsub(self.sc_event.event.output, "\n", ""),
+        output = string.gsub(self.sc_event.event.output, "\n", " "),
         state = self.sc_event.event.state,
         state_type = self.sc_event.event.state_type
     }
@@ -137,7 +138,7 @@ function EventQueue:format_accepted_event()
       host = self.sc_event.event.cache.host.name,
       state = self.sc_event.event.state,
       state_type = self.sc_event.event.state_type,
-      output = string.gsub(self.sc_event.event.output, "\n", ""),
+      output = string.gsub(self.sc_event.event.output, "\n", " "),
     }
   end
 
@@ -154,9 +155,8 @@ function EventQueue:add()
       .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = {
-        self.sc_event.event.formated_event
-    }
+    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+
 
     self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
       .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -167,39 +167,42 @@ function EventQueue:add()
 
     -- write payload in the logfile for test purpose
     if self.sc_params.params.send_data_test == 1 then
-      self.sc_logger:notice("[send_data]: " .. tostring(broker.json_encode(data)))
+      self.sc_logger:info("[send_data]: " .. broker.json_encode(data))
       return true
     end
 
-    local http_post_data = ""
+    local http_post_metadata = {
+      ["index"] = {
+        ["_index"] = tostring((self.sc_params.params.elastic_index_status))
+      }
+    }
 
+    local http_post_data = broker.json_encode(http_post_metadata)
     for _, raw_event in ipairs(data) do
-      http_post_data = http_post_data .. broker.json_encode(raw_event)
+      http_post_data = http_post_data .. broker.json_encode(http_post_metadata) .. "\n" .. broker.json_encode(raw_event) .. "\n"
     end
 
     self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
-    self.sc_logger:info("[EventQueue:send_data]: Elastic URL is: " .. tostring(self.sc_params.params.elastic_url))
+    self.sc_logger:info("[EventQueue:send_data]: Elastic URL is: " .. tostring(self.sc_params.params.elastic_url) .. "/_bulk")
 
-    -- build http requests, add headers
-    local http_response_body = ""
-    local http_request = curl.easy()
-      :setopt_url(self.sc_params.params.elastic_url .. "/" .. sc_params.params.elastic_index_status .. "/_bulk")
-      :setopt_writefunction(
-        function (response)
-            http_response_body = ltn12.sink.table(response)
-        end
-      )
-      :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-      :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-      :setopt(
-        curl.OPT_HTTPHEADER,
-        {
-          "content-type: application/json",
-          "content-length: " .. string.len(http_post_data),
-          "authorization: ApiKey " .. (mime.b64(self.sc_params.params.elastic_token))
-        }
+  local http_response_body = ""
+  local http_request = curl.easy()
+    :setopt_url(self.sc_params.params.elastic_url .. "/_bulk")
+    :setopt_writefunction(
+      function (response)
+        http_response_body = http_response_body .. tostring(response)
+      end
     )
-
+    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+    :setopt(
+      curl.OPT_HTTPHEADER,
+      {
+        "content-type: application/json;charset=UTF-8",
+        "content-length: " .. string.len(http_post_data),
+        "Authorization: Basic " .. (mime.b64(self.sc_params.params.elastic_username .. ":" .. self.sc_params.params.elastic_password))
+      }
+    )
     -- set proxy address configuration
     if (self.sc_params.params.proxy_address ~= '') then
       if (self.sc_params.params.proxy_port ~= '') then
@@ -218,9 +221,8 @@ function EventQueue:add()
       end
     end
 
-    -- convert ltn12 data source and add to the request
-    ltn12_post_data = ltn12.source.string(http_post_data),
-    http_request:setopt_postfields(ltn12_post_data)
+    -- adding the HTTP POST data
+    http_request:setopt_postfields(http_post_data)
 
     -- performing the HTTP request
     http_request:perform()
@@ -233,7 +235,7 @@ function EventQueue:add()
     -- Handling the return code
     local retval = false
     if http_response_code == 200 then
-      self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+      self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code)
       retval = true
     else
       self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
