@@ -100,7 +100,6 @@ function EventQueue:format_accepted_event()
     self.sc_logger:debug("[EventQueue:format_event]: starting format event")
     self.sc_event.event.formated_event = {}
 
-
     if self.format_template and template ~= nil and template ~= "" then
       self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event)
     else
