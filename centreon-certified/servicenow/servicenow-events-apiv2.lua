@@ -29,7 +29,7 @@ EventQueue.__index = EventQueue
 -- @return the new EventQueue
 --------------------------------------------------------------------------------
 
-function EventQueue:new (params)
+function EventQueue.new (params)
   local self = {}
   local mandatory_parameters = {
     [1] = "instance",
@@ -358,6 +358,11 @@ end
 
 local queue
 
+-- Fonction init()
+function init(conf)
+  queue = EventQueue.new(conf)
+end
+
 --------------------------------------------------------------------------------
 -- init, initiate stream connector with parameters from the configuration file
 -- @param {table} parameters, the table with all the configuration parameters
@@ -382,9 +387,16 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function EventQueue:send_data(data, element)
-  local authToken = self:getAuthToken()
+  local authToken
   local counter = 0
   local http_post_data
+
+  -- generate a fake token for test purpose or use a real one if not testing
+  if self.sc_params.params.send_data_test == 1 then
+    authToken = "fake_token"
+  else
+    authToken = self:getAuthToken()
+  end
 
   for _, raw_event in ipairs(data) do
     if counter == 0 then
