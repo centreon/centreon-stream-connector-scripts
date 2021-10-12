@@ -19,6 +19,7 @@
     - [is_mandatory_config_set: returns](#is_mandatory_config_set-returns)
     - [is_mandatory_config_set: example](#is_mandatory_config_set-example)
   - [load_event_format_file method](#load_event_format_file-method)
+    - [load_event_format_file: parameters](#load_event_format_file-parameters)
     - [load_event_format_file: returns](#load_event_format_file-returns)
     - [load_event_format_file: example](#load_event_format_file-example)
   - [build_accepted_elements_info method](#build_accepted_elements_info-method)
@@ -60,7 +61,7 @@ The sc_param module provides methods to help you handle parameters for your stre
 | enable_service_status_dedup | number | 1                                                                             |                                                                                                                                                                | enable the deduplication of service status event when set to 1                                                                                                                | service_status(neb)                                                                                                                                                                                                                                                                           |                                                              |
 | accepted_authors            | string |                                                                               |                                                                                                                                                                | coma separated list of accepted authors for a comment. It uses the alias (login) of the Centreon contacts                                                                     | downtime(neb), acknowledgement(neb)                                                                                                                                                                                                                                                           |                                                              |
 | local_time_diff_from_utc    | number | default value is the time difference the centreon central server has from UTC |                                                                                                                                                                | the time difference from UTC in seconds                                                                                                                                       | all                                                                                                                                                                                                                                                                                           |                                                              |
-| timestamp_conversion_format | string | %Y-%m-%d %X                                                                   |                                                                                                                                                                | the date format used to convert timestamps. Default value will print dates like this: 2021-06-11 10:43:38                                                                     | all                                                                                                                                                                                                                                                                                           | (date format information)[https://www.lua.org/pil/22.1.html] |
+| timestamp_conversion_format | string | %Y-%m-%d %X                                                                   |                                                                                                                                                                | the date format used to convert timestamps. Default value will print dates like this: 2021-06-11 10:43:38                                                                     | all                                                                                                                                                                                                                                                                                           | [date format information](https://www.lua.org/pil/22.1.html) |
 | send_data_test              | number | 0                                                                             |                                                                                                                                                                | When set to 1, send data in the logfile of the stream connector instead of sending it where the stream connector was designed to                                              | all                                                                                                                                                                                                                                                                                           |                                                              |
 | format_file                 | string |                                                                               |                                                                                                                                                                | Path to a file that will be used as a template to format events instead of using default format                                                                               | only usable for events stream connectors (\*-events-apiv2.lua) and not metrics stream connectors (\*-metrics-apiv2.lua) you should put the file in /etc/centreon-broker to keep your broker configuration in a single place. [**See documentation for more information**](templating.md)      |
 | proxy_address               | string |                                                                               |                                                                                                                                                                | address of the proxy                                                                                                                                                          |                                                                                                                                                                                                                                                                                               |
@@ -68,7 +69,7 @@ The sc_param module provides methods to help you handle parameters for your stre
 | proxy_username              | string |                                                                               |                                                                                                                                                                | user for the proxy                                                                                                                                                            |                                                                                                                                                                                                                                                                                               |
 | proxy_password              | string |                                                                               |                                                                                                                                                                | pasword of the proxy user                                                                                                                                                     |                                                                                                                                                                                                                                                                                               |
 | connection_timeout          | number | 60                                                                            |                                                                                                                                                                | time to wait in second when opening connection                                                                                                                                |                                                                                                                                                                                                                                                                                               |
-| allow_insecure_connection          | number | 0                                                                            |                                                                                                                                                                | check the certificate validity of the peer host (0 = needs to be a valid certificate), use 1 if you are using self signed certificates                                                                                                                                |                                                                                                                                                                                                                                                                                               |
+| allow_insecure_connection   | number | 0                                                                             |                                                                                                                                                                | check the certificate validity of the peer host (0 = needs to be a valid certificate), use 1 if you are using self signed certificates                                        |                                                                                                                                                                                                                                                                                               |
 
 ## Module initialization
 
@@ -243,7 +244,13 @@ result = test_param:is_mandatory_config_set(mandatory_params, params)
 
 ## load_event_format_file method
 
-The **load_event_format_file** load a json file which purpose is to serve as a template to format events. It will use the [**format_file parameter**](#default-parameters) in order to know which file to load. If a file has been successfully loaded, a template table will be created in the self.params table.
+The **load_event_format_file** load a json file which purpose is to serve as a template to format events. It will use the [**format_file parameter**](#default-parameters) in order to know which file to load. If a file has been successfully loaded, a template table will be created in the self.params table. If the  **json_string** parameter is set to true, the template format won't be a table but a json string.
+
+### load_event_format_file: parameters
+
+| parameter   | type    | optional | default value      |
+| ----------- | ------- | -------- | ------------------ |
+| json_string | boolean | yes      | nil (act as false) |
 
 ### load_event_format_file: returns
 
@@ -254,17 +261,66 @@ The **load_event_format_file** load a json file which purpose is to serve as a t
 ### load_event_format_file: example
 
 ```lua
+--[[
+  /etc/centreon-broker/sc_template.json content is: 
+
+  {
+    "neb_service_status": {
+      "time_of_event": "{last_check_scdate}",
+      "index": "centreon",
+      "payload": {
+        "host_name": "{cache.host.name}",
+        "service_name": "{cache.service.description}",
+        "status": "{state}"
+      }
+    }
+  }
+]]-- 
 test_param.params.format_file = "/etc/centreon-broker/sc_template.json"
 
-
-local result = test_param:load_event_format_file()
+-- using true as a parameter
+local result = test_param:load_event_format_file(true)
 
 --> result is true 
---> test_param.params.format_template is now created
+--[[
+test_param.params.format_template is now created and looks like
+
+test_param.params = {
+  format_template = {
+    [1] = {
+      [24] = '{"time_of_event":"{last_check_scdate}","index":"centreon","payload":{"host_name":"{cache.host.name}","service_name":"{cache.service.description}","status":"{state}"}}'
+    }
+  }
+}
+]]--
+  
+-- using false as a parameter
+result = test_param:load_event_format_file(false)
+
+--> result is true 
+--[[
+test_param.params.format_template is now created and looks like
+
+test_param.params = {
+  format_template = {
+    [1] = {
+      [24] = {
+        time_of_event = "{last_check_scdate}",
+        index = "centreon",
+        payload = {
+          host_name = "{cache.host.name}",
+          service_name = "{cache.service.description}",
+          status = "{state}"
+        }
+      }
+    }
+  }
+}
+]]--
 
 test_param.params.format_file = 3
 
-result = test_param:load_event_format_file(mandatory_params, params)
+result = test_param:load_event_format_file(true)
 --> result is false
 ```
 
