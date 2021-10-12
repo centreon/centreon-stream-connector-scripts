@@ -558,6 +558,10 @@ function sc_params.new(common, logger)
   -- initiate category and status mapping
   self.params.status_mapping = {
     [categories.neb.id] = {
+      [elements.acknowledgement.id] = {
+        host_status = {},
+        service_status = {}
+      },
       [elements.downtime.id] = {
         [1] = {},
         [2] = {}
@@ -586,8 +590,14 @@ function sc_params.new(common, logger)
     [categories.bam.id] = {}
   }
 
+  -- downtime status mapping
   self.params.status_mapping[categories.neb.id][elements.downtime.id][1] = self.params.status_mapping[categories.neb.id][elements.service_status.id]
   self.params.status_mapping[categories.neb.id][elements.downtime.id][2] = self.params.status_mapping[categories.neb.id][elements.host_status.id]
+
+  -- acknowledgement status mapping
+  self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
+  self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
+  
 
   setmetatable(self, { __index = ScParams })
   return self

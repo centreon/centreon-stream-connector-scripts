@@ -397,6 +397,15 @@ end
 -- @param event (table) the event table
 -- @return string (string) the status of the event in a human readable format (e.g: OK, WARNING)
 function ScMacros:transform_state(macro_value, event)
+  
+  -- acknowledgement events are special, the state can be for a host or a service. 
+  -- We force the element to be host_status or service_status in order to properly convert the state
+  if event.element == 1 and event.service_id == 0 then
+    return self.params.status_mapping[event.category][event.element].host_status[macro_value]
+  elseif event.element == 1 and event.service_id ~= 0 then
+    return self.params.status_mapping[event.category][event.element].service_status[macro_value]
+  end
+
   return self.params.status_mapping[event.category][event.element][macro_value]
 end
 
