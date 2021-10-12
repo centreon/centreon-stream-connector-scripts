@@ -13,6 +13,8 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
+local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
+local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 
 --------------------------------------------------------------------------------
 -- EventQueue class
@@ -27,7 +29,7 @@ EventQueue.__index = EventQueue
 -- @return the new EventQueue
 --------------------------------------------------------------------------------
 
-function EventQueue:new (params)
+function EventQueue.new (params)
   local self = {}
   local mandatory_parameters = {
     [1] = "instance",
@@ -71,6 +73,26 @@ function EventQueue:new (params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+
+  self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
+  self.format_template = self.sc_params:load_event_format_file(true)
+  self.sc_params:build_accepted_elements_info()
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+
+  local categories = self.sc_params.params.bbdo.categories
+  local elements = self.sc_params.params.bbdo.elements
+
+  self.format_event = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = function () return self:format_event_host() end,
+      [elements.service_status.id] = function () return self:format_event_service() end
+    },
+    [categories.bam.id] = {}
+  }
+
+  self.send_data_method = {
+    [1] = function (data, element) return self:send_data(data, element) end
+  }
 
   setmetatable(self, { __index = EventQueue })
 
@@ -193,6 +215,12 @@ function EventQueue:call (url, method, data, authToken)
   local endpoint = "https://" .. tostring(self.sc_params.params.instance) .. ".service-now.com/" .. tostring(url)
   self.sc_logger:debug("EventQueue:call: Prepare url " .. endpoint)
 
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(data) .. " to endpoint: " .. tostring(endpoint))
+    return true
+  end
+
   local res = ""
   local request = curl.easy()
     :setopt_url(endpoint)
@@ -268,102 +296,124 @@ function EventQueue:call (url, method, data, authToken)
   return broker.json_decode(res)
 end
 
+function EventQueue:format_accepted_event()
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
+  local template = self.sc_params.params.format_template[category][element]
 
-function EventQueue:format_event()
-    self.sc_event.event.formated_event = {
-        source = "centreon",
-        event_class = "centreon",
-        severity = 5,
-        node = tostring(self.sc_event.event.cache.host.name),
-        time_of_event = os.date("!%Y-%m-%d %H:%M:%S", self.sc_event.event.last_check),
-        description = self.sc_event.event.output
-    }
+  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
+  self.sc_event.event.formated_event = {}
 
-  if self.sc_event.event.element == 14 then
-
-    self.sc_event.event.formated_event.resource = tostring(self.sc_event.event.cache.host.name)
-    self.sc_event.event.formated_event.severity = self.sc_event.event.state
-
-  elseif self.sc_event.event.element == 24 then
-    self.sc_event.event.formated_event.resource = tostring(self.sc_event.event.cache.service.description)
-    if self.sc_event.event.state == 0 then
-        self.sc_event.event.formated_event.severity = 0
-    elseif self.sc_event.event.state == 1 then
-        self.sc_event.event.formated_event.severity = 3
-    elseif self.sc_event.event.state == 2 then 
-        self.sc_event.event.formated_event.severity = 1
-    elseif self.sc_event.event.state == 3 then 
-        self.sc_event.event.formated_event.severity = 4
+  if self.format_template and template ~= nil and template ~= "" then
+    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+  else
+    -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
+    if not self.format_event[category][element] then
+      self.sc_logger:error("[format_event]: You are trying to format an event with category: "
+        .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+        .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+        .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
+    else
+      self.format_event[category][element]()
     end
   end
-  
-  self:add()
-end
-  
 
+  self:add()
+  self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
+end
+
+function EventQueue:format_event_host()
+  self.sc_event.event.formated_event = {
+    source = "centreon",
+    event_class = "centreon",
+    node = tostring(self.sc_event.event.cache.host.name),
+    time_of_event = os.date("!%Y-%m-%d %H:%M:%S", self.sc_event.event.last_check),
+    description = self.sc_event.event.output,
+    resource = tostring(self.sc_event.event.cache.host.name),
+    severity = self.sc_event.event.state
+  }
+end
+
+function EventQueue:format_event_service()
+  self.sc_event.event.formated_event = {
+    source = "centreon",
+    event_class = "centreon",
+    node = tostring(self.sc_event.event.cache.host.name),
+    time_of_event = os.date("!%Y-%m-%d %H:%M:%S", self.sc_event.event.last_check),
+    description = self.sc_event.event.output,
+    resource = tostring(self.sc_event.event.cache.service.description),
+    severity = 5
+  }
+
+  if self.sc_event.event.state == 0 then
+    self.sc_event.event.formated_event.severity = 0
+  elseif self.sc_event.event.state == 1 then
+      self.sc_event.event.formated_event.severity = 3
+  elseif self.sc_event.event.state == 2 then 
+      self.sc_event.event.formated_event.severity = 1
+  elseif self.sc_event.event.state == 3 then 
+      self.sc_event.event.formated_event.severity = 4
+  end
+end
 
 local queue
+
+-- Fonction init()
+function init(conf)
+  queue = EventQueue.new(conf)
+end
 
 --------------------------------------------------------------------------------
 -- init, initiate stream connector with parameters from the configuration file
 -- @param {table} parameters, the table with all the configuration parameters
 --------------------------------------------------------------------------------
-function init (parameters)
-  queue = EventQueue:new(parameters)
-end
+function EventQueue:add()
+  -- store event in self.events lists
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
 
---------------------------------------------------------------------------------
--- EventQueue:add, add an event to the queue
--- @param {table} eventData, the data related to the event 
--- @return {boolean}
---------------------------------------------------------------------------------
-function EventQueue:add ()
-  self.events[#self.events + 1] = self.sc_event.event.formated_event
-  return true
-end
+  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
---------------------------------------------------------------------------------
--- EventQueue:flush, flush stored events
--- Called when the max number of events or the max age are reached
--- @return {boolean}
---------------------------------------------------------------------------------
-function EventQueue:flush ()
-  self.sc_logger:debug("EventQueue:flush: Concatenating all the events as one string")
+  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-  self:send_data()
-
-  self.events = {}
-  
-  -- and update the timestamp
-  self.sc_params.params.__internal_ts_last_flush = os.time()
-  return true
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return {boolean}
 --------------------------------------------------------------------------------
-function EventQueue:send_data ()
-  local data = ''
-  local authToken = self:getAuthToken()
+function EventQueue:send_data(data, element)
+  local authToken
   local counter = 0
+  local http_post_data
 
-  for _, raw_event in ipairs(self.events) do
+  -- generate a fake token for test purpose or use a real one if not testing
+  if self.sc_params.params.send_data_test == 1 then
+    authToken = "fake_token"
+  else
+    authToken = self:getAuthToken()
+  end
+
+  for _, raw_event in ipairs(data) do
     if counter == 0 then
-      data = broker.json_encode(raw_event) 
+      http_post_data = broker.json_encode(raw_event) 
       counter = counter + 1
     else
-      data = data .. ',' .. broker.json_encode(raw_event)
+      http_post_data = http_post_data .. ',' .. broker.json_encode(raw_event)
     end
   end
 
-  data = '{"records":[' .. data .. ']}'
-  self.sc_logger:notice('EventQueue:send_data:  creating json: ' .. data)
+  http_post_data = '{"records":[' .. http_post_data .. ']}'
+  self.sc_logger:info('EventQueue:send_data:  creating json: ' .. http_post_data)
 
   if self:call(
       "api/global/em/jsonv2",
       "POST",
-      data,
+      http_post_data,
       authToken
     ) then
     return true
@@ -378,6 +428,9 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)
+  -- First, flush all queues if needed (too old or size too big)
+  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
+
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
@@ -389,39 +442,27 @@ function write (event)
 
   -- drop event if wrong category
   if not queue.sc_event:is_valid_category() then
+    queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
     return true
   end
 
   -- drop event if wrong element
   if not queue.sc_event:is_valid_element() then
+    queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+      .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
     return true
   end
-  
-  -- First, are there some old events waiting in the flush queue ?
-  if (#queue.events > 0 and os.time() - queue.sc_params.params.__internal_ts_last_flush > queue.sc_params.params.max_buffer_age) then
-    queue.sc_logger:warning("write: Queue max age (" .. os.time() - queue.sc_params.params.__internal_ts_last_flush .. "/" .. queue.sc_params.params.max_buffer_age .. ") is reached, flushing data")
-    queue:flush()
-  end
 
-  -- Then we check that the event queue is not already full
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:warning("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events, after 1 second pause.")
-    queue:flush()
-  end
-
-  -- adding event to the queue
+  -- drop event if it is not validated
   if queue.sc_event:is_valid_event() then
-    queue:format_event()
+    queue:format_accepted_event()
   else
     return true
   end
 
-  -- Then we check whether it is time to send the events to the receiver and flush
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:warning( "write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached, flushing data")
-    return queue:flush()
-  end
-
+  -- Since we've added an event to a specific queue, flush it if queue is full
+  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
   return true
 end
 
