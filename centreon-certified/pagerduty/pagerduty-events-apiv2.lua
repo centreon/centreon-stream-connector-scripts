@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Splunk Connector Events
+-- Centreon Broker Pagerduty Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -56,6 +56,9 @@ function EventQueue.new(params)
     self.fail = true
   end
   
+  -- force buffer size to 1 to avoid breaking the communication with pagerduty (can't send more than one event at once)
+  params.max_buffer_size = 1
+  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.pdy_centreon_url = params.pdy_centreon_url or "http://set.pdy_centreon_url.parameter"
   self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
@@ -103,7 +106,7 @@ function EventQueue.new(params)
     }, 
     [3] = {
       severity = "error",
-      type = "trigger"
+      action = "trigger"
     }
   }
 
@@ -314,7 +317,7 @@ function EventQueue:send_data(data, element)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
-  self.sc_logger:info("[EventQueue:send_data]: Splunk address is: " .. tostring(self.sc_params.params.http_server_url))
+  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(self.sc_params.params.http_server_url))
 
   local http_response_body = ""
   local http_request = curl.easy()

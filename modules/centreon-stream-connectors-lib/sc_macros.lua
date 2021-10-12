@@ -204,7 +204,7 @@ function ScMacros:replace_sc_macro(string, event, json_string)
         cache_macro_value = self.sc_common:json_escape(cache_macro_value)
       end
 
-      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(cache_macro_value))
+      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(event_macro_value, "%%", "%%%%")))
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
@@ -219,7 +219,7 @@ function ScMacros:replace_sc_macro(string, event, json_string)
           cache_macro_value = self.sc_common:json_escape(cache_macro_value)
         end
         
-        converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(event_macro_value))
+        converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(event_macro_value, "%%", "%%%%")))
       else
         self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
       end
@@ -397,6 +397,15 @@ end
 -- @param event (table) the event table
 -- @return string (string) the status of the event in a human readable format (e.g: OK, WARNING)
 function ScMacros:transform_state(macro_value, event)
+  
+  -- acknowledgement events are special, the state can be for a host or a service. 
+  -- We force the element to be host_status or service_status in order to properly convert the state
+  if event.element == 1 and event.service_id == 0 then
+    return self.params.status_mapping[event.category][event.element].host_status[macro_value]
+  elseif event.element == 1 and event.service_id ~= 0 then
+    return self.params.status_mapping[event.category][event.element].service_status[macro_value]
+  end
+
   return self.params.status_mapping[event.category][event.element][macro_value]
 end
 
