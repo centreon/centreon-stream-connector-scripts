@@ -155,6 +155,7 @@ function EventQueue:add()
     index = self.sc_params.params.splunk_index,
     host = self.sc_params.params.splunk_host,
     time = self.sc_event.event.last_check,
+    event = "metric_event",
     fields = self.sc_event.event.formated_event
   }
 
