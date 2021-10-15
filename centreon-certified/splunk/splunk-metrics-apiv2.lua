@@ -108,6 +108,7 @@ function EventQueue:format_accepted_event()
     
     -- add metrics in the formated event
     for metric_name, metric_data in pairs(self.sc_metrics.metrics) do
+      metric_name = string.gsub(metric_name, "[^a-zA-Z0-9_]", "_")
       self.sc_event.event.formated_event["metric_name:" .. tostring(metric_name)] = metric_data.value
     end
   end
@@ -155,6 +156,7 @@ function EventQueue:add()
     index = self.sc_params.params.splunk_index,
     host = self.sc_params.params.splunk_host,
     time = self.sc_event.event.last_check,
+    event = "metric_event",
     fields = self.sc_event.event.formated_event
   }
 
