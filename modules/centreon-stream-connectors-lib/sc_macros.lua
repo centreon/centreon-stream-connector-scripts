@@ -204,7 +204,7 @@ function ScMacros:replace_sc_macro(string, event, json_string)
         cache_macro_value = self.sc_common:json_escape(cache_macro_value)
       end
 
-      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(event_macro_value, "%%", "%%%%")))
+      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(cache_macro_value, "%%", "%%%%")))
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
