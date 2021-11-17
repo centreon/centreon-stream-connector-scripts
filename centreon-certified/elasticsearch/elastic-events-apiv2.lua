@@ -134,6 +134,7 @@ function EventQueue:format_accepted_event()
       event_type = "service",
       timestamp = self.sc_event.event.last_check,
       host = self.sc_event.event.cache.host.name,
+      service = self.sc_event.event.cache.service.description,
       state = self.sc_event.event.state,
       state_type = self.sc_event.event.state_type,
       output = string.gsub(self.sc_event.event.output, "\n", " "),
