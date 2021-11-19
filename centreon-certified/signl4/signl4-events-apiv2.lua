@@ -130,17 +130,17 @@ function EventQueue:format_accepted_event()
 
   -- {
   --   "Event Type": "HOST",
-  --   "Date": "A DATE HUMAND READABLE",
-  --   "Host": "Agressive passenger",
-  --   "Message": "Gate agent",
-  --   "Status": "Security alert",
-  --   "State": "UP",
-  --   "State Type": "UP",
+  --   "Date": "HUMAN READABLE DATE TIME",
+  --   "Host": "Highway",
+  --   "Message": "to hell!",
+  --   "Status": "DOWN",
+  --   "State": "1",
+  --   "State Type": "1",
   --   "Timestamp": "163[...]542"
-  --   "X-S4-Service": "Security",
+  --   "X-S4-Service": "Centreon",
   --   "X-S4-AlertingScenario": "multi_ack", #NOT INCLUDED ATM
-  --   "X-S4-ExternalID": "INC091210",
-  --   "X-S4-Status": "resolved"
+  --   "X-S4-ExternalID": "HOSTALERT_666",
+  --   "X-S4-Status": "new"
   -- }
 
   function EventQueue:format_event_host()
