@@ -54,15 +54,13 @@ function EventQueue.new(params)
       self.fail = true
     end
 
+    -- force buffer size to 1 to avoid breaking the communication with signl4 (can't send more than one event at once)
+    params.max_buffer_size = 1
+
     -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
     self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
     self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-    self.sc_params.params.x_s4_service = params.x_s4_service or "Centreon"
-    self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
-    self.sc_params.params.client = params.client or "Centreon Stream Connector"
-    self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-    self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-    self.sc_params.params.pdy_source = params.pdy_source or nil
+    self.sc_params.params.x_s4_source_system = params.x_s4_source_system or "Centreon"
     
     -- apply users params and check syntax of standard ones
     self.sc_params:param_override(params)
@@ -137,7 +135,7 @@ function EventQueue:format_accepted_event()
   --   "State": "1",
   --   "State Type": "1",
   --   "Timestamp": "163[...]542"
-  --   "X-S4-Service": "Centreon",
+  --   "X-S4-SourceSystem": "Centreon",
   --   "X-S4-AlertingScenario": "multi_ack", #NOT INCLUDED ATM
   --   "X-S4-ExternalID": "HOSTALERT_666",
   --   "X-S4-Status": "new"
@@ -146,14 +144,14 @@ function EventQueue:format_accepted_event()
   function EventQueue:format_event_host()
     self.sc_event.event.formated_event = {
       "Event Type" = "HOST",
-      "Date" = self.sc_macros:replace_sc_macro(self.sc_event.event.last_check),
+      "Date" = self.sc_macros:transform_date(self.sc_event.event.last_check),
       "Host" = self.sc_event.event.cache.host.name,
       "Message" = string.gsub(self.sc_event.event.output, "\n", " "),
       "Status" = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
       "State" = self.sc_event.event.state,
       "State Type" = self.sc_event.event.state_type,
       "Timestamp" = self.sc_event.event.last_check,
-      "X-S4-Service" = self.sc_params.params.x_s4_service,
+      "X-S4-SourceSystem" = self.sc_params.params.x_s4_source_system,
       "X-S4-ExternalID" = "HOSTALERT_" .. event.host_id, 
       "X-S4-Status" = self.state_to_signlstatus_mapping[event.state]
     }
@@ -162,7 +160,7 @@ function EventQueue:format_accepted_event()
   function EventQueue:format_event_service()
     self.sc_event.event.formated_event = {
       "Event Type" = "SERVICE",
-      "Date" = self.sc_macros:replace_sc_macro(self.sc_event.event.last_check),
+      "Date" = self.sc_macros:transform_date(self.sc_event.event.last_check),
       "Host" = self.sc_event.event.cache.host.name,
       "Service" = self.sc_event.event.cache.service.description,
       "Message" = string.gsub(self.sc_event.event.output, "\n", " "),
@@ -170,7 +168,7 @@ function EventQueue:format_accepted_event()
       "State" = self.sc_event.event.state,
       "State Type" = self.sc_event.event.state_type,
       "Timestamp" = self.sc_event.event.last_check,
-      "X-S4-Service" = self.sc_params.params.x_s4_service, 
+      "X-S4-SourceSystem" = self.sc_params.params.x_s4_source_system,
       "X-S4-ExternalID" = "SERVICEALERT_" event.host_id .. "_" .. event.service_id,
       "X-S4-Status" = self.state_to_signlstatus_mapping[event.state]
     }
@@ -191,85 +189,77 @@ function EventQueue:add()
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
     self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-
     self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
       .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+end
+
+function EventQueue:send_data(data, element)
+  self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
+  
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:info("[send_data]: " .. broker.json_encode(data))
+    return true
   end
-
-  function EventQueue:send_data(data, element)
-    self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-
-    -- write payload in the logfile for test purpose
-    if self.sc_params.params.send_data_test == 1 then
-      self.sc_logger:info("[send_data]: " .. broker.json_encode(data))
-      return true
-    end
-
-    local http_post_data = broker.json_encode(http_post_metadata)
-    for _, raw_event in ipairs(data) do
-      http_post_data = http_post_data .. broker.json_encode(http_post_metadata) .. "\n" .. broker.json_encode(raw_event) .. "\n"
-    end
-
-    self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
-    self.sc_logger:info("[EventQueue:send_data]: Signl4 Server URL is: " .. tostring(self.sc_params.params.server_address) .. "/webhook/" .. tostring(self.sc_params.params.team_secret))
+  
+  local http_post_data = ""
+  for _, raw_event in ipairs(data) do
+    http_post_data = http_post_data .. broker.json_encode(raw_event) .. "\n"
+  end
+  
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
+  self.sc_logger:info("[EventQueue:send_data]: Signl4 Server URL is: " .. tostring(self.sc_params.params.server_address) .. "/webhook/" .. tostring(self.sc_params.params.team_secret))
 
   local http_response_body = ""
   local http_request = curl.easy()
-    :setopt_url(self.sc_params.params.server_address .. "/_bulk")
-    :setopt_writefunction(
-      function (response)
-        http_response_body = http_response_body .. tostring(response)
-      end
-    )
-    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "content-type: application/json;charset=UTF-8",
-        "content-length: " .. string.len(http_post_data)
-      }
-    )
-    -- set proxy address configuration
-    if (self.sc_params.params.proxy_address ~= '') then
-      if (self.sc_params.params.proxy_port ~= '') then
-        http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-      else
-        self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
-      end
+  :setopt_url(self.sc_params.params.server_address .. "/webhook/" .. self.sc_params.params.team_secret)
+  :setopt_writefunction(
+    function (response)
+      http_response_body = http_response_body .. tostring(response)
     end
-
-    -- set proxy user configuration
-    if (self.sc_params.params.proxy_username ~= '') then
-      if (self.sc_params.params.proxy_password ~= '') then
-        http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
-      else
-        broker_log:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
-      end
-    end
-
-    -- adding the HTTP POST data
-    http_request:setopt_postfields(http_post_data)
-
-    -- performing the HTTP request
-    http_request:perform()
-
-    -- collecting results
-    http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
-
-    http_request:close()
-
-    -- Handling the return code
-    local retval = false
-    if http_response_code == 200 then
-      self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
-      retval = true
+  )
+  :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+  :setopt(
+    curl.OPT_HTTPHEADER,
+    {
+      "content-type: application/json;charset=UTF-8",
+      "content-length: " .. string.len(http_post_data)
+    }
+  )
+  -- set proxy address configuration
+  if (self.sc_params.params.proxy_address ~= '') then
+    if (self.sc_params.params.proxy_port ~= '') then
+      http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
     else
-      self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+      self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
-
-    return retval
   end
+  -- set proxy user configuration
+  if (self.sc_params.params.proxy_username ~= '') then
+    if (self.sc_params.params.proxy_password ~= '') then
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+    else
+      broker_log:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
+    end
+  end
+  -- adding the HTTP POST data
+  http_request:setopt_postfields(http_post_data)
+  -- performing the HTTP request
+  http_request:perform()
+  -- collecting results
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+  http_request:close()
+  -- Handling the return code
+  local retval = false
+  if http_response_code == 200 or http_response_code == 201 then
+    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+    retval = true
+  else
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  end
+  return retval
+end
 
 --------------------------------------------------------------------------------
 -- Required functions for Broker StreamConnector
