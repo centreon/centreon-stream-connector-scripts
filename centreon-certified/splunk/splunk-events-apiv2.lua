@@ -217,7 +217,7 @@ function EventQueue:send_data(data, element)
     if (self.sc_params.params.proxy_password ~= '') then
       http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
     else
-      broker_log:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
+      self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
