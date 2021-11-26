@@ -90,6 +90,10 @@ function sc_params.new(common, logger)
 
     -- testing parameters
     send_data_test = 0,
+
+    -- logging parameters
+    logfile = "",
+    log_level = "",
     
     -- initiate mappings
     element_mapping = {},
@@ -558,6 +562,10 @@ function sc_params.new(common, logger)
   -- initiate category and status mapping
   self.params.status_mapping = {
     [categories.neb.id] = {
+      [elements.acknowledgement.id] = {
+        host_status = {},
+        service_status = {}
+      },
       [elements.downtime.id] = {
         [1] = {},
         [2] = {}
@@ -586,8 +594,14 @@ function sc_params.new(common, logger)
     [categories.bam.id] = {}
   }
 
+  -- downtime status mapping
   self.params.status_mapping[categories.neb.id][elements.downtime.id][1] = self.params.status_mapping[categories.neb.id][elements.service_status.id]
   self.params.status_mapping[categories.neb.id][elements.downtime.id][2] = self.params.status_mapping[categories.neb.id][elements.host_status.id]
+
+  -- acknowledgement status mapping
+  self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
+  self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
+  
 
   setmetatable(self, { __index = ScParams })
   return self
@@ -640,6 +654,8 @@ function ScParams:check_params()
   self.params.proxy_password = self.common:if_wrong_type(self.params.proxy_password, "string", "")
   self.params.connection_timeout = self.common:if_wrong_type(self.params.connection_timeout, "number", 60)
   self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.allow_insecure_connection, 0))
+  self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
+  self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table

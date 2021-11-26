@@ -26,6 +26,19 @@
 
 The sc_logger module provides methods to help you handle logging in your stream connectors. It has been made in OOP (object oriented programming)
 
+Logs can be configured with two parameters called
+
+- logfile
+- log_level
+
+there are three different **log_level** going from 1 to 3. Below is the list of the logs message type you can expect with their corresponding **log_level**.
+
+| log_level | message type                        |
+| --------- | ----------------------------------- |
+| 1         | notice, error                       |
+| 2         | info, warning, notice, error        |
+| 3         | debug, info, warning, notice, error |
+
 ## Best practices
 
 All the stream-connectors-lib are using the following syntax when logging:
