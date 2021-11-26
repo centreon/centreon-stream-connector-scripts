@@ -127,7 +127,7 @@ function BigQuery:default_ack_table_schema()
     service_id = "{service_id}",
     service_description = "{cache.service.description}",
     status = "{state}",
-    output = "{output}",
+    output = "{comment_data}",
     instance_id = "{cache.host.instance_id}",
     entry_time = "{entry_time}"
   }
@@ -143,7 +143,7 @@ function BigQuery:default_dt_table_schema()
     service_id = "{service_id}",
     service_description = "{cache.service.description}",
     status = "{state}",
-    output = "{output}",
+    output = "{comment_data}",
     instance_id = "{cache.host.instance_id}",
     actual_start_time = "{actual_start_time}",
     actual_end_time = "{deletion_time}"

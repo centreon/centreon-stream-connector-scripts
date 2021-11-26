@@ -108,7 +108,6 @@ function EventQueue.new(params)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
   
-  
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -120,11 +119,19 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
   
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
   self.sc_event.event.formated_event = {}
   self.sc_event.event.formated_event.json = {}
   
-  for column, value in pairs(self.sc_bq.schemas[self.sc_event.event.category][self.sc_event.event.element]) do
+  for column, value in pairs(self.sc_bq.schemas[category][element]) do
     self.sc_event.event.formated_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+
+    -- event about a downtime/ack that is starting doesn't have an actual end time. Set its value to nil 
+    -- to avoid sending a string data in a column which type should be TIMESTAMP
+    if column == "actual_end_time" and self.sc_event.event.formated_event.json[column] == "{deletion_time}" then
+      self.sc_event.event.formated_event.json[column] = nil
+    end
   end
   
   self:add()
