@@ -371,7 +371,7 @@ end
 -- @param macro_value (number) the timestamp that needs to be converted
 -- @return date (string) the converted timestamp
 function ScMacros:transform_date(macro_value)
-  return os.date(self.params.timestamp_conversion_format, os.time(os.date("!*t", macro_value) + self.params.local_time_diff_from_utc))
+  return os.date(self.params.timestamp_conversion_format, os.time(os.date("!*t", macro_value + self.params.local_time_diff_from_utc)))
 end
 
 --- transform_short: mostly used to convert the event output into a short output by keeping only the data before the new line
