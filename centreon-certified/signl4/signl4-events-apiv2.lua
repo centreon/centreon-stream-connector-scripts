@@ -33,7 +33,6 @@ function EventQueue.new(params)
     local self = {}
 
     local mandatory_parameters = {
-        "server_address",
         "team_secret"
     }
 
@@ -60,6 +59,7 @@ function EventQueue.new(params)
     -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
     self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
     self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+    self.sc_params.params.server_address = params.server_address or "https://connect.signl4.com" 
     self.sc_params.params.x_s4_source_system = params.x_s4_source_system or "Centreon"
 
     -- apply users params and check syntax of standard ones
@@ -188,7 +188,7 @@ function EventQueue:send_data(data, element)
     http_post_data = broker.json_encode(raw_event) .. "\n"
   end
 
-  self.sc_logger:debug("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
   self.sc_logger:info("[EventQueue:send_data]: Signl4 Server URL is: " .. tostring(self.sc_params.params.server_address) .. "/webhook/" .. tostring(self.sc_params.params.team_secret))
 
   local http_response_body = ""
