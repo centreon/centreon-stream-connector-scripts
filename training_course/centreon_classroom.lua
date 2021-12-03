@@ -41,7 +41,6 @@ function CentreonClassroom:put_chairs(chairs)
     print("there are only " .. tostring(self.tables) .. " tables in the classroom,"
       .. "you can't have more than 2 chairs per table")
   end
-
   self.chairs = chairs
 end
 
