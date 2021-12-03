@@ -33,7 +33,7 @@ function CentreonClassroom:put_tables(tables)
 end
 
 function CentreonClassroom:put_chairs(chairs)
-  if not tables then
+  if not self.tables then
     self:put_tables()
   end
 
@@ -41,6 +41,7 @@ function CentreonClassroom:put_chairs(chairs)
     print("there are only " .. tostring(self.tables) .. " tables in the classroom,"
       .. "you can't have more than 2 chairs per table")
   end
+  self.chairs = chairs
 end
 
 return centreon_classroom
