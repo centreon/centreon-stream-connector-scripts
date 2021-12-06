@@ -1,5 +1,6 @@
 #!/usr/bin/lua
 
+local JSON = require("JSON")
 local centreon_classroom = require("centreon_classroom")
 local centreon_cafeteria = require("centreon_cafeteria")
 local centreon_school = require("centreon_school")
@@ -89,9 +90,23 @@ local classrooms = {
 local city = {
   country = "USA",
   state = "Louisiana",
-  city = "New Orleans"
+  name = "New Orleans"
 }
 
 local school = centreon_school.new(classrooms, cafeteria, city)
 
-print(school:get_capacity())
+print("school capacity: " .. school:get_capacity())
+
+local school_location = JSON:decode(school:get_school_geocoordinates())
+school.city.lat = school_location[1].lat
+school.city.lon = school_location[1].lon
+
+local sport_facilities_file_list = io.open("/tmp/sport_facilities.json", "r")
+local file_content = file:read("*a")
+io.close(sport_facilities_file_list)
+
+local sport_facilities = JSON:decode(file_content)
+school:get_nearest_sport_facility(sport_facilities)
+
+
+

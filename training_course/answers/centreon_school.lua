@@ -57,7 +57,7 @@ function CentreonSchool:get_school_geocoordinates()
     :setopt(
       curl.OPT_HTTPHEADER,
       {
-        "content-type: application/json"
+        "user-agent: user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
       }
   )
 
@@ -70,5 +70,26 @@ function CentreonSchool:get_school_geocoordinates()
 
   return http_response_body
 end
+
+function CentreonSchool:get_nearest_sport_facility(sport_facilities_list)
+  local routing_osm = "https://router.project-osrm.org"
+  local query = "/route/v1/foot/"
+  local option = "overview=false"
+  local counter = 0
+  
+  for index, sport_facility in ipairs(sport_facilities_list) do
+    if counter == 0 then
+      query = query .. self.school.lon .. "," .. self.school.lat .. ";" .. sport_facility.lon .. "," .. sport_facility.lat
+      counter = counter + 1
+    else
+      query = query .. ";" .. self.school.lon .. "," .. self.school.lat .. ";" .. sport_facility.lon .. "," .. sport_facility.lat
+    end
+  end
+
+  local url = routing_osm .. query .. "?" .. option
+
+  print(url)
+end
+
 
 return centreon_school
