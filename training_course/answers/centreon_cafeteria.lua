@@ -1,10 +1,12 @@
+-- initiate centreon_cafeteria object
 local centreon_cafeteria = {}
-
 local CentreonCafeteria = {}
 
+-- begin the centreon_cafeteria constructor
 function centreon_cafeteria.new(menu, cook)
   local self = {}
   
+  -- use the hired cook or hire one if there is none
   if cook then
     self.cook = cook
   else
@@ -14,6 +16,7 @@ function centreon_cafeteria.new(menu, cook)
     }
   end
 
+  -- use provided menu or use a default one is there is none
   if menu then
     self.menu = menu
   else
@@ -57,9 +60,11 @@ function centreon_cafeteria.new(menu, cook)
     }
   end
 
+  -- end the constructor
   setmetatable(self, { __index = CentreonCafeteria })
   return self
 end
+
 
 function CentreonCafeteria:check_alergy(dish, alergies)
   -- find dish

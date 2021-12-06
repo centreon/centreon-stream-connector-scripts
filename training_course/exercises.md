@@ -160,10 +160,15 @@ We want the children that attend classes in our school to be as healthy as we ca
 ### Exercice 8: What you must do
 
 - create a method called get_school_geocoordinates() that returns a table with the latitude and the longitude
+- you must use the following user agent http header with curl to not be blocked **user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36**
+
+query example https://nominatim.openstreetmap.org/search?q=mont-de-marsan-landes-france&format=json&polygon=1&addressdetails=1
 
 ## Exercice 9
 
 Find the closest sport facility. Our administrative department concluded a partnership with 6 sport facilities across the world. Our children may have to walk a few thousand kilometers in order to play basketball but if they don't attend their sport class, they are going to be expelled from our school!
+
+query examples http://project-osrm.org/docs/v5.24.0/api/#
 
 ### Exercice 9: What you must do
 
