@@ -33,7 +33,6 @@ function EventQueue.new(params)
     local self = {}
 
     local mandatory_parameters = {
-        "server_address",
         "team_secret"
     }
 
@@ -60,8 +59,9 @@ function EventQueue.new(params)
     -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
     self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
     self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+    self.sc_params.params.server_address = params.server_address or "https://connect.signl4.com" 
     self.sc_params.params.x_s4_source_system = params.x_s4_source_system or "Centreon"
-    
+
     -- apply users params and check syntax of standard ones
     self.sc_params:param_override(params)
     self.sc_params:check_params()
@@ -124,55 +124,36 @@ function EventQueue:format_accepted_event()
 
     self:add()
     self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
-  end
+end
 
-  -- {
-  --   "Event Type": "HOST",
-  --   "Date": "HUMAN READABLE DATE TIME",
-  --   "Host": "Highway",
-  --   "Message": "to hell!",
-  --   "Status": "DOWN",
-  --   "State": "1",
-  --   "State Type": "1",
-  --   "Timestamp": "163[...]542"
-  --   "X-S4-SourceSystem": "Centreon",
-  --   "X-S4-AlertingScenario": "multi_ack", #NOT INCLUDED ATM
-  --   "X-S4-ExternalID": "HOSTALERT_666",
-  --   "X-S4-Status": "new"
-  -- }
+function EventQueue:format_event_host()
+  self.sc_event.event.formated_event = {
+    EventType = "HOST",
+    Date = self.sc_macros:transform_date(self.sc_event.event.last_check),
+    Host = self.sc_event.event.cache.host.name,
+    Message = string.gsub(self.sc_event.event.output, "\n", " "),
+    Status = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
+    Title = "HOST ALERT:" .. self.sc_event.event.cache.host.name .. " is " .. self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
+    ["X-S4-SourceSystem"] = self.sc_params.params.x_s4_source_system,
+    ["X-S4-ExternalID"] = "HOSTALERT_" .. self.sc_event.event.host_id,
+    ["X-S4-Status"] = self.state_to_signlstatus_mapping[self.sc_event.event.state]
+  }
+end
 
-  function EventQueue:format_event_host()
-    self.sc_event.event.formated_event = {
-      "Event Type" = "HOST",
-      "Date" = self.sc_macros:transform_date(self.sc_event.event.last_check),
-      "Host" = self.sc_event.event.cache.host.name,
-      "Message" = string.gsub(self.sc_event.event.output, "\n", " "),
-      "Status" = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-      "State" = self.sc_event.event.state,
-      "State Type" = self.sc_event.event.state_type,
-      "Timestamp" = self.sc_event.event.last_check,
-      "X-S4-SourceSystem" = self.sc_params.params.x_s4_source_system,
-      "X-S4-ExternalID" = "HOSTALERT_" .. event.host_id, 
-      "X-S4-Status" = self.state_to_signlstatus_mapping[event.state]
-    }
-  end
-
-  function EventQueue:format_event_service()
-    self.sc_event.event.formated_event = {
-      "Event Type" = "SERVICE",
-      "Date" = self.sc_macros:transform_date(self.sc_event.event.last_check),
-      "Host" = self.sc_event.event.cache.host.name,
-      "Service" = self.sc_event.event.cache.service.description,
-      "Message" = string.gsub(self.sc_event.event.output, "\n", " "),
-      "Status" = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-      "State" = self.sc_event.event.state,
-      "State Type" = self.sc_event.event.state_type,
-      "Timestamp" = self.sc_event.event.last_check,
-      "X-S4-SourceSystem" = self.sc_params.params.x_s4_source_system,
-      "X-S4-ExternalID" = "SERVICEALERT_" event.host_id .. "_" .. event.service_id,
-      "X-S4-Status" = self.state_to_signlstatus_mapping[event.state]
-    }
-  end
+function EventQueue:format_event_service()
+  self.sc_event.event.formated_event = {
+    EventType = "SERVICE",
+    Date = self.sc_macros:transform_date(self.sc_event.event.last_check),
+    Host = self.sc_event.event.cache.host.name,
+    Service = self.sc_event.event.cache.service.description,
+    Message = string.gsub(self.sc_event.event.output, "\n", " "),
+    Status = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
+    Title = "SERVICE ALERT:" .. self.sc_event.event.cache.host.name .. "/" .. self.sc_event.event.cache.service.description .. " is " .. self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
+    ["X-S4-SourceSystem"] = self.sc_params.params.x_s4_source_system,
+    ["X-S4-ExternalID"] = "SERVICEALERT_" .. self.sc_event.event.host_id .. "_" .. self.sc_event.event.service_id,
+    ["X-S4-Status"] = self.state_to_signlstatus_mapping[self.sc_event.event.state]
+  }
+end
 
 --------------------------------------------------------------------------------
 -- EventQueue:add, add an event to the sending queue
@@ -195,18 +176,18 @@ end
 
 function EventQueue:send_data(data, element)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-  
+
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:info("[send_data]: " .. broker.json_encode(data))
     return true
   end
-  
+
   local http_post_data = ""
   for _, raw_event in ipairs(data) do
-    http_post_data = http_post_data .. broker.json_encode(raw_event) .. "\n"
+    http_post_data = broker.json_encode(raw_event) .. "\n"
   end
-  
+
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
   self.sc_logger:info("[EventQueue:send_data]: Signl4 Server URL is: " .. tostring(self.sc_params.params.server_address) .. "/webhook/" .. tostring(self.sc_params.params.team_secret))
 
@@ -223,8 +204,7 @@ function EventQueue:send_data(data, element)
   :setopt(
     curl.OPT_HTTPHEADER,
     {
-      "content-type: application/json;charset=UTF-8",
-      "content-length: " .. string.len(http_post_data)
+      "content-type: application/json",
     }
   )
   -- set proxy address configuration
