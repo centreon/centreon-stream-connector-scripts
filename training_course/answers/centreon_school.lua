@@ -158,7 +158,7 @@ function CentreonSchool:get_nearest_sport_facility(sport_facilities_list)
 
   -- maybe there wasn't any facility that could be reach by the kids
   if not best_facility.name then
-          return false, best_facility
+    return false, best_facility
   end
 
   return true, best_facility
