@@ -133,10 +133,10 @@ There is an old legend saying that people must eat and drink in order to survive
 local centreon_cafeteria = require("centreon_cafeteria")
 local cafeteria = centreon_cafeteria.new(cook, menu)
 
-print(tostring(cook.nickname))
+print(tostring(cafeteria.cook.nickname))
 --> must print the nickname of your cook
 
-print(tostring(menu.starters["duck soup"].name))
+print(tostring(cafeteria.menu.starters["duck soup"].name))
 --> must print the name of the dish "duck soup"
 ```
 
