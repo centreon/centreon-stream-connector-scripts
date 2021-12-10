@@ -104,7 +104,7 @@ you can check your code using the following lua script
 local centreon_cafeteria = require("centreon_cafeteria")
 local cafeteria = centreon_cafeteria.new(cook, menu)
 
-local return_code, return_message = cafeteria.check_alergy("duck soup", {"duck", "salt"})
+local return_code, return_message = cafeteria:check_alergy("duck soup", {"duck", "salt"})
 
 if not return_code then
   print(return_message)
