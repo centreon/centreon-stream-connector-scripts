@@ -55,3 +55,24 @@ classroom:put_chairs(15)
 print("tables: " .. tostring(classroom.tables) .. ", chairs: " .. tostring(classroom.chairs))
 --> will print "tables: 10, chairs: 15"
 ```
+
+## Exercise 3
+
+you need to add a "security" layer in the centreon_school module. The table parameter must be a number so we are going to make sure people call the put_tables method with a number and nothing else. 
+
+```lua
+function CentreonClassroom:put_tables(tables)
+  if not tables or type(tables) ~= "number" then
+    math.randomseed(os.time())
+    self.tables = math.random(1,20)
+  elseif tables > 20 then
+    print(tables .. " tables is a bit much, it is a classroom not a stadium")
+    math.randomseed(os.time())
+    self.tables = math.random(1,20)
+  else
+    self.tables = tables
+  end
+end
+```
+
+In the above example, we've added a check that says if the type of the "tables" variables is not a number, then we are going to ignore it and add a random number of tables in the classroom.
