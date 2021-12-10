@@ -1,3 +1,8 @@
+--[[ 
+-----------------  EXERCICE 4 BEGINNING --------------------
+-- do not forget the return at the end of the file
+--]]
+
 -- initiate centreon_cafeteria object
 local centreon_cafeteria = {}
 local CentreonCafeteria = {}
@@ -65,6 +70,14 @@ function centreon_cafeteria.new(menu, cook)
   return self
 end
 
+--[[ 
+-----------------  EXERCICE 4 ENDING --------------------
+--]]
+
+
+--[[ 
+-----------------  EXERCICE 5 BEGINNING --------------------
+--]]
 
 function CentreonCafeteria:check_alergy(dish, alergies)
   -- find dish
@@ -93,4 +106,10 @@ function CentreonCafeteria:check_alergy(dish, alergies)
   return true, "Here is your: " .. tostring(dish)
 end
 
+
+--[[ 
+-----------------  EXERCICE 5 ENDIG --------------------
+--]]
+
+-- below is the return thas is part of the exercice 4
 return centreon_cafeteria
