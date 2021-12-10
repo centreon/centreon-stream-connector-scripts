@@ -76,3 +76,37 @@ end
 ```
 
 In the above example, we've added a check that says if the type of the "tables" variables is not a number, then we are going to ignore it and add a random number of tables in the classroom.
+
+## Exercise 4 
+
+In this exercise, you must create your first lua module and its constructor. There is an example in the [centreon_cafetria.lua module](answers/centreon_cafeteria.lua) file
+
+you can test your constructor using the following code in a lua script
+
+```lua
+local centreon_cafeteria = require("centreon_cafeteria")
+local cafeteria = centreon_cafeteria.new(cook, menu)
+
+print(tostring(cafeteria.cook.nickname))
+--> must print the nickname of your cook
+
+print(tostring(cafeteria.menu.starters["duck soup"].name))
+--> must print the name of the dish "duck soup"
+```
+
+## Exercise 5
+
+In this exercise, you must check if a kid has an allergy to an ingredient that is in the dish that he want. There is an example of method that check allergies in the  [centreon_cafetria.lua module](answers/centreon_cafeteria.lua) file 
+
+you can check your code using the following lua script 
+
+```lua
+local centreon_cafeteria = require("centreon_cafeteria")
+local cafeteria = centreon_cafeteria.new(cook, menu)
+
+local return_code, return_message = cafeteria.check_alergy("duck soup", {"duck", "salt"})
+
+if not return_code then
+  print(return_message)
+end
+```
