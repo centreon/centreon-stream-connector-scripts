@@ -3,6 +3,8 @@
 - [Exercices Answers](#exercices-answers)
   - [Exercise 1](#exercise-1)
   - [Exercise 2](#exercise-2)
+  - [Exercise 3](#exercise-3)
+  - [Exercise 5](#exercise-5)
 
 ## Exercise 1
 
