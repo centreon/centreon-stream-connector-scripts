@@ -1,0 +1,47 @@
+{
+  "facilities": 
+  [
+    {
+      "name": "Marco Polo",
+      "lat": 35.078807,
+      "lon": -106.59378,
+      "comment": "North America"
+    },
+    {
+      "name": "Christopher Columbus",
+      "lat": -33.483838,
+      "lon": -70.631712,
+      "comment": "South America"
+    },
+    {
+      "name": "Amerigo Vespucci",
+      "lat": 35.25125182,
+      "lon": 25.125182,
+      "comment": "Europe"
+    },
+    {
+      "name": "John Cabot",
+      "lat": -1.285892,
+      "lon": 36.897156,
+      "comment": "Africa"
+    },
+    {
+      "name": "Ferdinand Magellan",
+      "lat": 22.571086,
+      "lon": 88.366460,
+      "comment": "India"
+    },
+    {
+      "name": "James Cook",
+      "lat": 62.011106,
+      "lon": -6.775236,
+      "comment": "Feroe Island"
+    },
+    {
+      "name": "Vasco da Gama",
+      "lat": -18.138824,
+      "lon": -178.425807,
+      "comment": "Fidji Island"
+    }
+  ]
+}

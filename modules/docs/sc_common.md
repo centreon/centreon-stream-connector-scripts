@@ -17,6 +17,10 @@
     - [boolean_to_number: parameters](#boolean_to_number-parameters)
     - [boolean_to_number: returns](#boolean_to_number-returns)
     - [boolean_to_number: example](#boolean_to_number-example)
+  - [number_to_boolean method](#number_to_boolean-method)
+    - [number_to_boolean: parameters](#number_to_boolean-parameters)
+    - [number_to_boolean: returns](#number_to_boolean-returns)
+    - [number_to_boolean: example](#number_to_boolean-example)
   - [check_boolean_number_option_syntax method](#check_boolean_number_option_syntax-method)
     - [check_boolean_number_option_syntax: parameters](#check_boolean_number_option_syntax-parameters)
     - [check_boolean_number_option_syntax: returns](#check_boolean_number_option_syntax-returns)
@@ -37,6 +41,10 @@
     - [load_json_file: parameters](#load_json_file-parameters)
     - [load_json_file: returns](#load_json_file-returns)
     - [load_json_file: example](#load_json_file-example)
+  - [json_escape method](#json_escape-method)
+    - [json_escape: parameters](#json_escape-parameters)
+    - [json_escape: returns](#json_escape-returns)
+    - [json_escape: example](#json_escape-example)
 
 ## Introduction
 
@@ -161,6 +169,32 @@ local my_boolean = true
 
 local result = test_common:boolean_to_number(my_boolean)
 --> result is 1
+```
+
+## number_to_boolean method
+
+The **number_to_boolean** method converts a number to its boolean equivalent.
+
+### number_to_boolean: parameters
+
+| parameter         | type   | optional | default value |
+| ----------------- | ------ | -------- | ------------- |
+| a number (0 or 1) | number | no       |               |
+
+### number_to_boolean: returns
+
+| return                    | type    | always | condition                  |
+| ------------------------- | ------- | ------ | -------------------------- |
+| a boolean (true or false) | boolean | no     | if parameter is 0 or 1     |
+| nil                       | nil     | no     | if parameter is not 0 or 1 |
+
+### number_to_boolean: example
+
+```lua
+local my_number = 1
+
+local result = test_common:number_to_boolean(my_number)
+--> result is true
 ```
 
 ## check_boolean_number_option_syntax method
@@ -338,4 +372,30 @@ local result, content = test_common:load_json_file(json_file)
 json_file = 3
 result, content = test_common:load_json_file(json_file)
 --> result is false, content is nil
+```
+
+## json_escape method
+
+The **json_escape** method escape json special characters.
+
+### json_escape: parameters
+
+| parameter                     | type   | optional | default value |
+| ----------------------------- | ------ | -------- | ------------- |
+| a string that must be escaped | string | no       |               |
+
+### json_escape: returns
+
+| return                                                                 | type                             | always | condition |
+| ---------------------------------------------------------------------- | -------------------------------- | ------ | --------- |
+| an escaped string (or the raw parameter if it was nil or not a string) | string (or input parameter type) | yes    |           |
+
+### json_escape: example
+
+```lua
+local string = 'string with " and backslashes \\ and tab:\tend tab'
+--> string is 'string with " and backslashes \ and tab: end tab'
+
+local result = test_common:json_escape(string)
+--> result is 'string with \" and backslashes \\ and tab:\tend tab'
 ```

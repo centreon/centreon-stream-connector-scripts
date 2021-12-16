@@ -68,6 +68,16 @@ function sc_params.new(common, logger)
     max_buffer_size = 1,
     max_buffer_age = 5,
 
+    -- connection parameters
+    connection_timeout = 60,
+    allow_insecure_connection = 0,
+
+    -- proxy parameters
+    proxy_address = "",
+    proxy_port = "",
+    proxy_username = "",
+    proxy_password = "",
+
     -- event formatting parameters
     format_file = "",
 
@@ -80,6 +90,10 @@ function sc_params.new(common, logger)
 
     -- testing parameters
     send_data_test = 0,
+
+    -- logging parameters
+    logfile = "",
+    log_level = "",
     
     -- initiate mappings
     element_mapping = {},
@@ -548,6 +562,10 @@ function sc_params.new(common, logger)
   -- initiate category and status mapping
   self.params.status_mapping = {
     [categories.neb.id] = {
+      [elements.acknowledgement.id] = {
+        host_status = {},
+        service_status = {}
+      },
       [elements.downtime.id] = {
         [1] = {},
         [2] = {}
@@ -576,8 +594,14 @@ function sc_params.new(common, logger)
     [categories.bam.id] = {}
   }
 
+  -- downtime status mapping
   self.params.status_mapping[categories.neb.id][elements.downtime.id][1] = self.params.status_mapping[categories.neb.id][elements.service_status.id]
   self.params.status_mapping[categories.neb.id][elements.downtime.id][2] = self.params.status_mapping[categories.neb.id][elements.host_status.id]
+
+  -- acknowledgement status mapping
+  self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
+  self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
+  
 
   setmetatable(self, { __index = ScParams })
   return self
@@ -624,6 +648,14 @@ function ScParams:check_params()
   self.params.enable_host_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_host_status_dedup, 0)
   self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
   self.params.send_data_test = self.common:check_boolean_number_option_syntax(self.params.send_data_test, 0)
+  self.params.proxy_address = self.common:if_wrong_type(self.params.proxy_address, "string", "")
+  self.params.proxy_port = self.common:if_wrong_type(self.params.proxy_port, "number", "")
+  self.params.proxy_username = self.common:if_wrong_type(self.params.proxy_username, "string", "")
+  self.params.proxy_password = self.common:if_wrong_type(self.params.proxy_password, "string", "")
+  self.params.connection_timeout = self.common:if_wrong_type(self.params.connection_timeout, "number", 60)
+  self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.allow_insecure_connection, 0))
+  self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
+  self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -647,9 +679,9 @@ end
 -- @eturn true|false (boolean) 
 function ScParams:is_mandatory_config_set(mandatory_params, params)
   for index, mandatory_param in ipairs(mandatory_params) do
-    if not params[mandatory_param] then
+    if not params[mandatory_param] or params[mandatory_param] == "" then
       self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param) 
-        .. " parameter is not set in the stream connector web configuration")
+        .. " parameter is not set in the stream connector web configuration (or value is empty)")
       return false
     end
 
@@ -661,27 +693,36 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
 end
 
 --- load_event_format_file: load a json file which purpose is to serve as a template to format events
+-- @param json_string [opt] (boolean) convert template from a lua table to a json string
 -- @return true|false (boolean) if file is valid template file or not
-function ScParams:load_event_format_file()
+function ScParams:load_event_format_file(json_string)
+  -- return if there is no file configured
   if self.params.format_file == "" or self.params.format_file == nil then
     return false
   end 
   
   local retval, content = self.common:load_json_file(self.params.format_file)
   
+  -- return if we couldn't load the json file
   if not retval then
     return false
   end
 
+  -- initiate variables
   local categories = self.params.bbdo.categories
   local elements = self.params.bbdo.elements
-
   local tpl_category
   local tpl_element
   
   -- store format template in their appropriate category/element table
   for cat_el, format in pairs(content) do
     tpl_category, tpl_element = string.match(cat_el, "^(%w+)_(.*)")
+    
+    -- convert back to json if 
+    if json_string then
+      format = broker.json_encode(format)
+    end
+    
     self.params.format_template[categories[tpl_category].id][elements[tpl_element].id] = format
   end
 
@@ -694,17 +735,10 @@ function ScParams:build_accepted_elements_info()
 
   -- list all accepted elements
   for _, accepted_element in ipairs(self.common:split(self.params.accepted_elements, ",")) do
-    self.logger:debug("[sc_params:build_accetped_elements_info]: accepted element: " .. tostring(accepted_element))
     -- try to find element in known categories
-    for category_name, category_info in pairs(categories) do
-      self.logger:debug("[sc_params:build_accetped_elements_info]: category id: " .. tostring(category_info.id))
-      for i, v in pairs(self.params.element_mapping) do
-        self.logger:debug("[sc_params:build_accepted_elements_info]: mapping: " .. tostring(i) .. " value: " .. tostring(v))
-      end
-        
+    for category_name, category_info in pairs(categories) do        
       if self.params.element_mapping[category_info.id][accepted_element] then
         -- if found, store information in a dedicated table
-        self.logger:debug("[sc_params:build_accetped_elements_info] dans le param setup: " .. tostring(self.params.element_mapping[category_info.id][accepted_element]))
         self.params.accepted_elements_info[accepted_element] = {
           category_id = category_info.id,
           category_name = category_name,

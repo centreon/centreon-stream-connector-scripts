@@ -35,11 +35,13 @@
 | ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case   | [Documentation](sc_common.md#ifnil_or_empty-method)                     |
 | if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value     | [Documentation](sc_common.md#if_wrong_type-method)                      |
 | boolean_to_number                  | change a true/false boolean to a 1/0 value                                                  | [Documentation](sc_common.md#boolean_to_number-method)                  |
+| number_to_boolean                  | change a 0/1 number to a false/true value                                                   | [Documentation](sc_common.md#number_to_boolean-method)                  |
 | check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value | [Documentation](sc_common.md#check_boolean_number_option_syntax-method) |
 | split                              | split a string using a separator (default is ",") and store each part in a table            | [Documentation](sc_common.md#split-method)                              |
 | compare_numbers                    | compare two numbers using the given mathematical operator and return true or false          | [Documentation](sc_common.md#compare_numbers-method)                    |
 | generate_postfield_param_string    | convert a table of parameters into an url encoded parameters string                         | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
 | load_json_file                     | method loads a json file and parse it                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
+| json_escape                        | escape json characters in a string                                                          | [Documentation](sc_common.md#json_escape-method)                        |
 
 ## sc_logger methods
 

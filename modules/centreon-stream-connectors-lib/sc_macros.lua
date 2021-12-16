@@ -7,13 +7,15 @@
 local sc_macros = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScMacros = {}
 
 --- sc_macros.new: sc_macros constructor
 -- @param params (table) the stream connector parameter table
--- @param sc_logger (object) object instance from sc_logger module
-function sc_macros.new(params, logger)
+-- @param logger (object) object instance from sc_logger module
+-- @param common (object) object instance from sc_common module
+function sc_macros.new(params, logger, common)
   local self = {}
 
   -- initiate mandatory libs
@@ -22,15 +24,20 @@ function sc_macros.new(params, logger)
     self.sc_logger = sc_logger.new()
   end
 
+  self.sc_common = common
+  if not self.sc_common then
+    self.sc_common = sc_common.new(self.sc_logger)
+  end
+
   -- initiate params
   self.params = params
 
   -- mapping of macro that we will convert if asked
   self.transform_macro = {
-    date = function () return self:transform_date(macro_value) end,
-    type = function () return self:transform_type(macro_value) end,
-    short = function () return self:transform_short(macro_value) end,
-    state = function () return self:transform_state(macro_value, event) end
+    date = function (macro_value) return self:transform_date(macro_value) end,
+    type = function (macro_value) return self:transform_type(macro_value) end,
+    short = function (macro_value) return self:transform_short(macro_value) end,
+    state = function (macro_value, event) return self:transform_state(macro_value, event) end
   }
 
   -- mapping of centreon standard macros to their stream connectors counterparts
@@ -171,8 +178,9 @@ end
 --- replace_sc_macro: replace any stream connector macro with it's value
 -- @param string (string) the string in which there might be some stream connector macros to replace
 -- @param event (table) the current event table
--- @return converted_string (string) the input string but with the macro replaced with their values
-function ScMacros:replace_sc_macro(string, event)
+-- @param json_string (boolean)  
+-- @return converted_string (string) the input string but with the macro replaced with their json escaped values
+function ScMacros:replace_sc_macro(string, event, json_string)
   local cache_macro_value = false
   local event_macro_value = false
   local converted_string = string
@@ -180,7 +188,7 @@ function ScMacros:replace_sc_macro(string, event)
   -- find all macros for exemple the string: 
   -- {cache.host.name} is the name of host with id: {host_id} 
   -- will generate two macros {cache.host.name} and {host_id})
-  for macro in string.gmatch(string, "{.*}") do
+  for macro in string.gmatch(string, "{[%w_.]+}") do
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
     
     -- check if macro is in the cache
@@ -190,7 +198,13 @@ function ScMacros:replace_sc_macro(string, event)
     if cache_macro_value then
       self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
         .. tostring(macro) .. ", value is: " .. tostring(cache_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-      converted_string = string.gsub(converted_string, macro, cache_macro_value)
+      
+      -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
+      if json_string then
+        cache_macro_value = self.sc_common:json_escape(cache_macro_value)
+      end
+
+      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(cache_macro_value, "%%", "%%%%")))
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
@@ -199,11 +213,30 @@ function ScMacros:replace_sc_macro(string, event)
       if event_macro_value then
         self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
           .. tostring(macro) .. ", value is: " .. tostring(event_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-        converted_string = string.gsub(converted_string, macro, event_macro_value)
+
+        -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
+        if json_string then
+          cache_macro_value = self.sc_common:json_escape(cache_macro_value)
+        end
+        
+        converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(event_macro_value, "%%", "%%%%")))
       else
         self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
       end
     end
+  end
+
+  -- the input string was a json, we decode the result
+  if json_string then
+    local decoded_json, error = broker.json_decode(converted_string)
+
+    if error then
+      self.sc_logger:error("[sc_macros:replace_sc_macro]: couldn't decode json string: " .. tostring(converted_string)
+        .. ". Error is: " .. tostring(error))
+      return converted_string
+    end
+
+    return decoded_json
   end
 
   return converted_string
@@ -214,14 +247,14 @@ end
 -- @param event (table) the event table (obivously, cache must be in the event table if we want to find something in it)
 -- @return false (boolean) if the macro is not a cache macro ({host_id} instead of {cache.xxxx.yyy} for example) or we can't find the cache type or the macro in the cache
 -- @return macro_value (string|boolean|number) the value of the macro
-function ScMacros:get_cache_macro(macro, event)
+function ScMacros:get_cache_macro(raw_macro, event)
 
   -- try to cut the macro in three parts
-  local cache, cache_type, macro = string.match(macro, "^{(cache)%.(%w+)%.(.*)}")
+  local cache, cache_type, macro = string.match(raw_macro, "^{(cache)%.(%w+)%.(.*)}")
 
   -- if cache is not set, it means that the macro wasn't a cache macro
   if not cache then
-    self.sc_logger:info("[sc_macros:get_cache_macro]: macro: " .. tostring(macro) .. " is not a cache macro")
+    self.sc_logger:info("[sc_macros:get_cache_macro]: macro: " .. tostring(raw_macro) .. " is not a cache macro")
     return false
   end
 
@@ -263,7 +296,7 @@ function ScMacros:get_event_macro(macro, event)
   if event[macro_value] then
     if flag then
       self.sc_logger:info("[sc_macros:get_event_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
-          .. ", a macro value conversion will be done.")
+          .. ", a macro value conversion will be done. Macro value is: " .. tostring(macro_value))
       -- convert the found value according to the flag that has been sent
       return self.transform_macro[flag](event[macro_value], event)
     else
@@ -338,7 +371,7 @@ end
 -- @param macro_value (number) the timestamp that needs to be converted
 -- @return date (string) the converted timestamp
 function ScMacros:transform_date(macro_value)
-  return os.date(self.params.timestamp_conversion_format, os.time(os.date("!*t", macro_value) + self.params.local_time_diff_from_utc))
+  return os.date(self.params.timestamp_conversion_format, os.time(os.date("!*t", macro_value + self.params.local_time_diff_from_utc)))
 end
 
 --- transform_short: mostly used to convert the event output into a short output by keeping only the data before the new line
@@ -364,6 +397,15 @@ end
 -- @param event (table) the event table
 -- @return string (string) the status of the event in a human readable format (e.g: OK, WARNING)
 function ScMacros:transform_state(macro_value, event)
+  
+  -- acknowledgement events are special, the state can be for a host or a service. 
+  -- We force the element to be host_status or service_status in order to properly convert the state
+  if event.element == 1 and event.service_id == 0 then
+    return self.params.status_mapping[event.category][event.element].host_status[macro_value]
+  elseif event.element == 1 and event.service_id ~= 0 then
+    return self.params.status_mapping[event.category][event.element].service_status[macro_value]
+  end
+
   return self.params.status_mapping[event.category][event.element][macro_value]
 end
 
