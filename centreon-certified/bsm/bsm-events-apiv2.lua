@@ -266,36 +266,36 @@ function write(event)
   queue.sc_flush:flush_all_queues(queue.send_data_method[1])
 
   -- skip event if a mandatory parameter is missing
-  if queue.event.fail then
-    queue.event.sc_logger:error("Skipping event because a mandatory parameter is not set")
+  if queue.fail then
+    queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
     return true
   end
 
   -- initiate event object
-  queue.event.sc_event = sc_event.new(event, queue.event.sc_params.params, queue.event.sc_common, queue.event.sc_logger, queue.event.sc_broker)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
   -- drop event if wrong category
-  if not queue.event.sc_event:is_valid_category() then
-    queue.event.sc_logger:debug("dropping event because category is not valid. Event category is: "
-      .. tostring(queue.event.sc_params.params.reverse_category_mapping[queue.event.sc_event.event.category]))
+  if not queue.sc_event:is_valid_category() then
+    queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
     return true
   end
 
   -- drop event if wrong element
-  if not queue.event.sc_event:is_valid_element() then
-    queue.event.sc_logger:debug("dropping event because element is not valid. Event element is: "
-      .. tostring(queue.event.sc_params.params.reverse_element_mapping[queue.event.sc_event.event.category][queue.event.sc_event.event.element]))
+  if not queue.sc_event:is_valid_element() then
+    queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+      .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
     return true
   end
 
   -- drop event if it is not validated
-  if queue.event.sc_event:is_valid_event() then
+  if queue.sc_event:is_valid_event() then
     queue:format_accepted_event()
   else
     return true
   end
 
   -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.event.sc_flush:flush_queue(queue.event.send_data_method[1], queue.event.sc_event.event.category, queue.event.sc_event.event.element)
+  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
   return true
 end
