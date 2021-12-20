@@ -114,26 +114,27 @@ end
 
 -- Format XML file with host infoamtion
 function EventQueue:format_event_host()
-  local xml_host_severity = "<host_severity>" .. self.sc_common:ifnil_or_empty(self.sc_broker:get_severity(self.sc_event.event.host_id) , '0') .. "</host_severity>"
-  local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.service.action_url, 'no action url for this host')
-  local xml_notes = "<host_notes>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.cache.service.notes, 'OS not set') .. "</host_notes>"
+  local xml_host_severity = "<host_severity>" .. self.sc_common:ifnil_or_empty(self.sc_broker:get_severity(self.sc_event.event.host_id) , 0) .. "</host_severity>"
+  local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.action_url, 'no action url for this host')
+  local xml_notes = "<host_notes>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.notes, 'no notes found on host') .. "</host_notes>"
   
   self.sc_event.event.formated_event = {
     "<event_data>"
       .. "<hostname>" .. hostname .. "</hostname>"
-      .. xml_host_severity .. xml_notes
+      .. "<host_severity>" .. xml_host_severity .. "</host_severity>"
+      .. "<xml_notes>" .. xml_notes .. "</xml_notes>"
       .. "<url>" .. xml_url .. "</url>"
       .. "<source_ci>" .. ifnil_or_empty(self.source_ci, 'Centreon') .. "</source_ci>"
-      .. "<source_host_id>" .. ifnil_or_empty(self.sc_event.event.host_id, '0') .. "</source_host_id>"
-      .. "<scheduled_downtime_depth>" .. ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, '0') .. "</scheduled_downtime_depth>"
+      .. "<source_host_id>" .. ifnil_or_empty(self.sc_event.event.host_id, 0) .. "</source_host_id>"
+      .. "<scheduled_downtime_depth>" .. ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0) .. "</scheduled_downtime_depth>"
       .. "</event_data>"
   }
 end
 
 -- Format XML file with service infoamtion
 function EventQueue:format_event_service()
-  local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.service.notes_url, 'no notes url for this service')
-  local xml_service_severity = "<service_severity>" .. self.sc_common:ifnil_or_empty(self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id) , '0') .. "</service_severity>"
+  local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.notes_url, 'no url for this service')
+  local xml_service_severity = "<service_severity>" .. self.sc_common:ifnil_or_empty(self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id) , 0) .. "</service_severity>"
     
   self.sc_event.event.formated_event = {
       "<event_data>"
@@ -141,13 +142,13 @@ function EventQueue:format_event_service()
         .. "<svc_desc>" .. service_description .. "</svc_desc>"
         .. "<state>" ..self.sc_event.event.state .. "</state>"
         .. "<last_update>" ..self.sc_event.event.last_update .. "</last_update>"
-        .. "<output>" .. string.match(e.output, "^(.*)\n") .. "</output>"
-        .. xml_service_severity
+        .. "<output>" .. string.match(self.sc_event.event.output, "^(.*)\n") .. "</output>"
+        .. "<xml_service_severity>" .. xml_service_severity .. "<xml_service_severity>"
         .. "<url>" .. xml_url .. "</url>"
-        .. "<source_host_id>" .. ifnil_or_empty(self.sc_event.event.host_id, '0') .. "</source_host_id>"
-        .."<source_svc_id>" .. ifnil_or_empty(self.sc_event.event.service_id, '0') .. "</source_svc_id>"
-        .. "<scheduled_downtime_depth>" .. ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, '0') .. "</scheduled_downtime_depth>"
-        .."</event_data>"
+        .. "<source_host_id>" .. ifnil_or_empty(self.sc_event.event.host_id, 0) .. "</source_host_id>"
+        .. "<source_svc_id>" .. ifnil_or_empty(self.sc_event.event.service_id, 0) .. "</source_svc_id>"
+        .. "<scheduled_downtime_depth>" .. ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0) .. "</scheduled_downtime_depth>"
+        .. "</event_data>"
     }  
 end
 
@@ -256,45 +257,45 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  queue = EventQueue.sc_event.event.new(conf)
+  queue = EventQueue.new(conf)
 end
 
 -- Fonction write()
 function write(event)
   -- First, flush all queues if needed (too old or size too big)
-  Queue.sc_event.event.sc_flush:flush_all_queues(Queue.sc_event.event.send_data_method[1])
+  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
 
   -- skip event if a mandatory parameter is missing
-  if Queue.sc_event.event.fail then
-    Queue.sc_event.event.sc_logger:error("Skipping event because a mandatory parameter is not set")
+  if queue.event.fail then
+    queue.event.sc_logger:error("Skipping event because a mandatory parameter is not set")
     return true
   end
 
   -- initiate event object
-  Queue.sc_event.event.sc_event = sc_event.new(event, Queue.sc_event.event.sc_params.params, Queue.sc_event.event.sc_common, Queue.sc_event.event.sc_logger, Queue.sc_event.event.sc_broker)
+  queue.event.sc_event = sc_event.new(event, queue.event.sc_params.params, queue.event.sc_common, queue.event.sc_logger, queue.event.sc_broker)
 
   -- drop event if wrong category
-  if not Queue.sc_event.event.sc_event:is_valid_category() then
-    Queue.sc_event.event.sc_logger:debug("dropping event because category is not valid. Event category is: "
-      .. tostring(Queue.sc_event.event.sc_params.params.reverse_category_mapping[Queue.sc_event.event.sc_event.event.category]))
+  if not queue.event.sc_event:is_valid_category() then
+    queue.event.sc_logger:debug("dropping event because category is not valid. Event category is: "
+      .. tostring(queue.event.sc_params.params.reverse_category_mapping[queue.event.sc_event.event.category]))
     return true
   end
 
   -- drop event if wrong element
-  if not Queue.sc_event.event.sc_event:is_valid_element() then
-    Queue.sc_event.event.sc_logger:debug("dropping event because element is not valid. Event element is: "
-      .. tostring(Queue.sc_event.event.sc_params.params.reverse_element_mapping[Queue.sc_event.event.sc_event.event.category][Queue.sc_event.event.sc_event.event.element]))
+  if not queue.event.sc_event:is_valid_element() then
+    queue.event.sc_logger:debug("dropping event because element is not valid. Event element is: "
+      .. tostring(queue.event.sc_params.params.reverse_element_mapping[queue.event.sc_event.event.category][queue.event.sc_event.event.element]))
     return true
   end
 
   -- drop event if it is not validated
-  if Queue.sc_event.event.sc_event:is_valid_event() then
+  if queue.event.sc_event:is_valid_event() then
     queue:format_accepted_event()
   else
     return true
   end
 
   -- Since we've added an event to a specific queue, flush it if queue is full
-  Queue.sc_event.event.sc_flush:flush_queue(Queue.sc_event.event.send_data_method[1], Queue.sc_event.event.sc_event.event.category, Queue.sc_event.event.sc_event.event.element)
+  queue.event.sc_flush:flush_queue(queue.event.send_data_method[1], queue.event.sc_event.event.category, queue.event.sc_event.event.element)
   return true
 end
