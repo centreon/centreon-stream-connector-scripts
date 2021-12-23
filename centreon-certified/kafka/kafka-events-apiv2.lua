@@ -90,6 +90,10 @@ function EventQueue.new(params)
     [categories.bam.id] = function () return self:format_ba_status() end
   }
 
+  self.send_data_method = {
+    [1] = function (data, element) return self:send_data(data, element) end
+  }
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -162,41 +166,27 @@ function EventQueue:add ()
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:flush, flush stored events
--- Called when the max number of events or the max age are reached
--- @return (boolean)
---------------------------------------------------------------------------------
-function EventQueue:flush ()
-  self.sc_logger:debug("EventQueue:flush: Concatenating all the events as one string")
-
-  -- send stored events
-  retval = self:send_data()
-
-  -- reset stored events list
-  self.events = {}
-  
-  -- and update the timestamp
-  self.sc_params.params.__internal_ts_last_flush = os.time()
-
-  return retval
-end
-
---------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:send_data ()
-  local data = ""
+function EventQueue:send_data (data, element)
+  local kafka_send_data = ""
   local counter = 0
 
   -- concatenate all stored event in the data variable
-  for _, formated_event in ipairs(self.events) do
+  for _, formated_event in ipairs(data) do
     if counter == 0 then
-      data = broker.json_encode(formated_event) 
+      kafka_send_data = broker.json_encode(formated_event) 
       counter = counter + 1
     else
-      data = data .. "," .. broker.json_encode(formated_event)
+      kafka_send_data = kafka_send_data .. "," .. broker.json_encode(formated_event)
     end
+  end
+
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(kafka_send_data))
+    return true
   end
 
   self.sc_logger:debug("EventQueue:send_data:  creating json: " .. tostring(data))
@@ -230,7 +220,7 @@ function write(event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
-    return true
+    return false
   end
   
   -- initiate event object
@@ -238,38 +228,37 @@ function write(event)
 
   -- drop event if wrong category
   if not queue.sc_event:is_valid_category() then
-    return true
+    return false
   end
 
   -- drop event if wrong element
   if not queue.sc_event:is_valid_element() then
-    return true
-  end
-
-  -- First, are there some old events waiting in the flush queue ?
-  if (#queue.events > 0 and os.time() - queue.sc_params.params.__internal_ts_last_flush > queue.sc_params.params.max_buffer_age) then
-    queue.sc_logger:debug("write: Queue max age (" .. os.time() - queue.sc_params.params.__internal_ts_last_flush .. "/" .. queue.sc_params.params.max_buffer_age .. ") is reached, flushing data")
-    queue:flush()
-  end
-
-  -- Then we check that the event queue is not already full
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:debug("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events.")
-    queue:flush()
+    return false
   end
 
   -- drop event if it is not validated
   if queue.sc_event:is_valid_event() then
     queue:format_accepted_event()
   else
+    return false
+  end
+
+  -- Since we've added an event to a specific queue, flush it if queue is full
+  if queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element) then
     return true
   end
 
-  -- Then we check whether it is time to send the events to the receiver and flush
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:debug("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached, flushing data")
-    queue:flush()
+  return false
+end
+
+-- flush method is called by broker every now and then (more often when broker has nothing else to do)
+function flush()
+  queue.sc_logger:notice("")
+  
+  -- try to flush all queues if they are too old
+  if queue.sc_flush:flush_all_queues(queue.send_data_method[1]) then
+    return true
   end
 
-  return true
+  return false
 end

@@ -428,13 +428,10 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)
-  -- First, flush all queues if needed (too old or size too big)
-  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
-
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
-    return true
+    return false
   end
 
   -- initiate event object
@@ -444,14 +441,14 @@ function write (event)
   if not queue.sc_event:is_valid_category() then
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
-    return true
+    return false
   end
 
   -- drop event if wrong element
   if not queue.sc_event:is_valid_element() then
     queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
       .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    return true
+    return false
   end
 
   -- drop event if it is not validated
@@ -462,7 +459,22 @@ function write (event)
   end
 
   -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
-  return true
+  if queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element) then
+    return true
+  end
+  
+  return false
+end
+
+-- flush method is called by broker every now and then (more often when broker has nothing else to do)
+function flush()
+  queue.sc_logger:notice("")
+  
+  -- try to flush all queues if they are too old
+  if queue.sc_flush:flush_all_queues(queue.send_data_method[1]) then
+    return true
+  end
+
+  return false
 end
 
