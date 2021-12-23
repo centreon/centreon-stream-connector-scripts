@@ -51,7 +51,7 @@ end
 function ScFlush:flush_all_queues(send_method)
   self.sc_logger:debug("[sc_flush:flush_all_queues]: Starting to flush all queues")
 
-  if os.time() > self.params.last_global_flush_date + self.params.max_all_queues_age then
+  if os.time() > self.params.__internal_last_global_flush_date + self.params.max_all_queues_age then
     -- flush and reset queues of accepted elements
     for element_name, element_info in pairs(self.params.accepted_elements_info) do
       -- try to flush the queue if there is at least one event stored in it
@@ -71,7 +71,7 @@ function ScFlush:flush_all_queues(send_method)
   end
 
   -- update last global flushing date
-  self.params.last_global_flush_date = os.time()
+  self.params.__internal_last_global_flush_date = os.time()
 
   self.sc_logger:debug("[sc_flush:flush_all_queues]: All queues have been flushed")
   return true
