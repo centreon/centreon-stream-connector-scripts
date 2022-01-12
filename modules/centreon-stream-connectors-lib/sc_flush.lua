@@ -23,8 +23,8 @@ function sc_flush.new(params, logger)
   end
 
   self.params = params
+  self.last_global_flush = os.time()
 
-  local os_time = os.time()
   local categories = self.params.bbdo.categories
   local elements = self.params.bbdo.elements
 
@@ -34,10 +34,9 @@ function sc_flush.new(params, logger)
     [categories.bam.id] = {}
   }
   
-  -- link queue flush info to their respective categories and elements
+  -- link events queues to their respective categories and elements
   for element_name, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id] = {
-      flush_date = os_time,
       events = {}
     }
   end
@@ -101,10 +100,11 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
 
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
-        if not self:flush_queue(send_method, payload) then
+        if not self:flush_payload(send_method, payload) then
           return false
         end
 
+        -- reset payload and counter because events have been sent
         payload = nil
         counter = 0
       end
@@ -112,10 +112,11 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   end
 
   -- we need to empty all queues to not mess with broker retention
-  if not self:flush_queue(send_method, payload) then
+  if not self:flush_payload(send_method, payload) then
     return false
   end
 
+  -- all events have been sent
   return true
 end 
 
@@ -132,16 +133,18 @@ function ScFlush:flush_homegeneous_payload(build_payload_method, send_method)
 
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
-        if not self:flush_queue(send_method, payload) then
+        if not self:flush_payload(send_method, payload) then
           return false
         end
 
+        -- reset payload and counter because events have been sent
         counter = 0
         payload = nil
       end
     end
 
-    if not self:flush_queue(send_method, payload) then
+    -- make sure there are no events left inside a specific queue
+    if not self:flush_payload(send_method, payload) then
       return false
     end
 
@@ -152,7 +155,7 @@ function ScFlush:flush_homegeneous_payload(build_payload_method, send_method)
   return true
 end
 
-function ScFlush:flush_queue(send_method, payload)
+function ScFlush:flush_payload(send_method, payload)
   if payload then
     if not send_method(payload) then
       return false
