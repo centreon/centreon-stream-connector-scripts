@@ -479,7 +479,7 @@ function flush()
   end
 
   -- flush queues because too many events are stored in them
-  if queue.sc_flush:get_queues_size() > queue.sc_params.params.max_buffer_size then
+  if queues_size > queue.sc_params.params.max_buffer_size then
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
     end
