@@ -94,6 +94,10 @@ function EventQueue.new (params)
     [1] = function (data, element) return self:send_data(data, element) end
   }
 
+  self.build_payload_method = {
+    [1] = function (payload, event) return self:build_payload(payload, event) end
+  }
+
   setmetatable(self, { __index = EventQueue })
 
   return self
@@ -382,14 +386,23 @@ function EventQueue:add()
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
+function EventQueue:build_payload(payload, event)
+  if not payload then
+    payload = broker.json_encode(event)
+  else
+    payload = payload .. ',' .. broker.json_encode(event)
+  end
+  
+  return payload
+end
+
 --------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return {boolean}
 --------------------------------------------------------------------------------
-function EventQueue:send_data(data, element)
+function EventQueue:send_data(payload)
   local authToken
   local counter = 0
-  local http_post_data
 
   -- generate a fake token for test purpose or use a real one if not testing
   if self.sc_params.params.send_data_test == 1 then
@@ -398,16 +411,7 @@ function EventQueue:send_data(data, element)
     authToken = self:getAuthToken()
   end
 
-  for _, raw_event in ipairs(data) do
-    if counter == 0 then
-      http_post_data = broker.json_encode(raw_event) 
-      counter = counter + 1
-    else
-      http_post_data = http_post_data .. ',' .. broker.json_encode(raw_event)
-    end
-  end
-
-  http_post_data = '{"records":[' .. http_post_data .. ']}'
+  local http_post_data = '{"records":[' .. payload .. ']}'
   self.sc_logger:info('EventQueue:send_data:  creating json: ' .. http_post_data)
 
   if self:call(
@@ -441,40 +445,53 @@ function write (event)
   if not queue.sc_event:is_valid_category() then
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
-    return false
+    return true
   end
 
   -- drop event if wrong element
   if not queue.sc_event:is_valid_element() then
     queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
       .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    return false
+    return true
   end
 
   -- drop event if it is not validated
   if queue.sc_event:is_valid_event() then
     queue:format_accepted_event()
-  else
-    return true
-  end
-
-  -- Since we've added an event to a specific queue, flush it if queue is full
-  if queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element) then
-    return true
+    return flush()
   end
   
-  return false
+  return true
 end
 
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
-  queue.sc_logger:notice("")
+  local queues_size = queue.sc_flush:get_queues_size()
   
-  -- try to flush all queues if they are too old
-  if queue.sc_flush:flush_all_queues(queue.send_data_method[1]) then
+  -- nothing to flush
+  if queues_size == 0 then
     return true
   end
 
+  -- flush all queues because last global flush is too old
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
+    return true
+  end
+
+  -- flush queues because too many events are stored in them
+  if queue.sc_flush:get_queues_size() > queue.sc_params.params.max_buffer_size then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
+    return true
+  end
+
+  -- there are events in the queue but they were not ready to be send
   return false
 end
 
