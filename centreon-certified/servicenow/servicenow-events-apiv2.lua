@@ -441,27 +441,23 @@ function write (event)
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
-  -- drop event if wrong category
-  if not queue.sc_event:is_valid_category() then
+  if queue.sc_event:is_valid_category() then
+    if queue.sc_event:is_valid_element() then
+      -- format event if it is validated
+      if queue.sc_event:is_valid_event() then
+        queue:format_accepted_event()
+      end
+  --- log why the event has been dropped 
+    else
+      queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+    end    
+  else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
-    return true
-  end
-
-  -- drop event if wrong element
-  if not queue.sc_event:is_valid_element() then
-    queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
-      .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    return true
-  end
-
-  -- drop event if it is not validated
-  if queue.sc_event:is_valid_event() then
-    queue:format_accepted_event()
-    return flush()
   end
   
-  return true
+  return flush()
 end
 
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
