@@ -91,7 +91,7 @@ function EventQueue.new (params)
   }
 
   self.send_data_method = {
-    [1] = function (data, element) return self:send_data(data, element) end
+    [1] = function (payload) return self:send_data(payload) end
   }
 
   self.build_payload_method = {
@@ -386,6 +386,12 @@ function EventQueue:add()
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
+--------------------------------------------------------------------------------
+-- EventQueue:build_payload, concatenate data so it is ready to be sent
+-- @param payload {string} json encoded string
+-- @param event {table} the event that is going to be added to the payload
+-- @return payload {string} json encoded string
+--------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
     payload = broker.json_encode(event)
@@ -428,7 +434,7 @@ end
 
 --------------------------------------------------------------------------------
 -- write,
--- @param {array} event, the event from broker
+-- @param {table} event, the event from broker
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)

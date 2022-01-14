@@ -91,7 +91,11 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (data, element) return self:send_data(data, element) end
+    [1] = function (payload) return self:send_data(payload) end
+  }
+
+  self.build_payload_method = {
+    [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
   -- return EventQueue object
@@ -166,33 +170,37 @@ function EventQueue:add ()
 end
 
 --------------------------------------------------------------------------------
+-- EventQueue:build_payload, concatenate data so it is ready to be sent
+-- @param payload {string} json encoded string
+-- @param event {table} the event that is going to be added to the payload
+-- @return payload {string} json encoded string
+--------------------------------------------------------------------------------
+function EventQueue:build_payload(payload, event)
+  if not payload then
+    payload = broker.json_encode(event)
+  else
+    payload = payload .. ',' .. broker.json_encode(event)
+  end
+  
+  return payload
+end
+
+--------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:send_data (data, element)
-  local kafka_send_data = ""
-  local counter = 0
-
-  -- concatenate all stored event in the data variable
-  for _, formated_event in ipairs(data) do
-    if counter == 0 then
-      kafka_send_data = broker.json_encode(formated_event) 
-      counter = counter + 1
-    else
-      kafka_send_data = kafka_send_data .. "," .. broker.json_encode(formated_event)
-    end
-  end
+function EventQueue:send_data (payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(kafka_send_data))
+    self.sc_logger:notice("[send_data]: " .. tostring(payload))
     return true
   end
 
-  self.sc_logger:debug("EventQueue:send_data:  creating json: " .. tostring(data))
+  self.sc_logger:info("EventQueue:send_data:  creating json: " .. tostring(payload))
 
   -- output data to the tool we want
-  if self:call(data) then
+  if self:call(payload) then
     return true
   end
 
@@ -216,49 +224,68 @@ function init(params)
   queue = EventQueue.new(params)
 end
 
-function write(event)
+-- --------------------------------------------------------------------------------
+-- write,
+-- @param {table} event, the event from broker
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
     return false
   end
-  
+
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
-  -- drop event if wrong category
-  if not queue.sc_event:is_valid_category() then
-    return false
-  end
-
-  -- drop event if wrong element
-  if not queue.sc_event:is_valid_element() then
-    return false
-  end
-
-  -- drop event if it is not validated
-  if queue.sc_event:is_valid_event() then
-    queue:format_accepted_event()
+  if queue.sc_event:is_valid_category() then
+    if queue.sc_event:is_valid_element() then
+      -- format event if it is validated
+      if queue.sc_event:is_valid_event() then
+        queue:format_accepted_event()
+      end
+  --- log why the event has been dropped 
+    else
+      queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+    end    
   else
-    return false
+    queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-
-  -- Since we've added an event to a specific queue, flush it if queue is full
-  if queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element) then
-    return true
-  end
-
-  return false
+  
+  return flush()
 end
+
 
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
-  queue.sc_logger:notice("")
+  local queues_size = queue.sc_flush:get_queues_size()
   
-  -- try to flush all queues if they are too old
-  if queue.sc_flush:flush_all_queues(queue.send_data_method[1]) then
+  -- nothing to flush
+  if queues_size == 0 then
     return true
   end
 
+  -- flush all queues because last global flush is too old
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
+    return true
+  end
+
+  -- flush queues because too many events are stored in them
+  if queues_size > queue.sc_params.params.max_buffer_size then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
+    return true
+  end
+
+  -- there are events in the queue but they were not ready to be send
   return false
 end

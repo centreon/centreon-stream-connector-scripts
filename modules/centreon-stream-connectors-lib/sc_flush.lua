@@ -95,6 +95,7 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   for _, element_info in pairs(self.params.accepted_elements_info) do
     -- get events from queues
     for _, event in ipairs(self.queues[element_info.category_id][element_info.element_id].events) do
+      -- add event to the payload
       payload = build_payload_method(payload, event)
       counter = counter + 1
 
@@ -128,6 +129,7 @@ function ScFlush:flush_homegeneous_payload(build_payload_method, send_method)
   for _, element_info in pairs(self.params.accepted_elements_info) do
     -- get events from queues
     for _, event in ipairs(self.queues[element_info.category_id][element_info.element_id].events) do
+      -- add event to the payload
       payload = build_payload_method(payload, event)
       counter = counter + 1
 
@@ -136,7 +138,7 @@ function ScFlush:flush_homegeneous_payload(build_payload_method, send_method)
         if not self:flush_payload(send_method, payload) then
           return false
         end
-
+        
         -- reset payload and counter because events have been sent
         counter = 0
         payload = nil
