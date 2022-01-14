@@ -65,8 +65,8 @@ function EventQueue.new(params)
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/bsm_connector-apiv2.log"
-  local log_level = params.log_level or 1  
-  
+  local log_level = params.log_level or 1
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
@@ -106,7 +106,7 @@ function EventQueue.new(params)
   self.send_data_method = {
     [1] = function (data, element) return self:send_data(data, element) end
   }
-  
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -125,7 +125,7 @@ function EventQueue:format_accepted_event()
     if self.format_template and template ~= nil and template ~= "" then
       for index, value in pairs(template) do
         self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
-      end  
+      end
     else
       -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
       if not self.format_event[category][element] then
@@ -147,11 +147,11 @@ function EventQueue:format_event_host()
   local xml_host_severity = self.sc_broker:get_severity(self.sc_event.event.host_id)
   local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.action_url, 'no action url for this host')
   local xml_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.notes, 'no notes found on host')
-  
+
   if xml_host_severity == false then
     xml_host_severity = 0
   end
-  self.sc_event.event.formated_event = {
+  --[[.sc_event.event.formated_event = {
     "<event_data>"
       .. "<hostname>" .. self.sc_event.event.cache.host.name .. "</hostname>"
       .. "<host_severity>" .. xml_host_severity .. "</host_severity>"
@@ -161,6 +161,15 @@ function EventQueue:format_event_host()
       .. "<source_host_id>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0) .. "</source_host_id>"
       .. "<scheduled_downtime_depth>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0) .. "</scheduled_downtime_depth>"
       .. "</event_data>"
+  }--]]
+  self.sc_event.event.formated_event = {
+    hostname = self.sc_event.event.cache.host.name,
+    host_severity = xml_host_severity,
+    host_notes = xml_notes,
+    url = xml_url,
+    source_ci = self.sc_common:ifnil_or_empty(self.source_ci, 'Centreon'),
+    source_host_id = self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0),
+    scheduled_downtime_depth = self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0)
   }
 end
 
@@ -173,7 +182,7 @@ function EventQueue:format_event_service()
     xml_service_severity = 0
   end
 
-  self.sc_event.event.formated_event = {
+  --[[self.sc_event.event.formated_event = {
       "<event_data>"
         .. "<hostname>" .. self.sc_event.event.cache.host.name .. "</hostname>"
         .. "<svc_desc>" .. self.sc_event.event.cache.service.description .. "</svc_desc>"
@@ -186,7 +195,20 @@ function EventQueue:format_event_service()
         .. "<source_svc_id>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0) .. "</source_svc_id>"
         .. "<scheduled_downtime_depth>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0) .. "</scheduled_downtime_depth>"
         .. "</event_data>"
-    }  
+    }--]]
+
+  self.sc_event.event.formated_event = {
+    hostname = self.sc_event.event.cache.host.name,
+    svc_desc = self.sc_event.event.cache.service.description,
+    state =  self.sc_event.event.state,
+    last_update = self.sc_event.event.last_update,
+    output =  string.match(self.sc_event.event.output, "^(.*)\n"),
+    service_severity = xml_service_severity,
+    url = xml_url,
+    source_host_id = self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0),
+    source_svc_id = self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0),
+    scheduled_downtime_depth = self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0)
+  }
 end
 
 --------------------------------------------------------------------------------
@@ -211,19 +233,26 @@ end
 
 function EventQueue:send_data(data, element)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-  
+
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
+    local data_formated = "<event_data>"
     for _, xml_str in pairs(data) do
-      self.sc_logger:info( " value is: " .. xml.str(xml.new(xml_str,0,'&lt;event_data&gt;')))
+      for index, http_post_data in pairs(xml_str) do
+        data_formated = data_formated .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(http_post_data)) .. "</" .. tostring(index) .. ">"
+      end
     end
+    self.sc_logger:notice(tostring(data_formated) .. "</event_data>")
    return true
   end
-  local http_post_data = ""
 
+  local http_post_data = "<event_data>"
   for _, xml_str in pairs(data) do
-    http_post_data = http_post_data .. xml.str(xml.new(xml_str,0,'&lt;event_data&gt;'))
+      for index, data_formated in pairs(xml_str) do
+        http_post_data = http_post_data .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(data_formated)) .. "</" .. tostring(index) .. ">"
+      end
   end
+  http_post_data = http_post_data .. "</event_data>"
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following xml " .. xml.str(http_post_data))
   self.sc_logger:info("[EventQueue:send_data]: BSM Http Server URL is: \"" .. tostring(self.sc_params.params.http_server_url .. "\""))
