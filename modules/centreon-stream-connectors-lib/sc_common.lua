@@ -247,4 +247,31 @@ function ScCommon:json_escape(string)
   return string
 end
 
+--- xml_escape: escape xml special characters in a string
+-- @param string (string) the string that must be escaped
+-- @return string (string) the string with escaped characters
+function ScCommon:xml_escape(string)
+  local type = type(string)
+
+  -- check that param is a valid string
+  if string == nil or type == "table" then
+    self.sc_logger:error("[sc_common:escape_string]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+    return string
+  end
+
+  -- nothing to escape in a boolean or number value
+  if type ~= "string" then
+    return string
+  end
+
+  -- escape all characters
+  string = string.gsub(string, '&lt;',  '<')
+  string = string.gsub(string, '&gt;',  '>')
+  string = string.gsub(string, '&amp;', '&')
+  string = string.gsub(string, '&apos;', "'")
+  string = string.gsub(string, '&quot;', '"')
+
+  return string
+end
+
 return sc_common
