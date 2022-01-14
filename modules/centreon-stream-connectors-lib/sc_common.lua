@@ -225,7 +225,7 @@ function ScCommon:json_escape(string)
 
   -- check that param is a valid string
   if string == nil or type == "table" then
-    self.sc_logger:error("[sc_common:escape_string]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+    self.sc_logger:error("[sc_common:json_escape]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
     return string
   end
 
@@ -243,6 +243,30 @@ function ScCommon:json_escape(string)
   string = string.gsub(string, '\f', '\\f')
   string = string.gsub(string, '/', '\\/')
   string = string.gsub(string, '"', '\\"')
+
+  return string
+end
+
+function ScCommon:xml_escape(string)
+  local type = type(string)
+
+  -- check that param is a valid string
+  if string == nil or type == "table" then
+    self.sc_logger:error("[sc_common:xml_escape]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+    return string
+  end
+
+  -- nothing to escape in a boolean or number value
+  if type ~= "string" then
+    return string
+  end
+
+  -- escape all characters
+  string = string.gsub(string, '&', '&amp')
+  string = string.gsub(string, '<', '&lt;')
+  string = string.gsub(string, '>', '&gt;')
+  string = string.gsub(string, '"', '&quot;')
+  string = string.gsub(string, "'", "&apos;")
 
   return string
 end
