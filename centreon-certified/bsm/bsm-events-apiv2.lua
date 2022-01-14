@@ -151,17 +151,7 @@ function EventQueue:format_event_host()
   if xml_host_severity == false then
     xml_host_severity = 0
   end
-  --[[.sc_event.event.formated_event = {
-    "<event_data>"
-      .. "<hostname>" .. self.sc_event.event.cache.host.name .. "</hostname>"
-      .. "<host_severity>" .. xml_host_severity .. "</host_severity>"
-      .. "<host_notes>" .. xml_notes .. "</host_notes>"
-      .. "<url>" .. xml_url .. "</url>"
-      .. "<source_ci>" .. self.sc_common:ifnil_or_empty(self.source_ci, 'Centreon') .. "</source_ci>"
-      .. "<source_host_id>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0) .. "</source_host_id>"
-      .. "<scheduled_downtime_depth>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0) .. "</scheduled_downtime_depth>"
-      .. "</event_data>"
-  }--]]
+  
   self.sc_event.event.formated_event = {
     hostname = self.sc_event.event.cache.host.name,
     host_severity = xml_host_severity,
@@ -181,21 +171,6 @@ function EventQueue:format_event_service()
   if xml_service_severity == false then
     xml_service_severity = 0
   end
-
-  --[[self.sc_event.event.formated_event = {
-      "<event_data>"
-        .. "<hostname>" .. self.sc_event.event.cache.host.name .. "</hostname>"
-        .. "<svc_desc>" .. self.sc_event.event.cache.service.description .. "</svc_desc>"
-        .. "<state>" ..self.sc_event.event.state .. "</state>"
-        .. "<last_update>" ..self.sc_event.event.last_update .. "</last_update>"
-        .. "<output>" .. string.match(self.sc_event.event.output, "^(.*)\n") .. "</output>"
-        .. "<service_severity>" .. xml_service_severity .. "</service_severity>"
-        .. "<url>" .. xml_url .. "</url>"
-        .. "<source_host_id>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0) .. "</source_host_id>"
-        .. "<source_svc_id>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0) .. "</source_svc_id>"
-        .. "<scheduled_downtime_depth>" .. self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0) .. "</scheduled_downtime_depth>"
-        .. "</event_data>"
-    }--]]
 
   self.sc_event.event.formated_event = {
     hostname = self.sc_event.event.cache.host.name,
