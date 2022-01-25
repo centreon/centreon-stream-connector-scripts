@@ -28,7 +28,6 @@
 
 -- Libraries
 local curl = require "cURL"
-require("LuaXML")
 
 -- Centreon lua core libraries
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
@@ -103,6 +102,7 @@ function EventQueue.new(params)
     },
     [categories.bam.id] = {}
   }
+  
   self.send_data_method = {
     [1] = function (payload) return self:send_data(payload) end
   }
@@ -330,6 +330,7 @@ function write(event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
+  
   --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
