@@ -218,14 +218,14 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = "[send_data]: " .. "<event_data>"
+    payload = "<event_data>"
     for index, xml_str in pairs(event) do
       payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">"
     end
     payload = payload .. "</event_data>"
 
   else
-    payload = payload .. "[send_data]: " .. "<event_data>"
+    payload = payload .. "<event_data>"
     for index, xml_str in pairs(event) do
       payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">"
     end
