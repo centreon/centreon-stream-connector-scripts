@@ -45,6 +45,10 @@
     - [json_escape: parameters](#json_escape-parameters)
     - [json_escape: returns](#json_escape-returns)
     - [json_escape: example](#json_escape-example)
+  - [xml_escape method](#xml_escape-method)
+    - [xml_escape: parameters](#xml_escape-parameters)
+    - [xml_escape: returns](#xml_escape-returns)
+    - [xml_escape: example](#xml_escape-example)
 
 ## Introduction
 
