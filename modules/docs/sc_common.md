@@ -399,3 +399,29 @@ local string = 'string with " and backslashes \\ and tab:\tend tab'
 local result = test_common:json_escape(string)
 --> result is 'string with \" and backslashes \\ and tab:\tend tab'
 ```
+
+## xml_escape method
+
+The **xml_escape** method escape xml special characters.
+
+### xml_escape: parameters
+
+| parameter                     | type   | optional | default value |
+| ----------------------------- | ------ | -------- | ------------- |
+| a string that must be escaped | string | no       |               |
+
+### xml_escape: returns
+
+| return                                                                 | type                             | always | condition |
+| ---------------------------------------------------------------------- | -------------------------------- | ------ | --------- |
+| an escaped string (or the raw parameter if it was nil or not a string) | string (or input parameter type) | yes    |           |
+
+### xml_escape: example
+
+```lua
+local string = 'string with " and < and >'
+--> string is 'string with " and < and >'
+
+local result = test_common:xml_escape(string)
+--> result is 'string with &quot; and &lt; and &gt;'
+```
