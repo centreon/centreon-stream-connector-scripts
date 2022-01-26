@@ -201,7 +201,7 @@ function EventQueue:send_data(data, element)
         "content-length:" .. string.len(http_post_data),
         "authorization: Splunk " .. self.sc_params.params.splunk_token,
       }
-  )
+    )
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
