@@ -63,7 +63,7 @@ function EventQueue.new(params)
   }
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/bsm_connector-apiv2.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/bsm_event-apiv2.log"
   local log_level = params.log_level or 1
 
   -- initiate mandatory objects
