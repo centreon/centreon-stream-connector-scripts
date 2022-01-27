@@ -28,6 +28,7 @@
 -- max_age (number): flush the events when the specified time (in second) is reach (even if max_size is not reach).
 
 -- Libraries
+local curl = require("cURL")
 local http = require("socket.http")
 local ltn12 = require("ltn12")
 
