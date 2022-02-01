@@ -197,9 +197,9 @@ end
 
 --------------------------------------------------------------------------------
 -- EventQueue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} json encoded string
+-- @param payload {string} xml encoded string
 -- @param event {table} the event that is going to be added to the payload
--- @return payload {string} json encoded string
+-- @return payload {string} xml encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
