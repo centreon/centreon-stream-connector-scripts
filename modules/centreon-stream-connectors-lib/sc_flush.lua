@@ -48,6 +48,7 @@ end
 --- flush_all_queues: tries to flush all queues according to accepted elements
 -- @param build_payload_method (function) the function from the stream connector that will concatenate events in the payload
 -- @param send_method (function) the function from the stream connector that will send the data to the wanted tool
+-- @return boolean (boolean) if flush failed or not
 function ScFlush:flush_all_queues(build_payload_method, send_method)
   if self.params.send_mixed_events == 1 then
     if not self:flush_mixed_payload(build_payload_method, send_method) then
@@ -63,7 +64,7 @@ function ScFlush:flush_all_queues(build_payload_method, send_method)
   return true
 end
 
---- reset_all_queues: put a queue back to its initial state after flushing its events
+--- reset_all_queues: put all queues back to their initial state after flushing their events
 function ScFlush:reset_all_queues()
   for _, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id].events = {}
@@ -72,7 +73,7 @@ function ScFlush:reset_all_queues()
   self.last_global_flush = os.time()
 end
 
--- get_queues_size: get the number of events stored in all the queues
+--- get_queues_size: get the number of events stored in all the queues
 -- @return queues_size (number) the number of events stored in all queues
 function ScFlush:get_queues_size()
   local queues_size = 0
@@ -87,6 +88,8 @@ function ScFlush:get_queues_size()
   return queues_size
 end
 
+--- flush_mixed_payload: flush a payload that contains various type of events (services mixed hosts for example)
+-- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   local payload = nil
   local counter = 0
@@ -121,7 +124,9 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   return true
 end 
 
-function ScFlush:flush_homegeneous_payload(build_payload_method, send_method)
+--- flush_homogeneous_payload: flush a payload that contains a single type of events (services with services only and hosts with hosts only for example)
+-- @return boolean (boolean) true or false depending on the success of the operation
+function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
   local counter = 0
   local payload = nil
   
@@ -157,6 +162,8 @@ function ScFlush:flush_homegeneous_payload(build_payload_method, send_method)
   return true
 end
 
+--- flush_payload: flush a payload that contains a single type of events (services with services only and hosts with hosts only for example)
+-- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_payload(send_method, payload)
   if payload then
     if not send_method(payload) then
