@@ -90,6 +90,14 @@ function EventQueue.new(params)
     [categories.bam.id] = function () return self:format_ba_status() end
   }
 
+  self.send_data_method = {
+    [1] = function (payload) return self:send_data(payload) end
+  }
+
+  self.build_payload_method = {
+    [1] = function (payload, event) return self:build_payload(payload, event) end
+  }
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -162,47 +170,37 @@ function EventQueue:add ()
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:flush, flush stored events
--- Called when the max number of events or the max age are reached
--- @return (boolean)
+-- EventQueue:build_payload, concatenate data so it is ready to be sent
+-- @param payload {string} json encoded string
+-- @param event {table} the event that is going to be added to the payload
+-- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
-function EventQueue:flush ()
-  self.sc_logger:debug("EventQueue:flush: Concatenating all the events as one string")
-
-  -- send stored events
-  retval = self:send_data()
-
-  -- reset stored events list
-  self.events = {}
+function EventQueue:build_payload(payload, event)
+  if not payload then
+    payload = broker.json_encode(event)
+  else
+    payload = payload .. ',' .. broker.json_encode(event)
+  end
   
-  -- and update the timestamp
-  self.sc_params.params.__internal_ts_last_flush = os.time()
-
-  return retval
+  return payload
 end
 
 --------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:send_data ()
-  local data = ""
-  local counter = 0
+function EventQueue:send_data (payload)
 
-  -- concatenate all stored event in the data variable
-  for _, formated_event in ipairs(self.events) do
-    if counter == 0 then
-      data = broker.json_encode(formated_event) 
-      counter = counter + 1
-    else
-      data = data .. "," .. broker.json_encode(formated_event)
-    end
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(payload))
+    return true
   end
 
-  self.sc_logger:debug("EventQueue:send_data:  creating json: " .. tostring(data))
+  self.sc_logger:info("EventQueue:send_data:  creating json: " .. tostring(payload))
 
   -- output data to the tool we want
-  if self:call(data) then
+  if self:call(payload) then
     return true
   end
 
@@ -226,50 +224,68 @@ function init(params)
   queue = EventQueue.new(params)
 end
 
-function write(event)
+-- --------------------------------------------------------------------------------
+-- write,
+-- @param {table} event, the event from broker
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
-    return true
+    return false
   end
-  
+
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
-  -- drop event if wrong category
-  if not queue.sc_event:is_valid_category() then
-    return true
-  end
-
-  -- drop event if wrong element
-  if not queue.sc_event:is_valid_element() then
-    return true
-  end
-
-  -- First, are there some old events waiting in the flush queue ?
-  if (#queue.events > 0 and os.time() - queue.sc_params.params.__internal_ts_last_flush > queue.sc_params.params.max_buffer_age) then
-    queue.sc_logger:debug("write: Queue max age (" .. os.time() - queue.sc_params.params.__internal_ts_last_flush .. "/" .. queue.sc_params.params.max_buffer_age .. ") is reached, flushing data")
-    queue:flush()
-  end
-
-  -- Then we check that the event queue is not already full
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:debug("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached BEFORE APPENDING AN EVENT, trying to flush data before appending more events.")
-    queue:flush()
-  end
-
-  -- drop event if it is not validated
-  if queue.sc_event:is_valid_event() then
-    queue:format_accepted_event()
+  if queue.sc_event:is_valid_category() then
+    if queue.sc_event:is_valid_element() then
+      -- format event if it is validated
+      if queue.sc_event:is_valid_event() then
+        queue:format_accepted_event()
+      end
+  --- log why the event has been dropped 
+    else
+      queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+    end    
   else
+    queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
+  end
+  
+  return flush()
+end
+
+
+-- flush method is called by broker every now and then (more often when broker has nothing else to do)
+function flush()
+  local queues_size = queue.sc_flush:get_queues_size()
+  
+  -- nothing to flush
+  if queues_size == 0 then
     return true
   end
 
-  -- Then we check whether it is time to send the events to the receiver and flush
-  if (#queue.events >= queue.sc_params.params.max_buffer_size) then
-    queue.sc_logger:debug("write: Queue max size (" .. #queue.events .. "/" .. queue.sc_params.params.max_buffer_size .. ") is reached, flushing data")
-    queue:flush()
+  -- flush all queues because last global flush is too old
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
+    return true
   end
 
-  return true
+  -- flush queues because too many events are stored in them
+  if queues_size > queue.sc_params.params.max_buffer_size then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
+    return true
+  end
+
+  -- there are events in the queue but they were not ready to be send
+  return false
 end

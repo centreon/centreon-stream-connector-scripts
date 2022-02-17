@@ -42,6 +42,7 @@
 | generate_postfield_param_string    | convert a table of parameters into an url encoded parameters string                         | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
 | load_json_file                     | method loads a json file and parse it                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
 | json_escape                        | escape json characters in a string                                                          | [Documentation](sc_common.md#json_escape-method)                        |
+| xml_escape                         | escape xml characters in a string                                                           | [Documentation](sc_common.md#xml_escape-method)                         |
 
 ## sc_logger methods
 
