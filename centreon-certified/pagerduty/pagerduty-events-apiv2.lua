@@ -178,10 +178,11 @@ function EventQueue:format_event_host()
     pdy_custom_details['Hostseverity'] = host_severity
   end
   
+  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
 
   self.sc_event.event.formated_event = {
     payload = {
-      summary = tostring(event.cache.host.name) .. ": " .. self.sc_common:ifnil_or_empty(string.match(event.output, "^(.*)\n"), 'no output'),
+      summary = tostring(event.cache.host.name) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
       timestamp = new_from_timestamp(event.last_update):rfc_3339(),
       severity = self.state_to_severity_mapping[event.state].severity,
       source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
@@ -261,9 +262,11 @@ function EventQueue:format_event_service()
     pdy_custom_details["Serviceseverity"] = service_severity
   end
 
+  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
+
   self.sc_event.event.formated_event = {
     payload = {
-      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. self.sc_common:ifnil_or_empty(string.match(event.output, "^(.*)\n"), 'no output'),
+      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
       timestamp = new_from_timestamp(event.last_update):rfc_3339(),
       severity = self.state_to_severity_mapping[event.state].severity,
       source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
