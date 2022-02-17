@@ -129,7 +129,7 @@ function EventQueue:format_event_host()
     state = self.sc_event.event.state,
     state_type = self.sc_event.event.state_type,
     hostname = self.sc_event.event.cache.host.name,
-    output = string.gsub(self.sc_event.event.output, "\n", ""),
+    output = self.sc_event.event.output,
   }
 end
 
@@ -140,7 +140,7 @@ function EventQueue:format_event_service()
     state_type = self.sc_event.event.state_type,
     hostname = self.sc_event.event.cache.host.name,
     service_description = self.sc_event.event.cache.service.description,
-    output = string.gsub(self.sc_event.event.output, "\n", ""),
+    output = self.sc_event.event.output,
   }
 end
 
