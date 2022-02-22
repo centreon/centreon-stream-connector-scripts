@@ -210,7 +210,7 @@ function EventQueue:build_payload(payload, event)
     payload = payload .. "</event_data>"
 
   else
-    payload = payload .. "<event_data>\t"
+    payload = payload .. "\n<event_data>\t"
     for index, xml_str in pairs(event) do
       payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
     end
