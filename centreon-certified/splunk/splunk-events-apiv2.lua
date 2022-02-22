@@ -81,7 +81,11 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (data, element) return self:send_data(data, element) end
+    [1] = function (payload) return self:send_data(payload) end
+  }
+
+  self.build_payload_method = {
+    [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
   -- return EventQueue object
@@ -165,23 +169,33 @@ function EventQueue:add()
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
-function EventQueue:send_data(data, element)
+--------------------------------------------------------------------------------
+-- EventQueue:build_payload, concatenate data so it is ready to be sent
+-- @param payload {string} json encoded string
+-- @param event {table} the event that is going to be added to the payload
+-- @return payload {string} json encoded string
+--------------------------------------------------------------------------------
+function EventQueue:build_payload(payload, event)
+  if not payload then
+    payload = broker.json_encode(event)
+  else
+    payload = payload .. broker.json_encode(event)
+  end
+  
+  return payload
+end
+
+
+function EventQueue:send_data(payload)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(broker.json_encode(data)))
+    self.sc_logger:notice("[send_data]: " .. tostring(payload))
     return true
   end
 
-  local http_post_data = ""
-  
-  
-  for _, raw_event in ipairs(data) do
-    http_post_data = http_post_data .. broker.json_encode(raw_event)
-  end
-
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(http_post_data))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
   self.sc_logger:info("[EventQueue:send_data]: Splunk address is: " .. tostring(self.sc_params.params.http_server_url))
 
   local http_response_body = ""
@@ -198,7 +212,7 @@ function EventQueue:send_data(data, element)
       curl.OPT_HTTPHEADER,
       {
         "content-type: application/json",
-        "content-length:" .. string.len(http_post_data),
+        "content-length:" .. string.len(payload),
         "authorization: Splunk " .. self.sc_params.params.splunk_token,
       }
     )
@@ -222,7 +236,7 @@ function EventQueue:send_data(data, element)
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(http_post_data)
+  http_request:setopt_postfields(payload)
 
   -- performing the HTTP request
   http_request:perform()
@@ -255,42 +269,67 @@ function init(conf)
   queue = EventQueue.new(conf)
 end
 
--- Fonction write()
-function write(event)
-  -- First, flush all queues if needed (too old or size too big)
-  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
-
+--------------------------------------------------------------------------------
+-- write,
+-- @param {table} event, the event from broker
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
-    return true
+    return false
   end
 
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
-  -- drop event if wrong category
-  if not queue.sc_event:is_valid_category() then
+  if queue.sc_event:is_valid_category() then
+    if queue.sc_event:is_valid_element() then
+      -- format event if it is validated
+      if queue.sc_event:is_valid_event() then
+        queue:format_accepted_event()
+      end
+  --- log why the event has been dropped 
+    else
+      queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+    end    
+  else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
+  end
+  
+  return flush()
+end
+
+-- flush method is called by broker every now and then (more often when broker has nothing else to do)
+function flush()
+  local queues_size = queue.sc_flush:get_queues_size()
+  
+  -- nothing to flush
+  if queues_size == 0 then
     return true
   end
 
-  -- drop event if wrong element
-  if not queue.sc_event:is_valid_element() then
-    queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
-      .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+  -- flush all queues because last global flush is too old
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
     return true
   end
 
-  -- drop event if it is not validated
-  if queue.sc_event:is_valid_event() then
-    queue:format_accepted_event()
-  else
+  -- flush queues because too many events are stored in them
+  if queues_size > queue.sc_params.params.max_buffer_size then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
     return true
   end
 
-  -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
-  return true
+  -- there are events in the queue but they were not ready to be send
+  return false
 end

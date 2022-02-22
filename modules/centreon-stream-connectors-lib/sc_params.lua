@@ -66,7 +66,9 @@ function sc_params.new(common, logger)
     
     -- communication parameters
     max_buffer_size = 1,
-    max_buffer_age = 5,
+    max_buffer_age = 5, --deprecated
+    max_all_queues_age = 60,
+    send_mixed_events = 1,
 
     -- connection parameters
     connection_timeout = 60,
@@ -87,6 +89,7 @@ function sc_params.new(common, logger)
 
     -- internal parameters
     __internal_ts_last_flush = os.time(),
+    __internal_last_global_flush_date = os.time(),
 
     -- testing parameters
     send_data_test = 0,

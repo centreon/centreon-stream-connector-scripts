@@ -984,7 +984,7 @@ function ScEvent:is_service_status_event_duplicated()
   end
 
   -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
-  if self.event.last_hard_state_change == self.event.last_check then
+  if self.event.last_hard_state_change == self.event.last_check or self.event.last_hard_state_change == self.event.last_update then
     return false
   end
   
@@ -1023,7 +1023,7 @@ function ScEvent:is_host_status_event_duplicated()
   end
 
   -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
-  if self.event.last_hard_state_change == self.event.last_check then
+  if self.event.last_hard_state_change == self.event.last_check or self.event.last_hard_state_change == self.event.last_update then
     return false
   end
 
