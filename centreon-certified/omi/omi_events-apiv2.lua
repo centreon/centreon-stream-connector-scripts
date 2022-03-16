@@ -1,17 +1,17 @@
 --
--- Copyright © 2021 Centreon
+-- Copyright 2022 Centreon
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
--- you may not use this file except in compliance with the Licensself.sc_event.event.
+-- you may not use this file except in compliance with the License.
 -- You may obtain a copy of the License at
 --
---     http://www.apachself.sc_event.event.org/licenses/LICENSE-2.0
+--     http://www.apache.org/licenses/LICENSE-2.0
 --
 -- Unless required by applicable law or agreed to in writing, software
 -- distributed under the License is distributed on an "AS IS" BASIS,
 -- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 -- See the License for the specific language governing permissions and
--- limitations under the Licensself.sc_event.event.
+-- limitations under the License.
 --
 -- For more information : contact@centreon.com
 --
@@ -19,15 +19,18 @@
 -- with the following informations:
 --
 -- source_ci (string): Name of the transmiter, usually Centreon server name
--- http_server_url (string): the full HTTP URL. Default: https://my.bsm.server:30005/bsmc/rest/events/ws-centreon/.
--- http_proxy_string (string): the full proxy URL if needed to reach the BSM server. Default: empty.
--- log_path (string): the log file to use
--- log_level (number): the log level (0, 1, 2, 3) where 3 is the maximum level. 0 logs almost nothing. 1 logs only the beginning of the script and errors. 2 logs a reasonable amount of verbosself.sc_event.event. 3 logs almost everything possible, to be used only for debug. Recommended value in production: 1.
--- max_buffer_size (number): how many events to store before sending them to the server.
--- max_buffer_age (number): flush the events when the specified time (in second) is reached (even if max_size is not reached).
+-- ipaddr (string): the ip address of the operation connector server
+-- url (string): url of the operation connector endpoint
+-- logfile (string): the log file to use
+-- loglevel (number): th log level (0, 1, 2, 3) where 3 is the maximum level
+-- port (number): the operation connector server port
+-- max_size (number): how many events to store before sending them to the server.
+-- max_age (number): flush the events when the specified time (in second) is reach (even if max_size is not reach).
 
 -- Libraries
-local curl = require "cURL"
+local curl = require("cURL")
+local http = require("socket.http")
+local ltn12 = require("ltn12")
 
 -- Centreon lua core libraries
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
@@ -53,18 +56,19 @@ EventQueue.__index = EventQueue
 -- @param conf The table given by the init() function and returned from the GUI
 -- @return the new EventQueue
 --------------------------------------------------------------------------------
-
 function EventQueue.new(params)
   local self = {}
   self.fail = false
 
   local mandatory_parameters = {
-      "http_server_url"
+      "ipaddr",
+      "url",
+      "port"
   }
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/bsm_connector-apiv2.log"
-  local log_level = params.log_level or 1
+  local logfile = params.logfile or "/var/log/centreon-broker/omi_event.log"
+  local log_level = params.log_level or 2
 
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -79,9 +83,15 @@ function EventQueue.new(params)
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "service_status"
   self.sc_params.params.source_ci = params.source_ci or "Centreon"
+  self.sc_params.params.ipaddr = params.ipaddr or "192.168.56.15"
+  self.sc_params.params.url = params.url or "/bsmc/rest/events/opscx-sdk/v1/"
+  self.sc_params.params.port = params.port or 30005
   self.sc_params.params.max_output_length = params.max_output_length or 1024
+  self.sc_params.params.max_buffer_size = params.max_buffer_size or 5
+  self.sc_params.params.max_buffer_age = params.max_buffer_age or 60
+  self.sc_params.params.flush_time = params.flush_time or os.time()
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -97,12 +107,11 @@ function EventQueue.new(params)
 
   self.format_event = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function () return self:format_event_host() end,
       [elements.service_status.id] = function () return self:format_event_service() end
     },
     [categories.bam.id] = {}
   }
-  
+
   self.send_data_method = {
     [1] = function (payload) return self:send_data(payload) end
   }
@@ -120,73 +129,49 @@ end
 ---- EventQueue:format_event method
 ---------------------------------------------------------------------------------
 function EventQueue:format_accepted_event()
-    local category = self.sc_event.event.category
-    local element = self.sc_event.event.element
-    local template = self.sc_params.params.format_template[category][element]
-    self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-    self.sc_event.event.formated_event = {}
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
+  local template = self.sc_params.params.format_template[category][element]
+  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
+  self.sc_event.event.formated_event = {}
 
-    if self.format_template and template ~= nil and template ~= "" then
-      for index, value in pairs(template) do
-        self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
-      end
-    else
-      -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
-      if not self.format_event[category][element] then
-        self.sc_logger:error("[format_event]: You are trying to format an event with category: "
-          .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
-          .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
-          .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
-      else
-        self.format_event[category][element]()
-      end
+  if self.format_template and template ~= nil and template ~= "" then
+    for index, value in pairs(template) do
+      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
     end
-
-    self:add()
-    self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
-end
-
--- Format XML file with host infoamtion
-function EventQueue:format_event_host()
-  local xml_host_severity = self.sc_broker:get_severity(self.sc_event.event.host_id)
-  local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.action_url, 'no action url for this host')
-  local xml_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.notes, 'no notes found on host')
-
-  if xml_host_severity == false then
-    xml_host_severity = 0
+  else
+    -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
+    if not self.format_event[category][element] then
+      self.sc_logger:error("[format_event]: You are trying to format an event with category: "
+        .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+        .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+        .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
+    else
+      self.format_event[category][element]()
+    end
   end
 
-  self.sc_event.event.formated_event = {
-    hostname = self.sc_event.event.cache.host.name,
-    host_severity = xml_host_severity,
-    host_notes = xml_notes,
-    url = xml_url,
-    source_ci = self.sc_common:ifnil_or_empty(self.source_ci, 'Centreon'),
-    source_host_id = self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0),
-    scheduled_downtime_depth = self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0)
-  }
+  self:add()
+  self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
 -- Format XML file with service infoamtion
 function EventQueue:format_event_service()
-  local xml_url = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.host.notes_url, 'no url for this service')
-  local xml_service_severity = self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id)
+  local service_severity = self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id)
 
-  if xml_service_severity == false then
-    xml_service_severity = 0
+  if service_severity == false then
+    service_severity = 0
   end
 
   self.sc_event.event.formated_event = {
-    hostname = self.sc_event.event.cache.host.name,
-    svc_desc = self.sc_event.event.cache.service.description,
-    state =  self.sc_event.event.state,
-    last_update = self.sc_event.event.last_update,
-    output =  string.match(self.sc_event.event.output, "^(.*)\n"),
-    service_severity = xml_service_severity,
-    url = xml_url,
-    source_host_id = self.sc_common:ifnil_or_empty(self.sc_event.event.host_id, 0),
-    source_svc_id = self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0),
-    scheduled_downtime_depth = self.sc_common:ifnil_or_empty(self.sc_event.event.scheduled_downtime_depth, 0)
+    title = self.sc_event.event.cache.service.description,
+    description =  string.match(self.sc_event.event.output, "^(.*)\n"),
+    severity = self.sc_event.event.state,
+    time_created = self.sc_event.event.last_update,
+    node = self.sc_event.event.cache.host.name,
+    related_ci = self.sc_event.event.cache.host.name,
+    source_ci = self.sc_common:ifnil_or_empty(self.source_ci, 'Centreon'),
+    source_event_id = self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0)
   }
 end
 
@@ -212,22 +197,22 @@ end
 
 --------------------------------------------------------------------------------
 -- EventQueue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} json encoded string
+-- @param payload {string} xml encoded string
 -- @param event {table} the event that is going to be added to the payload
--- @return payload {string} json encoded string
+-- @return payload {string} xml encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = "<event_data>"
+    payload = "<event_data>\t"
     for index, xml_str in pairs(event) do
-      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">"
+      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
     end
     payload = payload .. "</event_data>"
 
   else
-    payload = payload .. "<event_data>"
+    payload = payload .. "\n<event_data>\t"
     for index, xml_str in pairs(event) do
-      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">"
+      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
     end
     payload = payload .. "</event_data>"
   end
@@ -285,8 +270,10 @@ function EventQueue:send_data(payload)
 
   -- adding the HTTP POST data
   http_request:setopt_postfields(payload)
+
   -- performing the HTTP request
   http_request:perform()
+
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
   http_request:close()
@@ -330,7 +317,7 @@ function write(event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  
+
   --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
