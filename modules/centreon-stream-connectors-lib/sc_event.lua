@@ -144,6 +144,8 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
   
+  self:build_outputs()
+
   return true
 end
 
@@ -216,6 +218,8 @@ function ScEvent:is_valid_service_status_event()
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
     return false
   end
+
+  self:build_outputs()
 
   return true
 end
@@ -1097,6 +1101,28 @@ function ScEvent:is_valid_downtime_event_end()
   -- any other downtime event is not about the actual end of a downtime so we return false
   self.sc_logger:debug("[sc_event:is_valid_downtime_event_end]: deletion_time not found in the downtime event. The downtime event is not about the end of a downtime")
   return false
+end
+
+--- build_outputs: adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the use_longoutput param
+function ScEvent:build_outputs()
+  self.event.long_output = self.event.output
+  self.event.long_output = self.event.output
+
+  -- no short output if there is no line break
+  local short_output = string.match(self.event.output, "^(.*)\n")
+  if short_output then
+    self.event.short_output = short_output
+  end
+
+  -- use shortoutput if it exists
+  if self.params.use_long_output == 0 and short_output then
+    self.event.output = short_output
+
+  -- replace line break if asked to and we are not already using a short output
+  elseif not short_output and  self.params.remove_line_break_in_output == 1 then
+    self.event.output = string.gsub(self.event.output, "\n", self.params.output_line_break_replacement_character)
+  end
+
 end
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead

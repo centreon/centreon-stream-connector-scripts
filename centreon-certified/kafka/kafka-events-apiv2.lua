@@ -140,7 +140,7 @@ function EventQueue:format_host_status()
   self.sc_event.event.formated_event = {
     host = tostring(self.sc_event.event.cache.host.name),
     state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    output = self.sc_common:ifnil_or_empty(string.match(string.gsub(self.sc_event.event.output, '\\', "_"), "^(.*)\n"), "no output"),
+    output = self.sc_common:ifnil_or_empty(string.gsub(self.sc_event.event.output, '\\', "_"), "no output"),
   }
 end
 
@@ -149,7 +149,7 @@ function EventQueue:format_service_status()
     host = tostring(self.sc_event.event.cache.host.name),
     service = tostring(self.sc_event.event.cache.service.description),
     state = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
-    output = self.sc_common:ifnil_or_empty(string.match(string.gsub(self.sc_event.event.output, '\\', "_"), "^(.*)\n"), "no output")
+    output = self.sc_common:ifnil_or_empty(string.gsub(self.sc_event.event.output, '\\', "_"), "no output")
   }
 end
 

@@ -135,7 +135,7 @@ function EventQueue:format_accepted_event()
         event_type = "host",
         timestamp = self.sc_event.event.last_check,
         host = self.sc_event.event.cache.host.name,
-        output = string.gsub(self.sc_event.event.output, "\n", " "),
+        output = self.sc_event.event.output,
         status = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
         state = self.sc_event.event.state,
         state_type = self.sc_event.event.state_type
@@ -151,7 +151,7 @@ function EventQueue:format_accepted_event()
       status = self.sc_params.params.status_mapping[self.sc_event.event.category][self.sc_event.event.element][self.sc_event.event.state],
       state = self.sc_event.event.state,
       state_type = self.sc_event.event.state_type,
-      output = string.gsub(self.sc_event.event.output, "\n", " "),
+      output = self.sc_event.event.output,
     }
   end
 
