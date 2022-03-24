@@ -1,12 +1,38 @@
-#!/usr/bin/lua
---------------------------------------------------------------------------------
--- Centreon Broker Pagerduty Connector Events
---------------------------------------------------------------------------------
-
+--
+-- Copyright 2022 Centreon
+--
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+--
+--     http://www.apache.org/licenses/LICENSE-2.0
+--
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+--
+-- For more information : contact@centreon.com
+--
+-- To work you need to provide to this script a Broker stream connector output configuration
+-- with the following informations:
+--
+-- source_ci (string): Name of the transmiter, usually Centreon server name
+-- ipaddr (string): the ip address of the operation connector server
+-- url (string): url of the operation connector endpoint
+-- logfile (string): the log file to use
+-- loglevel (number): th log level (0, 1, 2, 3) where 3 is the maximum level
+-- port (number): the operation connector server port
+-- max_size (number): how many events to store before sending them to the server.
+-- max_age (number): flush the events when the specified time (in second) is reach (even if max_size is not reach).
 
 -- Libraries
-local curl = require "cURL"
-local new_from_timestamp = require "luatz.timetable".new_from_timestamp
+local curl = require("cURL")
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+
+-- Centreon lua core libraries
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -15,62 +41,62 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 
---------------------------------------------------------------------------------
--- Classe event_queue
---------------------------------------------------------------------------------
+-- workaround https://github.com/centreon/centreon-broker/issues/201
+local previous_event = ""
 
 --------------------------------------------------------------------------------
--- Classe event_queue
+-- EventQueue class
 --------------------------------------------------------------------------------
 
 local EventQueue = {}
 EventQueue.__index = EventQueue
 
 --------------------------------------------------------------------------------
----- Constructor
----- @param conf The table given by the init() function and returned from the GUI
----- @return the new EventQueue
-----------------------------------------------------------------------------------
-
+-- Constructor
+-- @param conf The table given by the init() function and returned from the GUI
+-- @return the new EventQueue
+--------------------------------------------------------------------------------
 function EventQueue.new(params)
   local self = {}
-
-  local mandatory_parameters = {
-    "pdy_routing_key"
-  }
-
   self.fail = false
 
+  local mandatory_parameters = {
+      "ipaddr",
+      "url",
+      "port"
+  }
+
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/pagerduty-events.log"
-  local log_level = params.log_level or 1
-  
+  local logfile = params.logfile or "/var/log/centreon-broker/omi_event.log"
+  local log_level = params.log_level or 2
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
-  
-  -- force buffer size to 1 to avoid breaking the communication with pagerduty (can't send more than one event at once)
-  params.max_buffer_size = 1
-  
+
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.pdy_centreon_url = params.pdy_centreon_url or "http://set.pdy_centreon_url.parameter"
-  self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
-  self.sc_params.params.client = params.client or "Centreon Stream Connector"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.pdy_source = params.pdy_source or nil
-  
+  self.sc_params.params.accepted_elements = params.accepted_elements or "service_status"
+  self.sc_params.params.source_ci = params.source_ci or "Centreon"
+  self.sc_params.params.ipaddr = params.ipaddr or "192.168.56.15"
+  self.sc_params.params.url = params.url or "/bsmc/rest/events/opscx-sdk/v1/"
+  self.sc_params.params.port = params.port or 30005
+  self.sc_params.params.max_output_length = params.max_output_length or 1024
+  self.sc_params.params.max_buffer_size = params.max_buffer_size or 5
+  self.sc_params.params.max_buffer_age = params.max_buffer_age or 60
+  self.sc_params.params.flush_time = params.flush_time or os.time()
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-  
+
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
   self.sc_params:build_accepted_elements_info()
@@ -81,7 +107,6 @@ function EventQueue.new(params)
 
   self.format_event = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function () return self:format_event_host() end,
       [elements.service_status.id] = function () return self:format_event_service() end
     },
     [categories.bam.id] = {}
@@ -95,25 +120,6 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
-  self.state_to_severity_mapping = {
-    [0] = {
-      severity = "info",
-      action = "resolve"
-    },
-    [1] = {
-      severity = "warning",
-      action = "trigger"
-    },
-    [2] = {
-      severity = "critical",
-      action = "trigger"
-    }, 
-    [3] = {
-      severity = "error",
-      action = "trigger"
-    }
-  }
-
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -121,17 +127,18 @@ end
 
 --------------------------------------------------------------------------------
 ---- EventQueue:format_event method
-----------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
 function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
   local template = self.sc_params.params.format_template[category][element]
-
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
   self.sc_event.event.formated_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    for index, value in pairs(template) do
+      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+    end
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -148,151 +155,31 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
-function EventQueue:format_event_host()
-  local event = self.sc_event.event
-  local pdy_custom_details = {}
-
-  -- handle hostgroup
-  local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-  local pdy_hostgroups = ""
-
-  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-  if not hostgroups then
-    pdy_hostgroups = "empty host group"
-  else
-    for index, hg_data in ipairs(hostgroups) do
-      if pdy_hostgroups ~= "" then
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-      else
-        pdy_hostgroups = hg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Hostgroups"] = pdy_hostgroups
-  end
-
-  -- handle severity
-  local host_severity = self.sc_broker:get_severity(event.host_id)
-  
-  if host_severity then
-    pdy_custom_details['Hostseverity'] = host_severity
-  end
-  
-  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
-
-  self.sc_event.event.formated_event = {
-    payload = {
-      summary = tostring(event.cache.host.name) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
-      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
-      severity = self.state_to_severity_mapping[event.state].severity,
-      source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
-      component = tostring(event.cache.host.name),
-      group = pdy_hostgroups,
-      class = "host",
-      custom_details = pdy_custom_details,
-    },
-    routing_key = self.sc_params.params.pdy_routing_key,
-    event_action = self.state_to_severity_mapping[event.state].action,
-    dedup_key = event.host_id .. "_H",
-    client = self.sc_params.params.client,
-    client_url = self.sc_params.params.client_url,
-    links = {
-      {
-        -- should think about using the new resources page but keep it as is for compatibility reasons
-        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-        text = "Link to Centreon host summary"
-      }
-    }
-  }
-end
-
+-- Format XML file with service infoamtion
 function EventQueue:format_event_service()
-  local event = self.sc_event.event
-  local pdy_custom_details = {}
+  local service_severity = self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id)
 
-  -- handle hostgroup
-  local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-  local pdy_hostgroups = ""
-
-  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-  if not hostgroups then
-    pdy_hostgroups = "empty host group"
-  else
-    for index, hg_data in ipairs(hostgroups) do
-      if pdy_hostgroups ~= "" then
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-      else
-        pdy_hostgroups = hg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Hostgroups"] = pdy_hostgroups
+  if service_severity == false then
+    service_severity = 0
   end
-
-  -- handle servicegroups
-  local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
-  local pdy_servicegroups = ""
-
-  -- retrieve servicegroups and store them in pdy_custom_details["Servicegroups"]
-  if not servicegroups then
-    pdy_servicegroups = "empty service group"
-  else
-    for index, sg_data in ipairs(servicegroups) do
-      if pdy_servicegroups ~= "" then
-        pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
-      else
-        pdy_servicegroups = sg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Servicegroups"] = pdy_servicegroups
-  end
-
-  -- handle host severity
-  local host_severity = self.sc_broker:get_severity(event.host_id)
-  
-  if host_severity then
-    pdy_custom_details["Hostseverity"] = host_severity
-  end
-
-  -- handle service severity
-  local service_severity = self.sc_broker:get_severity(event.host_id, event.service_id)
-
-  if service_severity then
-    pdy_custom_details["Serviceseverity"] = service_severity
-  end
-
-  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
 
   self.sc_event.event.formated_event = {
-    payload = {
-      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
-      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
-      severity = self.state_to_severity_mapping[event.state].severity,
-      source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
-      component = tostring(event.cache.service.description),
-      group = pdy_hostgroups,
-      class = "service",
-      custom_details = pdy_custom_details,
-    },
-    routing_key = self.sc_params.params.pdy_routing_key,
-    event_action = self.state_to_severity_mapping[event.state].action,
-    dedup_key = event.host_id .. "_" .. event.service_id,
-    client = self.sc_params.params.client,
-    client_url = self.sc_params.params.client_url,
-    links = {
-      {
-        -- should think about using the new resources page but keep it as is for compatibility reasons
-        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-        text = "Link to Centreon host summary"
-      }
-    }
+    title = self.sc_event.event.cache.service.description,
+    description =  string.match(self.sc_event.event.output, "^(.*)\n"),
+    severity = self.sc_event.event.state,
+    time_created = self.sc_event.event.last_update,
+    node = self.sc_event.event.cache.host.name,
+    related_ci = self.sc_event.event.cache.host.name,
+    source_ci = self.sc_common:ifnil_or_empty(self.source_ci, 'Centreon'),
+    source_event_id = self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0)
   }
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:add, add an event to the sending queue
+-- EventQueue:add method
+-- @param e An event
 --------------------------------------------------------------------------------
+
 function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
@@ -304,23 +191,32 @@ function EventQueue:add()
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
 -- EventQueue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} json encoded string
+-- @param payload {string} xml encoded string
 -- @param event {table} the event that is going to be added to the payload
--- @return payload {string} json encoded string
+-- @return payload {string} xml encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = broker.json_encode(event)
+    payload = "<event_data>\t"
+    for index, xml_str in pairs(event) do
+      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
+    end
+    payload = payload .. "</event_data>"
+
   else
-    payload = payload .. broker.json_encode(event)
+    payload = payload .. "\n<event_data>\t"
+    for index, xml_str in pairs(event) do
+      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
+    end
+    payload = payload .. "</event_data>"
   end
-  
+
   return payload
 end
 
@@ -330,35 +226,35 @@ function EventQueue:send_data(payload)
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(payload))
-    return true
+   return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(self.sc_params.params.http_server_url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following xml " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: BSM Http Server URL is: \"" .. tostring(self.sc_params.params.http_server_url .. "\""))
 
   local http_response_body = ""
   local http_request = curl.easy()
-    :setopt_url(self.sc_params.params.http_server_url)
-    :setopt_writefunction(
-      function (response)
-        http_response_body = http_response_body .. tostring(response)
-      end
-    )
-    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "content-type: application/json",
-        "content-length:" .. string.len(payload),
-      }
+  :setopt_url(self.sc_params.params.http_server_url)
+  :setopt_writefunction(
+    function (response)
+      http_response_body = http_response_body .. tostring(response)
+    end
+  )
+  :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+  :setopt(
+    curl.OPT_HTTPHEADER,
+    {
+      "Content-Type: text/xml",
+      "content-length: " .. string.len(payload)
+    }
   )
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -377,22 +273,19 @@ function EventQueue:send_data(payload)
 
   -- performing the HTTP request
   http_request:perform()
-  
-  -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
 
+  -- collecting results
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
   http_request:close()
-  
+
   -- Handling the return code
   local retval = false
-  -- pagerduty use 202 https://developer.pagerduty.com/api-reference/reference/events-v2/openapiv3.json/paths/~1enqueue/post
-  if http_response_code == 202 then
+  if http_response_code == 202 or http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
-  
   return retval
 end
 
@@ -407,12 +300,8 @@ function init(conf)
   queue = EventQueue.new(conf)
 end
 
--- --------------------------------------------------------------------------------
--- write,
--- @param {table} event, the event from broker
--- @return {boolean}
---------------------------------------------------------------------------------
-function write (event)
+-- Fonction write()
+function write(event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
@@ -428,24 +317,24 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
-
 
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true

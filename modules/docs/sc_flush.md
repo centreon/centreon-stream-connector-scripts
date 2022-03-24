@@ -98,6 +98,7 @@ head over the following chapters for more information
 | the function that must be used to send data. If the method is part of a lua module, you must use the dot syntax and not the colon syntax. Meaning it can be `self.send_data` but not `self:send_data` (do not put parenthesis otherwise it will pass the result of the function as a parameter instead of the function itself) | function | no       |               |
 | the category of the queue that we need to flush | number | no | |
 | the element of the queue that we need to flush | number | no | |
+| force a flush ignoring max_buffer_age and max_buffer_size | boolean | yes | false |
 
 ### flush_queue: returns
 
@@ -119,13 +120,13 @@ test_flush.queues[1][14].events = {
   [2] = "second event"
 }
 
-local result = test_flush:flush_queue(send_data, 1, 14) 
+local result = test_flush:flush_queue(send_data, 1, 14, false) 
 --> result is true
 
 -- initiate a empty queue for service_status events
 test_.queues[1][24].events = {}
 
-result = test_flush:flush_queue(send_data, 1, 24)
+result = test_flush:flush_queue(send_data, 1, 24, false)
 --> result is false because buffer size is 0
 ```
 

@@ -120,6 +120,8 @@
   - [is_valid_downtime_event_end method](#is_valid_downtime_event_end-method)
     - [is_valid_downtime_event_end: returns](#is_valid_downtime_event_end-returns)
     - [is_valid_downtime_event_end: example](#is_valid_downtime_event_end-example)
+  - [build_outputs method](#build_outputs-method)
+    - [build_outputs: example](#build_outputs-example)
   - [is_valid_storage_event method](#is_valid_storage_event-method)
 
 ## Introduction
@@ -1070,6 +1072,16 @@ The **is_valid_downtime_event_end** method checks if the downtime event is a tru
 ```lua
 local result = test_event:is_valid_downtime_event_end()
 --> result is true or false
+```
+
+## build_outputs method
+
+The **build_outputs** method adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the [**use_long_output parameter](sc_param.md#default-parameters).
+
+### build_outputs: example
+
+```lua
+local result = test_event:build_outputs()
 ```
 
 ## is_valid_storage_event method

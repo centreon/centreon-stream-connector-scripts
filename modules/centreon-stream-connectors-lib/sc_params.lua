@@ -66,7 +66,9 @@ function sc_params.new(common, logger)
     
     -- communication parameters
     max_buffer_size = 1,
-    max_buffer_age = 5,
+    max_buffer_age = 5, --deprecated
+    max_all_queues_age = 60,
+    send_mixed_events = 1,
 
     -- connection parameters
     connection_timeout = 60,
@@ -80,6 +82,9 @@ function sc_params.new(common, logger)
 
     -- event formatting parameters
     format_file = "",
+    use_long_output = 1,
+    remove_line_break_in_output = 1,
+    output_line_break_replacement_character = " ",
 
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
@@ -87,6 +92,7 @@ function sc_params.new(common, logger)
 
     -- internal parameters
     __internal_ts_last_flush = os.time(),
+    __internal_last_global_flush_date = os.time(),
 
     -- testing parameters
     send_data_test = 0,
@@ -656,6 +662,9 @@ function ScParams:check_params()
   self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.allow_insecure_connection, 0))
   self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
   self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
+  self.params.use_long_output = self.common:check_boolean_number_option_syntax(self.params.use_longoutput, 1)
+  self.params.remove_line_break_in_output = self.common:check_boolean_number_option_syntax(self.params.remove_line_break_in_output, 1)
+  self.params.output_line_break_replacement_character = self.common:if_wrong_type(self.params.output_line_break_replacement_character, "string", " ")
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
