@@ -276,7 +276,7 @@ function ScMetrics:is_valid_perfdata(perfdata)
   end
 
   -- store data from parsed perfdata inside a metrics table
-  self.metrics.data = self:build_metric(metrics_info)
+  self.metrics_info = metrics_info
 
   return true
 end
@@ -286,20 +286,23 @@ end
 -- datadog : metric_name = [a-zA-Z0-9_.] https://docs.datadoghq.com/fr/metrics/custom_metrics/#naming-custom-metrics
 -- dynatrace matric name [a-zA-Z0-9-_.] https://dynatrace.com/support/help/how-to-use-dynatrace/metrics/metric-ingestion/metric-ingestion-protocol#metric-key
 -- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
-function ScMetrics:build_metric(metrics_info)
+function ScMetrics:build_metric(format_metric)
+  local metrics_info = self.metrics_info
+
   local metric_transformation = {}
-  metric_transformation.regex = self.metrics_name_operations[self.params.metric_format_type].regex
-  metric_transformation.replacement_character = self.metrics_name_operations.custom.replacement_character or self.metrics_name_operations[self.params.metric_format_type].replacement_character
-
+  metric_transformation.regex = self.metrics_name_operations["datadog"].regex
+  -- metric_transformation.regex = self.metrics_name_operations[self.params.metric_format_type].regex
+  metric_transformation.replacement_character = "_"
+  -- metric_transformation.replacement_character = self.metrics_name_operations.custom.replacement_character or self.metrics_name_operations[self.params.metric_format_type].replacement_character
+  self.sc_logger:debug("perfdata: " .. self.sc_common:dumper(metrics_info))
   for metric, metric_data in pairs(metrics_info) do
+    self.sc_logger:debug("on rentre dans build_metric")
     metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, metric_transformation.regex, metric_transformation.replacement_character)
-    
-    if self.params.metric_format_type ~= "custom" then
-      metrics_info[metric].metric_metadata = self.metrics_name_operations[self.params.metric_format_type].build_metadata(metric_data)
-    end
+    format_metric(metrics_info[metric])
+    -- if self.params.metric_format_type ~= "custom" then
+    --   metrics_info[metric].metric_metadata = self.metrics_name_operations[self.params.metric_format_type].build_metadata(metric_data)
+    -- end
   end
-
-  return metrics_info
 end
 
 return sc_metrics
