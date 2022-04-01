@@ -116,9 +116,7 @@ function EventQueue:format_accepted_event()
   local element = self.sc_event.event.element
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
 
-  
   -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
   if not self.format_event[category][element] then
     self.sc_logger:error("[format_event]: You are trying to format an event with category: "
@@ -162,7 +160,7 @@ function EventQueue:format_metric_event(metric)
   self.sc_event.event.formated_event = {
     host = tostring(event.cache.host.name),
     metric = metric.metric_name,
-    points = {event.last_check, metric.value},
+    points = {{event.last_check, metric.value}},
     tags = self:build_metadata(metric)
   }
 
@@ -175,18 +173,18 @@ function EventQueue:build_metadata(metric)
 
   -- add service name in tags
   if self.sc_event.event.cache.service.description then
-    table.insert(tags, self.sc_event.event.cache.service.description)
+    table.insert(tags, "service:" .. self.sc_event.event.cache.service.description)
   end
 
   -- add metric instance in tags
   if metric.instance ~= "" then
-    table.insert(tags, metric.instance)
+    table.insert(tags, "instance:" .. metric.instance)
   end
 
   -- add metric subinstances in tags
   if metric.subinstance[1] then
     for _, subinstance in ipairs(metric.subinstance) do
-      table.insert(tags, subinstance)
+      table.insert(tags, "subinstance:" .. subinstance)
     end
   end
 
@@ -232,15 +230,16 @@ end
 function EventQueue:send_data(payload)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.http_server_url .. tostring(self.sc_params.params.datadog_event_endpoint)
+  local url = self.sc_params.params.http_server_url .. tostring(self.sc_params.params.datadog_metric_endpoint)
+  local payload_json = broker.json_encode(payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(broker.json_encode(payload)))
+    self.sc_logger:notice("[send_data]: " .. tostring(payload_json))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload_json))
   self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(url))
 
   local http_response_body = ""
@@ -280,7 +279,7 @@ function EventQueue:send_data(payload)
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload)
+  http_request:setopt_postfields(payload_json)
 
   -- performing the HTTP request
   http_request:perform()

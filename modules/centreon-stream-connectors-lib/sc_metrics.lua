@@ -288,7 +288,7 @@ end
 -- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
 function ScMetrics:build_metric(format_metric)
   local metrics_info = self.metrics_info
-
+  self.sc_logger:debug("on rentre dans build_metric 1")
   local metric_transformation = {}
   metric_transformation.regex = self.metrics_name_operations["datadog"].regex
   -- metric_transformation.regex = self.metrics_name_operations[self.params.metric_format_type].regex
@@ -296,9 +296,12 @@ function ScMetrics:build_metric(format_metric)
   -- metric_transformation.replacement_character = self.metrics_name_operations.custom.replacement_character or self.metrics_name_operations[self.params.metric_format_type].replacement_character
   self.sc_logger:debug("perfdata: " .. self.sc_common:dumper(metrics_info))
   for metric, metric_data in pairs(metrics_info) do
-    self.sc_logger:debug("on rentre dans build_metric")
+    self.sc_logger:debug("metric data: " .. self.sc_common:dumper(metric_data))
+
     metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, metric_transformation.regex, metric_transformation.replacement_character)
+    self.sc_logger:debug("on rentre dans build_metric pour transformer")
     format_metric(metrics_info[metric])
+    self.sc_logger:debug("on rentre dans build_metric tranformation finie")
     -- if self.params.metric_format_type ~= "custom" then
     --   metrics_info[metric].metric_metadata = self.metrics_name_operations[self.params.metric_format_type].build_metadata(metric_data)
     -- end
