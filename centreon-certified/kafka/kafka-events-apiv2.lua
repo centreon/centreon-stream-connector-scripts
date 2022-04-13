@@ -79,7 +79,8 @@ function EventQueue.new(params)
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file()
   self.sc_params:build_accepted_elements_info()
-
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+  
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
