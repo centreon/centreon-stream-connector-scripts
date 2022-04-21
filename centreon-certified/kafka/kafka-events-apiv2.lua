@@ -166,9 +166,20 @@ end
 --------------------------------------------------------------------------------
 -- EventQueue:add, add an event to the sending queue
 --------------------------------------------------------------------------------
-function EventQueue:add ()
-  -- store event in self.events list
-  self.events[#self.events + 1] = self.sc_event.event.formated_event
+function EventQueue:add()
+  -- store event in self.events lists
+  local category = self.sc_event.event.category
+  local element = self.sc_event.event.element
+
+  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+  .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+
+  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+
+
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
+  .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
