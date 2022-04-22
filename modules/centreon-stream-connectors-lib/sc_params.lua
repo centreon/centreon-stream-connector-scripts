@@ -101,6 +101,10 @@ function sc_params.new(common, logger)
     logfile = "",
     log_level = "",
     
+    -- metric
+    metric_name_regex = "",
+    metric_replacement_character = "_",
+
     -- initiate mappings
     element_mapping = {},
     status_mapping = {},
@@ -109,7 +113,7 @@ function sc_params.new(common, logger)
       [1] = "HARD"
     },
     validatedEvents = {},
-    
+
     -- FIX BROKER ISSUE 
     max_stored_events = 10 -- do not use values above 100 
   }
@@ -647,10 +651,10 @@ function ScParams:check_params()
   self.params.service_severity_threshold = self.common:if_wrong_type(self.params.service_severity_threshold, "number", nil)
   self.params.host_severity_operator = self.common:if_wrong_type(self.params.host_severity_operator, "string", ">=")
   self.params.service_severity_operator = self.common:if_wrong_type(self.params.service_severity_operator, "string", ">=")
-  self.params.ack_host_status = self.common:ifnil_or_empty(self.params.ack_host_status,self.params.host_status)
-  self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status,self.params.service_status)
-  self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status,self.params.host_status)
-  self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status,self.params.service_status)
+  self.params.ack_host_status = self.common:ifnil_or_empty(self.params.ack_host_status, self.params.host_status)
+  self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status, self.params.service_status)
+  self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status, self.params.host_status)
+  self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status, self.params.service_status)
   self.params.enable_host_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_host_status_dedup, 0)
   self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
   self.params.send_data_test = self.common:check_boolean_number_option_syntax(self.params.send_data_test, 0)
@@ -665,6 +669,8 @@ function ScParams:check_params()
   self.params.use_long_output = self.common:check_boolean_number_option_syntax(self.params.use_longoutput, 1)
   self.params.remove_line_break_in_output = self.common:check_boolean_number_option_syntax(self.params.remove_line_break_in_output, 1)
   self.params.output_line_break_replacement_character = self.common:if_wrong_type(self.params.output_line_break_replacement_character, "string", " ")
+  self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
+  self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
