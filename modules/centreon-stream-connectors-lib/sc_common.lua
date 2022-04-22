@@ -292,22 +292,27 @@ function ScCommon:dumper(variable, result, tab_char)
     if result then
       result = result .. "\n" .. tab_char .. "[" .. type(variable) .. "]: " .. tostring(variable)
     else
-      result = "[" .. type(variable) .. "]: " .. tostring(variable)
+      result = "\n[" .. type(variable) .. "]: " .. tostring(variable)
     end
   else
+    if not result then
+      result = "\n[table]"
+      tab_char = "\t"
+    end
+
     -- recursive looping through each tables in the table
     for index, value in pairs(variable) do
       if type(value) ~= "table" then
         if result then
           result = result .. "\n" .. tab_char .. "[" .. type(value) .. "] " .. tostring(index) .. ": " .. tostring(value)
         else
-          result = tostring(index) .. " [" .. type(value) .. "]: " .. tostring(value)
+          result = "\n" .. tostring(index) .. " [" .. type(value) .. "]: " .. tostring(value)
         end
       else
         if result then
           result = result .. "\n" .. tab_char .. "[" .. type(value) .. "] " .. tostring(index) .. ": "
         else
-          result = "[" .. type(value) .. "] " .. tostring(index) .. ": "
+          result = "\n[" .. type(value) .. "] " .. tostring(index) .. ": "
         end
         result = self:dumper(value, result, tab_char)
       end
