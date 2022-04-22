@@ -371,8 +371,8 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_downtime_state()
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
-      .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be above or equal to " .. tostring(self.params.in_downtime) 
+      .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
     return false
   end
 
