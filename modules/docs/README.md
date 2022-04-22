@@ -43,6 +43,7 @@
 | load_json_file                     | method loads a json file and parse it                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
 | json_escape                        | escape json characters in a string                                                          | [Documentation](sc_common.md#json_escape-method)                        |
 | xml_escape                         | escape xml characters in a string                                                           | [Documentation](sc_common.md#xml_escape-method)                         |
+| dumper                             | dump any variable for debug purpose                                                         | [Documentation](sc_common.md#dumper-method)                             |
 
 ## sc_logger methods
 
@@ -155,6 +156,7 @@
 | is_valid_service_metric_event | makes sure that the metric event is valid service metric event                                            | [Documentation](sc_metrics.md#is_valid_service_metric_event-method) |
 | is_valid_kpi_metric_event     | makes sure that the metric event is valid KPI metric event                                                | [Documentation](sc_metrics.md#is_valid_kpi_metric_event-method)     |
 | is_valid_perfdata             | makes sure that the performance data is valid                                                             | [Documentation](sc_metrics.md#is_valid_perfdata-method)             |
+| build_metric                  | use the stream connector format method to parse every metric in the event                                 | [Documentation](sc_metrics.md#build_metric-method)                  |
 
 ## google.bigquery.bigquery methods
 

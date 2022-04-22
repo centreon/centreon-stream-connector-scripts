@@ -24,6 +24,9 @@
     - [is_valid_perfdata parameters](#is_valid_perfdata-parameters)
     - [is_valid_perfdata: returns](#is_valid_perfdata-returns)
     - [is_valid_perfdata: example](#is_valid_perfdata-example)
+  - [build_metric method](#build_metric-method)
+    - [build_metric parameters](#build_metric-parameters)
+    - [build_metric: example](#build_metric-example)
 
 ## Introduction
 
@@ -215,7 +218,7 @@ The **is_valid_perfdata** method makes sure that the performance data is valid. 
 
 ```lua
 local perfdata = "pl=45%;40;80;0;100"
-local result = test_metrics:is_valid_perfdata()
+local result = test_metrics:is_valid_perfdata(perfdata)
 --> result is true or false
 --> test_metrics.metrics is now 
 --[[
@@ -235,4 +238,25 @@ local result = test_metrics:is_valid_perfdata()
     }
   }
 ]]--
+```
+
+## build_metric method
+
+The **build_metric** method uses the provided stream connector format method to parse every metric in the event
+
+### build_metric parameters
+
+| parameter                                    | type     | optional | default value |
+| -------------------------------------------- | -------- | -------- | ------------- |
+| "the format method from the stream connector | function | no       |               |
+
+### build_metric: example
+
+```lua
+local function my_format_method(metric_data)
+  -- your code here
+end
+
+local stored_method = function(metric_data) return my_format_method(metric_data) end
+test_metrics:build_metric(stored_method)
 ```

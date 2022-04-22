@@ -49,6 +49,10 @@
     - [xml_escape: parameters](#xml_escape-parameters)
     - [xml_escape: returns](#xml_escape-returns)
     - [xml_escape: example](#xml_escape-example)
+  - [dumper method](#dumper-method)
+    - [dumper: parameters](#dumper-parameters)
+    - [dumper: returns](#dumper-returns)
+    - [dumper: example](#dumper-example)
 
 ## Introduction
 
@@ -428,4 +432,45 @@ local string = 'string with " and < and >'
 
 local result = test_common:xml_escape(string)
 --> result is 'string with &quot; and &lt; and &gt;'
+```
+
+## dumper method
+
+The **dumper** dump variables for debug purpose
+
+### dumper: parameters
+
+| parameter                                                                                           | type   | optional | default value |
+| --------------------------------------------------------------------------------------------------- | ------ | -------- | ------------- |
+| the variable that must be dumped                                                                    | any    | no       |               |
+| the string that contains the dumped variable. ONLY USED INTERNALLY FOR RECURSIVE PURPOSE            | string | yes      |               |
+| the string that contains the tab character. ONLY USED INTERNALLY FOR RECURSIVE PURPOSE (and design) | string | yes      |               |
+
+### dumper: returns
+
+| return              | type   | always | condition |
+| ------------------- | ------ | ------ | --------- |
+| the dumped variable | string | yes    |           |
+
+### dumper: example
+
+```lua
+local best_city = {
+  name = "mont-de-marsan",
+  geocoord = {
+    lat = 43.89446,
+    lon = -0.4964242
+  }
+}
+
+local result = "best city info: " .. test_common:dumper(best_city)
+--> result is
+--[[
+  best city info: 
+  [table]
+        [string] name: mont-de-marsan
+        [table] geocoord:
+                [number] lon: -0.4964242
+                [number] lat: 43.89446
+]]--
 ```
