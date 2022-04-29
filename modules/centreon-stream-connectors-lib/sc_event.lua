@@ -1112,6 +1112,8 @@ function ScEvent:build_outputs()
   local short_output = string.match(self.event.output, "^(.*)\n")
   if short_output then
     self.event.short_output = short_output
+  else
+    self.event.short_output = self.event.output
   end
 
   -- use shortoutput if it exists
