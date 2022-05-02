@@ -47,7 +47,7 @@ function EventQueue.new (params)
   self.events = {}
   self.fail = false
 
-  local logfile = params.logfile or "/var/log/centreon-broker/servicenow-stream-connector.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/servicenow-incident-stream-connector.log"
   local log_level = params.log_level or 1
 
   -- initiate mandatory objects
@@ -63,20 +63,27 @@ function EventQueue.new (params)
   self.sc_params.params.password = params.password
   self.sc_params.params.http_server_url = params.http_server_url or "service-now.com"
   self.sc_params.params.incident_table = params.incident_table or "incident"
+  self.sc_params.params.source = params.source or "centreon"
 
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  -- this is an automatic ticketing stream connector, by default we only open ticket on warning/critical/unknown/down/unreachable states
+  self.sc_params.params.host_status = params.host_status or "1,2"
+  self.sc_params.params.service_status = params.service_status or "1,2,3"
 
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
 
+  -- force max_buffer_size to 1, we can't send bulk events
+  params.max_buffer_size = 1 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params.params.http_server_url = self.sc_common:if_wrong_type(self.sc_params.params.http_server_url, "string", "service-now.com")
   self.sc_params.params.incident_table = self.sc_common:if_wrong_type(self.sc_params.params.incident_table, "string", "incident")
+  self.sc_params.params.source = self.sc_common:if_wrong_type(self.sc_params.params.source, "string", "centreon")
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
@@ -333,8 +340,9 @@ function EventQueue:format_event_host()
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
-    short_description = self.params.status_mapping[event.category][event.element][event.state] .. " " .. tostring(event.cache.host.name) .. " " .. tostring(event.short_output),
-    cmd_ci = tostring(event.cache.host.name),
+    source = self.sc_params.params.source,
+    short_description = self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. tostring(event.cache.host.name) .. " " .. tostring(event.short_output),
+    cmdb_ci = tostring(event.cache.host.name),
     comments = "HOST: " .. tostring(event.cache.host.name) .. "\n"
       .. "OUTPUT: " .. tostring(event.output) .. "\n"
   }
@@ -344,8 +352,9 @@ function EventQueue:format_event_service()
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
-    short_description = self.params.status_mapping[event.category][event.element][event.state] .. " " .. tostring(event.cache.host.name) .. " " .. tostring(event.cache.service.description) .. " " .. tostring(event.short_output),
-    cmd_ci = tostring(event.cache.host.name),
+    source = self.sc_params.params.source,
+    short_description = self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. tostring(event.cache.host.name) .. " " .. tostring(event.cache.service.description) .. " " .. tostring(event.short_output),
+    cmdb_ci = tostring(event.cache.host.name),
     comments = "HOST: " .. tostring(event.cache.host.name) .. "\n"
       .. "SERVICE: " .. tostring(event.cache.service.description) .. "\n"
       .. "OUTPUT: " .. tostring(event.output) .. "\n"
