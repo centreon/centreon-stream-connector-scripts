@@ -57,6 +57,7 @@ function EventQueue.new(params)
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.max_buffer_size = params.max_buffer_size or 30
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
