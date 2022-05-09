@@ -127,9 +127,7 @@ function EventQueue:format_accepted_event()
     self.sc_event.event.formated_event = {}
 
     if self.format_template and template ~= nil and template ~= "" then
-      for index, value in pairs(template) do
-        self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
-      end
+      self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
     else
       -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
       if not self.format_event[category][element] then
