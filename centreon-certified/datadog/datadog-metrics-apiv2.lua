@@ -69,7 +69,7 @@ function EventQueue.new(params)
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
   self.sc_params.params.metric_name_regex = params.metric_name_regex or "[a-zA-Z0-9_%.]"
-  self.sc_params.params.metric_replacement_character = "_"
+  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "_" 
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
