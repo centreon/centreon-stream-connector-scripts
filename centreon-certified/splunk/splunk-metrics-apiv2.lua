@@ -57,6 +57,7 @@ function EventQueue.new(params)
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
   self.sc_params.params.metric_name_regex = params.metric_name_regex or "[^a-zA-Z0-9_]"
@@ -121,6 +122,10 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
+
+--------------------------------------------------------------------------------
+---- EventQueue:format_event_host method
+--------------------------------------------------------------------------------
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
@@ -132,16 +137,16 @@ function EventQueue:format_event_host()
     ctime = event.last_check
   }
 
+  self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
-function EventQueue:format_metric_host(metric)
-  self:format_metric_event(metric)
-end
-
+--------------------------------------------------------------------------------
+---- EventQueue:format_event_service method
+--------------------------------------------------------------------------------
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-
+  
   self.sc_event.event.formated_event = {
     event_type = "service",
     state = event.state,
@@ -150,19 +155,49 @@ function EventQueue:format_event_service()
     service_description = event.cache.service.description,
     ctime = event.last_check
   }
-
+  
+  self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
-function EventQueue:format_metric_service(metric)
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_host method
+-- @param metric {table} a single metric data
+--------------------------------------------------------------------------------
+function EventQueue:format_metric_host(metric)
+  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
   self:format_metric_event(metric)
 end
 
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_service method
+-- @param metric {table} a single metric data
+--------------------------------------------------------------------------------
+function EventQueue:format_metric_service(metric)
+  self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  self:format_metric_event(metric)
+end
+
+--------------------------------------------------------------------------------
+---- EventQueue:build_metadata method
+-- @param metric {table} a single metric data
+-- @return tags {table} a table with formated metadata 
+--------------------------------------------------------------------------------
 function EventQueue:format_metric_event(metric)
+  self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   self.sc_event.event.formated_event["metric_name:" .. tostring(metric.metric_name)] = metric.value
-  self.sc_event.event.formated_event["instance"] = metric.instance
-  self.sc_event.event.formated_event["subinstances"] = metric.subinstance
+
+  -- add metric instance in tags
+  if metric.instance ~= "" then
+    self.sc_event.event.formated_event["instance"] = metric.instance
+  end
+
+  if metric.subinstance[1] then
+    self.sc_event.event.formated_event["subinstances"] = metric.subinstance
+  end
+  
   self:add()
+  self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
 
 --------------------------------------------------------------------------------

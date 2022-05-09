@@ -190,7 +190,7 @@ end
 ---- EventQueue:build_metadata method
 -- @param metric {table} a single metric data
 -- @return tags {table} a table with formated metadata 
--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 function EventQueue:build_metadata(metric)
   local tags = {}
 
