@@ -38,8 +38,6 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 
--- workaround https://github.com/centreon/centreon-broker/issues/201
-local previous_event = ""
 
 --------------------------------------------------------------------------------
 -- EventQueue class
