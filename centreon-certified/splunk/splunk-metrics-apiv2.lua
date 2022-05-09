@@ -189,11 +189,11 @@ function EventQueue:format_metric_event(metric)
 
   -- add metric instance in tags
   if metric.instance ~= "" then
-    self.sc_event.event.formated_event[tostring(metric.metric_name) .. ":instance"] = metric.instance
+    self.sc_event.event.formated_event["instance"] = metric.instance
   end
 
   if metric.subinstance[1] then
-    self.sc_event.event.formated_event[tostring(metric.metric_name) .. ":subinstances"] = metric.subinstance
+    self.sc_event.event.formated_event["subinstances"] = metric.subinstance
   end
 
   self:add()
