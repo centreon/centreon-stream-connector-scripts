@@ -65,9 +65,11 @@ function EventQueue.new(params)
   self.sc_params.params.http_server_url = params.http_server_url or "https://api.datadoghq.com"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
-  self.sc_params.params.max_buffer_size = 2
+  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[a-zA-Z0-9_%.]"
+  self.sc_params.params.metric_replacement_character = "_"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -109,8 +111,8 @@ function EventQueue.new(params)
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_event method
-----------------------------------------------------------------------------------
+---- EventQueue:format_accepted_event method
+--------------------------------------------------------------------------------
 function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
@@ -124,36 +126,52 @@ function EventQueue:format_accepted_event()
       .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
       .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
   else
-    self.sc_logger:debug("[EventQueue:format_event]: going to format it")
     self.format_event[category][element]()
   end
-
 
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
+--------------------------------------------------------------------------------
+---- EventQueue:format_event_host method
+--------------------------------------------------------------------------------
 function EventQueue:format_event_host()
   local event = self.sc_event.event
   self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
-function EventQueue:format_metric_host(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
-  self:format_metric_event(metric)
-end
-
+--------------------------------------------------------------------------------
+---- EventQueue:format_event_service method
+--------------------------------------------------------------------------------
 function EventQueue:format_event_service()
   self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
   local event = self.sc_event.event
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_host method
+-- @param metric {table} a single metric data
+--------------------------------------------------------------------------------
+function EventQueue:format_metric_host(metric)
+  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  self:format_metric_event(metric)
+end
+
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_service method
+-- @param metric {table} a single metric data
+--------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
   self:format_metric_event(metric)
 end
 
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_service method
+-- @param metric {table} a single metric data
+-------------------------------------------------------------------------------
 function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   local event = self.sc_event.event
@@ -168,6 +186,11 @@ function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
 
+--------------------------------------------------------------------------------
+---- EventQueue:build_metadata method
+-- @param metric {table} a single metric data
+-- @return tags {table} a table with formated metadata 
+-------------------------------------------------------------------------------
 function EventQueue:build_metadata(metric)
   local tags = {}
 
