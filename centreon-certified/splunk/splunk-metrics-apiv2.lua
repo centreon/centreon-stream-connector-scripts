@@ -37,7 +37,7 @@ function EventQueue.new(params)
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/splunk-metrics.log"
-  local log_level = params.log_level or 1
+  local log_level = params.log_level or 3
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -57,9 +57,10 @@ function EventQueue.new(params)
   self.sc_params.params.splunk_host = params.splunk_host or "Central"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
+  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[^a-zA-Z0-9_]"
+  self.sc_params.params.metric_replacement_character = "_"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -75,8 +76,14 @@ function EventQueue.new(params)
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_metrics_host() end,
       [elements.service_status.id] = function () return self:format_metrics_service() end
-    },
-    [categories.bam.id] = {}
+    }
+  }
+
+  self.format_metric = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = function (metric) return self:format_metric_host(metric) end,
+      [elements.service_status.id] = function (metric) return self:format_metric_service(metric) end
+    }
   }
 
   self.send_data_method = {
@@ -99,7 +106,6 @@ function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
 
   -- can't format event if stream connector is not handling this kind of event
   if not self.format_event[category][element] then
@@ -108,38 +114,55 @@ function EventQueue:format_accepted_event()
       .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
       .. ". If it is a not a misconfiguration, you can open an issue at https://github.com/centreon/centreon-stream-connector-scripts/issues")
   else
+    self.sc_logger:debug("[EventQueue:format_event]: going to format it")
     self.format_event[category][element]()
-    
-    -- add metrics in the formated event
-    for metric_name, metric_data in pairs(self.sc_metrics.metrics) do
-      metric_name = string.gsub(metric_name, "[^a-zA-Z0-9_]", "_")
-      self.sc_event.event.formated_event["metric_name:" .. tostring(metric_name)] = metric_data.value
-    end
   end
 
-  self:add()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
-function EventQueue:format_metrics_host()
+function EventQueue:format_event_host()
+  local event = self.sc_event.event
+
   self.sc_event.event.formated_event = {
     event_type = "host",
-    state = self.sc_event.event.state,
-    state_type = self.sc_event.event.state_type,
-    hostname = self.sc_event.event.cache.host.name,
-    ctime = self.sc_event.event.last_check
+    state = event.state,
+    state_type = event.state_type,
+    hostname = event.cache.host.name,
+    ctime = event.last_check
   }
+
+  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
-function EventQueue:format_metrics_service()
+function EventQueue:format_metric_host(metric)
+  self:format_metric_event(metric)
+end
+
+function EventQueue:format_event_service()
+  local event = self.sc_event.event
+
   self.sc_event.event.formated_event = {
     event_type = "service",
-    state = self.sc_event.event.state,
-    state_type = self.sc_event.event.state_type,
-    hostname = self.sc_event.event.cache.host.name,
-    service_description = self.sc_event.event.cache.service.description,
-    ctime = self.sc_event.event.last_check
+    state = event.state,
+    state_type = event.state_type,
+    hostname = event.cache.host.name,
+    service_description = event.cache.service.description,
+    ctime = event.last_check
   }
+
+  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
+end
+
+function EventQueue:format_metric_service(metric)
+  self:format_metric_event(metric)
+end
+
+function EventQueue:format_metric_event(metric)
+  self.sc_event.event.formated_event["metric_name:" .. tostring(metric.metric_name)] = metric.value
+  self.sc_event.event.formated_event["instance"] = metric.instance
+  self.sc_event.event.formated_event["subinstances"] = metric.subinstance
+  self:add()
 end
 
 --------------------------------------------------------------------------------
@@ -279,12 +302,13 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
+  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
+  queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then
-    if queue.sc_event:is_valid_element() then
+    if queue.sc_metrics:is_valid_bbdo_element() then
       -- format event if it is validated
-      if queue.sc_event:is_valid_event() then
+      if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
   --- log why the event has been dropped 
