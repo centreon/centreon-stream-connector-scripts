@@ -47,7 +47,7 @@ function EventQueue.new (params)
   self.events = {}
   self.fail = false
 
-  local logfile = params.logfile or "/var/log/centreon-broker/servicenow-stream-connector.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/servicenow-em-stream-connector.log"
   local log_level = params.log_level or 1
 
   -- initiate mandatory objects

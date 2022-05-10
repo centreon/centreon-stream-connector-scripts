@@ -49,6 +49,20 @@ function sc_metrics.new(event, params, common, broker, logger)
     }
   }
 
+-- open metric (prometheus) : metric name = [a-zA-Z0-9_:], labels [a-zA-Z0-9_] https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#protocol-negotiation
+-- datadog : metric_name = [a-zA-Z0-9_.] https://docs.datadoghq.com/fr/metrics/custom_metrics/#naming-custom-metrics
+-- dynatrace matric name [a-zA-Z0-9-_.] https://dynatrace.com/support/help/how-to-use-dynatrace/metrics/metric-ingestion/metric-ingestion-protocol#metric-key
+-- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
+-- splunk [^a-zA-Z0-9_]
+
+  if self.params.metrics_name_custom_regex and self.params.metrics_name_custom_regex ~= "" then
+    self.metrics_name_operations.custom.regex = self.params.metrics_custom_regex
+  end
+
+  if self.params.metrics_name_custom_replacement_character then
+    self.metrics_name_operations.custom.replacement_character = self.params.metrics_name_custom_replacement_character
+  end
+
   -- initiate metrics table 
   self.metrics = {}
   -- initiate sc_event object
@@ -70,6 +84,7 @@ function ScMetrics:is_valid_bbdo_element()
 
   -- drop event if event category is not accepted
   if not self.sc_event:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, event_category) then
+    self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element] event with category: " ..  tostring(event_category) .. " is not an accepted category")
     return false
   else
     -- drop event if accepted category is not supposed to be used for a metric stream connector
@@ -80,17 +95,16 @@ function ScMetrics:is_valid_bbdo_element()
     else
       -- drop event if element is not accepted
       if not self.sc_event:find_in_mapping(self.params.element_mapping[event_category], self.params.accepted_elements, event_element) then
+        self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element] event with element: " ..  tostring(event_element) .. " is not an accepted element")
         return false
       else
         -- drop event if element is not an element that carries perfdata
-        if event_element ~= elements.host.id
-          and event_element ~= elements.host_status.id
-          and event_element ~= elements.service.id
+        if event_element ~= elements.host_status.id
           and event_element ~= elements.service_status.id
           and event_element ~= elements.kpi_event.id
         then
           self.sc_logger:warning("[sc_metrics:is_valid_bbdo_element] Configuration error. accepted elements from paramters are: "
-            .. tostring(self.params.accepted_elements) .. ". Only host, host_status, service, service_status and kpi_event can be used for metrics")
+            .. tostring(self.params.accepted_elements) .. ". Only host_status, service_status and kpi_event can be used for metrics")
           return false
         end
       end
@@ -138,7 +152,7 @@ function ScMetrics:is_valid_host_metric_event()
     return false
   end
 
-  -- return false if there is no perfdata or they it can't be parsed
+  -- return false if there is no perfdata or it can't be parsed
   if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
     self.sc_logger:warning("[sc_metrics:is_vaild_host_metric_event]: host_id: "
       .. tostring(self.sc_event.event.host_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
@@ -239,12 +253,28 @@ function ScMetrics:is_valid_perfdata(perfdata)
   end
 
   -- store data from parsed perfdata inside a metrics table
-  for metric_name, metric_data in pairs(metrics_info) do
-    self.metrics[metric_name] = metric_data
-    self.metrics[metric_name].name = metric_name
-  end
+  self.metrics_info = metrics_info
 
   return true
+end
+
+-- to name a few : 
+-- open metric (prometheus) : metric name = [a-zA-Z0-9_:], labels [a-zA-Z0-9_] https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#protocol-negotiation
+-- datadog : metric_name = [a-zA-Z0-9_.] https://docs.datadoghq.com/fr/metrics/custom_metrics/#naming-custom-metrics
+-- dynatrace matric name [a-zA-Z0-9-_.] https://dynatrace.com/support/help/how-to-use-dynatrace/metrics/metric-ingestion/metric-ingestion-protocol#metric-key
+-- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
+
+--- build_metric: use the stream connector format method to parse every metric in the event
+-- @param format_metric (function) the format method from the stream connector
+function ScMetrics:build_metric(format_metric)
+  local metrics_info = self.metrics_info
+  self.sc_logger:debug("perfdata: " .. self.sc_common:dumper(metrics_info))
+
+  for metric, metric_data in pairs(self.metrics_info) do
+    metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, self.params.metric_name_regex, self.params.metric_replacement_character)
+    -- use stream connector method to format the metric event
+    format_metric(metrics_info[metric])
+  end
 end
 
 return sc_metrics
