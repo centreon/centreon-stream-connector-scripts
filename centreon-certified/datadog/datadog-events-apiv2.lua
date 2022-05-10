@@ -80,12 +80,12 @@ function EventQueue.new(params)
   self.state_to_alert_type_mapping = {
     [categories.neb.id] = {
         [elements.host_status.id] = {
-            [0] = "success",
+            [0] = "info",
             [1] = "error",
             [2] = "warning"
         },
         [elements.service_status.id] = {
-            [0] = "success",
+            [0] = "info",
             [1] = "warning",
             [2] = "error",
             [3] = "warning"
