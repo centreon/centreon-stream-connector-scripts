@@ -1,5 +1,40 @@
 #!/usr/bin/lua
 
+local function get_element_info(bbdo_version, categories, element)
+  local elements_info = {
+    [2] = {
+      host_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 14,
+        name = "host_status"
+      },
+      service_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 24,
+        name = "service_status"
+      },
+    },
+    [3] = {
+      host_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 32,
+        name = "pb_host_status"
+      },
+      service_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 29,
+        name = "pb_service_status"
+      },
+    }
+  }
+
+  return elements_info[bbdo_version][element]
+end
+
 --- 
 -- Module to help initiate a stream connector with all paramaters
 -- @module sc_params
@@ -24,6 +59,12 @@ function sc_params.new(common, logger)
     self.logger = sc_logger.new()
   end
   self.common = common
+
+  if broker.bbdo_version ~= nil then
+    _, _, self.bbdo_version = string.find(broker.bbdo_version(), "(%d+).%d+.%d+")
+  else
+    self.bbdo_version = 2
+  end
 
   -- initiate params
   self.params = {
@@ -216,12 +257,7 @@ function sc_params.new(common, logger)
       id = 13,
       name = "host_parent"
     },
-    host_status = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 14,
-      name = "host_status"
-    },
+    host_status = get_element_info(self.bbdo_version, categories, "host_status"),
     instance = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -276,17 +312,66 @@ function sc_params.new(common, logger)
       id = 23,
       name = "service"
     },
-    service_status = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 24,
-      name = "service_status"
-    },
+    service_status = get_element_info(self.bbdo_version, categories, "service_status"),
     instance_configuration = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
       id = 25,
       name = "instance_configuration"
+    },
+    responsive_instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 26,
+      name = "responsive_instance"
+    },
+    pb_service = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 27,
+      name = "pb_service"
+    },
+    pb_adaptive_service = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 28,
+      name = "pb_adaptive_service"
+    },
+    pb_service_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 29,
+      name = "pb_service_status"
+    },
+    pb_host = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 30,
+      name = "pb_host"
+    },
+    pb_adaptive_host = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 31,
+      name = "pb_adaptive_host"
+    },
+    pb_host_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 32,
+      name = "pb_host_status"
+    },
+    pb_severity = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 33,
+      name = "pb_severity"
+    },
+    pb_tag = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 34,
+      name = "pb_tag"
     },
     metric = {
       category_id = categories.storage.id,
@@ -464,6 +549,15 @@ function sc_params.new(common, logger)
   self.params.element_mapping[categories.neb.id].service = elements.service.id
   self.params.element_mapping[categories.neb.id].service_status = elements.service_status.id
   self.params.element_mapping[categories.neb.id].instance_configuration = elements.instance_configuration.id
+  self.params.element_mapping[categories.neb.id].responsive_instance = elements.responsive_instance.id
+  self.params.element_mapping[categories.neb.id].pb_service = elements.pb_service.id
+  self.params.element_mapping[categories.neb.id].pb_adaptive_service = elements.pb_adaptive_service.id
+  self.params.element_mapping[categories.neb.id].pb_service_status = elements.pb_service_status.id
+  self.params.element_mapping[categories.neb.id].pb_host = elements.pb_host.id
+  self.params.element_mapping[categories.neb.id].pb_adaptive_host = elements.pb_adaptive_host.id
+  self.params.element_mapping[categories.neb.id].pb_host_status = elements.pb_host_status.id
+  self.params.element_mapping[categories.neb.id].pb_severity = elements.pb_severity.id
+  self.params.element_mapping[categories.neb.id].pb_tag = elements.pb_tag.id
 
   -- metric elements mapping
   self.params.element_mapping[categories.storage.id].metric = elements.metric.id
@@ -518,7 +612,15 @@ function sc_params.new(common, logger)
       [elements.service_group_member.id] = "service_group_member",
       [elements.service.id] = "service",
       [elements.service_status.id] = "service_status",
-      [elements.instance_configuration.id] = "instance_configuration"
+      [elements.instance_configuration.id] = "instance_configuration",
+      [elements.pb_service.id] = "pb_service",
+      [elements.pb_adaptive_service.id] = "pb_adaptive_service",
+      [elements.pb_service_status.id] = "pb_service_status",
+      [elements.pb_host.id] = "pb_host",
+      [elements.pb_adaptive_host.id] = "pb_adaptive_host",
+      [elements.pb_host_status.id] = "pb_host_status",
+      [elements.pb_severity.id] = "pb_severity",
+      [elements.pb_tag] = "pb_tag"
     },
     [categories.storage.id] = {
       [elements.metric.id] = "metric",
@@ -586,6 +688,17 @@ function sc_params.new(common, logger)
         [2] = "UNREACHABLE"
       },
       [elements.service_status.id] = {
+        [0] = "OK",
+        [1] = "WARNING",
+        [2] = "CRITICAL",
+        [3] = "UNKNOWN"
+      },
+      [elements.pb_host_status.id] = {
+        [0] = "UP",
+        [1] = "DOWN",
+        [2] = "UNREACHABLE"
+      },
+      [elements.pb_service_status.id] = {
         [0] = "OK",
         [1] = "WARNING",
         [2] = "CRITICAL",
