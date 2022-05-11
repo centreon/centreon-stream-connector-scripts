@@ -1,5 +1,10 @@
 #!/usr/bin/lua
 
+--- get_element_info: switch bbdo2 elements with bbdo3 element depending on the bddo version
+-- @param bbdo_version (number), the version of the bbdo protocol (only the first digit. 3.0.0 becomes 3)
+-- @param categories (table), the table with all bbdo categories information
+-- @param element (string), the name of the element we want the information
+-- @return element_info (table), the table with the right information about the element
 local function get_element_info(bbdo_version, categories, element)
   local elements_info = {
     [2] = {
@@ -28,7 +33,7 @@ local function get_element_info(bbdo_version, categories, element)
         category_name = categories.neb.name,
         id = 29,
         name = "pb_service_status"
-      },
+      }
     }
   }
 
@@ -60,6 +65,7 @@ function sc_params.new(common, logger)
   end
   self.common = common
 
+  -- get the version of the bbdo protocol (only the first digit, nothing else matters)
   if broker.bbdo_version ~= nil then
     _, _, self.bbdo_version = string.find(broker.bbdo_version(), "(%d+).%d+.%d+")
   else
