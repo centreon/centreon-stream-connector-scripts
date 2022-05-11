@@ -1,45 +1,5 @@
 #!/usr/bin/lua
 
---- get_element_info: switch bbdo2 elements with bbdo3 element depending on the bddo version
--- @param bbdo_version (number), the version of the bbdo protocol (only the first digit. 3.0.0 becomes 3)
--- @param categories (table), the table with all bbdo categories information
--- @param element (string), the name of the element we want the information
--- @return element_info (table), the table with the right information about the element
-local function get_element_info(bbdo_version, categories, element)
-  local elements_info = {
-    [2] = {
-      host_status = {
-        category_id = categories.neb.id,
-        category_name = categories.neb.name,
-        id = 14,
-        name = "host_status"
-      },
-      service_status = {
-        category_id = categories.neb.id,
-        category_name = categories.neb.name,
-        id = 24,
-        name = "service_status"
-      },
-    },
-    [3] = {
-      host_status = {
-        category_id = categories.neb.id,
-        category_name = categories.neb.name,
-        id = 32,
-        name = "pb_host_status"
-      },
-      service_status = {
-        category_id = categories.neb.id,
-        category_name = categories.neb.name,
-        id = 29,
-        name = "pb_service_status"
-      }
-    }
-  }
-
-  return elements_info[bbdo_version][element]
-end
-
 --- 
 -- Module to help initiate a stream connector with all paramaters
 -- @module sc_params
@@ -184,6 +144,38 @@ function sc_params.new(common, logger)
   }
   
   local categories = self.params.bbdo.categories
+
+  local bbdo2_bbdo3_compat_mapping = {
+    [2] = {
+      host_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 14,
+        name = "host_status"
+      },
+      service_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 24,
+        name = "service_status"
+      },
+    },
+    [3] = {
+      host_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 32,
+        name = "pb_host_status"
+      },
+      service_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 29,
+        name = "pb_service_status"
+      }
+    }
+  }
+
   self.params.bbdo.elements = {
     acknowledgement = {
       category_id = categories.neb.id,
@@ -263,7 +255,7 @@ function sc_params.new(common, logger)
       id = 13,
       name = "host_parent"
     },
-    host_status = get_element_info(self.bbdo_version, categories, "host_status"),
+    host_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["host_status"],
     instance = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -318,7 +310,7 @@ function sc_params.new(common, logger)
       id = 23,
       name = "service"
     },
-    service_status = get_element_info(self.bbdo_version, categories, "service_status"),
+    service_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["service_status"],
     instance_configuration = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
