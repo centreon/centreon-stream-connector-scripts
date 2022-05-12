@@ -368,6 +368,15 @@ end
 --- is_valid_event_acknowledge_state: check if the acknowledge state of the event is valid
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_acknowledge_state()
+  -- compat patch bbdo 3 => bbdo 2
+  if (not self.event.acknowledged and self.event.acknowledgement_type) then
+    if self.event.acknowledgement_type >= 1 then
+      self.event.acknowledged = 1
+    else
+      self.event.acknowledged = 0
+    end
+  end
+
   if not self.sc_common:compare_numbers(self.params.acknowledged, self.sc_common:boolean_to_number(self.event.acknowledged), ">=") then
     self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
       .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
