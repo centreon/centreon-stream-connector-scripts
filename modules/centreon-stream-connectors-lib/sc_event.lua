@@ -324,6 +324,16 @@ function ScEvent:is_valid_event_status(accepted_status_list)
     return false
   end
 
+  -- start compat patch bbdo2 => bbdo 3
+  if (not self.event.state and self.event.current_state) then
+    self.event.state = self.event.current_state
+  end
+
+  if (not self.event.current_state and self.event.state) then
+    self.event.current_state = self.event.state
+  end
+  -- end compat patch
+
   for _, status_id in ipairs(status_list) do
     if tostring(self.event.state) == status_id then 
       return true
