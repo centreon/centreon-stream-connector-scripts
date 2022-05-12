@@ -286,7 +286,7 @@ function ScEvent:is_valid_service()
 
   -- force service description to its id if no description has been found
   if not self.event.cache.service.description then
-    self.event.cache.service.description = service_infos.service_id or self.event.service_id
+    self.event.cache.service.description = self.event.service_id
   end
 
   return true
@@ -324,6 +324,16 @@ function ScEvent:is_valid_event_status(accepted_status_list)
     return false
   end
 
+  -- start compat patch bbdo2 => bbdo 3
+  if (not self.event.state and self.event.current_state) then
+    self.event.state = self.event.current_state
+  end
+
+  if (not self.event.current_state and self.event.state) then
+    self.event.current_state = self.event.state
+  end
+  -- end compat patch
+
   for _, status_id in ipairs(status_list) do
     if tostring(self.event.state) == status_id then 
       return true
@@ -358,6 +368,15 @@ end
 --- is_valid_event_acknowledge_state: check if the acknowledge state of the event is valid
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_acknowledge_state()
+  -- compat patch bbdo 3 => bbdo 2
+  if (not self.event.acknowledged and self.event.acknowledgement_type) then
+    if self.event.acknowledgement_type >= 1 then
+      self.event.acknowledged = true
+    else
+      self.event.acknowledged = false
+    end
+  end
+
   if not self.sc_common:compare_numbers(self.params.acknowledged, self.sc_common:boolean_to_number(self.event.acknowledged), ">=") then
     self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
       .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
@@ -370,6 +389,11 @@ end
 --- is_valid_event_downtime_state: check if the event is in an accepted downtime state
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_downtime_state()
+  -- patch compat bbdo 3 => bbdo 2 
+  if (not self.event.scheduled_downtime_depth and self.event.downtime_depth) then 
+    self.event.scheduled_downtime_depth = self.event.downtime_depth
+  end
+
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
     self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be above or equal to " .. tostring(self.params.in_downtime) 
       .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
