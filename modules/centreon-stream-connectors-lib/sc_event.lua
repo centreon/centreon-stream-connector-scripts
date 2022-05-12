@@ -286,7 +286,7 @@ function ScEvent:is_valid_service()
 
   -- force service description to its id if no description has been found
   if not self.event.cache.service.description then
-    self.event.cache.service.description = service_infos.service_id or self.event.service_id
+    self.event.cache.service.description = self.event.service_id
   end
 
   return true
