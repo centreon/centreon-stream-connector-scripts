@@ -371,9 +371,9 @@ function ScEvent:is_valid_event_acknowledge_state()
   -- compat patch bbdo 3 => bbdo 2
   if (not self.event.acknowledged and self.event.acknowledgement_type) then
     if self.event.acknowledgement_type >= 1 then
-      self.event.acknowledged = 1
+      self.event.acknowledged = true
     else
-      self.event.acknowledged = 0
+      self.event.acknowledged = false
     end
   end
 
