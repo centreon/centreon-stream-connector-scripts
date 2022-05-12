@@ -32,6 +32,8 @@ function sc_params.new(common, logger)
     self.bbdo_version = 2
   end
 
+  self.bbdo_version = tonumber(self.bbdo_version)
+  
   -- initiate params
   self.params = {
     -- filter broker events
