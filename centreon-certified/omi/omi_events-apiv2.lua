@@ -24,13 +24,10 @@
 -- logfile (string): the log file to use
 -- loglevel (number): th log level (0, 1, 2, 3) where 3 is the maximum level
 -- port (number): the operation connector server port
--- max_size (number): how many events to store before sending them to the server.
--- max_age (number): flush the events when the specified time (in second) is reach (even if max_size is not reach).
 
 -- Libraries
-local curl = require("cURL")
+local curl = require "cURL"
 local http = require("socket.http")
-local ltn12 = require("ltn12")
 
 -- Centreon lua core libraries
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
@@ -40,9 +37,6 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
-
--- workaround https://github.com/centreon/centreon-broker/issues/201
-local previous_event = ""
 
 --------------------------------------------------------------------------------
 -- EventQueue class
@@ -68,7 +62,7 @@ function EventQueue.new(params)
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/omi_event.log"
-  local log_level = params.log_level or 2
+  local log_level = params.log_level or 1
 
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -85,13 +79,9 @@ function EventQueue.new(params)
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "service_status"
   self.sc_params.params.source_ci = params.source_ci or "Centreon"
-  self.sc_params.params.ipaddr = params.ipaddr or "192.168.56.15"
-  self.sc_params.params.url = params.url or "/bsmc/rest/events/opscx-sdk/v1/"
-  self.sc_params.params.port = params.port or 30005
-  self.sc_params.params.max_output_length = params.max_output_length or 1024
-  self.sc_params.params.max_buffer_size = params.max_buffer_size or 5
-  self.sc_params.params.max_buffer_age = params.max_buffer_age or 60
-  self.sc_params.params.flush_time = params.flush_time or os.time()
+  self.sc_params.params.ipaddr = params.ipaddr
+  self.sc_params.params.url = params.url
+  self.sc_params.params.port = params.port
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -137,7 +127,7 @@ function EventQueue:format_accepted_event()
 
   if self.format_template and template ~= nil and template ~= "" then
     for index, value in pairs(template) do
-      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+     self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
     end
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
@@ -157,11 +147,6 @@ end
 
 -- Format XML file with service infoamtion
 function EventQueue:format_event_service()
-  local service_severity = self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id)
-
-  if service_severity == false then
-    service_severity = 0
-  end
 
   self.sc_event.event.formated_event = {
     title = self.sc_event.event.cache.service.description,
@@ -197,9 +182,9 @@ end
 
 --------------------------------------------------------------------------------
 -- EventQueue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} xml encoded string
+-- @param payload {string} json encoded string
 -- @param event {table} the event that is going to be added to the payload
--- @return payload {string} xml encoded string
+-- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
@@ -210,7 +195,7 @@ function EventQueue:build_payload(payload, event)
     payload = payload .. "</event_data>"
 
   else
-    payload = payload .. "\n<event_data>\t"
+    payload = payload .. "<event_data>\t"
     for index, xml_str in pairs(event) do
       payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
     end
@@ -229,12 +214,14 @@ function EventQueue:send_data(payload)
    return true
   end
 
+  local http_omi_url = tostring("https://" .. self.sc_params.params.ipaddr .. ":" .. self.sc_params.params.port .. self.sc_params.params.url .. "\")
+
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following xml " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: BSM Http Server URL is: \"" .. tostring(self.sc_params.params.http_server_url .. "\""))
+  self.sc_logger:info("[EventQueue:send_data]: HP OMI Http Server URL is: \"" .. tostring(http_omi_url))
 
   local http_response_body = ""
   local http_request = curl.easy()
-  :setopt_url(self.sc_params.params.http_server_url)
+  :setopt_url(self.sc_params.params.http_omi_url)
   :setopt_writefunction(
     function (response)
       http_response_body = http_response_body .. tostring(response)
@@ -280,11 +267,11 @@ function EventQueue:send_data(payload)
 
   -- Handling the return code
   local retval = false
-  if http_response_code == 202 or http_response_code == 200 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+  if http_response_code == 200 then
+    self.sc_logger:info("[EventQueue:send_data]: API connexion ok : " .. tostring(http_response_code) .. "\t" .. tostring(http_request))
     retval = true
   else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    self.sc_logger:error("[EventQueue:send_data]: Could not reach API : " .. tostring(http_response_code))
   end
   return retval
 end
