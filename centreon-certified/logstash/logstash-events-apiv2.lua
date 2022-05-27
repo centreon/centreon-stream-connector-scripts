@@ -206,11 +206,11 @@ function EventQueue:send_data(payload)
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_CUSTOMREQUEST, "PUT")
     :setopt(
       curl.OPT_HTTPHEADER,
       {
-        "content-type: application/json",
-        "content-length:" .. string.len(payload)
+        "accept: application/json"
       }
     )
 
@@ -245,7 +245,7 @@ function EventQueue:send_data(payload)
 
   -- performing the HTTP request
   http_request:perform()
-  
+
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
 
