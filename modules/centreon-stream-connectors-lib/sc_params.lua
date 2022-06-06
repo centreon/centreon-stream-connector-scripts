@@ -860,7 +860,7 @@ function ScParams:load_event_format_file(json_string)
 end
 
 function ScParams:build_accepted_elements_info()
-  categories = self.params.bbdo.categories
+  local categories = self.params.bbdo.categories
   self.params.accepted_elements_info = {}
 
   -- list all accepted elements
