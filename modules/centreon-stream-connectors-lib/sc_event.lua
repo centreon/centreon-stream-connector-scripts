@@ -1150,7 +1150,7 @@ function ScEvent:build_outputs()
   end
 
   if self.params.output_size_limit ~= "" then
-    self.event.output = string.sub(self.event.output, 1, output_size_limit)
+    self.event.output = string.sub(self.event.output, 1, self.params.output_size_limit)
   end
 
 end
