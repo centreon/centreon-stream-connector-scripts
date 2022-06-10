@@ -76,8 +76,8 @@ function EventQueue.new(params)
 
   self.format_event = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function () return self:format_metrics_host() end,
-      [elements.service_status.id] = function () return self:format_metrics_service() end
+      [elements.host_status.id] = function () return self:format_event_host() end,
+      [elements.service_status.id] = function () return self:format_event_service() end
     }
   }
 
