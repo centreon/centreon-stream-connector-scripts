@@ -1149,6 +1149,10 @@ function ScEvent:build_outputs()
     self.event.output = string.gsub(self.event.output, "\n", self.params.output_line_break_replacement_character)
   end
 
+  if self.params.output_size_limit ~= "" then
+    self.event.output = string.sub(self.event.output, 1, self.params.output_size_limit)
+  end
+
 end
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead

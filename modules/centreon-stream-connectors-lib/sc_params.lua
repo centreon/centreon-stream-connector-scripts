@@ -94,6 +94,7 @@ function sc_params.new(common, logger)
     use_long_output = 1,
     remove_line_break_in_output = 1,
     output_line_break_replacement_character = " ",
+    output_size_limit = "",
 
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
@@ -784,6 +785,7 @@ function ScParams:check_params()
   self.params.output_line_break_replacement_character = self.common:if_wrong_type(self.params.output_line_break_replacement_character, "string", " ")
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
+  self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -858,7 +860,7 @@ function ScParams:load_event_format_file(json_string)
 end
 
 function ScParams:build_accepted_elements_info()
-  categories = self.params.bbdo.categories
+  local categories = self.params.bbdo.categories
   self.params.accepted_elements_info = {}
 
   -- list all accepted elements
