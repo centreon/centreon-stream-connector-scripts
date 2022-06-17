@@ -143,7 +143,15 @@ function ScEvent:is_valid_host_status_event()
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in an accepted hostgroup")
     return false
   end
-  
+
+  -- in bbdo 2 last_update do exist but not in bbdo3.
+  -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
+  if not self.event.last_update and self.event.last_check then
+    self.event.last_update = self.event.last_check
+  elseif not self.event.last_check and self.event.last_update then
+    self.event.last_check = self.event.last_update
+  end
+
   self:build_outputs()
 
   return true
@@ -217,6 +225,14 @@ function ScEvent:is_valid_service_status_event()
   if not self:is_valid_servicegroup() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
     return false
+  end
+
+  -- in bbdo 2 last_update do exist but not in bbdo3.
+  -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
+  if not self.event.last_update and self.event.last_check then
+    self.event.last_update = self.event.last_check
+  elseif not self.event.last_check and self.event.last_update then
+    self.event.last_check = self.event.last_update
   end
 
   self:build_outputs()
