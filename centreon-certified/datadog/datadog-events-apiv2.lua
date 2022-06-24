@@ -147,7 +147,7 @@ function EventQueue:format_event_host()
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
-    title = tostring(self.sc_params.params.status_mappinng[event.category][event.element][event.state] .. " " .. event.cache.host.name),
+    title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name),
     text = event.output,
     aggregation_key = "host_" .. tostring(event.host_id),
     alert_type = self.state_to_alert_type_mapping[event.category][event.element][event.state],
@@ -160,7 +160,7 @@ function EventQueue:format_event_service()
   local event = self.sc_event.event
   
   self.sc_event.event.formated_event = {
-    title = tostring(self.sc_params.params.status_mappinng[event.category][event.element][event.state] .. " " .. event.cache.host.name .. ": " .. event.cache.service.description),
+    title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name .. ": " .. event.cache.service.description),
     text = event.output,
     aggregation_key = "service_" .. tostring(event.host_id) .. "_" .. tostring(event.service_id),
     alert_type = self.state_to_alert_type_mapping[event.category][event.element][event.state],
