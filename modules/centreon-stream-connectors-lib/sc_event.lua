@@ -422,12 +422,12 @@ end
 --- is_valid_hostgroup: check if the event is in an accepted hostgroup
 -- @return true|false (boolean)
 function ScEvent:is_valid_hostgroup()
+  self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
+
   -- return true if option is not set
   if self.params.accepted_hostgroups == "" then
     return true
   end
-
-  self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
   -- return false if no hostgroups were found
   if not self.event.cache.hostgroups then
@@ -469,12 +469,12 @@ end
 --- is_valid_servicegroup: check if the event is in an accepted servicegroup
 -- @return true|false (boolean)
 function ScEvent:is_valid_servicegroup()
+  self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
+  
   -- return true if option is not set
   if self.params.accepted_servicegroups == "" then
     return true
   end
-
-  self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
 
   -- return false if no servicegroups were found
   if not self.event.cache.servicegroups then
@@ -611,13 +611,13 @@ end
 --- is_valid_bv: check if the event is in an accepted BV
 -- @return true|false (boolean)
 function ScEvent:is_valid_bv()
+  self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
+  
   -- return true if option is not set
   if self.params.accepted_bvs == "" then
     return true
   end
-
-  self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
-
+  
   -- return false if no hostgroups were found
   if not self.event.cache.bvs then
     self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
@@ -658,6 +658,14 @@ end
 --- is_valid_poller: check if the event is monitored from an accepted poller
 -- @return true|false (boolean)
 function ScEvent:is_valid_poller()
+  self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance_id)
+
+  -- required if we want to easily have access to poller name with macros {cache.instance.name}
+  self.event.cache.instance = {
+    id = self.event.cache.host.instance,
+    name = self.event.cache.poller
+  }
+  
   -- return true if option is not set
   if self.params.accepted_pollers == "" then
     return true
@@ -668,8 +676,6 @@ function ScEvent:is_valid_poller()
     self.sc_logger:warning("[sc_event:is_valid_poller]: no instance ID found for host ID: " .. tostring(self.event.host_id))
     return false
   end
-
-  self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance)
 
   -- return false if no poller found in cache
   if not self.event.cache.poller then
@@ -708,11 +714,6 @@ end
 --- is_valid_host_severity: checks if the host severity is accepted
 -- @return true|false (boolean)
 function ScEvent:is_valid_host_severity()
-  -- return true if there is no severity filter
-  if self.params.host_severity_threshold == nil then
-    return true
-  end
-
   -- initiate the severity table in the cache if it doesn't exist
   if not self.event.cache.severity then
     self.event.cache.severity = {}
@@ -720,6 +721,12 @@ function ScEvent:is_valid_host_severity()
 
   -- get severity of the host from broker cache
   self.event.cache.severity.host = self.sc_broker:get_severity(self.event.host_id)
+
+  -- return true if there is no severity filter
+  if self.params.host_severity_threshold == nil then
+    return true
+  end
+
 
   -- return false if host severity doesn't match 
   if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.severity.host, self.params.host_severity_operator) then
@@ -735,11 +742,6 @@ end
 --- is_valid_service_severity: checks if the service severity is accepted
 -- @return true|false (boolean)
 function ScEvent:is_valid_service_severity()
-  -- return true if there is no severity filter
-  if self.params.service_severity_threshold == nil then
-    return true
-  end
-
   -- initiate the severity table in the cache if it doesn't exist
   if not self.event.cache.severity then
     self.event.cache.severity = {}
@@ -747,6 +749,13 @@ function ScEvent:is_valid_service_severity()
 
   -- get severity of the host from broker cache
   self.event.cache.severity.service = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+
+  -- return true if there is no severity filter
+  if self.params.service_severity_threshold == nil then
+    return true
+  end
+
+
 
   -- return false if service severity doesn't match 
   if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.severity.service, self.params.service_severity_operator) then
