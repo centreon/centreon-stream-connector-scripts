@@ -50,7 +50,9 @@ function sc_macros.new(params, logger, common)
     date = function (macro_value) return self:transform_date(macro_value) end,
     type = function (macro_value) return self:transform_type(macro_value) end,
     short = function (macro_value) return self:transform_short(macro_value) end,
-    state = function (macro_value, event) return self:transform_state(macro_value, event) end
+    state = function (macro_value, event) return self:transform_state(macro_value, event) end,
+    number = function (macro_value) return self:transform_number(macro_value) end,
+    string = function (macro_value) return self:transform_string(macro_value) end
   }
 
   -- mapping of centreon standard macros to their stream connectors counterparts
@@ -211,49 +213,53 @@ function ScMacros:replace_sc_macro(string, event, json_string)
     
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
-      self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
-        .. tostring(macro) .. ", value is: " .. tostring(cache_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-      
-      -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
-      if json_string then
-        cache_macro_value = self.sc_common:json_escape(cache_macro_value)
+      local clean_cache_macro_value_json = ""
+
+      -- encoding number or boolean will convert them to string and we don't want that by default
+      if type(cache_macro_value) == "number" or type(cache_macro_value) == "boolean" then
+        clean_cache_macro_value_json = cache_macro_value
+      else
+        local clean_cache_macro_value, _ = string.gsub(cache_macro_value, "%%", "%%%%")
+        clean_cache_macro_value_json = broker.json_encode(clean_cache_macro_value)
       end
 
-      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(cache_macro_value, "%%", "%%%%")))
+      self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
+        .. tostring(macro) .. ", value is: " .. tostring(clean_cache_macro_value_json) .. ", trying to replace it in the string: " .. tostring(converted_string))
+
+      converted_string = string.gsub(converted_string, '"' .. macro .. '"', clean_cache_macro_value_json)
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
       
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
-        self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
-          .. tostring(macro) .. ", value is: " .. tostring(event_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-
-        -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
-        if json_string then
-          event_macro_value = self.sc_common:json_escape(event_macro_value)
+        local clean_event_macro_value_json = ""
+        
+        if type(event_macro_value) == "number" or type(event_macro_value) == "boolean" then
+          clean_event_macro_value_json = event_macro_value
+        else
+          local clean_event_macro_value, _ = string.gsub(event_macro_value, "%%", "%%%%")
+          clean_event_macro_value_json = broker.json_encode(clean_event_macro_value)
         end
 
-        converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(event_macro_value, "%%", "%%%%")))
+        self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
+          .. tostring(macro) .. ", value is: " .. tostring(clean_event_macro_value_json) .. ", trying to replace it in the string: " .. tostring(converted_string))
+
+        converted_string = string.gsub(converted_string, '"' .. macro .. '"', clean_event_macro_value_json)
       else
         -- if not event or cache macro, maybe it is a group macro
         group_macro_value, format = self:get_group_macro(macro, event)
 
         -- replace all group macro such as {group(hg,table)} with their values
         if group_macro_value then
-          group_macro_value= broker.json_encode(group_macro_value)
+          group_macro_value = broker.json_encode(group_macro_value)
           
           self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a group macro. Macro name: "
             .. tostring(macro) .. ", value is: " .. tostring(group_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string)
             .. ". Applied format is: " .. tostring(format))
           
           -- we don't need the gsub(value, "%%", "%%%%") because no group name can use the % character
-          -- if format and format == "table" then
-            -- need to remove double quotes in json to have a proper format
-            converted_string = string.gsub(converted_string, '"' .. self.sc_common:lua_regex_escape(macro) .. '"', group_macro_value)
-          -- else
-            -- converted_string = string.gsub(converted_string, self.sc_common:lua_regex_escape(macro), group_macro_value)
-          -- end
+          converted_string = string.gsub(converted_string, '"' .. self.sc_common:lua_regex_escape(macro) .. '"', group_macro_value)
         else
           self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
         end
@@ -542,6 +548,22 @@ function ScMacros:transform_state(macro_value, event)
   end
 
   return self.params.status_mapping[event.category][event.element][macro_value]
+end
+
+--- transform_number: convert a string to a number
+-- @param macro_value (string) the string that needs to be converted
+-- @return number (number) a number based on the provided string
+function ScMacros:transform_number(macro_value)
+  local result = tonumber(macro_value)
+  self.sc_logger:debug("[TANGUY:TANGUY]: to number " .. self.sc_common:dumper(result))
+  return result
+end
+
+--- transform_number: convert a something to a number
+-- @param macro_value (any) the value that needs to be converted
+-- @return string (string) a string based on the provided input
+function ScMacros:transform_string(macro_value)
+  return tostring(macro_value)
 end
 
 return sc_macros
