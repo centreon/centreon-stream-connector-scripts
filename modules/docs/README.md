@@ -146,7 +146,7 @@
 | get_bv_macro              | retrieves business view information and make it available as a macro                    | [Documentation](sc_macros.md#get_bv_macro-method)             |
 | build_group_macro_value   | build the value that must replace the macro (it will also put it in the desired format) | [Documentation](sc_macros.md#build_group_macro_value-method)  |
 | group_macro_format_table  | transforms the given macro value into a table                                           | [Documentation](sc_macros.md#group_macro_format_table-method) |
-| group_macro_format_inline | method transforms the give macro value into a string with values separated using comas  | [Documentation](sc_macros.md#group_macro_format_table-method) |
+| group_macro_format_inline | method transforms the give macro value into a string with values separated using comas  | [Documentation](sc_macros.md#group_macro_format_inline-method) |
 
 ## sc_flush methods
 
