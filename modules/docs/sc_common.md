@@ -49,6 +49,10 @@
     - [xml_escape: parameters](#xml_escape-parameters)
     - [xml_escape: returns](#xml_escape-returns)
     - [xml_escape: example](#xml_escape-example)
+  - [lua_regex_escape method](#lua_regex_escape-method)
+    - [lua_regex_escape: parameters](#lua_regex_escape-parameters)
+    - [lua_regex_escape: returns](#lua_regex_escape-returns)
+    - [lua_regex_escape: example](#lua_regex_escape-example)
   - [dumper method](#dumper-method)
     - [dumper: parameters](#dumper-parameters)
     - [dumper: returns](#dumper-returns)
@@ -432,6 +436,32 @@ local string = 'string with " and < and >'
 
 local result = test_common:xml_escape(string)
 --> result is 'string with &quot; and &lt; and &gt;'
+```
+
+## lua_regex_escape method
+
+The **lua_regex_escape** method escape lua regex special characters.
+
+### lua_regex_escape: parameters
+
+| parameter                     | type   | optional | default value |
+| ----------------------------- | ------ | -------- | ------------- |
+| a string that must be escaped | string | no       |               |
+
+### lua_regex_escape: returns
+
+| return                                                                 | type                             | always | condition |
+| ---------------------------------------------------------------------- | -------------------------------- | ------ | --------- |
+| an escaped string (or the raw parameter if it was nil or not a string) | string (or input parameter type) | yes    |           |
+
+### lua_regex_escape: example
+
+```lua
+local string = 'string with % and . and *'
+--> string is 'string with % and . and *'
+
+local result = test_common:lua_regex_escape(string)
+--> result is 'string with %% and %. and %*'
 ```
 
 ## dumper method
