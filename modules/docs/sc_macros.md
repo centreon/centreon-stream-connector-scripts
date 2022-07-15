@@ -981,7 +981,7 @@ code, result = test_macros:build_group_macro_value(group_data, index_name, forma
 
 ## group_macro_format_table method
 
-The **group_macro_format_table** method transforms the give macro value into a table (does nothing as is)
+The **group_macro_format_table** method transforms the given macro value into a table (does nothing as is)
 
 ### group_macro_format_table: parameters
 
