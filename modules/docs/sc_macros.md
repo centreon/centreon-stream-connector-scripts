@@ -90,6 +90,10 @@
     - [group_macro_format_inline: parameters](#group_macro_format_inline-parameters)
     - [group_macro_format_inline: returns](#group_macro_format_inline-returns)
     - [group_macro_format_inline: example](#group_macro_format_inline-example)
+  - [build_converted_string_for_cache_and_event_macro method](#build_converted_string_for_cache_and_event_macro-method)
+    - [build_converted_string_for_cache_and_event_macro: parameters](#build_converted_string_for_cache_and_event_macro-parameters)
+    - [build_converted_string_for_cache_and_event_macro: returns](#build_converted_string_for_cache_and_event_macro-returns)
+    - [build_converted_string_for_cache_and_event_macro: example](#build_converted_string_for_cache_and_event_macro-example)
 
 ## Introduction
 
@@ -1025,8 +1029,8 @@ The **group_macro_format_inline** method transforms the give macro value into a 
 
 ### group_macro_format_inline: returns
 
-| return                     | type  | always | condition |
-| -------------------------- | ----- | ------ | --------- |
+| return                      | type   | always | condition |
+| --------------------------- | ------ | ------ | --------- |
 | the macro value as a string | string | yes    |           |
 
 ### group_macro_format_inline: example
@@ -1039,4 +1043,33 @@ local macro_value = {
 
 local result = test_macros:group_macro_format_inline(macro_value)
 --> result is: "bv2,bv3"
+```
+
+## build_converted_string_for_cache_and_event_macro method
+
+The **build_converted_string_for_cache_and_event_macro** method replace a cache or event macro in a string that may contain those macros
+
+### build_converted_string_for_cache_and_event_macro: parameters
+
+| parameter                          | type   | optional | default value |
+| ---------------------------------- | ------ | -------- | ------------- |
+| the macro value                    | any    | no       |               |
+| the macro name                     | string | no       |               |
+| the string that may contain macros | string | no       |               |
+
+### build_converted_string_for_cache_and_event_macro: returns
+
+| return                              | type   | always | condition |
+| ----------------------------------- | ------ | ------ | --------- |
+| the string with the macro converted | string | yes    |           |
+
+### build_converted_string_for_cache_and_event_macro: example
+
+```lua
+local string_with_macros = "my cache macro {cache.host.name}
+local macro_name = "{cache.host.name}"
+local macro_value = "Arcadia"
+
+local result = test_macros:build_converted_string_for_cache_and_event_macro(macro_value, macro_name, string_with_macros)
+--> result is: "my cache macro Arcadia"
 ```

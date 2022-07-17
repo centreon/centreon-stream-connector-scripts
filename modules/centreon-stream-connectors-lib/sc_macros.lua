@@ -213,14 +213,14 @@ function ScMacros:replace_sc_macro(string, event, json_string)
     
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
-      converted_string = self:build_converted_string(cache_macro_value, macro, converted_string)
+      converted_string = self:build_converted_string_for_cache_and_event_macro(cache_macro_value, macro, converted_string)
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
       
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
-        converted_string = self:build_converted_string(event_macro_value, macro, converted_string)
+        converted_string = self:build_converted_string_for_cache_and_event_macro(event_macro_value, macro, converted_string)
       else
         -- if not event or cache macro, maybe it is a group macro
         group_macro_value, format = self:get_group_macro(macro, event)
@@ -550,12 +550,12 @@ end
 -- @param macro (string): the macro name
 -- @param converted_string (string): the string in which a macro must be replaced
 -- @return converted_string (string): the string with the macro replaced
-function ScMacros:build_converted_string(macro_value, macro, converted_string)
+function ScMacros:build_converted_string_for_cache_and_event_macro(macro_value, macro, converted_string)
   -- need to escape % characters or else it will break the string.gsub that is done later
   local clean_macro_value, _ = string.gsub(macro_value, "%%", "%%%%")
   local clean_macro_value_json = ""
   
-  self.sc_logger:debug("[sc_macros:build_converted_string]: macro is a cache macro. Macro name: "
+  self.sc_logger:debug("[sc_macros:build_converted_string_for_cache_and_event_macro]: macro is a cache macro. Macro name: "
   .. tostring(macro) .. ", value is: " .. tostring(clean_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
   
   --[[
