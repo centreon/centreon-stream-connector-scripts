@@ -323,5 +323,20 @@ function ScCommon:dumper(variable, result, tab_char)
   return result
 end
 
+--- trim: remove spaces at the beginning and end of a string (or remove the provided character)
+-- @param string (string) the string that will be trimmed
+-- @param character [opt] (string) the character to trim
+-- @return string (string) the trimmed string
+function ScCommon:trim(string, character)
+  local result = ""
+  local count = ""
+  if not character then
+    result, count = string.gsub(string, "^%s*(.-)%s*$", "%1")
+  else
+    result, count = string.gsub(string, "^" .. character .. "*(.-)" .. character .. "*$", "%1")
+  end
+
+  return result
+end
 
 return sc_common
