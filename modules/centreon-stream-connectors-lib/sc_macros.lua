@@ -213,39 +213,14 @@ function ScMacros:replace_sc_macro(string, event, json_string)
     
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
-      local clean_cache_macro_value_json = ""
-
-      -- encoding number or boolean will convert them to string and we don't want that by default
-      if type(cache_macro_value) == "number" or type(cache_macro_value) == "boolean" then
-        clean_cache_macro_value_json = cache_macro_value
-      else
-        local clean_cache_macro_value, _ = string.gsub(cache_macro_value, "%%", "%%%%")
-        clean_cache_macro_value_json = broker.json_encode(clean_cache_macro_value)
-      end
-
-      self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
-        .. tostring(macro) .. ", value is: " .. tostring(clean_cache_macro_value_json) .. ", trying to replace it in the string: " .. tostring(converted_string))
-
-      converted_string = string.gsub(converted_string, '"' .. macro .. '"', clean_cache_macro_value_json)
+      converted_string = self:build_converted_string(cache_macro_value, macro, converted_string)
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
       
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
-        local clean_event_macro_value_json = ""
-        
-        if type(event_macro_value) == "number" or type(event_macro_value) == "boolean" then
-          clean_event_macro_value_json = event_macro_value
-        else
-          local clean_event_macro_value, _ = string.gsub(event_macro_value, "%%", "%%%%")
-          clean_event_macro_value_json = broker.json_encode(clean_event_macro_value)
-        end
-
-        self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
-          .. tostring(macro) .. ", value is: " .. tostring(clean_event_macro_value_json) .. ", trying to replace it in the string: " .. tostring(converted_string))
-
-        converted_string = string.gsub(converted_string, '"' .. macro .. '"', clean_event_macro_value_json)
+        converted_string = self:build_converted_string(event_macro_value, macro, converted_string)
       else
         -- if not event or cache macro, maybe it is a group macro
         group_macro_value, format = self:get_group_macro(macro, event)
@@ -253,15 +228,20 @@ function ScMacros:replace_sc_macro(string, event, json_string)
         -- replace all group macro such as {group(hg,table)} with their values
         if group_macro_value then
           group_macro_value = broker.json_encode(group_macro_value)
+          macro = self.sc_common:lua_regex_escape(macro)
           
           self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a group macro. Macro name: "
             .. tostring(macro) .. ", value is: " .. tostring(group_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string)
             .. ". Applied format is: " .. tostring(format))
           
-          -- we don't need the gsub(value, "%%", "%%%%") because no group name can use the % character
-          converted_string = string.gsub(converted_string, '"' .. self.sc_common:lua_regex_escape(macro) .. '"', group_macro_value)
+          if string.match(converted_string, '"' .. macro .. '"') then
+            converted_string = string.gsub(converted_string, '"' .. macro .. '"', group_macro_value)
+          else
+            converted_string = string.gsub(converted_string, "(.*)" .. macro .. "(.*)", "%1" .. self.sc_common:json_escape(self.sc_common:trim(group_macro_value, '"')) .. "%2")
+          end
         else
-          self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
+          self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro or we didn't find a value for it"
+            .. ". For example a {cache.severity.service} macro that is perfectly valid but the service has no severity")
         end
       end
     end
@@ -538,7 +518,6 @@ end
 -- @param event (table) the event table
 -- @return string (string) the status of the event in a human readable format (e.g: OK, WARNING)
 function ScMacros:transform_state(macro_value, event)
-  
   -- acknowledgement events are special, the state can be for a host or a service. 
   -- We force the element to be host_status or service_status in order to properly convert the state
   if event.element == 1 and event.service_id == 0 then
@@ -564,6 +543,41 @@ end
 -- @return string (string) a string based on the provided input
 function ScMacros:transform_string(macro_value)
   return tostring(macro_value)
+end
+
+--- build_converted_string: replace macros in the string that contains macros
+-- @param macro_value (any): the value of the macro that must be replaced
+-- @param macro (string): the macro name
+-- @param converted_string (string): the string in which a macro must be replaced
+-- @return converted_string (string): the string with the macro replaced
+function ScMacros:build_converted_string(macro_value, macro, converted_string)
+  -- need to escape % characters or else it will break the string.gsub that is done later
+  local clean_macro_value, _ = string.gsub(macro_value, "%%", "%%%%")
+  local clean_macro_value_json = ""
+  
+  self.sc_logger:debug("[sc_macros:build_converted_string]: macro is a cache macro. Macro name: "
+  .. tostring(macro) .. ", value is: " .. tostring(clean_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
+  
+  --[[
+    to have the best json possible, we try to remove double quotes. 
+    "service_severity": "{cache.severity.service}" must become "service_severity": 1 and not "service_severity": "1" 
+    "service_severity": "my service severity is: {cache.severity.service}" must become "service_severity": "my service severity is: 1"
+  ]]--
+  if string.match(converted_string, '"' .. macro .. '"') then
+    -- we don't need to json encode numbers and booleans, if people want them as a string, they need to use the _scstring flag in their macro
+    if type(clean_macro_value) == "number" or type(clean_macro_value) == "boolean" then
+      clean_macro_value_json = clean_macro_value
+    else
+      clean_macro_value_json = broker.json_encode(clean_macro_value)
+    end
+
+    converted_string = string.gsub(converted_string, '"' .. macro .. '"', clean_macro_value_json)
+  else
+    -- if the macro is in a middle of a string we can't directly json encode it because it will break the final json if we don't escape characters. (and doing that will result in an ugly json)
+    converted_string = string.gsub(converted_string, "(.*)" .. macro .. "(.*)", "%1" .. self.sc_common:json_escape(clean_macro_value) .. "%2")
+  end
+
+  return converted_string
 end
 
 return sc_macros
