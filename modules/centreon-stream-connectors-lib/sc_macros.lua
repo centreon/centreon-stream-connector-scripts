@@ -534,7 +534,6 @@ end
 -- @return number (number) a number based on the provided string
 function ScMacros:transform_number(macro_value)
   local result = tonumber(macro_value)
-  self.sc_logger:debug("[TANGUY:TANGUY]: to number " .. self.sc_common:dumper(result))
   return result
 end
 
