@@ -43,7 +43,9 @@
 | load_json_file                     | method loads a json file and parse it                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
 | json_escape                        | escape json characters in a string                                                          | [Documentation](sc_common.md#json_escape-method)                        |
 | xml_escape                         | escape xml characters in a string                                                           | [Documentation](sc_common.md#xml_escape-method)                         |
+| lua_regex_escape                   | escape lua regex special characters in a string                                             | [Documentation](sc_common.md#lua_regex_escape-method)                   |
 | dumper                             | dump any variable for debug purpose                                                         | [Documentation](sc_common.md#dumper-method)                             |
+| trim                               | trim spaces (or provided character) at the beginning and the end of a string                | [Documentation](sc_common.md#trim-method)                               |
 
 ## sc_logger methods
 
@@ -125,18 +127,28 @@
 
 ## sc_macros methods
 
-| Method name            | Method description                                                             | Link                                                        |
-| ---------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| replace_sc_macro       | replace a stream connector macro with its value                                | [Documentation](sc_macros.md#replace_sc_macro-method)       |
-| get_cache_macro        | retrieve a macro value in the cache                                            | [Documentation](sc_macros.md#get_cache_macro-method)        |
-| get_event_macro        | retrieve a macro value in the event                                            | [Documentation](sc_macros.md#get_event_macro-method)        |
-| convert_centreon_macro | replace a Centreon macro with its value                                        | [Documentation](sc_macros.md#convert_centreon_macro-method) |
-| get_centreon_macro     | transform a Centreon macro into a stream connector macro                       | [Documentation](sc_macros.md#get_centreon_macro-method)     |
-| get_transform_flag     | try to find a transformation flag in the macro name                            | [Documentation](sc_macros.md#get_transform_flag-method)     |
-| transform_date         | transform a timestamp into a human readable format                             | [Documentation](sc_macros.md#transform_date-method)         |
-| transform_short        | keep the first line of a string                                                | [Documentation](sc_macros.md#transform_short-method)        |
-| transform_type         | convert 0 or 1 into SOFT or HARD                                               | [Documentation](sc_macros.md#transform_type-method)         |
-| transform_state        | convert a status code into its matching human readable status (OK, WARNING...) | [Documentation](sc_macros.md#transform_state-method)        |
+| Method name                                      | Method description                                                                      | Link                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| replace_sc_macro                                 | replace a stream connector macro with its value                                         | [Documentation](sc_macros.md#replace_sc_macro-method)                                 |
+| get_cache_macro                                  | retrieve a macro value in the cache                                                     | [Documentation](sc_macros.md#get_cache_macro-method)                                  |
+| get_event_macro                                  | retrieve a macro value in the event                                                     | [Documentation](sc_macros.md#get_event_macro-method)                                  |
+| get_group_macro                                  | retrieve a macro from groups (hostgroups, servicegroups, business views)                | [Documentation](sc_macros.md#get_group_macro-method)                                  |
+| convert_centreon_macro                           | replace a Centreon macro with its value                                                 | [Documentation](sc_macros.md#convert_centreon_macro-method)                           |
+| get_centreon_macro                               | transform a Centreon macro into a stream connector macro                                | [Documentation](sc_macros.md#get_centreon_macro-method)                               |
+| get_transform_flag                               | try to find a transformation flag in the macro name                                     | [Documentation](sc_macros.md#get_transform_flag-method)                               |
+| transform_date                                   | transform a timestamp into a human readable format                                      | [Documentation](sc_macros.md#transform_date-method)                                   |
+| transform_short                                  | keep the first line of a string                                                         | [Documentation](sc_macros.md#transform_short-method)                                  |
+| transform_type                                   | convert 0 or 1 into SOFT or HARD                                                        | [Documentation](sc_macros.md#transform_type-method)                                   |
+| transform_state                                  | convert a status code into its matching human readable status (OK, WARNING...)          | [Documentation](sc_macros.md#transform_state-method)                                  |
+| transform_number                                 | convert a string into a number                                                          | [Documentation](sc_macros.md#transform_number-method)                                 |
+| transform_string                                 | convert anything into a string                                                          | [Documentation](sc_macros.md#transform_string-method)                                 |
+| get_hg_macro                                     | retrieves hostgroup information and make it available as a macro                        | [Documentation](sc_macros.md#get_hg_macro-method)                                     |
+| get_sg_macro                                     | retrieves servicegroup information and make it available as a macro                     | [Documentation](sc_macros.md#get_sg_macro-method)                                     |
+| get_bv_macro                                     | retrieves business view information and make it available as a macro                    | [Documentation](sc_macros.md#get_bv_macro-method)                                     |
+| build_group_macro_value                          | build the value that must replace the macro (it will also put it in the desired format) | [Documentation](sc_macros.md#build_group_macro_value-method)                          |
+| group_macro_format_table                         | transforms the given macro value into a table                                           | [Documentation](sc_macros.md#group_macro_format_table-method)                         |
+| group_macro_format_inline                        | transforms the give macro value into a string with values separated using comas         | [Documentation](sc_macros.md#group_macro_format_inline-method)                        |
+| build_converted_string_for_cache_and_event_macro | replace event or cache macro in a string that may contain them                          | [Documentation](sc_macros.md#build_converted_string_for_cache_and_event_macro-method) |
 
 ## sc_flush methods
 

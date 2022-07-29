@@ -49,10 +49,18 @@
     - [xml_escape: parameters](#xml_escape-parameters)
     - [xml_escape: returns](#xml_escape-returns)
     - [xml_escape: example](#xml_escape-example)
+  - [lua_regex_escape method](#lua_regex_escape-method)
+    - [lua_regex_escape: parameters](#lua_regex_escape-parameters)
+    - [lua_regex_escape: returns](#lua_regex_escape-returns)
+    - [lua_regex_escape: example](#lua_regex_escape-example)
   - [dumper method](#dumper-method)
     - [dumper: parameters](#dumper-parameters)
     - [dumper: returns](#dumper-returns)
     - [dumper: example](#dumper-example)
+  - [trim method](#trim-method)
+    - [trim: parameters](#trim-parameters)
+    - [trim: returns](#trim-returns)
+    - [trim: example](#trim-example)
 
 ## Introduction
 
@@ -434,9 +442,35 @@ local result = test_common:xml_escape(string)
 --> result is 'string with &quot; and &lt; and &gt;'
 ```
 
+## lua_regex_escape method
+
+The **lua_regex_escape** method escape lua regex special characters.
+
+### lua_regex_escape: parameters
+
+| parameter                     | type   | optional | default value |
+| ----------------------------- | ------ | -------- | ------------- |
+| a string that must be escaped | string | no       |               |
+
+### lua_regex_escape: returns
+
+| return                                                                 | type                             | always | condition |
+| ---------------------------------------------------------------------- | -------------------------------- | ------ | --------- |
+| an escaped string (or the raw parameter if it was nil or not a string) | string (or input parameter type) | yes    |           |
+
+### lua_regex_escape: example
+
+```lua
+local string = 'string with % and . and *'
+--> string is 'string with % and . and *'
+
+local result = test_common:lua_regex_escape(string)
+--> result is 'string with %% and %. and %*'
+```
+
 ## dumper method
 
-The **dumper** dump variables for debug purpose
+The **dumper** method dumps variables for debug purpose
 
 ### dumper: parameters
 
@@ -473,4 +507,35 @@ local result = "best city info: " .. test_common:dumper(best_city)
                 [number] lon: -0.4964242
                 [number] lat: 43.89446
 ]]--
+```
+
+## trim method
+
+The **trim** methods remove spaces (or the specified character) at the beginning and the end of a string
+
+### trim: parameters
+
+| parameter                                                                         | type   | optional | default value |
+| --------------------------------------------------------------------------------- | ------ | -------- | ------------- |
+| the string that must be trimmed                                                   | string | no       |               |
+| the character the must be removed (if not provided, will remove space characters) | string | yes      |               |
+
+### trim: returns
+
+| return              | type   | always | condition |
+| ------------------- | ------ | ------ | --------- |
+| the trimmed variable | string | yes    |           |
+
+### trim: example
+
+```lua
+local string = "                 I'm a space maaaaan        "
+
+local result = test_common:trim(string)
+--> result is: "I'm a space maaaaan"
+
+local string = ";;;;;;I'm no longer a space maaaaan;;;;;;;;;;;;;;"
+
+local result = test_common:trim(string, ";")
+--> result is: "I'm no longer a space maaaaan"
 ```

@@ -5,6 +5,11 @@
   - [Stream connectors macro explanation](#stream-connectors-macro-explanation)
     - [Event macros](#event-macros)
     - [Cache macros](#cache-macros)
+    - [Group macros](#group-macros)
+      - [group type](#group-type)
+      - [output format](#output-format)
+      - [regex filter](#regex-filter)
+      - [examples](#examples)
     - [Transformation flags](#transformation-flags)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
@@ -21,6 +26,10 @@
     - [get_event_macro: parameters](#get_event_macro-parameters)
     - [get_event_macro: returns](#get_event_macro-returns)
     - [get_event_macro: example](#get_event_macro-example)
+  - [get_group_macro method](#get_group_macro-method)
+    - [get_group_macro: parameters](#get_group_macro-parameters)
+    - [get_group_macro: returns](#get_group_macro-returns)
+    - [get_group_macro: example](#get_group_macro-example)
   - [convert_centreon_macro method](#convert_centreon_macro-method)
     - [convert_centreon_macro: parameters](#convert_centreon_macro-parameters)
     - [convert_centreon_macro: returns](#convert_centreon_macro-returns)
@@ -49,6 +58,42 @@
     - [transform_state: parameters](#transform_state-parameters)
     - [transform_state: returns](#transform_state-returns)
     - [transform_state: example](#transform_state-example)
+  - [transform_number method](#transform_number-method)
+    - [transform_number: parameters](#transform_number-parameters)
+    - [transform_number: returns](#transform_number-returns)
+    - [transform_number: example](#transform_number-example)
+  - [transform_string method](#transform_string-method)
+    - [transform_string: parameters](#transform_string-parameters)
+    - [transform_string: returns](#transform_string-returns)
+    - [transform_string: example](#transform_string-example)
+  - [get_hg_macro method](#get_hg_macro-method)
+    - [get_hg_macro: parameters](#get_hg_macro-parameters)
+    - [get_hg_macro: returns](#get_hg_macro-returns)
+    - [get_hg_macro: example](#get_hg_macro-example)
+  - [get_sg_macro method](#get_sg_macro-method)
+    - [get_sg_macro: parameters](#get_sg_macro-parameters)
+    - [get_sg_macro: returns](#get_sg_macro-returns)
+    - [get_sg_macro: example](#get_sg_macro-example)
+  - [get_bv_macro method](#get_bv_macro-method)
+    - [get_bv_macro: parameters](#get_bv_macro-parameters)
+    - [get_bv_macro: returns](#get_bv_macro-returns)
+    - [get_bv_macro: example](#get_bv_macro-example)
+  - [build_group_macro_value method](#build_group_macro_value-method)
+    - [build_group_macro_value: parameters](#build_group_macro_value-parameters)
+    - [build_group_macro_value: returns](#build_group_macro_value-returns)
+    - [build_group_macro_value: example](#build_group_macro_value-example)
+  - [group_macro_format_table method](#group_macro_format_table-method)
+    - [group_macro_format_table: parameters](#group_macro_format_table-parameters)
+    - [group_macro_format_table: returns](#group_macro_format_table-returns)
+    - [group_macro_format_table: example](#group_macro_format_table-example)
+  - [group_macro_format_inline method](#group_macro_format_inline-method)
+    - [group_macro_format_inline: parameters](#group_macro_format_inline-parameters)
+    - [group_macro_format_inline: returns](#group_macro_format_inline-returns)
+    - [group_macro_format_inline: example](#group_macro_format_inline-example)
+  - [build_converted_string_for_cache_and_event_macro method](#build_converted_string_for_cache_and_event_macro-method)
+    - [build_converted_string_for_cache_and_event_macro: parameters](#build_converted_string_for_cache_and_event_macro-parameters)
+    - [build_converted_string_for_cache_and_event_macro: returns](#build_converted_string_for_cache_and_event_macro-returns)
+    - [build_converted_string_for_cache_and_event_macro: example](#build_converted_string_for_cache_and_event_macro-example)
 
 ## Introduction
 
@@ -56,7 +101,13 @@ The sc_macros module provides methods to handle a stream connector oriented macr
 
 ## Stream connectors macro explanation
 
-There are two kind of stream connectors macro, the **event macros** and the **cache macros**. The first type refers to data that are accessible right from the event. The second type refers to data that needs to be retrieved from the broker cache.
+There are three kind of stream connectors macro:
+
+- **event macros**
+- **cache macros**
+- **group macros**
+
+The first type refers to data that are accessible right from the event. The second type refers to data that needs to be retrieved from the broker cache. And the last type refers to three kind of group object in Centreon (hostgroups, servicegroups and Business views)
 
 ### Event macros
 
@@ -76,16 +127,13 @@ This means that it is possible to use the following macros
 
 This one is a bit more complicated. The purpose is to retrieve information from the event cache using a macro. If you rely on the centreon-stream-connectors-lib to fill the cache, here is what you need to know.
 
-There are 8 kind of cache
+There are 5 kind of cache
 
 - host cache (for any event that is linked to a host, which means any event but BA events)
 - service cache (for any event that is linked to a service)
-- poller cache (only generated if you filter your events on a poller)
-- severity cache (only generated if you filter your events on a severity)
-- hostgroups cache (only generated if you filter your events on a hostgroup)
-- servicegroups cache (only generated if you filter your events on a servicegroup)
+- poller cache (for any event that is linked to a poller, which means any event but BA events)
+- severity cache  (for any event that is linked to a host, which means any event but BA events)
 - ba cache (only for a ba_status event)
-- bvs cache (only generated if you filter your BA events on a BV)
 
 For example, if we want to retrieve the description of a service in the cache (because the description is not provided in the event data). We will use `{cache.service.description}`.
 
@@ -99,6 +147,68 @@ This means that it is possible to use the following macros
 "{cache.service.last_time_critical}" -- will be replaced by the service last_time_critical timestamp
 ```
 
+cache values for hosts: [list](sc_broker.md#get_host_all_infos-example)
+cache values for services: [list](sc_broker.md#get_services_all_infos-example)
+cache values for BAs: [list](sc_broker.md#get_ba_infos-example)
+cache values for pollers:
+  
+- {cache.instance.name}
+- {cache.instance.id}
+
+cache values for severities:
+
+- {cache.severity.service}
+- {cache.severity.host}
+
+### Group macros
+
+Group macros are a very special kind of macros that allows you to retrieve the hostgroups, services groups or BVs that are linked to your host/service/BA. The syntax goes as follow: `{groups(<group_type>,<output_format>,<regex_filter>)}`
+
+It means that when using a group macro, you need to specify which kind of group you want, its output format and the filter you are going to use.
+
+#### group type
+
+When using a group macro, you need to set a group type. You have three possibilities
+
+- hg (to retrieve hostgroups)
+- sg (to retrieve servicegroups)
+- bv (to retrives business views)
+
+#### output format
+
+When using a group, you need to set an output format. You have two possibilities
+
+- table (each found group is going to be stored in a table structure)
+- inline (each found group is going to be stored in a string and each value will be separated using a `,`)
+
+#### regex filter
+
+When using a group, you need to set a regex filter. You accept everything using `.*` or you can accept groups that will only have alpha numerical characters in their name with `^%w+$`.
+
+[More information about regex in lua](https://www.lua.org/pil/20.2.html)
+
+#### examples
+
+for a service linked to:
+
+| hostgroups | servicegroups  |
+| ---------- | -------------- |
+| HG_1       | FOO_the-first  |
+| HG_2       | FOO_the-second |
+| HG_3       | another_sg     |
+
+get all hostgroups in a table format:
+
+| macro                   | result                     |
+| ----------------------- | -------------------------- |
+| `{groups(hg,table,.*)}` | `["HG_1", "HG_2", "HG_3"]` |
+
+get all servicegroups that start with "FOO" in an inline format: `{groups}
+
+| macro                        | result                           |
+| ---------------------------- | -------------------------------- |
+| `{groups(sg,inline,^FOO.*)}` | `"FOO_the-first,FOO_the-second"` |
+
 ### Transformation flags
 
 You can use transformation flags on stream connectors macros. Those flags purpose is to convert the given value to something more appropriate. For example, you can convert a timestamp to a human readable date.
@@ -111,6 +221,8 @@ Here is the list of all available flags
 | _sctype   | convert a state type number to its human value                                                                              | 0                                            | SOFT                   |
 | _scstate  | convert a state to its human value                                                                                          | 2                                            | WARNING (for a servie) |
 | _scshort  | only retrieve the first line of a string (mostly use to get the output instead of the long output of a service for exemple) | "my output\n this is part of the longoutput" | "my output"            |
+| _scnumber | convert a string to a number                                                                                                | "1"                                          | 1                      |
+| _scstring | convert anything to a string                                                                                                | false                                        | "false"                |
 
 The **_scdate** is a bit specific because you can change the date format using the [**timestamp_conversion_format parameter**](sc_param.md#default-parameters)
 
@@ -121,7 +233,9 @@ With all that information in mind, we can use the following macros
 "{cache.service.last_time_critical_scdate}" -- will be replaced by the service last_time_critical converted in a human readable date format
 "{state_type_sctype}" -- will be replaced by the service state_type in a human readable format (SOFT or HARD)
 "{state_scstate}" -- will be replaced by the servie state in a human readable format (OK, WARNING, CRITICAL or UNKNOWN)
-"{output_short}" -- will be replaced by the first line of the service output
+"{output_scshort}" -- will be replaced by the first line of the service output
+"{cache.severity.service_scnumber}" -- will be replaced by 1 instead of "1"
+"{acknowledged_scstring}" -- will be replaced by "false" instead of false 
 ```
 
 ## Module initialization
@@ -294,6 +408,68 @@ local result = test_macros:get_event_macro(macro, event)
 macro = "{cache.host.name}"
 result = test_macros:get_event_macro(macro, event)
 --> result is false, cache.host.name is in the cache table, not directly in the event table
+```
+
+## get_group_macro method
+
+The **get_group_macro** method replaces a stream connector group macro by its value.
+
+head over the following chapters for more information
+
+- [Group macros](#group-macros)
+
+### get_group_macro: parameters
+
+| parameter      | type   | optional | default value |
+| -------------- | ------ | -------- | ------------- |
+| the macro name | string | no       |               |
+| the event      | table  | no       |               |
+
+### get_group_macro: returns
+
+| return             | type                        | always | condition                                  |
+| ------------------ | --------------------------- | ------ | ------------------------------------------ |
+| false              | boolean                     | no     | if the macro is not a group macro          |
+| value of the macro | boolean or string or number | no     | the value that has been found in the event |
+
+### get_group_macro: example
+
+```lua
+local macro = "{groups(hg,table,^%w+$)}"
+local event = {
+  host_id = 2712,
+  state_type = 1,
+  state = 0
+  cache = {
+    hostgroups = {
+      [1] = {
+        group_id = 27,
+        group_name = "hg_1"
+      },
+      [2] = {
+        group_id = 12,
+        group_name = "hg2"
+      },
+      [3] = {
+        group_id = 1991
+        group_name = "hg3"
+      }
+    }
+  }
+}
+
+local result = test_macros:get_group_macro(macro, event)
+--> result is
+--[[
+  {
+    [1] = "hg2",
+    [2] = "hg3"
+  }
+]] 
+
+macro = "{groups(foo,bar,.*)}"
+result = test_macros:get_group_macro(macro, event)
+--> result is false, foo is not a valid group type and bar is not a valid format type
 ```
 
 ## convert_centreon_macro method
@@ -516,4 +692,384 @@ event = {
 
 result = test_macros:transform_state(state, event)
 --> result is "DOWN" because it is a service (category 1 = neb, element 14 = host_status event)
+```
+
+## transform_number method
+
+The **transform_number** method transforms a string value into a number
+
+### transform_number: parameters
+
+| parameter | type   | optional | default value |
+| --------- | ------ | -------- | ------------- |
+| a string  | string | no       |               |
+
+### transform_number: returns
+
+| return   | type   | always | condition |
+| -------- | ------ | ------ | --------- |
+| a number | number | yes    |           |
+
+### transform_number: example
+
+```lua
+local string_number = "0"
+
+local result = test_macros:transform_number(string_number)
+--> result is 0
+```
+
+## transform_string method
+
+The **transform_string** method transforms any value into a string
+
+### transform_string: parameters
+
+| parameter | type | optional | default value |
+| --------- | ---- | -------- | ------------- |
+| anything  | any  | no       |               |
+
+### transform_string: returns
+
+| return   | type   | always | condition |
+| -------- | ------ | ------ | --------- |
+| a string | string | yes    |           |
+
+### transform_string: example
+
+```lua
+local boolean = false
+
+local result = test_macros:transform_string(boolean)
+--> result is "false"
+```
+
+## get_hg_macro method
+
+The **get_hg_macro** method retrieves hostgroup information and make it available as a macro
+
+### get_hg_macro: parameters
+
+| parameter | type  | optional | default value |
+| --------- | ----- | -------- | ------------- |
+| the event | table | no       |               |
+
+### get_hg_macro: returns
+
+| return                                                  | type   | always | condition |
+| ------------------------------------------------------- | ------ | ------ | --------- |
+| all hostgroups                                          | table  | yes    |           |
+| the name of the index that is linked to hostgroups name | string | yes    |           |
+
+### get_hg_macro: example
+
+```lua
+local event = {
+  host_id = 2712,
+  state_type = 1,
+  state = 0
+  cache = {
+    hostgroups = {
+      [1] = {
+        group_id = 27,
+        group_name = "hg_1"
+      },
+      [2] = {
+        group_id = 12,
+        group_name = "hg2"
+      },
+      [3] = {
+        group_id = 1991
+        group_name = "hg3"
+      }
+    }
+  }
+}
+
+local hostgroups, index_name = test_macros:get_hg_macro(event)
+--> hostgroups is:
+--[[
+  hostgroups = {
+      [1] = {
+        group_id = 27,
+        group_name = "hg_1"
+      },
+      [2] = {
+        group_id = 12,
+        group_name = "hg2"
+      },
+      [3] = {
+        group_id = 1991
+        group_name = "hg3"
+      }
+    }
+]] 
+--> index_name is: group_name
+```
+
+## get_sg_macro method
+
+The **get_sg_macro** method retrieves servicegroup information and make it available as a macro
+
+### get_sg_macro: parameters
+
+| parameter | type  | optional | default value |
+| --------- | ----- | -------- | ------------- |
+| the event | table | no       |               |
+
+### get_sg_macro: returns
+
+| return                                                     | type   | always | condition |
+| ---------------------------------------------------------- | ------ | ------ | --------- |
+| all servicegroups                                          | table  | yes    |           |
+| the name of the index that is linked to servicegroups name | string | yes    |           |
+
+### get_sg_macro: example
+
+```lua
+local event = {
+  host_id = 2712,
+  state_type = 1,
+  state = 0
+  cache = {
+    hostgroups = {
+      [1] = {
+        group_id = 27,
+        group_name = "sg_1"
+      },
+      [2] = {
+        group_id = 12,
+        group_name = "sg2"
+      },
+      [3] = {
+        group_id = 1991
+        group_name = "sg3"
+      }
+    }
+  }
+}
+
+local servicegroups, index_name = test_macros:get_sg_macro(event)
+--> servicegroups is:
+--[[
+  servicegroups = {
+      [1] = {
+        group_id = 27,
+        group_name = "sg_1"
+      },
+      [2] = {
+        group_id = 12,
+        group_name = "sg2"
+      },
+      [3] = {
+        group_id = 1991
+        group_name = "sg3"
+      }
+    }
+]] 
+--> index_name is: group_name
+```
+
+## get_bv_macro method
+
+The **get_bv_macro** method retrieves business views information and make it available as a macro
+
+### get_bv_macro: parameters
+
+| parameter | type  | optional | default value |
+| --------- | ----- | -------- | ------------- |
+| the event | table | no       |               |
+
+### get_bv_macro: returns
+
+| return                                                      | type   | always | condition |
+| ----------------------------------------------------------- | ------ | ------ | --------- |
+| all business views                                          | table  | yes    |           |
+| the name of the index that is linked to business views name | string | yes    |           |
+
+### get_bv_macro: example
+
+```lua
+local event = {
+  ba_id = 2712,
+  state = 0
+  cache = {
+    bvs = {
+      [1] = {
+        bv_id = 27,
+        bv_name = "bv_1"
+      },
+      [2] = {
+        bv_id = 12,
+        bv_name = "bv2"
+      },
+      [3] = {
+        bv_id = 1991
+        bv_name = "bv3"
+      }
+    }
+  }
+}
+
+local bvs, index_name = test_macros:get_bv_macro(event)
+--> bvs is:
+--[[
+  bvs = {
+      [1] = {
+        bv_id = 27,
+        bv_name = "bv_1"
+      },
+      [2] = {
+        bv_id = 12,
+        bv_name = "bv2"
+      },
+      [3] = {
+        bv_id = 1991
+        bv_name = "bv3"
+      }
+    }
+]] 
+--> index_name is: bv_name
+```
+
+## build_group_macro_value method
+
+The **build_group_macro_value** method builds the value that must replace the macro (it will also put it in the desired format)
+
+### build_group_macro_value: parameters
+
+| parameter                                                | type   | optional | default value |
+| -------------------------------------------------------- | ------ | -------- | ------------- |
+| the group data                                           | table  | no       |               |
+| the name of the index where the group name will be found | string | no       |               |
+| the format in which the result will be built             | string | no       |               |
+| the regex that will filter found groups                  | string | no       |               |
+
+### build_group_macro_value: returns
+
+| return                              | type            | always | condition                           |
+| ----------------------------------- | --------------- | ------ | ----------------------------------- |
+| boolean                             | boolean         | yes    |                                     |
+| the macro value in the right format | string or table | no     | only if the desired format is valid |
+
+### build_group_macro_value: example
+
+```lua
+local group_data = {
+      [1] = {
+        bv_id = 27,
+        bv_name = "bv_1"
+      },
+      [2] = {
+        bv_id = 12,
+        bv_name = "bv2"
+      },
+      [3] = {
+        bv_id = 1991
+        bv_name = "bv3"
+      }
+    }
+local index_name = "bv_name"
+local format = "inline"
+local regex = "^%w+$"
+
+local code, result = test_macros:build_group_macro_value(group_data, index_name, format, regex)
+--> code is: true
+--> result is: "bv2,bv3"
+
+format = "bad_format"
+code, result = test_macros:build_group_macro_value(group_data, index_name, format, regex)
+--> code is: false
+--> result is: nil
+```
+
+## group_macro_format_table method
+
+The **group_macro_format_table** method transforms the given macro value into a table (does nothing as is)
+
+### group_macro_format_table: parameters
+
+| parameter       | type  | optional | default value |
+| --------------- | ----- | -------- | ------------- |
+| the macro value | table | no       |               |
+
+### group_macro_format_table: returns
+
+| return                     | type  | always | condition |
+| -------------------------- | ----- | ------ | --------- |
+| the macro value as a table | table | yes    |           |
+
+### group_macro_format_table: example
+
+```lua
+local macro_value = {
+  [1] = "bv2",
+  [2] = "bv3"
+}
+
+local result = test_macros:group_macro_format_table(macro_value)
+--> result is: 
+--[[
+  result = {
+    [1] = "bv2",
+    [2] = "bv3"
+  }
+]]--
+```
+
+## group_macro_format_inline method
+
+The **group_macro_format_inline** method transforms the give macro value into a string with values separated using comas
+
+### group_macro_format_inline: parameters
+
+| parameter       | type  | optional | default value |
+| --------------- | ----- | -------- | ------------- |
+| the macro value | table | no       |               |
+
+### group_macro_format_inline: returns
+
+| return                      | type   | always | condition |
+| --------------------------- | ------ | ------ | --------- |
+| the macro value as a string | string | yes    |           |
+
+### group_macro_format_inline: example
+
+```lua
+local macro_value = {
+  [1] = "bv2",
+  [2] = "bv3"
+}
+
+local result = test_macros:group_macro_format_inline(macro_value)
+--> result is: "bv2,bv3"
+```
+
+## build_converted_string_for_cache_and_event_macro method
+
+The **build_converted_string_for_cache_and_event_macro** method replace a cache or event macro in a string that may contain those macros
+
+### build_converted_string_for_cache_and_event_macro: parameters
+
+| parameter                          | type   | optional | default value |
+| ---------------------------------- | ------ | -------- | ------------- |
+| the macro value                    | any    | no       |               |
+| the macro name                     | string | no       |               |
+| the string that may contain macros | string | no       |               |
+
+### build_converted_string_for_cache_and_event_macro: returns
+
+| return                              | type   | always | condition |
+| ----------------------------------- | ------ | ------ | --------- |
+| the string with the macro converted | string | yes    |           |
+
+### build_converted_string_for_cache_and_event_macro: example
+
+```lua
+local string_with_macros = "my cache macro {cache.host.name}
+local macro_name = "{cache.host.name}"
+local macro_value = "Arcadia"
+
+local result = test_macros:build_converted_string_for_cache_and_event_macro(macro_value, macro_name, string_with_macros)
+--> result is: "my cache macro Arcadia"
 ```

@@ -221,57 +221,58 @@ end
 -- @param string (string) the string that must be escaped
 -- @return string (string) the string with escaped characters
 function ScCommon:json_escape(string)
-  local type = type(string)
-
-  -- check that param is a valid string
-  if string == nil or type == "table" then
-    self.sc_logger:error("[sc_common:json_escape]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+  if type(string) ~= "string" then
+    self.sc_logger:error("[sc_common:json_escape]: the input parameter is not valid, it must be a string. Sent value: " .. tostring(string))
     return string
   end
 
-  -- nothing to escape in a boolean or number value
-  if type ~= "string" then
-    return string
-  end
-
-  -- escape all characters
-  string = string.gsub(string, '\\', '\\\\')
-  string = string.gsub(string, '\t', '\\t')
-  string = string.gsub(string, '\n', '\\n')
-  string = string.gsub(string, '\b', '\\b')
-  string = string.gsub(string, '\r', '\\r')
-  string = string.gsub(string, '\f', '\\f')
-  string = string.gsub(string, '/', '\\/')
-  string = string.gsub(string, '"', '\\"')
-
-  return string
+  return string:gsub('\\', '\\\\')
+    :gsub('\t', '\\t')
+    :gsub('\n', '\\n')
+    :gsub('\b', '\\b')
+    :gsub('\r', '\\r')
+    :gsub('\f', '\\f')
+    :gsub('/', '\\/')
+    :gsub('"', '\\"')
 end
 
 --- xml_escape: escape xml special characters in a string
 -- @param string (string) the string that must be escaped
 -- @return string (string) the string with escaped characters
 function ScCommon:xml_escape(string)
-  local type = type(string)
-
-  -- check that param is a valid string
-  if string == nil or type == "table" then
-    self.sc_logger:error("[sc_common:xml_escape]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+  if type(string) ~= "string" then
+    self.sc_logger:error("[sc_common:xml_escape]: the input parameter is not valid, it must be a string. Sent value: " .. tostring(string))
     return string
   end
 
-  -- nothing to escape in a boolean or number value
-  if type ~= "string" then
+  return string:gsub('&', '&amp')
+    :gsub('<', '$lt;')
+    :gsub('>', '&gt;')
+    :gsub('"', '&quot;')
+    :gsub("'", "&apos;")
+end
+
+--- lua_regex_escape: escape lua regex special characters in a string
+-- @param string (string) the string that must be escaped
+-- @return string (string) the string with escaped characters
+function ScCommon:lua_regex_escape(string)
+  if type(string) ~= "string" then
+    self.sc_logger:error("[sc_common:lua_regex_escape]: the input parameter is not valid, it must be a string. Sent value: " .. tostring(string))
     return string
   end
 
-  -- escape all characters
-  string = string.gsub(string, '&', '&amp')
-  string = string.gsub(string, '<', '&lt;')
-  string = string.gsub(string, '>', '&gt;')
-  string = string.gsub(string, '"', '&quot;')
-  string = string.gsub(string, "'", "&apos;")
-
-  return string
+  return string:gsub('%%', '%%%%')
+    :gsub('%.', '%%.')
+    :gsub("%*", "%%*")
+    :gsub("%-", "%%-")
+    :gsub("%(", "%%(")
+    :gsub("%)", "%%)")
+    :gsub("%[", "%%[")
+    :gsub("%]", "%%]")
+    :gsub("%$", "%%$")
+    :gsub("%^", "%%^")
+    :gsub("%+", "%%+")
+    :gsub("%?", "%%?")
 end
 
 --- dumper: dump variables for debug purpose
@@ -322,5 +323,20 @@ function ScCommon:dumper(variable, result, tab_char)
   return result
 end
 
+--- trim: remove spaces at the beginning and end of a string (or remove the provided character)
+-- @param string (string) the string that will be trimmed
+-- @param character [opt] (string) the character to trim
+-- @return string (string) the trimmed string
+function ScCommon:trim(string, character)
+  local result = ""
+  local count = ""
+  if not character then
+    result, count = string.gsub(string, "^%s*(.-)%s*$", "%1")
+  else
+    result, count = string.gsub(string, "^" .. character .. "*(.-)" .. character .. "*$", "%1")
+  end
+
+  return result
+end
 
 return sc_common
