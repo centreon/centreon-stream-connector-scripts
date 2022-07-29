@@ -75,6 +75,11 @@ function ScEvent:is_valid_event()
     is_valid_event = self:is_valid_bam_event()
   end
 
+  -- run custom code
+  if self.sc_params.custom_code then
+    self, is_valid_event = self.sc_params.custom_code(self)
+  end    
+
   return is_valid_event
 end
 
