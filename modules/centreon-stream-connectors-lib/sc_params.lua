@@ -868,7 +868,7 @@ end
 function ScParams:load_custom_code_file(custom_code_file)
   -- return if there is no file configured
   if self.params.custom_code_file == "" or self.params.custom_code_file == nil then
-    return false
+    return true
   end 
   
   local file = io.open(custom_code_file, "r")
