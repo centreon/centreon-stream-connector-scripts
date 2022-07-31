@@ -76,8 +76,8 @@ function ScEvent:is_valid_event()
   end
 
   -- run custom code
-  if self.sc_params.custom_code then
-    self, is_valid_event = self.sc_params.custom_code(self)
+  if self.params.custom_code and type(self.params.custom_code) == "function" then
+    self, is_valid_event = self.params.custom_code(self)
   end    
 
   return is_valid_event

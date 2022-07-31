@@ -901,7 +901,7 @@ function ScParams:load_custom_code_file(custom_code_file)
     return false
   end
 
-  self.custom_code = custom_code
+  self.params.custom_code = custom_code
   return true
 end
 
