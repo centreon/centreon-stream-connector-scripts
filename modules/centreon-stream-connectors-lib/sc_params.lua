@@ -875,7 +875,7 @@ function ScParams:load_custom_code_file(custom_code_file)
 
   -- return false if we can't open the file
   if not file then
-    self.sc_logger:error("[sc_params:load_custom_code_file]: couldn't open file "
+    self.logger:error("[sc_params:load_custom_code_file]: couldn't open file "
       .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
     return false
   end
@@ -887,7 +887,7 @@ function ScParams:load_custom_code_file(custom_code_file)
   -- check if it returns self, true or self, false
   for return_value in string.gmatch(file_content, "return (.-)\n") do
     if return_value ~= "self, true" and return_value ~= "self, false" then
-      self.sc_logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
+      self.logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
         .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
       return false
     end
@@ -897,7 +897,7 @@ function ScParams:load_custom_code_file(custom_code_file)
   local custom_code, error = loadfile(custom_code_file)
 
   if not custom_code then
-    self.sc_logger:error("[sc_params:load_custom_code_file]: custom_code_file doesn't contain valid lua code. Error is: " .. tostring(error))
+    self.logger:error("[sc_params:load_custom_code_file]: custom_code_file doesn't contain valid lua code. Error is: " .. tostring(error))
     return false
   end
 
