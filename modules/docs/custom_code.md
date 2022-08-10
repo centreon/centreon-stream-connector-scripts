@@ -77,7 +77,7 @@ Everything has been made to grant you access to all the useful information. It m
 
 Since stream connectors have been thought to be highly customizable, we have made a tool to change the data that you are sending. To do so, you use a custom format file ([documentation](templating.md)). In this file you can use macros ([documentation](sc_macros.md)).
 
-By using custom code you can create your own macros and it is very to do! Let's take a look at that.
+By using custom code you can create your own macros and it is very easy to do! Let's take a look at that.
 
 ```lua
 local self = ...
@@ -85,7 +85,7 @@ local self = ...
 self.event.my_custom_macro = "my custom macro value"
 
 return self, true
-
+-- new line after true
 ```
 
 Thanks to the above code, we are now able to use `{my_custom_macro}` as a new macro. And it will be replaced by the string `my custom macro value`.
@@ -96,15 +96,15 @@ To sum up what we have seen. Just add a new entry in the `self.event` table. It 
 
 As explained [at the beginning](#when-is-it-needed), you can add your own filters to your data. Find below a rundown of the major steps that are done when using a stream connector
 
-1. stream connector init (only down on cbd reload or restart)
+1. stream connector init (only done on cbd reload or restart)
 2. filter events
 3. format event
 4. put event in a queue
 5. send all events stored in the queue
 
-The second step has a set of filters but they may be not enough for you. This is where a custom code file can be useful.
+The second step has a set of filters but they may not be enough for you. This is where a custom code file can be useful.
 
-Let's keep our idea of filtering events with host that does not have **notes** and see what it will looks like with real code
+Let's keep our idea of filtering events with hosts that do not have **notes** and see what it will looks like with real code
 
 ```lua
 local self = ...
@@ -130,7 +130,8 @@ local self = ...
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
   -- use the warning method of oru logger module 
-  self.sc_logger:warning("[custom_code]: host: " .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
+  self.sc_logger:warning("[custom_code]: host: "
+    .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
   -- the boolean part of the return is here to tell the stream connector to ignore the event
   return self, false
 end
@@ -150,7 +151,8 @@ self.sc_logger:notice("[custom_code]: self.event table data: " .. self.sc_common
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
   -- use the warning method of oru logger module 
-  self.sc_logger:warning("[custom_code]: host: " .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
+  self.sc_logger:warning("[custom_code]: host: "
+    .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
   -- the boolean part of the return is here to tell the stream connector to ignore the event
   return self, false
 end
@@ -170,7 +172,8 @@ self.sc_logger:notice("[custom_code]: self.event table data: " .. self.sc_common
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
   -- use the warning method of oru logger module 
-  self.sc_logger:warning("[custom_code]: host: " .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
+  self.sc_logger:warning("[custom_code]: host: "
+    .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
   -- the boolean part of the return is here to tell the stream connector to ignore the event
   return self, false
 end
