@@ -12,6 +12,7 @@
   - [sc_metrics methods](#sc_metrics-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
+  - [Additionnal documentations](#additionnal-documentations)
 
 ## Libraries list
 
@@ -193,3 +194,12 @@
 | create_signature | create the signature for the jwt token      | [Documentation](google/auth/oauth.md#create_signature-method) |
 | get_access_token | get a google access token using a jwt token | [Documentation](google/auth/oauth.md#get_access_token-method) |
 | curl_google      | use curl to get an access token             | [Documentation](google/auth/oauth.md#curl_google-method)      |
+
+## Additionnal documentations
+
+| Description                                                   | Link                                                                                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| learn how to create a custom format using a format file       | [Documentation](./templating.md)                                                                                                    |
+| learn how to create custom code for your stream connector     | [Documentation](./custom_code.md)                                                                                                   |
+| have a look at all the available mappings and how to use them | [Documentation](./mappings.md)                                                                                                      |
+| have a look at the event structure                            | [Documentation](./broker_data_structure.md) and [Documentation](https://docs.centreon.com/docs/developer/developer-broker-mapping/) |
