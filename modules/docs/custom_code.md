@@ -42,24 +42,26 @@ It must starts with
 local self = ...
 ```
 
-It must ends with a return the self variable and a boolean followed by a new line
+It must ends with a return the self variable and a boolean followed by a new line.
 
 ```lua
 return self, true
-
+-- new line after true
 ```
 
 you can't do:
 
 ```lua
+-- ✘ bad, no space after the coma
 return self,true
-
+-- new line after true
 ```
 
 nor
 
 ```lua
-return self, true
+-- ✘ bad, no new line after the return line
+return self, true -- no new line after true
 ```
 
 ## Available data for your custom code
@@ -114,7 +116,7 @@ end
 
 -- if the host has a note then we let the stream connector continue his work on this event
 return self, true
-
+-- do not forget 
 ```
 
 ## Use all the above chapters
@@ -135,7 +137,7 @@ end
 
 -- if the host has a note then we let the stream connector continue his work on this event
 return self, true
-
+-- new line after true
 ```
 
 Maybe you want a closer look at what is inside the `self.event` table. To do so, we can dump it in our logfile using [the Dumper method](sc_common.md#dumper-method)
@@ -155,7 +157,7 @@ end
 
 -- if the host has a note then we let the stream connector continue his work on this event
 return self, true
-
+-- new line after true
 ```
 
 ### Add custom macros
@@ -179,5 +181,5 @@ self.event.origin = string.sub(tostring(self.event.cache.host.name), 1, 3)
 
 -- if the host has a note then we let the stream connector continue his work on this event
 return self, true
-
+-- new line after true
 ```
