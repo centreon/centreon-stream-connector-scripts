@@ -80,7 +80,7 @@ function EventQueue.new(params)
   self.format_template = self.sc_params:load_event_format_file()
 
   -- only load the custom code file, not executed yet
-  if not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
+  if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
 
