@@ -129,7 +129,7 @@ What if we start logging what our custom code does? To do so, we can use [the wa
 local self = ...
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
-  -- use the warning method of oru logger module 
+  -- use the warning method of from the logger module 
   self.sc_logger:warning("[custom_code]: host: "
     .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
   -- the boolean part of the return is here to tell the stream connector to ignore the event
@@ -151,7 +151,7 @@ local self = ...
 self.sc_logger:notice("[custom_code]: self.event table data: " .. self.sc_common:dumper(self.event))
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
-  -- use the warning method of oru logger module 
+  -- use the warning method from the logger module 
   self.sc_logger:warning("[custom_code]: host: "
     .. tostring(self.event.cache.host.name) .. " do not have notes, therefore, we drop the event")
   -- the boolean part of the return is here to tell the stream connector to ignore the event
