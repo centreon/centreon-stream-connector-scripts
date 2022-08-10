@@ -146,7 +146,8 @@ Maybe you want a closer look at what is inside the `self.event` table. To do so,
 ```lua
 local self = ...
 
--- we dump the event table to have a closer look to all the available data from the event itself and all the things that are in the cache that we may want to use
+-- we dump the event table to have a closer look to all the available data from the event itself 
+-- and all the things that are in the cache that we may want to use
 self.sc_logger:notice("[custom_code]: self.event table data: " .. self.sc_common:dumper(self.event))
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
@@ -167,7 +168,8 @@ return self, true
 ```lua
 local self = ...
 
--- we dump the event table to have a closer look to all the available data from the event itself and all the things that are in the cache that we may want to use
+-- we dump the event table to have a closer look to all the available data from the event itself 
+-- and all the things that are in the cache that we may want to use
 self.sc_logger:notice("[custom_code]: self.event table data: " .. self.sc_common:dumper(self.event))
 
 if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
