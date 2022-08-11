@@ -100,6 +100,12 @@ function EventQueue.new(params)
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
   self.sc_params:build_accepted_elements_info()
+
+  -- only load the custom code file, not executed yet
+  if not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
+    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+  end
+
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories

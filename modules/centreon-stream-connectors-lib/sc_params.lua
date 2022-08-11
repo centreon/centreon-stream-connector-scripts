@@ -96,6 +96,9 @@ function sc_params.new(common, logger)
     output_line_break_replacement_character = " ",
     output_size_limit = "",
 
+    -- custom code parameters
+    custom_code_file = "",
+
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
     timestamp_conversion_format = "%Y-%m-%d %X", -- will print 2021-06-11 10:43:38
@@ -824,7 +827,7 @@ end
 
 --- load_event_format_file: load a json file which purpose is to serve as a template to format events
 -- @param json_string [opt] (boolean) convert template from a lua table to a json string
--- @return true|false (boolean) if file is valid template file or not
+-- @return true|false (boolean) if file is a valid template file or not
 function ScParams:load_event_format_file(json_string)
   -- return if there is no file configured
   if self.params.format_file == "" or self.params.format_file == nil then
@@ -856,6 +859,49 @@ function ScParams:load_event_format_file(json_string)
     self.params.format_template[categories[tpl_category].id][elements[tpl_element].id] = format
   end
 
+  return true
+end
+
+--- load_custom_code_file: load a custom code which purpose is to enhance stream connectors possibilities without having to edit any standard code
+-- @param file (string) the file that needs to be loaded (example: /etc/centreon-broker/sc-custom-code.lua)
+-- @return true|false (boolean) if file is a valid custom code file or not
+function ScParams:load_custom_code_file(custom_code_file)
+  -- return if there is no file configured
+  if self.params.custom_code_file == "" or self.params.custom_code_file == nil then
+    return true
+  end 
+  
+  local file = io.open(custom_code_file, "r")
+
+  -- return false if we can't open the file
+  if not file then
+    self.logger:error("[sc_params:load_custom_code_file]: couldn't open file "
+      .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+    return false
+  end
+
+  -- get content of the file
+  local file_content = file:read("*a")
+  io.close(file)
+
+  -- check if it returns self, true or self, false
+  for return_value in string.gmatch(file_content, "return (.-)\n") do
+    if return_value ~= "self, true" and return_value ~= "self, false" then
+      self.logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
+        .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
+      return false
+    end
+  end
+  
+  -- check if it is valid lua code
+  local custom_code, error = loadfile(custom_code_file)
+
+  if not custom_code then
+    self.logger:error("[sc_params:load_custom_code_file]: custom_code_file doesn't contain valid lua code. Error is: " .. tostring(error))
+    return false
+  end
+
+  self.params.custom_code = custom_code
   return true
 end
 
