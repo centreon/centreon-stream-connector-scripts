@@ -69,6 +69,8 @@ function EventQueue.new(params)
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
+  -- just need to url encode the metric name  so we don't need to filter out characters
+  -- https://www.warp10.io/content/03_Documentation/03_Interacting_with_Warp_10/03_Ingesting_data/02_GTS_input_format#lines
   self.sc_params.params.metric_name_regex = params.metric_name_regex or "[.*]"
   self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "_" 
   
@@ -411,7 +413,7 @@ function EventQueue:send_data(payload)
   
   -- Handling the return code
   local retval = false
-  -- https://www.warp10.io/content/03_Documentation/03_Interacting_with_Warp_10/03_Ingesting_data/01_Ingress other than 200 is not good
+  -- https://www.warp10.io/content/03_Documentation/03_Interacting_with_Warp_10/03_Ingesting_data/01_Ingress#response-status-code other than 200 is not good
   if http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
