@@ -58,7 +58,7 @@ function EventQueue.new(params)
   end
   
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.api_token = params.token
+  self.sc_params.params.api_token = params.api_token
   self.sc_params.params.warp10_address = params.warp10_http_address
   self.sc_params.params.warp10_api_endpoint = params.warp10_api_endpoint or "/api/v0/update"
   self.sc_params.params.add_hg_in_labels = params.add_hg_in_labels or 1
