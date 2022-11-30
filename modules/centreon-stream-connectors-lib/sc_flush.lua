@@ -31,13 +31,18 @@ function sc_flush.new(params, logger)
   self.queues = {
     [categories.neb.id] = {},
     [categories.storage.id] = {},
-    [categories.bam.id] = {}
+    [categories.bam.id] = {},
+    global_queues_metadata = {}
   }
   
   -- link events queues to their respective categories and elements
   for element_name, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id] = {
-      events = {}
+      events = {},
+      queue_metadata = {
+        category_id = element_info.category_id,
+        element_id = element_info.element_id
+      }
     }
   end
 
@@ -104,7 +109,7 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
 
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
-        if not self:flush_payload(send_method, payload) then
+        if not self:flush_payload(send_method, payload, self.queues.global_queues_metadata) then
           return false
         end
 
@@ -116,7 +121,7 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   end
 
   -- we need to empty all queues to not mess with broker retention
-  if not self:flush_payload(send_method, payload) then
+  if not self:flush_payload(send_method, payload, self.queues.global_queues_metadata) then
     return false
   end
 
@@ -140,7 +145,11 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
 
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
-        if not self:flush_payload(send_method, payload) then
+        if not self:flush_payload(
+          send_method, 
+          payload, 
+          self.queues[element_info.category_id][element_info.element_id].metadata
+        ) then
           return false
         end
         
@@ -151,7 +160,11 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
     end
 
     -- make sure there are no events left inside a specific queue
-    if not self:flush_payload(send_method, payload) then
+    if not self:flush_payload(
+      send_method, 
+      payload, 
+      self.queues[element_info.category_id][element_info.element_id].metadata
+    ) then
       return false
     end
 
@@ -164,9 +177,9 @@ end
 
 --- flush_payload: flush a payload that contains a single type of events (services with services only and hosts with hosts only for example)
 -- @return boolean (boolean) true or false depending on the success of the operation
-function ScFlush:flush_payload(send_method, payload)
+function ScFlush:flush_payload(send_method, payload, metadata)
   if payload then
-    if not send_method(payload) then
+    if not send_method(payload, metadata) then
       return false
     end
   end
