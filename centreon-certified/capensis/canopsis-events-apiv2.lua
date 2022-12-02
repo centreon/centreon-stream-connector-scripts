@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Datadog Connector Events
+-- Centreon Broker Canopsis Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -70,7 +70,7 @@ function EventQueue.new(params)
   self.sc_params.params.sending_protocol = params.sending_protocol or "http"
   self.sc_params.params.timezone = params.timezone or "Europe/Paris"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement,downtime"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -335,9 +335,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = broker.json_encode(event)
+    payload = { event }
   else
-    payload = payload .. broker.json_encode(event)
+    payload = table.insert(payload, event)
   end
   
   return payload
@@ -346,16 +346,19 @@ end
 function EventQueue:send_data(payload, metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.http_server_url .. self.sc_params.params.datadog_event_endpoint
+  local params = self.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
+    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. metadata.event_route
+  local data = broker.json_encode(payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(payload))
+    self.sc_logger:notice("[send_data]: " .. tostring(data))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. data)
+  self.sc_logger:info("[EventQueue:send_data]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -370,8 +373,8 @@ function EventQueue:send_data(payload, metadata)
     :setopt(
       curl.OPT_HTTPHEADER,
       {
-        "content-type: application/json",
-        "DD-API-KEY:" .. self.sc_params.params.api_key
+        "content-length: " .. string.len(data),
+        "content-type: application/json"
       }
   )
 
@@ -387,7 +390,8 @@ function EventQueue:send_data(payload, metadata)
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username 
+        .. ':' .. self.sc_params.params.proxy_password)
     else
       self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
@@ -407,11 +411,13 @@ function EventQueue:send_data(payload, metadata)
   -- Handling the return code
   local retval = false
   -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
-  if http_response_code == 202 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+  if http_response_code == 200 then
+    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is "
+      .. tostring(http_response_code))
     retval = true
   else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
+      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
   
   return retval
