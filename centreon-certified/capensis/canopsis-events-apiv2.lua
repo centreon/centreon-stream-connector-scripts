@@ -44,7 +44,7 @@ function EventQueue.new(params)
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/canopsis-events.log"
-  local log_level = params.log_level or 1
+  local log_level = params.log_level or 2
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -75,6 +75,7 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_params.params.send_mixed_events = 0
   
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
@@ -93,9 +94,10 @@ function EventQueue.new(params)
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
   
-  self.sc_flush.queues[categories.neb.id][elements.host_status.id].metadata.event_route = self.sc_params.params.canopsis_event_route
-  self.sc_flush.queues[categories.neb.id][elements.service_status.id].metadata.event_route = self.sc_params.params.canopsis_event_route
-  self.sc_flush.queues[categories.neb.id][elements.downtime.id].metadata.event_route = self.sc_params.params.canopsis_downtime_route
+  self.sc_flush.queues[categories.neb.id][elements.host_status.id].queue_metadata.event_route = self.sc_params.params.canopsis_event_route
+  self.sc_flush.queues[categories.neb.id][elements.service_status.id].queue_metadata.event_route = self.sc_params.params.canopsis_event_route
+  self.sc_flush.queues[categories.neb.id][elements.downtime.id].queue_metadata.event_route = self.sc_params.params.canopsis_downtime_route
+  self.sc_flush.queues[categories.neb.id][elements.acknowledgement.id].queue_metadata.event_route = self.sc_params.params.canopsis_event_route
 
   self.format_event = {
     [categories.neb.id] = {
@@ -124,7 +126,7 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
@@ -168,7 +170,7 @@ end
 function EventQueue:list_servicegroups()
   local servicegroups =  {}
 
-  for _, sg in pairs(event.cache.servicegroups) do
+  for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
     table.insert(servicegroups, sg.group_name)
   end
 
@@ -178,7 +180,7 @@ end
 function EventQueue:list_hostgroups()
   local hostgroups =  {}
 
-  for _, hg in pairs(event.cache.hostgroups) do
+  for _, hg in pairs(self.sc_event.event.cache.hostgroups) do
     table.insert(hostgroups, hg.group_name)
   end
 
@@ -219,17 +221,17 @@ function EventQueue:format_event_service()
     output = event.output,
     state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
     -- extra informations
-    servicegroups = self:list_hostgroups(),
+    servicegroups = self:list_servicegroups(),
     notes_url = event.cache.service.notes_url,
     action_url = event.cache.service.action_url,
-    hostgroups = hostgroups
+    hostgroups = self:list_hostgroups()
   }
 end
 
 function EventQueue:format_event_acknowledgement()
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
-  
+
   self.sc_event.event.formated_event = {
     event_type = "ack",
     crecord_type = "ack",
@@ -273,36 +275,44 @@ function EventQueue:format_event_downtime()
   local elements = self.sc_params.params.bbdo.elements
   local canopsis_downtime_id = "centreon-downtime-".. event.internal_id .. "-" .. event.entry_time
 
-  self.sc_event.event.formated_event = {
-    _id = canopsis_downtime_id, 
-    author = event.author,
-    name = canopsis_downtime_id,
-    tstart = event.start_time,
-    tstop = event.end_time,
-    type_ = "Maintenance",
-    reason = "Autre",
-    timezone = self.sc_params.params.timezone,
-    comments = {
-      {
-        ['author'] = event.author,
-        ['message'] = event.comment_data
-      }
-    },
-    filter = {
-      ['$and'] = {
-        {
-          ['_id'] = ""
-        }
-      }
-    },
-    exdate = {},
-  }
-
-  if event.service_id then
-    self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.service.description)
-      .. "/" .. tostring(event.cache.host.name)
+  if event.cancelled then
+    local metadata = {
+      event_route = self.sc_params.params.canopsis_downtime_route .. "/" .. canopsis_downtime_id,
+      method = "DELETE"
+    }
+    self:send_data({}, metadata)
   else
-    self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.host.name)
+    self.sc_event.event.formated_event = {
+      _id = canopsis_downtime_id,
+      author = event.author,
+      name = canopsis_downtime_id,
+      tstart = event.start_time,
+      tstop = event.end_time,
+      type_ = "Maintenance",
+      reason = "Autre",
+      timezone = self.sc_params.params.timezone,
+      comments = {
+        {
+          ['author'] = event.author,
+          ['message'] = event.comment_data
+        }
+      },
+      filter = {
+        ['$and'] = {
+          {
+            ['_id'] = ""
+          }
+        }
+      },
+      exdate = {},
+    }
+
+    if event.service_id then
+      self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.service.description)
+        .. "/" .. tostring(event.cache.host.name)
+    else
+      self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.host.name)
+    end
   end
 end
 
@@ -313,8 +323,9 @@ function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
+  local next = next
 
-  if #self.sc_event.event.formated_event > 0 then
+  if next(self.sc_event.event.formated_event) ~= nil then
     self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
       .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
@@ -343,12 +354,12 @@ function EventQueue:build_payload(payload, event)
   return payload
 end
 
-function EventQueue:send_data(payload, metadata)
+function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   local params = self.sc_params.params
   local url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
-    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. metadata.event_route
+    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
   local data = broker.json_encode(payload)
 
   -- write payload in the logfile for test purpose
@@ -376,7 +387,7 @@ function EventQueue:send_data(payload, metadata)
         "content-length: " .. string.len(data),
         "content-type: application/json"
       }
-  )
+    )
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
@@ -398,7 +409,18 @@ function EventQueue:send_data(payload, metadata)
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload)
+  if queue_metadata.method and queue_metadata == "DELETE" then
+    http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+  else
+    http_request:setopt(
+      curl.OPT_HTTPHEADER,
+      {
+        "content-length: " .. string.len(data),
+        "content-type: application/json"
+      }
+    )
+    http_request:setopt_postfields(data)
+  end
 
   -- performing the HTTP request
   http_request:perform()
