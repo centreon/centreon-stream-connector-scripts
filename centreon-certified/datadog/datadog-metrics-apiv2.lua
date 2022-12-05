@@ -268,7 +268,7 @@ function EventQueue:send_data(payload)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload_json))
-  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Datadog address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()

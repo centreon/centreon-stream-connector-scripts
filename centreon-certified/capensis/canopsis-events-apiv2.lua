@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Datadog Connector Events
+-- Centreon Broker Canopsis Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -35,14 +35,16 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "api_key"
+    "canopsis_user",
+    "canopsis_password",
+    "canopsis_host"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/datadog-events.log"
-  local log_level = params.log_level or 1
+  local logfile = params.logfile or "/var/log/centreon-broker/canopsis-events.log"
+  local log_level = params.log_level or 2
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -55,60 +57,76 @@ function EventQueue.new(params)
     self.fail = true
   end
   
-  --params.max_buffer_size = 1
-  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.api_key = params.api_key
-  self.sc_params.params.datadog_centreon_url = params.datadog_centreon_url or "http://yourcentreonaddress.local"
-  self.sc_params.params.datadog_event_endpoint = params.datadog_event_endpoint or "/api/v1/events"
-  self.sc_params.params.http_server_url = params.http_server_url or "https://api.datadoghq.com"
+  self.sc_params.params.canopsis_user = params.canopsis_user
+  self.sc_params.params.canopsis_password = params.canopsis_password
+  self.sc_params.params.connector = params.connector or "centreon-stream"
+  self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
+  self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v2/event"
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v2/pbehavior"
+  self.sc_params.params.canopsis_host = params.canopsis_host
+  self.sc_params.params.canopsis_port = params.canopsis_port or 8082
+  self.sc_params.params.sending_method = params.sending_method or "api"
+  self.sc_params.params.sending_protocol = params.sending_protocol or "http"
+  self.sc_params.params.timezone = params.timezone or "Europe/Paris"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement,downtime"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_params.params.send_mixed_events = 0
   
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
   -- only load the custom code file, not executed yet
-  if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
-    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+  if self.sc_params.load_custom_code_file 
+    and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) 
+  then
+    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: "
+      .. tostring(self.sc_params.params.custom_code_file))
   end
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-
+  
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
-
-  self.state_to_alert_type_mapping = {
-    [categories.neb.id] = {
-        [elements.host_status.id] = {
-            [0] = "info",
-            [1] = "error",
-            [2] = "warning"
-        },
-        [elements.service_status.id] = {
-            [0] = "info",
-            [1] = "warning",
-            [2] = "error",
-            [3] = "warning"
-        }
-    }
-  }
+  
+  self.sc_flush.queues[categories.neb.id][elements.host_status.id].queue_metadata.event_route = self.sc_params.params.canopsis_event_route
+  self.sc_flush.queues[categories.neb.id][elements.service_status.id].queue_metadata.event_route = self.sc_params.params.canopsis_event_route
+  self.sc_flush.queues[categories.neb.id][elements.downtime.id].queue_metadata.event_route = self.sc_params.params.canopsis_downtime_route
+  self.sc_flush.queues[categories.neb.id][elements.acknowledgement.id].queue_metadata.event_route = self.sc_params.params.canopsis_event_route
 
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
-      [elements.service_status.id] = function () return self:format_event_service() end
+      [elements.service_status.id] = function () return self:format_event_service() end,
+      [elements.downtime.id] = function () return self:format_event_downtime() end,
+      [elements.acknowledgement.id] = function () return self:format_event_acknowledgement() end
     },
     [categories.bam.id] = {}
   }
 
+  self.centreon_to_canopsis_state = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = {
+        [0] = 0,
+        [1] = 3,
+        [2] = 2
+      },
+      [elements.service_status.id] = {
+        [0] = 0,
+        [1] = 1,
+        [2] = 3,
+        [3] = 2
+      }
+    }
+  }
+
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
@@ -149,16 +167,43 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
+function EventQueue:list_servicegroups()
+  local servicegroups =  {}
+
+  for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
+    table.insert(servicegroups, sg.group_name)
+  end
+
+  return servicegroups
+end
+
+function EventQueue:list_hostgroups()
+  local hostgroups =  {}
+
+  for _, hg in pairs(self.sc_event.event.cache.hostgroups) do
+    table.insert(hostgroups, hg.group_name)
+  end
+
+  return hostgroups
+end
+
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
-    title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name),
-    text = event.output,
-    aggregation_key = "host_" .. tostring(event.host_id),
-    alert_type = self.state_to_alert_type_mapping[event.category][event.element][event.state],
-    host = tostring(event.cache.host.name),
-    date_happened = event.last_check
+    event_type = "check",
+    source_type = "component",
+    connector = self.sc_params.params.connector,
+    connector_name = self.sc_params.params.connector_name,
+    component = tostring(event.cache.host.name),
+    resource = "",
+    timestamp = event.last_check,
+    output = event.output,
+    state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
+    -- extra informations
+    hostgroups = self:list_hostgroups(),
+    notes_url = tostring(event.cache.host.notes_url),
+    action_url = tostring(event.cache.host.action_url)
   }
 end
 
@@ -166,13 +211,109 @@ function EventQueue:format_event_service()
   local event = self.sc_event.event
   
   self.sc_event.event.formated_event = {
-    title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name .. ": " .. event.cache.service.description),
-    text = event.output,
-    aggregation_key = "service_" .. tostring(event.host_id) .. "_" .. tostring(event.service_id),
-    alert_type = self.state_to_alert_type_mapping[event.category][event.element][event.state],
-    host = tostring(event.cache.host.name),
-    date_happened = event.last_check
+    event_type = "check",
+    source_type = "resource",
+    connector = self.sc_params.params.connector,
+    connector_name = self.sc_params.params.connector_name,
+    component = tostring(event.cache.host.name),
+    resource = tostring(event.cache.service.description),
+    timestamp = event.last_check,
+    output = event.output,
+    state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
+    -- extra informations
+    servicegroups = self:list_servicegroups(),
+    notes_url = event.cache.service.notes_url,
+    action_url = event.cache.service.action_url,
+    hostgroups = self:list_hostgroups()
   }
+end
+
+function EventQueue:format_event_acknowledgement()
+  local event = self.sc_event.event
+  local elements = self.sc_params.params.bbdo.elements
+
+  self.sc_event.event.formated_event = {
+    event_type = "ack",
+    crecord_type = "ack",
+    author = event.author,
+    resource = "",
+    component = tostring(event.cache.host.name),
+    connector = self.sc_params.params.connector,
+    connector_name = self.sc_params.params.connector_name,
+    timestamp = event.entry_time,
+    output = event.comment_data,
+    origin = "centreon",
+    ticket = "",
+    state_type = 1,
+    ack_resources = false
+  }
+
+  if event.service_id then
+    self.sc_event.event.formated_event['source_type'] = "resource"
+    self.sc_event.event.formated_event['resource'] = tostring(event.cache.service.description)
+    self.sc_event.event.formated_event['ref_rk'] = tostring(event.cache.service.description)
+      .. "/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+      [elements.service_status.id][event.state]
+  else
+    self.sc_event.event.formated_event['source_type'] = "component"
+    self.sc_event.event.formated_event['ref_rk'] = "undefined/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+      [elements.host_status.id][event.state]
+  end
+
+  -- send ackremove
+  if event.deletion_time then
+    event['event_type'] = "ackremove"
+    event['crecord_type'] = "ackremove"
+    event['timestamp'] = event.deletion_time
+  end
+end
+
+function EventQueue:format_event_downtime()
+  local event = self.sc_event.event
+  local elements = self.sc_params.params.bbdo.elements
+  local canopsis_downtime_id = "centreon-downtime-".. event.internal_id .. "-" .. event.entry_time
+
+  if event.cancelled then
+    local metadata = {
+      event_route = self.sc_params.params.canopsis_downtime_route .. "/" .. canopsis_downtime_id,
+      method = "DELETE"
+    }
+    self:send_data({}, metadata)
+  else
+    self.sc_event.event.formated_event = {
+      _id = canopsis_downtime_id,
+      author = event.author,
+      name = canopsis_downtime_id,
+      tstart = event.start_time,
+      tstop = event.end_time,
+      type_ = "Maintenance",
+      reason = "Autre",
+      timezone = self.sc_params.params.timezone,
+      comments = {
+        {
+          ['author'] = event.author,
+          ['message'] = event.comment_data
+        }
+      },
+      filter = {
+        ['$and'] = {
+          {
+            ['_id'] = ""
+          }
+        }
+      },
+      exdate = {},
+    }
+
+    if event.service_id then
+      self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.service.description)
+        .. "/" .. tostring(event.cache.host.name)
+    else
+      self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.host.name)
+    end
+  end
 end
 
 --------------------------------------------------------------------------------
@@ -182,15 +323,19 @@ function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
+  local next = next
 
-  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
-    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+  if next(self.sc_event.event.formated_event) ~= nil then
+    self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+      .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+    self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
-  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+    
+    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+      .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+  end
 
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -201,27 +346,30 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = broker.json_encode(event)
+    payload = { event }
   else
-    payload = payload .. broker.json_encode(event)
+    payload = table.insert(payload, event)
   end
   
   return payload
 end
 
-function EventQueue:send_data(payload)
+function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.http_server_url .. self.sc_params.params.datadog_event_endpoint
+  local params = self.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
+    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  local data = broker.json_encode(payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(payload))
+    self.sc_logger:notice("[send_data]: " .. tostring(data))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Datadog address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. data)
+  self.sc_logger:info("[EventQueue:send_data]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -236,10 +384,10 @@ function EventQueue:send_data(payload)
     :setopt(
       curl.OPT_HTTPHEADER,
       {
-        "content-type: application/json",
-        "DD-API-KEY:" .. self.sc_params.params.api_key
+        "content-length: " .. string.len(data),
+        "content-type: application/json"
       }
-  )
+    )
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
@@ -253,14 +401,26 @@ function EventQueue:send_data(payload)
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username 
+        .. ':' .. self.sc_params.params.proxy_password)
     else
       self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload)
+  if queue_metadata.method and queue_metadata == "DELETE" then
+    http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+  else
+    http_request:setopt(
+      curl.OPT_HTTPHEADER,
+      {
+        "content-length: " .. string.len(data),
+        "content-type: application/json"
+      }
+    )
+    http_request:setopt_postfields(data)
+  end
 
   -- performing the HTTP request
   http_request:perform()
@@ -273,11 +433,13 @@ function EventQueue:send_data(payload)
   -- Handling the return code
   local retval = false
   -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
-  if http_response_code == 202 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+  if http_response_code == 200 then
+    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is "
+      .. tostring(http_response_code))
     retval = true
   else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
+      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
   
   return retval
