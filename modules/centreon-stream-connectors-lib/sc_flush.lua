@@ -7,6 +7,7 @@
 local sc_flush = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScFlush = {}
 
@@ -21,6 +22,8 @@ function sc_flush.new(params, logger)
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
   end
+
+  self.sc_common = sc_common.new(self.sc_logger)
 
   self.params = params
   self.last_global_flush = os.time()
@@ -142,13 +145,13 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
       -- add event to the payload
       payload = build_payload_method(payload, event)
       counter = counter + 1
-
+      
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
         if not self:flush_payload(
           send_method, 
           payload, 
-          self.queues[element_info.category_id][element_info.element_id].metadata
+          self.queues[element_info.category_id][element_info.element_id].queue_metadata
         ) then
           return false
         end
@@ -163,7 +166,7 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
     if not self:flush_payload(
       send_method, 
       payload, 
-      self.queues[element_info.category_id][element_info.element_id].metadata
+      self.queues[element_info.category_id][element_info.element_id].queue_metadata
     ) then
       return false
     end
