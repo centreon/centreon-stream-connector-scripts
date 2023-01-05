@@ -97,7 +97,7 @@ function EventQueue.new (params)
   }
 
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
@@ -412,7 +412,7 @@ end
 -- EventQueue:send_data, send data to external tool
 -- @return {boolean}
 --------------------------------------------------------------------------------
-function EventQueue:send_data(payload)
+function EventQueue:send_data(payload, queue_metadata)
   local authToken
   local counter = 0
 
