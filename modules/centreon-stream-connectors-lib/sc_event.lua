@@ -991,8 +991,8 @@ end
 function ScEvent:get_downtime_service_status()
   -- if cache is not filled we can't get the state of the service
   if 
-    not self.event.cache.host.last_time_ok 
-    or not self.event.cache.host.last_time_warning 
+    not self.event.cache.service.last_time_ok 
+    or not self.event.cache.service.last_time_warning 
     or not self.event.cache.service.last_time_critical 
     or not self.event.cache.service.last_time_unknown 
   then

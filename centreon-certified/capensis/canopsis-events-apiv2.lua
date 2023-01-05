@@ -61,6 +61,7 @@ function EventQueue.new(params)
   self.sc_params.params.canopsis_user = params.canopsis_user
   self.sc_params.params.canopsis_password = params.canopsis_password
   self.sc_params.params.connector = params.connector or "centreon-stream"
+  self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
   self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
   self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v2/event"
   self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v2/pbehavior"
@@ -76,6 +77,10 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params.params.send_mixed_events = 0
+
+  if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
+    self.sc_params.params.connector_name_type = "poller"
+  end
   
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
@@ -187,6 +192,15 @@ function EventQueue:list_hostgroups()
   return hostgroups
 end
 
+function EventQueue:get_connector_name()
+  -- use poller name as a connector name
+  if self.sc_params.params.connector_name_type == "poller" then
+    return tostring(self.sc_event.event.cache.poller)
+  end
+
+  return tostring(self.sc_params.params.connector_name)
+end
+
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
@@ -194,7 +208,7 @@ function EventQueue:format_event_host()
     event_type = "check",
     source_type = "component",
     connector = self.sc_params.params.connector,
-    connector_name = self.sc_params.params.connector_name,
+    connector_name = self:get_connector_name(),
     component = tostring(event.cache.host.name),
     resource = "",
     timestamp = event.last_check,
@@ -214,7 +228,7 @@ function EventQueue:format_event_service()
     event_type = "check",
     source_type = "resource",
     connector = self.sc_params.params.connector,
-    connector_name = self.sc_params.params.connector_name,
+    connector_name = self:get_connector_name(),
     component = tostring(event.cache.host.name),
     resource = tostring(event.cache.service.description),
     timestamp = event.last_check,
@@ -239,7 +253,7 @@ function EventQueue:format_event_acknowledgement()
     resource = "",
     component = tostring(event.cache.host.name),
     connector = self.sc_params.params.connector,
-    connector_name = self.sc_params.params.connector_name,
+    connector_name = self:get_connector_name(),
     timestamp = event.entry_time,
     output = event.comment_data,
     origin = "centreon",
@@ -275,7 +289,7 @@ function EventQueue:format_event_downtime()
   local elements = self.sc_params.params.bbdo.elements
   local canopsis_downtime_id = "centreon-downtime-".. event.internal_id .. "-" .. event.entry_time
 
-  if event.cancelled then
+  if event.cancelled or event.deletion_time then
     local metadata = {
       event_route = self.sc_params.params.canopsis_downtime_route .. "/" .. canopsis_downtime_id,
       method = "DELETE"
