@@ -108,7 +108,7 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload, queue_metadata) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
