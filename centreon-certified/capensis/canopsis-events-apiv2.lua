@@ -77,6 +77,7 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params.params.send_mixed_events = 0
+  self.sc_params.params.max_buffer_size = 1
 
   if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
     self.sc_params.params.connector_name_type = "poller"
@@ -278,9 +279,9 @@ function EventQueue:format_event_acknowledgement()
 
   -- send ackremove
   if event.deletion_time then
-    event['event_type'] = "ackremove"
-    event['crecord_type'] = "ackremove"
-    event['timestamp'] = event.deletion_time
+    self.sc_event.event.formated_event['event_type'] = "ackremove"
+    self.sc_event.event.formated_event['crecord_type'] = "ackremove"
+    self.sc_event.event.formated_event['timestamp'] = event.deletion_time
   end
 end
 
@@ -360,7 +361,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = { event }
+    payload = event
   else
     payload = table.insert(payload, event)
   end
