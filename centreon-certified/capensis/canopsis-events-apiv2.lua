@@ -278,9 +278,9 @@ function EventQueue:format_event_acknowledgement()
 
   -- send ackremove
   if event.deletion_time then
-    event['event_type'] = "ackremove"
-    event['crecord_type'] = "ackremove"
-    event['timestamp'] = event.deletion_time
+    self.sc_event.event.formated_event['event_type'] = "ackremove"
+    self.sc_event.event.formated_event['crecord_type'] = "ackremove"
+    self.sc_event.event.formated_event['timestamp'] = event.deletion_time
   end
 end
 
@@ -360,7 +360,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = { event }
+    payload = event
   else
     payload = table.insert(payload, event)
   end
@@ -423,7 +423,7 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   -- adding the HTTP POST data
-  if queue_metadata.method and queue_metadata == "DELETE" then
+  if queue_metadata.method and queue_metadata.method == "DELETE" then
     http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
   else
     http_request:setopt(
