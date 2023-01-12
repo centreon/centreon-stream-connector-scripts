@@ -44,7 +44,7 @@ function EventQueue.new(params)
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/canopsis-events.log"
-  local log_level = params.log_level or 2
+  local log_level = params.log_level or 1
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -77,6 +77,7 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params.params.send_mixed_events = 0
+  self.sc_params.params.max_buffer_size = 1
 
   if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
     self.sc_params.params.connector_name_type = "poller"
