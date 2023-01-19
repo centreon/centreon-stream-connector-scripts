@@ -1,128 +1,131 @@
 # Documentation of the sc_param module
 
-- [Documentation of the sc_param module](#documentation-of-the-sc_param-module)
+- [Documentation of the sc\_param module](#documentation-of-the-sc_param-module)
   - [Introduction](#introduction)
   - [Module initialization](#module-initialization)
     - [module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
-  - [is_valid_category method](#is_valid_category-method)
-    - [is_valid_category: returns](#is_valid_category-returns)
-    - [is_valid_category: example](#is_valid_category-example)
-  - [is_valid_element method](#is_valid_element-method)
-    - [is_valid_element: returns](#is_valid_element-returns)
-    - [is_valid_element: example](#is_valid_element-example)
-  - [is_valid_event method](#is_valid_event-method)
-    - [is_valid_event: returns](#is_valid_event-returns)
-    - [is_valid_event: example](#is_valid_event-example)
-  - [is_valid_neb_event method](#is_valid_neb_event-method)
-    - [is_valid_neb_event: returns](#is_valid_neb_event-returns)
-    - [is_valid_neb_event: example](#is_valid_neb_event-example)
-  - [is_valid_host_status_event method](#is_valid_host_status_event-method)
-    - [is_valid_host_status_event: returns](#is_valid_host_status_event-returns)
-    - [is_valid_host_status_event: example](#is_valid_host_status_event-example)
-  - [is_valid_service_status_event method](#is_valid_service_status_event-method)
-    - [is_valid_service_status_event: returns](#is_valid_service_status_event-returns)
-    - [is_valid_service_status_event: example](#is_valid_service_status_event-example)
-  - [is_valid_host method](#is_valid_host-method)
-    - [is_valid_host: returns](#is_valid_host-returns)
-    - [is_valid_host: example](#is_valid_host-example)
-  - [is_valid_service method](#is_valid_service-method)
-    - [is_valid_service: returns](#is_valid_service-returns)
-    - [is_valid_service: example](#is_valid_service-example)
-  - [is_valid_event_states method](#is_valid_event_states-method)
-    - [is_valid_event_states: returns](#is_valid_event_states-returns)
-    - [is_valid_event_states: example](#is_valid_event_states-example)
-  - [is_valid_event_status method](#is_valid_event_status-method)
-    - [is_valid_event_status: parameters](#is_valid_event_status-parameters)
-    - [is_valid_event_status: returns](#is_valid_event_status-returns)
-    - [is_valid_event_status: example](#is_valid_event_status-example)
-  - [is_valid_event_state_type method](#is_valid_event_state_type-method)
-    - [is_valid_event_state_type: returns](#is_valid_event_state_type-returns)
-    - [is_valid_event_state_type: example](#is_valid_event_state_type-example)
-  - [is_valid_event_acknowledge_state method](#is_valid_event_acknowledge_state-method)
-    - [is_valid_event_acknowledge_state: returns](#is_valid_event_acknowledge_state-returns)
-    - [is_valid_event_acknowledge_state: example](#is_valid_event_acknowledge_state-example)
-  - [is_valid_event_downtime_state method](#is_valid_event_downtime_state-method)
-    - [is_valid_event_downtime_state: returns](#is_valid_event_downtime_state-returns)
-    - [is_valid_event_downtime_state: example](#is_valid_event_downtime_state-example)
-  - [is_valid_hostgroup method](#is_valid_hostgroup-method)
-    - [is_valid_hostgroup: returns](#is_valid_hostgroup-returns)
-    - [is_valid_hostgroup: example](#is_valid_hostgroup-example)
-  - [is_valid_servicegroup method](#is_valid_servicegroup-method)
-    - [is_valid_servicegroup: returns](#is_valid_servicegroup-returns)
-    - [is_valid_servicegroup: example](#is_valid_servicegroup-example)
-  - [is_valid_bam_event method](#is_valid_bam_event-method)
-    - [is_valid_bam_event: returns](#is_valid_bam_event-returns)
-    - [is_valid_bam_event: example](#is_valid_bam_event-example)
-  - [is_valid_ba method](#is_valid_ba-method)
-    - [is_valid_ba: returns](#is_valid_ba-returns)
-    - [is_valid_ba: example](#is_valid_ba-example)
-  - [is_valid_ba_status_event method](#is_valid_ba_status_event-method)
-    - [is_valid_ba_status_event: returns](#is_valid_ba_status_event-returns)
-    - [is_valid_ba_status_event: example](#is_valid_ba_status_event-example)
-  - [is_valid_ba_downtime_state method](#is_valid_ba_downtime_state-method)
-    - [is_valid_ba_downtime_state: returns](#is_valid_ba_downtime_state-returns)
-    - [is_valid_ba_downtime_state: example](#is_valid_ba_downtime_state-example)
-  - [is_valid_ba_acknowledge_state method](#is_valid_ba_acknowledge_state-method)
-    - [is_valid_ba_acknowledge_state: returns](#is_valid_ba_acknowledge_state-returns)
-    - [is_valid_ba_acknowledge_state: example](#is_valid_ba_acknowledge_state-example)
-  - [is_valid_bv method](#is_valid_bv-method)
-    - [is_valid_bv: returns](#is_valid_bv-returns)
-    - [is_valid_bv: example](#is_valid_bv-example)
-  - [find_hostgroup_in_list method](#find_hostgroup_in_list-method)
-    - [find_hostgroup_in_list: returns](#find_hostgroup_in_list-returns)
-    - [find_hostgroup_in_list: example](#find_hostgroup_in_list-example)
-  - [find_servicegroup_in_list method](#find_servicegroup_in_list-method)
-    - [find_servicegroup_in_list: returns](#find_servicegroup_in_list-returns)
-    - [find_servicegroup_in_list: example](#find_servicegroup_in_list-example)
-  - [find_bv_in_list method](#find_bv_in_list-method)
-    - [find_bv_in_list: returns](#find_bv_in_list-returns)
-    - [find_bv_in_list: example](#find_bv_in_list-example)
-  - [is_valid_poller method](#is_valid_poller-method)
-    - [is_valid_poller: returns](#is_valid_poller-returns)
-    - [is_valid_poller: example](#is_valid_poller-example)
-  - [find_poller_in_list method](#find_poller_in_list-method)
-    - [find_poller_in_list: returns](#find_poller_in_list-returns)
-    - [find_poller_in_list: example](#find_poller_in_list-example)
-  - [is_valid_host_severity method](#is_valid_host_severity-method)
-    - [is_valid_host_severity: returns](#is_valid_host_severity-returns)
-    - [is_valid_host_severity: example](#is_valid_host_severity-example)
-  - [is_valid_service_severity method](#is_valid_service_severity-method)
-    - [is_valid_service_severity: returns](#is_valid_service_severity-returns)
-    - [is_valid_service_severity: example](#is_valid_service_severity-example)
-  - [is_valid_acknowledgement_event method](#is_valid_acknowledgement_event-method)
-    - [is_valid_acknowledgement_event: returns](#is_valid_acknowledgement_event-returns)
-    - [is_valid_acknowledgement_event: example](#is_valid_acknowledgement_event-example)
-  - [is_host_status_event_duplicated method](#is_host_status_event_duplicated-method)
-    - [is_host_status_event_duplicated: returns](#is_host_status_event_duplicated-returns)
-    - [is_host_status_event_duplicated: example](#is_host_status_event_duplicated-example)
-  - [is_service_status_event_duplicated method](#is_service_status_event_duplicated-method)
-    - [is_service_status_event_duplicated: returns](#is_service_status_event_duplicated-returns)
-    - [is_service_status_event_duplicated: example](#is_service_status_event_duplicated-example)
-  - [is_valid_downtime_event method](#is_valid_downtime_event-method)
-    - [is_valid_downtime_event: returns](#is_valid_downtime_event-returns)
-    - [is_valid_downtime_event: example](#is_valid_downtime_event-example)
-  - [get_downtime_host_status method](#get_downtime_host_status-method)
-    - [get_downtime_host_status: returns](#get_downtime_host_status-returns)
-    - [get_downtime_host_status: example](#get_downtime_host_status-example)
-  - [get_downtime_service_status method](#get_downtime_service_status-method)
-    - [get_downtime_service_status: returns](#get_downtime_service_status-returns)
-    - [get_downtime_service_status: example](#get_downtime_service_status-example)
-  - [is_valid_author method](#is_valid_author-method)
-    - [is_valid_author: returns](#is_valid_author-returns)
-    - [is_valid_author: example](#is_valid_author-example)
-  - [is_downtime_event_useless method](#is_downtime_event_useless-method)
-    - [is_downtime_event_useless: returns](#is_downtime_event_useless-returns)
-    - [is_downtime_event_useless: example](#is_downtime_event_useless-example)
-  - [is_valid_downtime_event_start method](#is_valid_downtime_event_start-method)
-    - [is_valid_downtime_event_start: returns](#is_valid_downtime_event_start-returns)
-    - [is_valid_downtime_event_start: example](#is_valid_downtime_event_start-example)
-  - [is_valid_downtime_event_end method](#is_valid_downtime_event_end-method)
-    - [is_valid_downtime_event_end: returns](#is_valid_downtime_event_end-returns)
-    - [is_valid_downtime_event_end: example](#is_valid_downtime_event_end-example)
-  - [build_outputs method](#build_outputs-method)
-    - [build_outputs: example](#build_outputs-example)
-  - [is_valid_storage_event method](#is_valid_storage_event-method)
+  - [is\_valid\_category method](#is_valid_category-method)
+    - [is\_valid\_category: returns](#is_valid_category-returns)
+    - [is\_valid\_category: example](#is_valid_category-example)
+  - [is\_valid\_element method](#is_valid_element-method)
+    - [is\_valid\_element: returns](#is_valid_element-returns)
+    - [is\_valid\_element: example](#is_valid_element-example)
+  - [is\_valid\_event method](#is_valid_event-method)
+    - [is\_valid\_event: returns](#is_valid_event-returns)
+    - [is\_valid\_event: example](#is_valid_event-example)
+  - [is\_valid\_neb\_event method](#is_valid_neb_event-method)
+    - [is\_valid\_neb\_event: returns](#is_valid_neb_event-returns)
+    - [is\_valid\_neb\_event: example](#is_valid_neb_event-example)
+  - [is\_valid\_host\_status\_event method](#is_valid_host_status_event-method)
+    - [is\_valid\_host\_status\_event: returns](#is_valid_host_status_event-returns)
+    - [is\_valid\_host\_status\_event: example](#is_valid_host_status_event-example)
+  - [is\_valid\_service\_status\_event method](#is_valid_service_status_event-method)
+    - [is\_valid\_service\_status\_event: returns](#is_valid_service_status_event-returns)
+    - [is\_valid\_service\_status\_event: example](#is_valid_service_status_event-example)
+  - [is\_valid\_host method](#is_valid_host-method)
+    - [is\_valid\_host: returns](#is_valid_host-returns)
+    - [is\_valid\_host: example](#is_valid_host-example)
+  - [is\_valid\_service method](#is_valid_service-method)
+    - [is\_valid\_service: returns](#is_valid_service-returns)
+    - [is\_valid\_service: example](#is_valid_service-example)
+  - [is\_valid\_event\_states method](#is_valid_event_states-method)
+    - [is\_valid\_event\_states: returns](#is_valid_event_states-returns)
+    - [is\_valid\_event\_states: example](#is_valid_event_states-example)
+  - [is\_valid\_event\_status method](#is_valid_event_status-method)
+    - [is\_valid\_event\_status: parameters](#is_valid_event_status-parameters)
+    - [is\_valid\_event\_status: returns](#is_valid_event_status-returns)
+    - [is\_valid\_event\_status: example](#is_valid_event_status-example)
+  - [is\_valid\_event\_state\_type method](#is_valid_event_state_type-method)
+    - [is\_valid\_event\_state\_type: returns](#is_valid_event_state_type-returns)
+    - [is\_valid\_event\_state\_type: example](#is_valid_event_state_type-example)
+  - [is\_valid\_event\_acknowledge\_state method](#is_valid_event_acknowledge_state-method)
+    - [is\_valid\_event\_acknowledge\_state: returns](#is_valid_event_acknowledge_state-returns)
+    - [is\_valid\_event\_acknowledge\_state: example](#is_valid_event_acknowledge_state-example)
+  - [is\_valid\_event\_downtime\_state method](#is_valid_event_downtime_state-method)
+    - [is\_valid\_event\_downtime\_state: returns](#is_valid_event_downtime_state-returns)
+    - [is\_valid\_event\_downtime\_state: example](#is_valid_event_downtime_state-example)
+  - [is\_valid\_event\_flapping\_state method](#is_valid_event_flapping_state-method)
+    - [is\_valid\_event\_flapping\_state: returns](#is_valid_event_flapping_state-returns)
+    - [is\_valid\_event\_flapping\_state: example](#is_valid_event_flapping_state-example)
+  - [is\_valid\_hostgroup method](#is_valid_hostgroup-method)
+    - [is\_valid\_hostgroup: returns](#is_valid_hostgroup-returns)
+    - [is\_valid\_hostgroup: example](#is_valid_hostgroup-example)
+  - [is\_valid\_servicegroup method](#is_valid_servicegroup-method)
+    - [is\_valid\_servicegroup: returns](#is_valid_servicegroup-returns)
+    - [is\_valid\_servicegroup: example](#is_valid_servicegroup-example)
+  - [is\_valid\_bam\_event method](#is_valid_bam_event-method)
+    - [is\_valid\_bam\_event: returns](#is_valid_bam_event-returns)
+    - [is\_valid\_bam\_event: example](#is_valid_bam_event-example)
+  - [is\_valid\_ba method](#is_valid_ba-method)
+    - [is\_valid\_ba: returns](#is_valid_ba-returns)
+    - [is\_valid\_ba: example](#is_valid_ba-example)
+  - [is\_valid\_ba\_status\_event method](#is_valid_ba_status_event-method)
+    - [is\_valid\_ba\_status\_event: returns](#is_valid_ba_status_event-returns)
+    - [is\_valid\_ba\_status\_event: example](#is_valid_ba_status_event-example)
+  - [is\_valid\_ba\_downtime\_state method](#is_valid_ba_downtime_state-method)
+    - [is\_valid\_ba\_downtime\_state: returns](#is_valid_ba_downtime_state-returns)
+    - [is\_valid\_ba\_downtime\_state: example](#is_valid_ba_downtime_state-example)
+  - [is\_valid\_ba\_acknowledge\_state method](#is_valid_ba_acknowledge_state-method)
+    - [is\_valid\_ba\_acknowledge\_state: returns](#is_valid_ba_acknowledge_state-returns)
+    - [is\_valid\_ba\_acknowledge\_state: example](#is_valid_ba_acknowledge_state-example)
+  - [is\_valid\_bv method](#is_valid_bv-method)
+    - [is\_valid\_bv: returns](#is_valid_bv-returns)
+    - [is\_valid\_bv: example](#is_valid_bv-example)
+  - [find\_hostgroup\_in\_list method](#find_hostgroup_in_list-method)
+    - [find\_hostgroup\_in\_list: returns](#find_hostgroup_in_list-returns)
+    - [find\_hostgroup\_in\_list: example](#find_hostgroup_in_list-example)
+  - [find\_servicegroup\_in\_list method](#find_servicegroup_in_list-method)
+    - [find\_servicegroup\_in\_list: returns](#find_servicegroup_in_list-returns)
+    - [find\_servicegroup\_in\_list: example](#find_servicegroup_in_list-example)
+  - [find\_bv\_in\_list method](#find_bv_in_list-method)
+    - [find\_bv\_in\_list: returns](#find_bv_in_list-returns)
+    - [find\_bv\_in\_list: example](#find_bv_in_list-example)
+  - [is\_valid\_poller method](#is_valid_poller-method)
+    - [is\_valid\_poller: returns](#is_valid_poller-returns)
+    - [is\_valid\_poller: example](#is_valid_poller-example)
+  - [find\_poller\_in\_list method](#find_poller_in_list-method)
+    - [find\_poller\_in\_list: returns](#find_poller_in_list-returns)
+    - [find\_poller\_in\_list: example](#find_poller_in_list-example)
+  - [is\_valid\_host\_severity method](#is_valid_host_severity-method)
+    - [is\_valid\_host\_severity: returns](#is_valid_host_severity-returns)
+    - [is\_valid\_host\_severity: example](#is_valid_host_severity-example)
+  - [is\_valid\_service\_severity method](#is_valid_service_severity-method)
+    - [is\_valid\_service\_severity: returns](#is_valid_service_severity-returns)
+    - [is\_valid\_service\_severity: example](#is_valid_service_severity-example)
+  - [is\_valid\_acknowledgement\_event method](#is_valid_acknowledgement_event-method)
+    - [is\_valid\_acknowledgement\_event: returns](#is_valid_acknowledgement_event-returns)
+    - [is\_valid\_acknowledgement\_event: example](#is_valid_acknowledgement_event-example)
+  - [is\_host\_status\_event\_duplicated method](#is_host_status_event_duplicated-method)
+    - [is\_host\_status\_event\_duplicated: returns](#is_host_status_event_duplicated-returns)
+    - [is\_host\_status\_event\_duplicated: example](#is_host_status_event_duplicated-example)
+  - [is\_service\_status\_event\_duplicated method](#is_service_status_event_duplicated-method)
+    - [is\_service\_status\_event\_duplicated: returns](#is_service_status_event_duplicated-returns)
+    - [is\_service\_status\_event\_duplicated: example](#is_service_status_event_duplicated-example)
+  - [is\_valid\_downtime\_event method](#is_valid_downtime_event-method)
+    - [is\_valid\_downtime\_event: returns](#is_valid_downtime_event-returns)
+    - [is\_valid\_downtime\_event: example](#is_valid_downtime_event-example)
+  - [get\_downtime\_host\_status method](#get_downtime_host_status-method)
+    - [get\_downtime\_host\_status: returns](#get_downtime_host_status-returns)
+    - [get\_downtime\_host\_status: example](#get_downtime_host_status-example)
+  - [get\_downtime\_service\_status method](#get_downtime_service_status-method)
+    - [get\_downtime\_service\_status: returns](#get_downtime_service_status-returns)
+    - [get\_downtime\_service\_status: example](#get_downtime_service_status-example)
+  - [is\_valid\_author method](#is_valid_author-method)
+    - [is\_valid\_author: returns](#is_valid_author-returns)
+    - [is\_valid\_author: example](#is_valid_author-example)
+  - [is\_downtime\_event\_useless method](#is_downtime_event_useless-method)
+    - [is\_downtime\_event\_useless: returns](#is_downtime_event_useless-returns)
+    - [is\_downtime\_event\_useless: example](#is_downtime_event_useless-example)
+  - [is\_valid\_downtime\_event\_start method](#is_valid_downtime_event_start-method)
+    - [is\_valid\_downtime\_event\_start: returns](#is_valid_downtime_event_start-returns)
+    - [is\_valid\_downtime\_event\_start: example](#is_valid_downtime_event_start-example)
+  - [is\_valid\_downtime\_event\_end method](#is_valid_downtime_event_end-method)
+    - [is\_valid\_downtime\_event\_end: returns](#is_valid_downtime_event_end-returns)
+    - [is\_valid\_downtime\_event\_end: example](#is_valid_downtime_event_end-example)
+  - [build\_outputs method](#build_outputs-method)
+    - [build\_outputs: example](#build_outputs-example)
+  - [is\_valid\_storage\_event method](#is_valid_storage_event-method)
 
 ## Introduction
 
@@ -375,13 +378,14 @@ local result = test_event:is_valid_service()
 
 ## is_valid_event_states method
 
-The **is_valid_event_states** method checks if the event states (downtime, hard/soft, acknowledgement) are valid based on [**hard_only, in_downtime and acknowledged**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+The **is_valid_event_states** method checks if the event states (downtime, hard/soft, acknowledgement, flapping) are valid based on[**hard_only, in_downtime, acknowledged and flapping parameters**](sc_param.md#default-parameters) in the **host_status or service_status** scope
 
 head over the following chapters for more information
 
 - [is_valid_event_state_type](#is_valid_event_state_type-method)
 - [is_valid_event_acknowledge_state](#is_valid_event_acknowledge_state-method)
 - [is_valid_event_downtime_state](#is_valid_event_downtime_state-method)
+- [is_valid_event_flapping_state](#is_valid_event_flapping_state-method)
 
 ### is_valid_event_states: returns
 
@@ -398,7 +402,7 @@ local result = test_event:is_valid_event_states(test_param.params.host_status)
 
 ## is_valid_event_status method
 
-The **is_valid_event_states** method checks if the event status is valid based on [**host_status, service_status or ba_status**](sc_param.md#default-parameters) in the **host_status, service_status or ba_status** scope
+The **is_valid_event_states** method checks if the event status is valid based on [**host_status, service_status or ba_status parameters**](sc_param.md#default-parameters) in the **host_status, service_status or ba_status** scope
 
 ### is_valid_event_status: parameters
 
@@ -421,7 +425,7 @@ local result = test_event:is_valid_event_status()
 
 ## is_valid_event_state_type method
 
-The **is_valid_event_state_type** method checks if the event state (HARD/SOFT) is valid based on [**hard_only**](sc_param.md#default-parameters) in the **host_status, service_status** scope
+The **is_valid_event_state_type** method checks if the event state (HARD/SOFT) is valid based on the [**hard_only parameter**](sc_param.md#default-parameters) in the **host_status, service_status** scope
 
 ### is_valid_event_state_type: returns
 
@@ -438,7 +442,7 @@ local result = test_event:is_valid_event_state_type()
 
 ## is_valid_event_acknowledge_state method
 
-The **is_valid_event_acknowledge_state** method checks if the event is in valid acknowledgement state based on [**acknowledged**](sc_param.md#default-parameters) in the **host_status, service_status** scope
+The **is_valid_event_acknowledge_state** method checks if the event is in valid acknowledgement state based on the [**acknowledged parameter**](sc_param.md#default-parameters) in the **host_status, service_status** scope
 
 ### is_valid_event_acknowledge_state: returns
 
@@ -455,7 +459,7 @@ local result = test_event:is_valid_event_acknowledge_state()
 
 ## is_valid_event_downtime_state method
 
-The **is_valid_event_downtime_state** method checks if the event is in a valid downtime state based on [**in_downtime**](sc_param.md#default-parameters) in the **host_status, service_status** scope
+The **is_valid_event_downtime_state** method checks if the event is in a valid downtime state based on the [**in_downtime parameter**](sc_param.md#default-parameters) in the **host_status, service_status** scope
 
 ### is_valid_event_downtime_state: returns
 
@@ -467,6 +471,23 @@ The **is_valid_event_downtime_state** method checks if the event is in a valid d
 
 ```lua
 local result = test_event:is_valid_event_downtime_state()
+--> result is true or false
+```
+
+## is_valid_event_flapping_state method
+
+The **is_valid_event_flapping_state** method checks if the event is in valid flapping state based on the [**flapping parameter**](sc_param.md#default-parameters) in the **host_status, service_status** scope
+
+### is_valid_event_flapping_state: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_event_flapping_state: example
+
+```lua
+local result = test_event:is_valid_event_flapping_state()
 --> result is true or false
 ```
 
