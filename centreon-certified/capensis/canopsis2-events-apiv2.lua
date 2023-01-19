@@ -447,10 +447,15 @@ function EventQueue:send_data(payload, queue_metadata)
   
   -- Handling the return code
   local retval = false
-  -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
+  
   if http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is "
       .. tostring(http_response_code))
+    retval = true
+  elseif http_response_code == 400 and string.match(http_response_body, "Trying to insert PBehavior with already existing _id") then
+    self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
+      .. ". Canopsis result: " .. tostring(http_response_body))
+    self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
