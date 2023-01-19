@@ -2,14 +2,14 @@
 
 - [Stream Connectors lib documentation](#stream-connectors-lib-documentation)
   - [Libraries list](#libraries-list)
-  - [sc_common methods](#sc_common-methods)
-  - [sc_logger methods](#sc_logger-methods)
-  - [sc_broker methods](#sc_broker-methods)
-  - [sc_param methods](#sc_param-methods)
-  - [sc_event methods](#sc_event-methods)
-  - [sc_macros methods](#sc_macros-methods)
-  - [sc_flush methods](#sc_flush-methods)
-  - [sc_metrics methods](#sc_metrics-methods)
+  - [sc\_common methods](#sc_common-methods)
+  - [sc\_logger methods](#sc_logger-methods)
+  - [sc\_broker methods](#sc_broker-methods)
+  - [sc\_param methods](#sc_param-methods)
+  - [sc\_event methods](#sc_event-methods)
+  - [sc\_macros methods](#sc_macros-methods)
+  - [sc\_flush methods](#sc_flush-methods)
+  - [sc\_metrics methods](#sc_metrics-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
   - [Additionnal documentations](#additionnal-documentations)
@@ -101,6 +101,7 @@
 | is_valid_event_state_type          | check if the state (HARD/SOFT) of the event is valid according to the stream connector params                                                                | [Documentation](sc_event.md#is_valid_event_state_type-method)          |
 | is_valid_event_acknowledge_state   | check if the acknowledgement state of the event is valid according to the stream connector params                                                            | [Documentation](sc_event.md#is_valid_event_acknowledge_state-method)   |
 | is_valid_event_downtime_state      | check if the downtime state of the event is valid according to the stream connector params                                                                   | [Documentation](sc_event.md#is_valid_event_downtime_state-method)      |
+| is_valid_event_flapping_state      | check if the flapping state of the event is valid according to the stream connector params                                                                   | [Documentation](sc_event.md#is_valid_event_flapping_state-method)      |
 | is_valid_hostgroup                 | check if the host is in an accepted hostgroup according to the stream connector params                                                                       | [Documentation](sc_event.md#is_valid_hostgroup-method)                 |
 | find_hostgroup_in_list             | check if one of the hostgroups of the event is in the list of accepted hostgroups provided in the stream connector configuration. Stops at first match       | [Documentation](sc_event.md#find_hostgroup_in_list-method)             |
 | is_valid_servicegroup              | check if the service is in an accepted servicegroup according to the stream connector params                                                                 | [Documentation](sc_event.md#is_valid_servicegroup-method)              |
