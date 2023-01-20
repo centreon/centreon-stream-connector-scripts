@@ -35,8 +35,7 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "canopsis_user",
-    "canopsis_password",
+    "params.canopsis_authkey",
     "canopsis_host"
   }
 
@@ -58,8 +57,7 @@ function EventQueue.new(params)
   end
   
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.canopsis_user = params.canopsis_user
-  self.sc_params.params.canopsis_password = params.canopsis_password
+  self.sc_params.params.canopsis_authkey = params.canopsis_authkey
   self.sc_params.params.connector = params.connector or "centreon-stream"
   self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
   self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
@@ -77,7 +75,6 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params.params.send_mixed_events = 0
-  self.sc_params.params.max_buffer_size = 1
 
   if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
     self.sc_params.params.connector_name_type = "poller"
@@ -360,7 +357,6 @@ function EventQueue:add()
     self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
       .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
   end
-
 end
 
 --------------------------------------------------------------------------------
@@ -383,8 +379,7 @@ function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   local params = self.sc_params.params
-  local url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
-    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
   local data = broker.json_encode(payload)
 
   -- write payload in the logfile for test purpose
@@ -410,7 +405,8 @@ function EventQueue:send_data(payload, queue_metadata)
       curl.OPT_HTTPHEADER,
       {
         "content-length: " .. string.len(data),
-        "content-type: application/json"
+        "content-type: application/json",
+        "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
       }
     )
 
