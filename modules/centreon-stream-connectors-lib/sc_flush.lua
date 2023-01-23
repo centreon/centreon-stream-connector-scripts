@@ -204,7 +204,10 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
   return true
 end
 
---- flush_payload: flush a payload that contains a single type of events (services with services only and hosts with hosts only for example)
+--- flush_payload: flush a given payload by sending it using the given send function
+-- @param send_method (function) the function that will be used to send the payload
+-- @param payload (any) the data that needs to be sent
+-- @param metadata (table) all metadata for the payload
 -- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_payload(send_method, payload, metadata)
   if payload then
