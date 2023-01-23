@@ -5,6 +5,9 @@
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
+  - [add\_queue\_metadata method](#add_queue_metadata-method)
+    - [add\_queue\_metadata: parameters](#add_queue_metadata-parameters)
+    - [add\_queue\_metadata: example](#add_queue_metadata-example)
   - [flush\_all\_queues method](#flush_all_queues-method)
     - [flush\_all\_queues: parameters](#flush_all_queues-parameters)
     - [flush\_all\_queues: returns](#flush_all_queues-returns)
@@ -65,6 +68,50 @@ local params = {
 
 -- create a new instance of the sc_flush module
 local test_flush = sc_flush.new(params, test_logger)
+```
+
+## add_queue_metadata method
+
+The **add_queue_metadata** method adds a list of metadata to a given queue.
+
+### add_queue_metadata: parameters
+
+| parameter                                                                                      | type   | optional | default value |
+| ---------------------------------------------------------------------------------------------- | ------ | -------- | ------------- |
+| the category id of the queue                                                                   | number | no       |               |
+| the element id of the queue                                                                    | number | no       |               |
+| a table containing metadata where each key is the name of the metadata and the value its value | table  | no       |               |
+
+### add_queue_metadata: example
+
+```lua
+-- if accepted_elements is set to "host_status,service_status"
+
+local host_metadata = {
+  endpoint = "/host",
+  method = "POST"
+}
+
+local cateogry = 1
+local element = 14
+
+test_flush:add_queue_metadata(category, element, host_metadata) 
+--> the host queue (category: 1, element: 14) now has metadata 
+--[[
+  test_flush.queues = {
+    [1] = {
+      [14] = {
+        events = {},
+        queue_metadata = {
+          category_id = 1,
+          element_id = 14,
+          endpoint = "/host",
+          method = "POST"
+        }
+      }
+    }
+  }
+]]--
 ```
 
 ## flush_all_queues method
@@ -262,7 +309,7 @@ The **flush_payload** method sends a payload using the given method.
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------- | ------------- |
 | the function that must be used to build the data payload. If the method is part of a lua module, you must use the dot syntax and not the colon syntax. Meaning it can be `self.build_payload` but not `self:build_payload` (do not put parenthesis otherwise it will pass the result of the function as a parameter instead of the function itself) | function | no       |               |
 | a table containing the payload that must be sent                                                                                                                                                                                                                                                                                                    | table    | no       |               |
-| a table containing metadata for the payload                                                                                                                                                                                                                                                                                                        | table    | no       | `{}`          |
+| a table containing metadata for the payload                                                                                                                                                                                                                                                                                                         | table    | no       | `{}`          |
 
 ### flush_payload: returns
 
