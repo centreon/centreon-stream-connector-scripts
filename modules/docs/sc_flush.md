@@ -75,7 +75,7 @@ head over the following chapters for more information
 
 - [flush_mixed_payload](#flush_mixed_payload-method)
 - [flush_homogeneous_payload](#flush_homogeneous_payload-method)
-- [reset_all_queues](#reset_all_queues)
+- [reset_all_queues](#reset_all_queues-method)
 
 ### flush_all_queues: parameters
 
@@ -150,7 +150,7 @@ test_flush:reset_all_queues()
 
 ## get_queues_size method
 
-The **get_queues_size** method gets the number of events stored in all the queues 
+The **get_queues_size** method gets the number of events stored in all the queues.
 
 ### get_queues_size: returns
 
