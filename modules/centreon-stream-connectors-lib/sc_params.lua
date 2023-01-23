@@ -53,6 +53,7 @@ function sc_params.new(common, logger)
     hard_only = 1,
     acknowledged = 0,
     in_downtime = 0,
+    flapping = 0,
     
     -- objects filter
     accepted_hostgroups = "",
@@ -757,6 +758,7 @@ function ScParams:check_params()
   self.params.hard_only = self.common:check_boolean_number_option_syntax(self.params.hard_only, 1)
   self.params.acknowledged = self.common:check_boolean_number_option_syntax(self.params.acknowledged, 0)
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
+  self.params.flapping = self.common:check_boolean_number_option_syntax(self.params.flapping, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")

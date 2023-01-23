@@ -1,29 +1,29 @@
 # Documentation of the sc_param module
 
-- [Documentation of the sc_param module](#documentation-of-the-sc_param-module)
+- [Documentation of the sc\_param module](#documentation-of-the-sc_param-module)
   - [Introduction](#introduction)
     - [Default parameters](#default-parameters)
   - [Module initialization](#module-initialization)
     - [module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
-  - [param_override method](#param_override-method)
-    - [param_override: parameters](#param_override-parameters)
-    - [param_override: example](#param_override-example)
-  - [check_params method](#check_params-method)
-    - [check_params: example](#check_params-example)
-  - [get_kafka_parameters method](#get_kafka_parameters-method)
-    - [get_kafka_params: parameters](#get_kafka_params-parameters)
-    - [get_kafka_params: example](#get_kafka_params-example)
-  - [is_mandatory_config_set method](#is_mandatory_config_set-method)
-    - [is_mandatory_config_set: parameters](#is_mandatory_config_set-parameters)
-    - [is_mandatory_config_set: returns](#is_mandatory_config_set-returns)
-    - [is_mandatory_config_set: example](#is_mandatory_config_set-example)
-  - [load_event_format_file method](#load_event_format_file-method)
-    - [load_event_format_file: parameters](#load_event_format_file-parameters)
-    - [load_event_format_file: returns](#load_event_format_file-returns)
-    - [load_event_format_file: example](#load_event_format_file-example)
-  - [build_accepted_elements_info method](#build_accepted_elements_info-method)
-    - [build_accepted_elements_info: example](#build_accepted_elements_info-example)
+  - [param\_override method](#param_override-method)
+    - [param\_override: parameters](#param_override-parameters)
+    - [param\_override: example](#param_override-example)
+  - [check\_params method](#check_params-method)
+    - [check\_params: example](#check_params-example)
+  - [get\_kafka\_parameters method](#get_kafka_parameters-method)
+    - [get\_kafka\_params: parameters](#get_kafka_params-parameters)
+    - [get\_kafka\_params: example](#get_kafka_params-example)
+  - [is\_mandatory\_config\_set method](#is_mandatory_config_set-method)
+    - [is\_mandatory\_config\_set: parameters](#is_mandatory_config_set-parameters)
+    - [is\_mandatory\_config\_set: returns](#is_mandatory_config_set-returns)
+    - [is\_mandatory\_config\_set: example](#is_mandatory_config_set-example)
+  - [load\_event\_format\_file method](#load_event_format_file-method)
+    - [load\_event\_format\_file: parameters](#load_event_format_file-parameters)
+    - [load\_event\_format\_file: returns](#load_event_format_file-returns)
+    - [load\_event\_format\_file: example](#load_event_format_file-example)
+  - [build\_accepted\_elements\_info method](#build_accepted_elements_info-method)
+    - [build\_accepted\_elements\_info: example](#build_accepted_elements_info-example)
 
 ## Introduction
 
@@ -41,6 +41,7 @@ The sc_param module provides methods to help you handle parameters for your stre
 | hard_only                               | number | 1                                                                             | accept only events that are in a HARD state (use 0 to accept SOFT state too)                                                                                                                                                                                                                                                                  | host_status(neb), service_status(neb)                                                                                                                                                                                                                                                    |                                                                                                                                                                                                                                                                                               |
 | acknowledged                            | number | 0                                                                             | accept only events that aren't acknowledged (use 1 to accept acknowledged events too)                                                                                                                                                                                                                                                         | host_status(neb), service_status(neb)                                                                                                                                                                                                                                                    |                                                                                                                                                                                                                                                                                               |
 | in_downtime                             | number | 0                                                                             | accept only events that aren't in downtime (use 1 to accept events that are in downtime too)                                                                                                                                                                                                                                                  | host_status(neb), service_status(neb), ba_status(bam)                                                                                                                                                                                                                                    |                                                                                                                                                                                                                                                                                               |
+| flapping                                | number | 0                                                                             | accept only events that aren't flapping (use 1 to accept flapping events too)                                                                                                                                                                                                                                                                 | host_status(neb), service_status(neb)                                                                                                                                                                                                                                                    |                                                                                                                                                                                                                                                                                               |
 | accepted_hostgroups                     | string |                                                                               | coma separated list of hostgroups that are accepted (for example: my_hostgroup_1,my_hostgroup_2)                                                                                                                                                                                                                                              | host_status(neb), service_status(neb), acknowledgement(neb)                                                                                                                                                                                                                              |                                                                                                                                                                                                                                                                                               |
 | accepted_servicegroups                  | string |                                                                               | coma separated list of servicegroups that are accepted (for example: my_servicegroup_1,my_servicegroup_2)                                                                                                                                                                                                                                     | service_status(neb), acknowledgement(neb)                                                                                                                                                                                                                                                |                                                                                                                                                                                                                                                                                               |
 | accepted_bvs                            | string |                                                                               | coma separated list of BVs that are accepted (for example: my_bv_1,my_bv_2)                                                                                                                                                                                                                                                                   | ba_status(bam)                                                                                                                                                                                                                                                                           |                                                                                                                                                                                                                                                                                               |

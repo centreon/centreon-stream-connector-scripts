@@ -103,7 +103,7 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
@@ -255,7 +255,7 @@ function EventQueue:build_payload(payload, event)
   return payload
 end
 
-function EventQueue:send_data(payload)
+function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   local url = self.sc_params.params.http_server_url .. tostring(self.sc_params.params.datadog_metric_endpoint)

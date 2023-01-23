@@ -125,7 +125,7 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
-  -- return false if one of event ack, downtime or state type (hard soft) aren't valid
+  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
@@ -192,7 +192,7 @@ function ScEvent:is_valid_service_status_event()
     return false
   end
 
-  -- return false if one of event ack, downtime or state type (hard soft) aren't valid
+  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
@@ -331,6 +331,11 @@ function ScEvent:is_valid_event_states()
     return false
   end
 
+  -- return false if flapping state is not valid
+  if not self:is_valid_event_flapping_state() then
+    return false
+  end
+
   return true
 end
 
@@ -399,7 +404,7 @@ function ScEvent:is_valid_event_acknowledge_state()
   end
 
   if not self.sc_common:compare_numbers(self.params.acknowledged, self.sc_common:boolean_to_number(self.event.acknowledged), ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
+    self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be below or equal to " .. tostring(self.params.acknowledged) 
       .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
     return false
   end
@@ -416,8 +421,20 @@ function ScEvent:is_valid_event_downtime_state()
   end
 
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be above or equal to " .. tostring(self.params.in_downtime) 
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime) 
       .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_event_flapping_state: check if the event is in an accepted flapping state
+-- @return true|false (boolean)
+function ScEvent:is_valid_event_flapping_state()
+  if not self.sc_common:compare_numbers(self.params.flapping, self.sc_common:boolean_to_number(self.event.flapping), ">=") then
+    self.sc_logger:warning("[sc_event:is_valid_event_flapping_state]: event is not in an valid flapping state. Event flapping state must be below or equal to " .. tostring(self.params.flapping) 
+      .. ". Current flapping state: " .. tostring(self.sc_common:boolean_to_number(self.event.flapping)))
     return false
   end
 
