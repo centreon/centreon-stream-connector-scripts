@@ -53,13 +53,13 @@ function sc_flush.new(params, logger)
   return self
 end
 
---- add_queue_metadatas: add specific metadatas to a queue
+--- add_queue_metadata: add specific metadata to a queue
 -- @param category_id (number) the id of the bbdo category
 -- @param element_id (number) the id of the bbdo element
--- @param metadatas (table) a table with keys that are the name of the metadata and values the metadata values
-function ScFlush:add_queue_metadatas(category_id, element_id, metadatas)
+-- @param metadata (table) a table with keys that are the name of the metadata and values the metadata values
+function ScFlush:add_queue_metadata(category_id, element_id, metadata)
   if not self.queues[category_id] then
-    self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add metadata for queue for category: " .. self.params.reverse_category_mapping[category_id]
+    self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add queue metadata for category: " .. self.params.reverse_category_mapping[category_id]
       .. " (id: " .. category_id .. ") and element: " .. self.params.reverse_element_mapping[category_id][element_id] .. " (id: " .. element_id .. ")."
       .. ". metadata name: " .. tostring(metadata_name) .. ", metadata value: " .. tostring(metadata_value)
       .. ". You need to accept this category with the parameter 'accepted_categories'.") 
@@ -67,14 +67,14 @@ function ScFlush:add_queue_metadatas(category_id, element_id, metadatas)
   end
 
   if not self.queues[category_id][element_id] then
-    self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add metadata for queue for category: " .. self.params.reverse_category_mapping[category_id]
+    self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add queue metadata for category: " .. self.params.reverse_category_mapping[category_id]
       .. " (id: " .. category_id .. ") and element: " .. self.params.reverse_element_mapping[category_id][element_id] .. " (id: " .. element_id .. ")."
       .. ". metadata name: " .. tostring(metadata_name) .. ", metadata value: " .. tostring(metadata_value)
       .. ". You need to accept this element with the parameter 'accepted_elements'.")
     return
   end
 
-  for metadata_name, metadata_value in pairs(metadatas) do
+  for metadata_name, metadata_value in pairs(metadata) do
     self.queues[category_id][element_id].queue_metadata[metadata_name] = metadata_value
   end
 end
