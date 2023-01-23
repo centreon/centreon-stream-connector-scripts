@@ -154,11 +154,15 @@
 
 ## sc_flush methods
 
-| Method name      | Method description                                | Link                                                 |
-| ---------------- | ------------------------------------------------- | ---------------------------------------------------- |
-| flush_all_queues | flush all the possible queues that can be created | [Documentation](sc_flush.md#flush_all_queues-method) |
-| flush_queue      | flush a specific queue                            | [Documentation](sc_flush.md#flush_queue-method)      |
-| reset_queue      | reset a queue after it has been flushed           | [Documentation](sc_flush.md#reset_queue-method)      |
+| Method name               | Method description                                                     | Link                                                          |
+| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| add_queue_metadata        | add specific metadata to a queue                                       | [Documentation](sc_flush.md#add_queue_metadata-method)        |
+| flush_all_queues          | try to flush all queues according to accepted elements                 | [Documentation](sc_flush.md#flush_all_queues-method)          |
+| reset_all_queues          | put all queues back to their initial state after flushing their events | [Documentation](sc_flush.md#reset_all_queues-method)          |
+| get_queues_size           | get the number of events stored in all the queues                      | [Documentation](sc_flush.md#get_queues_size-method)           |
+| flush_mixed_payload       | flush a payload that contains various type of events                   | [Documentation](sc_flush.md#flush_mixed_payload-method)       |
+| flush_homogeneous_payload | flush a payload that contains a single type of events                  | [Documentation](sc_flush.md#flush_homogeneous_payload-method) |
+| flush_payload             | flush a payload                                                        | [Documentation](sc_flush.md#flush_payload-method)             |
 
 ## sc_metrics methods
 
