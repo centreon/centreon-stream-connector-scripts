@@ -380,22 +380,22 @@ function EventQueue:send_data(payload, queue_metadata)
 
   local params = self.sc_params.params
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
-  local data = broker.json_encode(payload)
+  payload = broker.json_encode(payload)
   queue_metadata.headers = {
-    "content-length: " .. string.len(data),
+    "content-length: " .. string.len(payload),
     "content-type: application/json",
     "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
   }
   
-  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, data)
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
   
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(data))
+    self.sc_logger:notice("[send_data]: " .. tostring(payload))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. data)
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. payload)
   self.sc_logger:info("[EventQueue:send_data]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
@@ -434,7 +434,7 @@ function EventQueue:send_data(payload, queue_metadata)
     http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
   end
 
-  http_request:setopt_postfields(data)
+  http_request:setopt_postfields(payload)
 
   -- performing the HTTP request
   http_request:perform()
