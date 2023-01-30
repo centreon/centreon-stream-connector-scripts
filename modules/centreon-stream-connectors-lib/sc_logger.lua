@@ -95,9 +95,13 @@ end
 -- @param data (string) [opt] the data that must be send by curl
 function ScLogger:log_curl_command(url, metadata, params, data)
   if params.log_curl_commands == 1 then
+    self:debug("[sc_logger:log_curl_command]: starting computing curl command")
     local curl_string = "curl "
-  
+
     -- handle proxy
+    self:debug("[sc_looger:log_curl_command]: proxy information: protocol: " .. params.proxy_protocol .. ", address: "
+      .. params.proxy_address .. ", port: " .. params.proxy_port .. ", user: " .. params.proxy_username .. ", password: "
+      .. tostring(params.proxy_password))
     local proxy_url
     if params.proxy_address ~= "" then  
       if params.proxy_username ~= "" then
@@ -114,7 +118,7 @@ function ScLogger:log_curl_command(url, metadata, params, data)
     if params.allow_insecure_connection == 1 then
       curl_string = curl_string .. "-k "
     end
-  
+
     -- handle http method
     if metadata.method then
       curl_string = curl_string .. "-X " .. metadata.method .. " "
@@ -125,18 +129,22 @@ function ScLogger:log_curl_command(url, metadata, params, data)
     end
   
     -- handle headers
-    for _, header in ipairs(metadata.headers) do
-      curl_string = curl_string .. "-H '" .. tostring(header) .. "' "
+    if metadata.headers then
+      for _, header in ipairs(metadata.headers) do
+        curl_string = curl_string .. "-H '" .. tostring(header) .. "' "
+      end
     end
   
     curl_string = curl_string .. "'" .. tostring(url) .. "' "
   
     -- handle curl data
     if data and data ~= "" then
-      curl_string = curl_string .. "'" .. data .. "'"
+      curl_string = curl_string .. "-d '" .. data .. "'"
     end
   
-    self:notice("[sc_logger:log_curl_commands]: " .. curl_string)
+    self:notice("[sc_logger:log_curl_command]: " .. curl_string)
+  else
+    self:debug("[sc_logger:log_curl_command]: curl command not logged because log_curl_commands param is set to: " .. params.log_curl_commands)
   end
 end
 

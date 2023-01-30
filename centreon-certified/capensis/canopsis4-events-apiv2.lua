@@ -387,7 +387,7 @@ function EventQueue:send_data(payload, queue_metadata)
     "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
   }
   
-  self.sc_logger:log_curl_command(url, metadata, self.sc_params.params, data)
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, data)
   
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -433,7 +433,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if queue_metadata.method and queue_metadata.method == "DELETE" then
     http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
   end
-  
+
   http_request:setopt_postfields(data)
 
   -- performing the HTTP request
