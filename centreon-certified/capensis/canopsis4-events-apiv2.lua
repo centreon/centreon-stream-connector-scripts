@@ -381,7 +381,14 @@ function EventQueue:send_data(payload, queue_metadata)
   local params = self.sc_params.params
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
   local data = broker.json_encode(payload)
-
+  queue_metadata.headers = {
+    "content-length: " .. string.len(data),
+    "content-type: application/json",
+    "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
+  }
+  
+  self.sc_logger:log_curl_command(url, metadata, self.sc_params.params, data)
+  
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(data))
@@ -401,14 +408,7 @@ function EventQueue:send_data(payload, queue_metadata)
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "content-length: " .. string.len(data),
-        "content-type: application/json",
-        "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-      }
-    )
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
@@ -433,14 +433,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if queue_metadata.method and queue_metadata.method == "DELETE" then
     http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
   end
-
-  http_request:setopt(
-    curl.OPT_HTTPHEADER,
-    {
-      "content-length: " .. string.len(data),
-      "content-type: application/json"
-    }
-  )
+  
   http_request:setopt_postfields(data)
 
   -- performing the HTTP request
