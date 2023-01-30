@@ -1176,8 +1176,12 @@ end
 
 --- build_outputs: adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the use_longoutput param
 function ScEvent:build_outputs()
-  self.event.long_output = self.event.output
-  self.event.long_output = self.event.output
+  -- build long output
+  if self.event.long_output and self.event.long_output ~= "" then
+    self.event.long_output = self.event.output .. "\n" .. self.event.long_output
+  else
+    self.event.long_output = self.event.output
+  end
 
   -- no short output if there is no line break
   local short_output = string.match(self.event.output, "^(.*)\n")
@@ -1187,17 +1191,18 @@ function ScEvent:build_outputs()
     self.event.short_output = self.event.output
   end
 
-  -- use shortoutput if it exists
+  -- use short output if it exists
   if self.params.use_long_output == 0 and short_output then
     self.event.output = short_output
 
   -- replace line break if asked to and we are not already using a short output
-  elseif not short_output and  self.params.remove_line_break_in_output == 1 then
+  elseif not short_output and self.params.remove_line_break_in_output == 1 then
     self.event.output = string.gsub(self.event.output, "\n", self.params.output_line_break_replacement_character)
   end
 
   if self.params.output_size_limit ~= "" then
     self.event.output = string.sub(self.event.output, 1, self.params.output_size_limit)
+    self.event.short_output = string.sub(self.event.short_output, 1, self.params.output_size_limit)
   end
 
 end
