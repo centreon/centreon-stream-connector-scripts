@@ -98,7 +98,7 @@ end
 -- @param [opt] separator (string) the separator character that will be used to split the string
 -- @return false (boolean) if text param is empty or nil
 -- @return table (table) a table of strings
-function ScCommon:split (text, separator)
+function ScCommon:split(text, separator)
   -- return false if text is nil or empty
   if text == nil or text == "" then
     self.sc_logger:error("[sc_common:split]: could not split text because it is nil or empty")
@@ -337,6 +337,57 @@ function ScCommon:trim(string, character)
   end
 
   return result
+end
+
+--- get_curl_command: build a shell curl command based on given parameters
+-- @param url (string) the url to which curl will send data
+-- @param metadata (table) a table that contains headers information and http method for curl
+-- @param params (table) the param table that contains proxy information for example
+-- @param data (string) [opt] the data that must be send by curl
+-- @return curl_string (string) the shell curl command
+function ScCommon:get_curl_command(url, metadata, params, data)
+  local curl_string = "curl "
+
+  -- handle proxy
+  local proxy_url
+  if params.proxy_address ~= "" then  
+    if params.proxy_username ~= "" then
+      proxy_url = params.proxy_protocol .. "://" .. params.proxy_username .. ":" .. params.proxy_password
+        .. "@" .. params.proxy_address .. ":" .. params.proxy_port
+    else
+      proxy_url = params.proxy_protocol .. "://" .. params.proxy_address .. ":" .. params.proxy_port
+    end
+
+    curl_string = curl_string .. "--proxy " .. proxy_url .. " "
+  end
+
+  -- handle certificate verification
+  if params.allow_insecure_connection == 1 then
+    curl_string = curl_string .. "-k "
+  end
+
+  -- handle http method
+  if metadata.method then
+    curl_string = curl_string .. "-X " .. metadata.method .. " "
+  elseif data then
+    curl_string = curl_string .. "-X POST "
+  else
+    curl_string = curl_string .. "-X GET "
+  end
+
+  -- handle headers
+  for _, header in ipairs(metadata.headers) do
+    curl_string = curl_string .. "-H " .. tostring(header) .. " "
+  end
+
+  curl_string = curl_string .. tostring(url) .. " "
+
+  -- handle curl data
+  if data and data ~= "" then
+    curl_string = curl_string .. data
+  end
+
+  return curl_string
 end
 
 return sc_common
