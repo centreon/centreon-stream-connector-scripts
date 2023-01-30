@@ -35,7 +35,7 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "params.canopsis_authkey",
+    "canopsis_authkey",
     "canopsis_host"
   }
 
@@ -330,10 +330,10 @@ function EventQueue:format_event_downtime()
     }
 
     if event.service_id then
-      self.sc_event.event.formated_event["entity_pattern"][0][0]["cond"]["value"] = tostring(event.cache.service.description)
+      self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.service.description)
         .. "/" .. tostring(event.cache.host.name)
     else
-      self.sc_event.event.formated_event["entity_pattern"][0][0]["cond"]["value"] = tostring(event.cache.host.name)
+      self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.host.name)
     end
   end
 end
