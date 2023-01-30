@@ -107,7 +107,7 @@ function ScLogger:log_curl_command(url, metadata, params, data)
         proxy_url = params.proxy_protocol .. "://" .. params.proxy_address .. ":" .. params.proxy_port
       end
   
-      curl_string = curl_string .. "--proxy " .. proxy_url .. " "
+      curl_string = curl_string .. "--proxy '" .. proxy_url .. "' "
     end
   
     -- handle certificate verification
@@ -126,17 +126,17 @@ function ScLogger:log_curl_command(url, metadata, params, data)
   
     -- handle headers
     for _, header in ipairs(metadata.headers) do
-      curl_string = curl_string .. "-H " .. tostring(header) .. " "
+      curl_string = curl_string .. "-H '" .. tostring(header) .. "' "
     end
   
-    curl_string = curl_string .. tostring(url) .. " "
+    curl_string = curl_string .. "'" .. tostring(url) .. "' "
   
     -- handle curl data
     if data and data ~= "" then
-      curl_string = curl_string .. data
+      curl_string = curl_string .. "'" .. data .. "'"
     end
   
-    sc_logger:notice("[sc_logger:log_curl_commands]: " .. curl_string)
+    self:notice("[sc_logger:log_curl_commands]: " .. curl_string)
   end
 end
 
