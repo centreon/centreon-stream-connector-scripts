@@ -180,8 +180,8 @@ function EventQueue:add()
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
     self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
-      .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -202,6 +202,10 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
+  local url = self.sc_params.params.server_address .. "/webhook/" .. self.sc_params.params.team_secret
+  queue_metadata.headers = {"content-type: application/json"}
+
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -210,11 +214,11 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Signl4 Server URL is: " .. tostring(self.sc_params.params.server_address) .. "/webhook/" .. tostring(self.sc_params.params.team_secret))
+  self.sc_logger:info("[EventQueue:send_data]: Signl4 Server URL is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
-  :setopt_url(self.sc_params.params.server_address .. "/webhook/" .. self.sc_params.params.team_secret)
+  :setopt_url(url)
   :setopt_writefunction(
     function (response)
       http_response_body = http_response_body .. tostring(response)
@@ -222,12 +226,8 @@ function EventQueue:send_data(payload, queue_metadata)
   )
   :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
   :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-  :setopt(
-    curl.OPT_HTTPHEADER,
-    {
-      "content-type: application/json",
-    }
-  )
+  :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
+
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
@@ -236,6 +236,7 @@ function EventQueue:send_data(payload, queue_metadata)
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
+
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
@@ -244,6 +245,7 @@ function EventQueue:send_data(payload, queue_metadata)
       self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
+
   -- adding the HTTP POST data
   http_request:setopt_postfields(payload)
   -- performing the HTTP request
@@ -251,14 +253,17 @@ function EventQueue:send_data(payload, queue_metadata)
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
   http_request:close()
+
   -- Handling the return code
   local retval = false
+
   if http_response_code == 200 or http_response_code == 201 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
+
   return retval
 end
 

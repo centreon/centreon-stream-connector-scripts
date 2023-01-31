@@ -228,12 +228,30 @@ end
 -- @throw exception if http call fails or response is empty
 --------------------------------------------------------------------------------
 function EventQueue:call(url, method, data, authToken)
-  method = method or "GET"
   data = data or nil
   authToken = authToken or nil
 
+  local queue_metadata = {
+    method = method or "GET"
+  }
+
+  -- handle headers
+  if not authToken and queue_metadata.method ~= "GET" then
+    self.sc_logger:debug("EventQueue:call: Add form header")
+    queue_metadata.headers = {"Content-Type: application/x-www-form-urlencoded"}
+  else
+    broker_log:info(3, "Add JSON header")
+    queue_metadata.headers = {
+      "Accept: application/json",
+      "Content-Type: application/json",
+      "Authorization: Bearer " .. authToken
+    }
+  end
+
   local endpoint = "https://" .. tostring(self.sc_params.params.instance) .. "." .. self.sc_params.params.http_server_url .. "/" .. tostring(url)
   self.sc_logger:debug("EventQueue:call: Prepare url " .. endpoint)
+
+  self.sc_logger:log_curl_command(endpoint, queue_metadata, self.sc_params.params, data)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -248,6 +266,7 @@ function EventQueue:call(url, method, data, authToken)
       res = res .. tostring(response)
     end)
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   self.sc_logger:debug("EventQueue:call: Request initialize")
 
@@ -269,24 +288,7 @@ function EventQueue:call(url, method, data, authToken)
     end
   end
 
-  if not authToken then
-    if method ~= "GET" then
-      self.sc_logger:debug("EventQueue:call: Add form header")
-      request:setopt(curl.OPT_HTTPHEADER, { "Content-Type: application/x-www-form-urlencoded" })
-    end
-  else
-    broker_log:info(3, "Add JSON header")
-    request:setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "Accept: application/json",
-        "Content-Type: application/json",
-        "Authorization: Bearer " .. authToken
-      }
-    )
-  end
-
-  if method ~= "GET" then
+  if queue_metadata.method ~= "GET" then
     self.sc_logger:debug("EventQueue:call: Add post data")
     request:setopt_postfields(data)
   end
@@ -390,7 +392,7 @@ function EventQueue:add()
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------

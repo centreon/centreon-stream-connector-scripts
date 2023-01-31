@@ -170,7 +170,7 @@ function EventQueue:add()
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -193,6 +193,10 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
+  queue_metadata.headers = {"accept: application/json"}
+  queue_metadata.method = "PUT"
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
+
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(payload))
@@ -212,13 +216,8 @@ function EventQueue:send_data(payload, queue_metadata)
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_CUSTOMREQUEST, "PUT")
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "accept: application/json"
-      }
-    )
+    :setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then

@@ -50,13 +50,14 @@
 
 ## sc_logger methods
 
-| Method name | Method description                          | Link                                         |
-| ----------- | ------------------------------------------- | -------------------------------------------- |
-| error       | write an error message in the log file      | [Documentation](sc_logger.md#error-method)   |
-| warning     | write a warning message in the log file     | [Documentation](sc_logger.md#warning-method) |
-| notice      | write a notice/info message in the log file | [Documentation](sc_logger.md#notice-method)  |
-| info        | write an info message in the log file       | [Documentation](sc_logger.md#info-method)    |
-| debug       | write a debug message in the log file       | [Documentation](sc_logger.md#debug-method)   |
+| Method name      | Method description                                    | Link                                                  |
+| ---------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| error            | write an error message in the log file                | [Documentation](sc_logger.md#error-method)            |
+| warning          | write a warning message in the log file               | [Documentation](sc_logger.md#warning-method)          |
+| notice           | write a notice/info message in the log file           | [Documentation](sc_logger.md#notice-method)           |
+| info             | write an info message in the log file                 | [Documentation](sc_logger.md#info-method)             |
+| debug            | write a debug message in the log file                 | [Documentation](sc_logger.md#debug-method)            |
+| log_curl_command | creates and log a curl command using given parameters | [Documentation](sc_logger.md#log_curl_command-method) |
 
 ## sc_broker methods
 
