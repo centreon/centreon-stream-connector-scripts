@@ -97,10 +97,10 @@ function EventQueue.new(params)
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
   
-  self.sc_flush:add_queue_metadatas(categories.neb.id, elements.host_status.id, {event_route = self.sc_params.params.canopsis_event_route})
-  self.sc_flush:add_queue_metadatas(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
-  self.sc_flush:add_queue_metadatas(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
-  self.sc_flush:add_queue_metadatas(categories.neb.id, elements.downtime.id, {event_route = self.sc_params.params.canopsis_downtime_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.downtime.id, {event_route = self.sc_params.params.canopsis_downtime_route})
 
   self.format_event = {
     [categories.neb.id] = {
