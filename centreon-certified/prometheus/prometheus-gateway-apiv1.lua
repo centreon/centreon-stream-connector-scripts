@@ -625,9 +625,9 @@ function EventQueue:format_data ()
     data = data .. self:add_unit_info(label, unit, name)
     
     if not self.current_event.hostgroupsLabel then
-      data = data .. name .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
+      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
     else
-      data = data .. name .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. metric.value .. '\n'
+      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. metric.value .. '\n'
     end
 
     if (self.enable_threshold_metrics == 1) then 
@@ -640,9 +640,9 @@ function EventQueue:format_data ()
     data = data .. '# TYPE ' .. name .. ' counter\n'
     data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
     if not self.current_event.hostgroupsLabel then
-      data = data .. name .. '{label="monitoring_status", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
+      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
     else
-      data = data .. name .. '{label="monitoring_status", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. self.current_event.state .. '\n'
+      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. self.current_event.state .. '\n'
     end
   end
 
@@ -773,9 +773,9 @@ function EventQueue:threshold_metrics_format (metricName, label, unit, type, mes
   data = data .. '# HELP ' .. metricName .. ' ' .. message
 
   if not self.current_event.hostgroupsLabel then
-    data = data .. metricName .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata .. '\n'
+    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata .. '\n'
   else
-    data = data .. metricName .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroupsLabel .. '"} ' .. perfdata .. '\n'
+    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroupsLabel .. '"} ' .. perfdata .. '\n'
   end
 
   return data
