@@ -2,6 +2,7 @@
 
 -- libraries 
 local curl = require "cURL"
+local base64 = require("base64")
 
 -- Global variables
 
@@ -299,7 +300,6 @@ function EventQueue:new (conf)
     prometheus_gateway_address = 'http://localhost',
     prometheus_gateway_port = '9091',
     prometheus_gateway_job = 'monitoring',
-    prometheus_gateway_instance = 'centreon',
     http_timeout = 60,
     proxy_address = '',
     proxy_port = '',
@@ -625,9 +625,9 @@ function EventQueue:format_data ()
     data = data .. self:add_unit_info(label, unit, name)
     
     if not self.current_event.hostgroupsLabel then
-      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
+      data = data .. name .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '"} ' .. metric.value .. '\n'
     else
-      data = data .. name .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. metric.value .. '\n'
+      data = data .. name .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. metric.value .. '\n'
     end
 
     if (self.enable_threshold_metrics == 1) then 
@@ -640,9 +640,9 @@ function EventQueue:format_data ()
     data = data .. '# TYPE ' .. name .. ' counter\n'
     data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
     if not self.current_event.hostgroupsLabel then
-      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
+      data = data .. name .. '{label="monitoring_status", service="' .. self.current_event.service_description .. '"} ' .. self.current_event.state .. '\n'
     else
-      data = data .. name .. '{label="monitoring_status", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. self.current_event.state .. '\n'
+      data = data .. name .. '{label="monitoring_status", service="' .. self.current_event.service_description .. '", ' ..  self.current_event.hostgroupsLabel .. '} ' .. self.current_event.state .. '\n'
     end
   end
 
@@ -773,9 +773,9 @@ function EventQueue:threshold_metrics_format (metricName, label, unit, type, mes
   data = data .. '# HELP ' .. metricName .. ' ' .. message
 
   if not self.current_event.hostgroupsLabel then
-    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata .. '\n'
+    data = data .. metricName .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '"} ' .. perfdata .. '\n'
   else
-    data = data .. metricName .. '{label="' .. label .. '", host="' .. self.current_event.hostname .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroupsLabel .. '"} ' .. perfdata .. '\n'
+    data = data .. metricName .. '{label="' .. label .. '", service="' .. self.current_event.service_description .. '",' .. self.current_event.hostgroupsLabel .. '"} ' .. perfdata .. '\n'
   end
 
   return data
@@ -841,7 +841,7 @@ function EventQueue:send_data ()
 
   local httpResponseBody = ""
   local httpRequest = curl.easy()
-    :setopt_url(self.prometheus_gateway_address .. ':' .. self.prometheus_gateway_port .. '/metrics/job/' .. self.prometheus_gateway_job .. '/instance/' .. self.prometheus_gateway_instance)
+    :setopt_url(self.prometheus_gateway_address .. ':' .. self.prometheus_gateway_port .. '/metrics/job/' .. self.prometheus_gateway_job .. '/instance/' .. self.current_event.hostname .. '/service@base64/' .. base64.encode(self.current_event.service_description))
     :setopt_writefunction(
       function (response)
         httpResponseBody = httpResponseBody .. tostring(response)
