@@ -70,6 +70,7 @@ function EventQueue.new(params)
   self.sc_params.params.timezone = params.timezone or "Europe/Paris"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
+  self.sc_params.params.use_severity_as_state = params.use_severity_as_state or 0
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -190,6 +191,15 @@ function EventQueue:list_hostgroups()
   return hostgroups
 end
 
+function EventQueue:get_state(event, severity)
+  -- return standard centreon state
+  if severity and self.sc_params.params.use_severity_as_state == 1 then
+    return severity
+  end
+  
+  return self.centreon_to_canopsis_state[event.category][event.element][event.state]
+end
+
 function EventQueue:get_connector_name()
   -- use poller name as a connector name
   if self.sc_params.params.connector_name_type == "poller" then
@@ -211,12 +221,11 @@ function EventQueue:format_event_host()
     resource = "",
     output = event.short_output,
     long_output = event.long_output,
-    state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
-    timestamp = event.last_check
-    -- extra informations no longer exists with canopsis api v4 ?
-    -- hostgroups = self:list_hostgroups(),
-    -- notes_url = tostring(event.cache.host.notes_url),
-    -- action_url = tostring(event.cache.host.action_url)
+    state = self:get_state(event, event.cache.severity.host),
+    timestamp = event.last_check,
+    hostgroups = self:list_hostgroups(),
+    notes_url = tostring(event.cache.host.notes_url),
+    action_url = tostring(event.cache.host.action_url)
   }
 end
 
@@ -232,13 +241,12 @@ function EventQueue:format_event_service()
     resource = tostring(event.cache.service.description),
     output = event.short_output,
     long_output = event.long_output,
-    state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
-    timestamp = event.last_check
-    -- extra informations
-    -- servicegroups = self:list_servicegroups(),
-    -- notes_url = event.cache.service.notes_url,
-    -- action_url = event.cache.service.action_url,
-    -- hostgroups = self:list_hostgroups()
+    state = self:get_state(event, event.cache.severity.service),
+    timestamp = event.last_check,
+    servicegroups = self:list_servicegroups(),
+    notes_url = event.cache.service.notes_url,
+    action_url = event.cache.service.action_url,
+    hostgroups = self:list_hostgroups()
   }
 end
 
@@ -369,7 +377,7 @@ function EventQueue:build_payload(payload, event)
   if not payload then
     payload = {event}
   else
-    payload = table.insert(payload, event)
+    table.insert(payload, event)
   end
   
   return payload
