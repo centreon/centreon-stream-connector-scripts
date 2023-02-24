@@ -2,6 +2,7 @@
 
 -- libraries 
 local curl = require "cURL"
+local base64 = require("base64")
 
 -- Global variables
 
@@ -299,7 +300,6 @@ function EventQueue:new (conf)
     prometheus_gateway_address = 'http://localhost',
     prometheus_gateway_port = '9091',
     prometheus_gateway_job = 'monitoring',
-    prometheus_gateway_instance = 'centreon',
     http_timeout = 60,
     proxy_address = '',
     proxy_port = '',
@@ -841,7 +841,7 @@ function EventQueue:send_data ()
 
   local httpResponseBody = ""
   local httpRequest = curl.easy()
-    :setopt_url(self.prometheus_gateway_address .. ':' .. self.prometheus_gateway_port .. '/metrics/job/' .. self.prometheus_gateway_job .. '/instance/' .. self.prometheus_gateway_instance)
+    :setopt_url(self.prometheus_gateway_address .. ':' .. self.prometheus_gateway_port .. '/metrics/job/' .. self.prometheus_gateway_job .. '/instance/' .. self.current_event.hostname .. '/service@base64/' .. base64.encode(self.current_event.service_description))
     :setopt_writefunction(
       function (response)
         httpResponseBody = httpResponseBody .. tostring(response)

@@ -125,7 +125,7 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
-  -- return false if one of event ack, downtime or state type (hard soft) aren't valid
+  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
@@ -192,7 +192,7 @@ function ScEvent:is_valid_service_status_event()
     return false
   end
 
-  -- return false if one of event ack, downtime or state type (hard soft) aren't valid
+  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
@@ -331,6 +331,11 @@ function ScEvent:is_valid_event_states()
     return false
   end
 
+  -- return false if flapping state is not valid
+  if not self:is_valid_event_flapping_state() then
+    return false
+  end
+
   return true
 end
 
@@ -399,7 +404,7 @@ function ScEvent:is_valid_event_acknowledge_state()
   end
 
   if not self.sc_common:compare_numbers(self.params.acknowledged, self.sc_common:boolean_to_number(self.event.acknowledged), ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
+    self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be below or equal to " .. tostring(self.params.acknowledged) 
       .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
     return false
   end
@@ -416,8 +421,20 @@ function ScEvent:is_valid_event_downtime_state()
   end
 
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be above or equal to " .. tostring(self.params.in_downtime) 
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime) 
       .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_event_flapping_state: check if the event is in an accepted flapping state
+-- @return true|false (boolean)
+function ScEvent:is_valid_event_flapping_state()
+  if not self.sc_common:compare_numbers(self.params.flapping, self.sc_common:boolean_to_number(self.event.flapping), ">=") then
+    self.sc_logger:warning("[sc_event:is_valid_event_flapping_state]: event is not in an valid flapping state. Event flapping state must be below or equal to " .. tostring(self.params.flapping) 
+      .. ". Current flapping state: " .. tostring(self.sc_common:boolean_to_number(self.event.flapping)))
     return false
   end
 
@@ -991,8 +1008,8 @@ end
 function ScEvent:get_downtime_service_status()
   -- if cache is not filled we can't get the state of the service
   if 
-    not self.event.cache.host.last_time_ok 
-    or not self.event.cache.host.last_time_warning 
+    not self.event.cache.service.last_time_ok 
+    or not self.event.cache.service.last_time_warning 
     or not self.event.cache.service.last_time_critical 
     or not self.event.cache.service.last_time_unknown 
   then
@@ -1159,8 +1176,12 @@ end
 
 --- build_outputs: adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the use_longoutput param
 function ScEvent:build_outputs()
-  self.event.long_output = self.event.output
-  self.event.long_output = self.event.output
+  -- build long output
+  if self.event.long_output and self.event.long_output ~= "" then
+    self.event.long_output = self.event.output .. "\n" .. self.event.long_output
+  else
+    self.event.long_output = self.event.output
+  end
 
   -- no short output if there is no line break
   local short_output = string.match(self.event.output, "^(.*)\n")
@@ -1170,17 +1191,18 @@ function ScEvent:build_outputs()
     self.event.short_output = self.event.output
   end
 
-  -- use shortoutput if it exists
+  -- use short output if it exists
   if self.params.use_long_output == 0 and short_output then
     self.event.output = short_output
 
   -- replace line break if asked to and we are not already using a short output
-  elseif not short_output and  self.params.remove_line_break_in_output == 1 then
+  elseif not short_output and self.params.remove_line_break_in_output == 1 then
     self.event.output = string.gsub(self.event.output, "\n", self.params.output_line_break_replacement_character)
   end
 
   if self.params.output_size_limit ~= "" then
     self.event.output = string.sub(self.event.output, 1, self.params.output_size_limit)
+    self.event.short_output = string.sub(self.event.short_output, 1, self.params.output_size_limit)
   end
 
 end

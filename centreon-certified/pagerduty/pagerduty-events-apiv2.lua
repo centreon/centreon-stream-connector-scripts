@@ -94,7 +94,7 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
@@ -311,7 +311,7 @@ function EventQueue:add()
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -330,8 +330,16 @@ function EventQueue:build_payload(payload, event)
   return payload
 end
 
-function EventQueue:send_data(payload)
+function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
+
+  local url = self.sc_params.params.http_server_url
+  queue_metadata.headers = {
+    "content-type: application/json",
+    "content-length:" .. string.len(payload),
+  }
+
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -340,11 +348,11 @@ function EventQueue:send_data(payload)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(self.sc_params.params.http_server_url))
+  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
-    :setopt_url(self.sc_params.params.http_server_url)
+    :setopt_url(url)
     :setopt_writefunction(
       function (response)
         http_response_body = http_response_body .. tostring(response)
@@ -352,13 +360,7 @@ function EventQueue:send_data(payload)
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "content-type: application/json",
-        "content-length:" .. string.len(payload),
-      }
-  )
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then

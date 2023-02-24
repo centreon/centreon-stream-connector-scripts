@@ -98,7 +98,7 @@ end
 -- @param [opt] separator (string) the separator character that will be used to split the string
 -- @return false (boolean) if text param is empty or nil
 -- @return table (table) a table of strings
-function ScCommon:split (text, separator)
+function ScCommon:split(text, separator)
   -- return false if text is nil or empty
   if text == nil or text == "" then
     self.sc_logger:error("[sc_common:split]: could not split text because it is nil or empty")

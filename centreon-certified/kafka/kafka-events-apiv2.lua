@@ -99,7 +99,7 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (payload) return self:send_data(payload) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
@@ -184,8 +184,8 @@ function EventQueue:add()
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
 
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
-  .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -208,7 +208,7 @@ end
 -- EventQueue:send_data, send data to external tool
 -- @return (boolean)
 --------------------------------------------------------------------------------
-function EventQueue:send_data (payload)
+function EventQueue:send_data(payload, queue_metadata)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then

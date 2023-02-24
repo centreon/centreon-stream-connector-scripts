@@ -7,6 +7,7 @@
 local sc_flush = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScFlush = {}
 
@@ -22,6 +23,8 @@ function sc_flush.new(params, logger)
     self.sc_logger = sc_logger.new()
   end
 
+  self.sc_common = sc_common.new(self.sc_logger)
+
   self.params = params
   self.last_global_flush = os.time()
 
@@ -31,18 +34,49 @@ function sc_flush.new(params, logger)
   self.queues = {
     [categories.neb.id] = {},
     [categories.storage.id] = {},
-    [categories.bam.id] = {}
+    [categories.bam.id] = {},
+    global_queues_metadata = {}
   }
   
   -- link events queues to their respective categories and elements
   for element_name, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id] = {
-      events = {}
+      events = {},
+      queue_metadata = {
+        category_id = element_info.category_id,
+        element_id = element_info.element_id
+      }
     }
   end
 
   setmetatable(self, { __index = ScFlush })
   return self
+end
+
+--- add_queue_metadata: add specific metadata to a queue
+-- @param category_id (number) the id of the bbdo category
+-- @param element_id (number) the id of the bbdo element
+-- @param metadata (table) a table with keys that are the name of the metadata and values the metadata values
+function ScFlush:add_queue_metadata(category_id, element_id, metadata)
+  if not self.queues[category_id] then
+    self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add queue metadata for category: " .. self.params.reverse_category_mapping[category_id]
+      .. " (id: " .. category_id .. ") and element: " .. self.params.reverse_element_mapping[category_id][element_id] .. " (id: " .. element_id .. ")."
+      .. ". metadata name: " .. tostring(metadata_name) .. ", metadata value: " .. tostring(metadata_value)
+      .. ". You need to accept this category with the parameter 'accepted_categories'.") 
+    return
+  end
+
+  if not self.queues[category_id][element_id] then
+    self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add queue metadata for category: " .. self.params.reverse_category_mapping[category_id]
+      .. " (id: " .. category_id .. ") and element: " .. self.params.reverse_element_mapping[category_id][element_id] .. " (id: " .. element_id .. ")."
+      .. ". metadata name: " .. tostring(metadata_name) .. ", metadata value: " .. tostring(metadata_value)
+      .. ". You need to accept this element with the parameter 'accepted_elements'.")
+    return
+  end
+
+  for metadata_name, metadata_value in pairs(metadata) do
+    self.queues[category_id][element_id].queue_metadata[metadata_name] = metadata_value
+  end
 end
 
 --- flush_all_queues: tries to flush all queues according to accepted elements
@@ -104,7 +138,7 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
 
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
-        if not self:flush_payload(send_method, payload) then
+        if not self:flush_payload(send_method, payload, self.queues.global_queues_metadata) then
           return false
         end
 
@@ -116,7 +150,7 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   end
 
   -- we need to empty all queues to not mess with broker retention
-  if not self:flush_payload(send_method, payload) then
+  if not self:flush_payload(send_method, payload, self.queues.global_queues_metadata) then
     return false
   end
 
@@ -137,10 +171,14 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
       -- add event to the payload
       payload = build_payload_method(payload, event)
       counter = counter + 1
-
+      
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
-        if not self:flush_payload(send_method, payload) then
+        if not self:flush_payload(
+          send_method, 
+          payload, 
+          self.queues[element_info.category_id][element_info.element_id].queue_metadata
+        ) then
           return false
         end
         
@@ -151,7 +189,11 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
     end
 
     -- make sure there are no events left inside a specific queue
-    if not self:flush_payload(send_method, payload) then
+    if not self:flush_payload(
+      send_method, 
+      payload, 
+      self.queues[element_info.category_id][element_info.element_id].queue_metadata
+    ) then
       return false
     end
 
@@ -162,11 +204,14 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
   return true
 end
 
---- flush_payload: flush a payload that contains a single type of events (services with services only and hosts with hosts only for example)
+--- flush_payload: flush a given payload by sending it using the given send function
+-- @param send_method (function) the function that will be used to send the payload
+-- @param payload (any) the data that needs to be sent
+-- @param metadata (table) all metadata for the payload
 -- @return boolean (boolean) true or false depending on the success of the operation
-function ScFlush:flush_payload(send_method, payload)
+function ScFlush:flush_payload(send_method, payload, metadata)
   if payload then
-    if not send_method(payload) then
+    if not send_method(payload, metadata) then
       return false
     end
   end

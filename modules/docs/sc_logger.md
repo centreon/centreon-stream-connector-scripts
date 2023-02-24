@@ -1,6 +1,6 @@
 # Documentation of the sc_logger module
 
-- [Documentation of the sc_logger module](#documentation-of-the-sc_logger-module)
+- [Documentation of the sc\_logger module](#documentation-of-the-sc_logger-module)
   - [Introduction](#introduction)
   - [Best practices](#best-practices)
   - [Module initialization](#module-initialization)
@@ -21,6 +21,9 @@
   - [notice method](#notice-method)
     - [notice: parameters](#notice-parameters)
     - [notice: example](#notice-example)
+  - [log\_curl\_command method](#log_curl_command-method)
+    - [log\_curl\_command: parameters](#log_curl_command-parameters)
+    - [log\_curl\_command: example](#log_curl_command-example)
 
 ## Introduction
 
@@ -157,4 +160,45 @@ The **notice** method will print a notice message in the logfile if **severity i
 ```lua
 -- call notice method
 test_logger:notice("[module_name:method_name]: This is a notice message.")
+```
+
+## log_curl_command method
+
+The **log_curl_command** method will print a notice message containing a ready to use shell curl command in the logfile.
+
+See [notice method](#notice-method) for more information about notice logs
+
+### log_curl_command: parameters
+
+| parameter                                                        | type   | optional | default value |
+| ---------------------------------------------------------------- | ------ | -------- | ------------- |
+| the url for the curl command                                     | string | no       |               |
+| metadata containing headers information and http method for curl | table  | no       |               |
+| stream connector parameters                                      | table  | no       |               |
+| data that must be sent                                           | string | yes      |               |
+
+### log_curl_command: example
+
+```lua
+local url = "https://127.0.0.1/my_endpoint"
+local metadata = {
+  method = "POST",
+  headers = {
+    "content-type: application/json",
+    "token: mont-de-marsan"
+  }
+}
+
+local params = {
+  allow_insecure_connection = 1
+}
+
+local data = '{"host":"test-host","state":"down"}'
+
+-- call notice method
+test_logger:log_curl_command(url, metadata, params, data)
+--> this will print the following log
+--[[
+  Thu Mar 17 10:44:53 2022: INFO: [sc_logger:log_curl_command]: curl -k -X POST -H "content-type: application/json" -H "token: mont-de-marsan" "https://127.0.0.1/my_endpoint" -d '{"host":"test-host","state":"down"}'
+]]--
 ```

@@ -53,6 +53,7 @@ function sc_params.new(common, logger)
     hard_only = 1,
     acknowledged = 0,
     in_downtime = 0,
+    flapping = 0,
     
     -- objects filter
     accepted_hostgroups = "",
@@ -88,6 +89,7 @@ function sc_params.new(common, logger)
     proxy_port = "",
     proxy_username = "",
     proxy_password = "",
+    proxy_protocol = "http",
 
     -- event formatting parameters
     format_file = "",
@@ -113,6 +115,7 @@ function sc_params.new(common, logger)
     -- logging parameters
     logfile = "",
     log_level = "",
+    log_curl_commands = 0,
     
     -- metric
     metric_name_regex = "",
@@ -757,6 +760,7 @@ function ScParams:check_params()
   self.params.hard_only = self.common:check_boolean_number_option_syntax(self.params.hard_only, 1)
   self.params.acknowledged = self.common:check_boolean_number_option_syntax(self.params.acknowledged, 0)
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
+  self.params.flapping = self.common:check_boolean_number_option_syntax(self.params.flapping, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
@@ -776,6 +780,7 @@ function ScParams:check_params()
   self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
   self.params.send_data_test = self.common:check_boolean_number_option_syntax(self.params.send_data_test, 0)
   self.params.proxy_address = self.common:if_wrong_type(self.params.proxy_address, "string", "")
+  self.params.proxy_protocol = self.common:if_wrong_type(self.params.proxy_protocol, "string", "http")
   self.params.proxy_port = self.common:if_wrong_type(self.params.proxy_port, "number", "")
   self.params.proxy_username = self.common:if_wrong_type(self.params.proxy_username, "string", "")
   self.params.proxy_password = self.common:if_wrong_type(self.params.proxy_password, "string", "")
@@ -783,6 +788,7 @@ function ScParams:check_params()
   self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.allow_insecure_connection, 0))
   self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
   self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
+  self.params.log_curl_commands = self.common:check_boolean_number_option_syntax(self.params.log_curl_commands, 0)
   self.params.use_long_output = self.common:check_boolean_number_option_syntax(self.params.use_longoutput, 1)
   self.params.remove_line_break_in_output = self.common:check_boolean_number_option_syntax(self.params.remove_line_break_in_output, 1)
   self.params.output_line_break_replacement_character = self.common:if_wrong_type(self.params.output_line_break_replacement_character, "string", " ")
