@@ -75,6 +75,11 @@ function ScEvent:is_valid_event()
     is_valid_event = self:is_valid_bam_event()
   end
 
+  -- run custom code
+  if self.params.custom_code and type(self.params.custom_code) == "function" then
+    self, is_valid_event = self.params.custom_code(self)
+  end    
+
   return is_valid_event
 end
 
@@ -120,7 +125,7 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
-  -- return false if one of event ack, downtime or state type (hard soft) aren't valid
+  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
@@ -143,7 +148,17 @@ function ScEvent:is_valid_host_status_event()
     self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in an accepted hostgroup")
     return false
   end
-  
+
+  -- in bbdo 2 last_update do exist but not in bbdo3.
+  -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
+  if not self.event.last_update and self.event.last_check then
+    self.event.last_update = self.event.last_check
+  elseif not self.event.last_check and self.event.last_update then
+    self.event.last_check = self.event.last_update
+  end
+
+  self:build_outputs()
+
   return true
 end
 
@@ -177,7 +192,7 @@ function ScEvent:is_valid_service_status_event()
     return false
   end
 
-  -- return false if one of event ack, downtime or state type (hard soft) aren't valid
+  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
   if not self:is_valid_event_states() then
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
     return false
@@ -216,6 +231,16 @@ function ScEvent:is_valid_service_status_event()
     self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
     return false
   end
+
+  -- in bbdo 2 last_update do exist but not in bbdo3.
+  -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
+  if not self.event.last_update and self.event.last_check then
+    self.event.last_update = self.event.last_check
+  elseif not self.event.last_check and self.event.last_update then
+    self.event.last_check = self.event.last_update
+  end
+
+  self:build_outputs()
 
   return true
 end
@@ -282,7 +307,7 @@ function ScEvent:is_valid_service()
 
   -- force service description to its id if no description has been found
   if not self.event.cache.service.description then
-    self.event.cache.service.description = service_infos.service_id or self.event.service_id
+    self.event.cache.service.description = self.event.service_id
   end
 
   return true
@@ -306,6 +331,11 @@ function ScEvent:is_valid_event_states()
     return false
   end
 
+  -- return false if flapping state is not valid
+  if not self:is_valid_event_flapping_state() then
+    return false
+  end
+
   return true
 end
 
@@ -319,6 +349,16 @@ function ScEvent:is_valid_event_status(accepted_status_list)
     self.sc_logger:error("[sc_event:is_valid_event_status]: accepted_status list is nil or empty")
     return false
   end
+
+  -- start compat patch bbdo2 => bbdo 3
+  if (not self.event.state and self.event.current_state) then
+    self.event.state = self.event.current_state
+  end
+
+  if (not self.event.current_state and self.event.state) then
+    self.event.current_state = self.event.state
+  end
+  -- end compat patch
 
   for _, status_id in ipairs(status_list) do
     if tostring(self.event.state) == status_id then 
@@ -354,8 +394,17 @@ end
 --- is_valid_event_acknowledge_state: check if the acknowledge state of the event is valid
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_acknowledge_state()
+  -- compat patch bbdo 3 => bbdo 2
+  if (not self.event.acknowledged and self.event.acknowledgement_type) then
+    if self.event.acknowledgement_type >= 1 then
+      self.event.acknowledged = true
+    else
+      self.event.acknowledged = false
+    end
+  end
+
   if not self.sc_common:compare_numbers(self.params.acknowledged, self.sc_common:boolean_to_number(self.event.acknowledged), ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
+    self.sc_logger:warning("[sc_event:is_valid_event_acknowledge_state]: event is not in an valid ack state. Event ack state must be below or equal to " .. tostring(self.params.acknowledged) 
       .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
     return false
   end
@@ -366,9 +415,26 @@ end
 --- is_valid_event_downtime_state: check if the event is in an accepted downtime state
 -- @return true|false (boolean)
 function ScEvent:is_valid_event_downtime_state()
+  -- patch compat bbdo 3 => bbdo 2 
+  if (not self.event.scheduled_downtime_depth and self.event.downtime_depth) then 
+    self.event.scheduled_downtime_depth = self.event.downtime_depth
+  end
+
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid ack state. Event ack state must be above or equal to " .. tostring(self.params.acknowledged) 
-      .. ". Current ack state: " .. tostring(self.sc_common:boolean_to_number(self.event.acknowledged)))
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime) 
+      .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
+    return false
+  end
+
+  return true
+end
+
+--- is_valid_event_flapping_state: check if the event is in an accepted flapping state
+-- @return true|false (boolean)
+function ScEvent:is_valid_event_flapping_state()
+  if not self.sc_common:compare_numbers(self.params.flapping, self.sc_common:boolean_to_number(self.event.flapping), ">=") then
+    self.sc_logger:warning("[sc_event:is_valid_event_flapping_state]: event is not in an valid flapping state. Event flapping state must be below or equal to " .. tostring(self.params.flapping) 
+      .. ". Current flapping state: " .. tostring(self.sc_common:boolean_to_number(self.event.flapping)))
     return false
   end
 
@@ -378,12 +444,12 @@ end
 --- is_valid_hostgroup: check if the event is in an accepted hostgroup
 -- @return true|false (boolean)
 function ScEvent:is_valid_hostgroup()
+  self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
+
   -- return true if option is not set
   if self.params.accepted_hostgroups == "" then
     return true
   end
-
-  self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
   -- return false if no hostgroups were found
   if not self.event.cache.hostgroups then
@@ -425,12 +491,12 @@ end
 --- is_valid_servicegroup: check if the event is in an accepted servicegroup
 -- @return true|false (boolean)
 function ScEvent:is_valid_servicegroup()
+  self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
+  
   -- return true if option is not set
   if self.params.accepted_servicegroups == "" then
     return true
   end
-
-  self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
 
   -- return false if no servicegroups were found
   if not self.event.cache.servicegroups then
@@ -567,13 +633,13 @@ end
 --- is_valid_bv: check if the event is in an accepted BV
 -- @return true|false (boolean)
 function ScEvent:is_valid_bv()
+  self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
+  
   -- return true if option is not set
   if self.params.accepted_bvs == "" then
     return true
   end
-
-  self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
-
+  
   -- return false if no hostgroups were found
   if not self.event.cache.bvs then
     self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
@@ -614,6 +680,14 @@ end
 --- is_valid_poller: check if the event is monitored from an accepted poller
 -- @return true|false (boolean)
 function ScEvent:is_valid_poller()
+  self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance_id)
+
+  -- required if we want to easily have access to poller name with macros {cache.instance.name}
+  self.event.cache.instance = {
+    id = self.event.cache.host.instance,
+    name = self.event.cache.poller
+  }
+  
   -- return true if option is not set
   if self.params.accepted_pollers == "" then
     return true
@@ -624,8 +698,6 @@ function ScEvent:is_valid_poller()
     self.sc_logger:warning("[sc_event:is_valid_poller]: no instance ID found for host ID: " .. tostring(self.event.host_id))
     return false
   end
-
-  self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance)
 
   -- return false if no poller found in cache
   if not self.event.cache.poller then
@@ -664,11 +736,6 @@ end
 --- is_valid_host_severity: checks if the host severity is accepted
 -- @return true|false (boolean)
 function ScEvent:is_valid_host_severity()
-  -- return true if there is no severity filter
-  if self.params.host_severity_threshold == nil then
-    return true
-  end
-
   -- initiate the severity table in the cache if it doesn't exist
   if not self.event.cache.severity then
     self.event.cache.severity = {}
@@ -676,6 +743,12 @@ function ScEvent:is_valid_host_severity()
 
   -- get severity of the host from broker cache
   self.event.cache.severity.host = self.sc_broker:get_severity(self.event.host_id)
+
+  -- return true if there is no severity filter
+  if self.params.host_severity_threshold == nil then
+    return true
+  end
+
 
   -- return false if host severity doesn't match 
   if not self.sc_common:compare_numbers(self.params.host_severity_threshold, self.event.cache.severity.host, self.params.host_severity_operator) then
@@ -691,11 +764,6 @@ end
 --- is_valid_service_severity: checks if the service severity is accepted
 -- @return true|false (boolean)
 function ScEvent:is_valid_service_severity()
-  -- return true if there is no severity filter
-  if self.params.service_severity_threshold == nil then
-    return true
-  end
-
   -- initiate the severity table in the cache if it doesn't exist
   if not self.event.cache.severity then
     self.event.cache.severity = {}
@@ -703,6 +771,13 @@ function ScEvent:is_valid_service_severity()
 
   -- get severity of the host from broker cache
   self.event.cache.severity.service = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+
+  -- return true if there is no severity filter
+  if self.params.service_severity_threshold == nil then
+    return true
+  end
+
+
 
   -- return false if service severity doesn't match 
   if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.severity.service, self.params.service_severity_operator) then
@@ -933,8 +1008,8 @@ end
 function ScEvent:get_downtime_service_status()
   -- if cache is not filled we can't get the state of the service
   if 
-    not self.event.cache.host.last_time_ok 
-    or not self.event.cache.host.last_time_warning 
+    not self.event.cache.service.last_time_ok 
+    or not self.event.cache.service.last_time_warning 
     or not self.event.cache.service.last_time_critical 
     or not self.event.cache.service.last_time_unknown 
   then
@@ -984,7 +1059,7 @@ function ScEvent:is_service_status_event_duplicated()
   end
 
   -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
-  if self.event.last_hard_state_change == self.event.last_check then
+  if self.event.last_hard_state_change == self.event.last_check or self.event.last_hard_state_change == self.event.last_update then
     return false
   end
   
@@ -1023,7 +1098,7 @@ function ScEvent:is_host_status_event_duplicated()
   end
 
   -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
-  if self.event.last_hard_state_change == self.event.last_check then
+  if self.event.last_hard_state_change == self.event.last_check or self.event.last_hard_state_change == self.event.last_update then
     return false
   end
 
@@ -1097,6 +1172,39 @@ function ScEvent:is_valid_downtime_event_end()
   -- any other downtime event is not about the actual end of a downtime so we return false
   self.sc_logger:debug("[sc_event:is_valid_downtime_event_end]: deletion_time not found in the downtime event. The downtime event is not about the end of a downtime")
   return false
+end
+
+--- build_outputs: adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the use_longoutput param
+function ScEvent:build_outputs()
+  -- build long output
+  if self.event.long_output and self.event.long_output ~= "" then
+    self.event.long_output = self.event.output .. "\n" .. self.event.long_output
+  else
+    self.event.long_output = self.event.output
+  end
+
+  -- no short output if there is no line break
+  local short_output = string.match(self.event.output, "^(.*)\n")
+  if short_output then
+    self.event.short_output = short_output
+  else
+    self.event.short_output = self.event.output
+  end
+
+  -- use short output if it exists
+  if self.params.use_long_output == 0 and short_output then
+    self.event.output = short_output
+
+  -- replace line break if asked to and we are not already using a short output
+  elseif not short_output and self.params.remove_line_break_in_output == 1 then
+    self.event.output = string.gsub(self.event.output, "\n", self.params.output_line_break_replacement_character)
+  end
+
+  if self.params.output_size_limit ~= "" then
+    self.event.output = string.sub(self.event.output, 1, self.params.output_size_limit)
+    self.event.short_output = string.sub(self.event.short_output, 1, self.params.output_size_limit)
+  end
+
 end
 
 --- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead

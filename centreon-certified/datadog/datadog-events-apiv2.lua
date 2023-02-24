@@ -1,16 +1,22 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Splunk Connector Events
+-- Centreon Broker Datadog Connector Events
 --------------------------------------------------------------------------------
+
 
 -- Libraries
 local curl = require "cURL"
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
-local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
-local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
+local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
+local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
+local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
+
+--------------------------------------------------------------------------------
+-- Classe event_queue
+--------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -29,15 +35,14 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "http_server_url",
-    "splunk_token"
+    "api_key"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/splunk-metrics.log"
-  local log_level = params.log_level or 3
+  local logfile = params.logfile or "/var/log/centreon-broker/datadog-events.log"
+  local log_level = params.log_level or 1
   
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
@@ -50,23 +55,22 @@ function EventQueue.new(params)
     self.fail = true
   end
   
+  --params.max_buffer_size = 1
+  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.splunk_index = params.splunk_index or ""
-  self.sc_params.params.splunk_source = params.splunk_source or ""
-  self.sc_params.params.splunk_sourcetype = params.splunk_sourcetype or "_json"
-  self.sc_params.params.splunk_host = params.splunk_host or "Central"
+  self.sc_params.params.api_key = params.api_key
+  self.sc_params.params.datadog_centreon_url = params.datadog_centreon_url or "http://yourcentreonaddress.local"
+  self.sc_params.params.datadog_event_endpoint = params.datadog_event_endpoint or "/api/v1/events"
+  self.sc_params.params.http_server_url = params.http_server_url or "https://api.datadoghq.com"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.max_buffer_size = params.max_buffer_size or 30
-  self.sc_params.params.hard_only = params.hard_only or 0
-  self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
-  self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
-  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[^a-zA-Z0-9_]"
-  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "_"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  
+  self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
+  self.format_template = self.sc_params:load_event_format_file(true)
 
   -- only load the custom code file, not executed yet
   if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
@@ -74,24 +78,33 @@ function EventQueue.new(params)
   end
 
   self.sc_params:build_accepted_elements_info()
-  
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
+  self.state_to_alert_type_mapping = {
+    [categories.neb.id] = {
+        [elements.host_status.id] = {
+            [0] = "info",
+            [1] = "error",
+            [2] = "warning"
+        },
+        [elements.service_status.id] = {
+            [0] = "info",
+            [1] = "warning",
+            [2] = "error",
+            [3] = "warning"
+        }
+    }
+  }
+
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
       [elements.service_status.id] = function () return self:format_event_service() end
-    }
-  }
-
-  self.format_metric = {
-    [categories.neb.id] = {
-      [elements.host_status.id] = function (metric) return self:format_metric_host(metric) end,
-      [elements.service_status.id] = function (metric) return self:format_metric_service(metric) end
-    }
+    },
+    [categories.bam.id] = {}
   }
 
   self.send_data_method = {
@@ -113,104 +126,60 @@ end
 function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
-  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
+  local template = self.sc_params.params.format_template[category][element]
 
-  -- can't format event if stream connector is not handling this kind of event
-  if not self.format_event[category][element] then
-    self.sc_logger:error("[format_event]: You are trying to format an event with category: "
-      .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
-      .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
-      .. ". If it is a not a misconfiguration, you can open an issue at https://github.com/centreon/centreon-stream-connector-scripts/issues")
+  self.sc_logger:debug("[EventQueue:format_event]: starting format event")
+  self.sc_event.event.formated_event = {}
+
+  if self.format_template and template ~= nil and template ~= "" then
+    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
-    self.sc_logger:debug("[EventQueue:format_event]: going to format it")
-    self.format_event[category][element]()
+    -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
+    if not self.format_event[category][element] then
+      self.sc_logger:error("[format_event]: You are trying to format an event with category: "
+        .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+        .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+        .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
+    else
+      self.format_event[category][element]()
+    end
   end
 
+  self:add()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
-
---------------------------------------------------------------------------------
----- EventQueue:format_event_host method
---------------------------------------------------------------------------------
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
-    event_type = "host",
-    state = event.state,
-    state_type = event.state_type,
-    hostname = event.cache.host.name,
-    ctime = event.last_check
+    title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name),
+    text = event.output,
+    aggregation_key = "host_" .. tostring(event.host_id),
+    alert_type = self.state_to_alert_type_mapping[event.category][event.element][event.state],
+    host = tostring(event.cache.host.name),
+    date_happened = event.last_check
   }
-
-  self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
-  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
---------------------------------------------------------------------------------
----- EventQueue:format_event_service method
---------------------------------------------------------------------------------
 function EventQueue:format_event_service()
   local event = self.sc_event.event
   
   self.sc_event.event.formated_event = {
-    event_type = "service",
-    state = event.state,
-    state_type = event.state_type,
-    hostname = event.cache.host.name,
-    service_description = event.cache.service.description,
-    ctime = event.last_check
+    title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name .. ": " .. event.cache.service.description),
+    text = event.output,
+    aggregation_key = "service_" .. tostring(event.host_id) .. "_" .. tostring(event.service_id),
+    alert_type = self.state_to_alert_type_mapping[event.category][event.element][event.state],
+    host = tostring(event.cache.host.name),
+    date_happened = event.last_check
   }
-  
-  self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
-  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
-end
-
---------------------------------------------------------------------------------
----- EventQueue:format_metric_host method
--- @param metric {table} a single metric data
---------------------------------------------------------------------------------
-function EventQueue:format_metric_host(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
-  self:format_metric_event(metric)
-end
-
---------------------------------------------------------------------------------
----- EventQueue:format_metric_service method
--- @param metric {table} a single metric data
---------------------------------------------------------------------------------
-function EventQueue:format_metric_service(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
-  self:format_metric_event(metric)
-end
-
---------------------------------------------------------------------------------
----- EventQueue:build_metadata method
--- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata 
---------------------------------------------------------------------------------
-function EventQueue:format_metric_event(metric)
-  self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
-  self.sc_event.event.formated_event["metric_name:" .. tostring(metric.metric_name)] = metric.value
-
-  -- add metric instance in tags
-  if metric.instance ~= "" then
-    self.sc_event.event.formated_event["instance"] = metric.instance
-  end
-
-  if metric.subinstance[1] then
-    self.sc_event.event.formated_event["subinstances"] = metric.subinstance
-  end
-
-  self:add()
-  self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
 
 --------------------------------------------------------------------------------
 -- EventQueue:add, add an event to the sending queue
 --------------------------------------------------------------------------------
 function EventQueue:add()
+  -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
 
@@ -218,15 +187,7 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = {
-    sourcetype = self.sc_params.params.splunk_sourcetype,
-    source = self.sc_params.params.splunk_source,
-    index = self.sc_params.params.splunk_index,
-    host = self.sc_params.params.splunk_host,
-    time = self.sc_event.event.last_check,
-    fields = self.sc_event.event.formated_event
-  }
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -250,15 +211,14 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
+
+  local url = self.sc_params.params.http_server_url .. self.sc_params.params.datadog_event_endpoint
   queue_metadata.headers = {
     "content-type: application/json",
-    "content-length:" .. string.len(payload),
-    "authorization: Splunk " .. self.sc_params.params.splunk_token
+    "DD-API-KEY:" .. self.sc_params.params.api_key
   }
-  local url = self.sc_params.params.http_server_url
 
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
-
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(payload))
@@ -266,7 +226,7 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Splunk address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Datadog address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -294,7 +254,7 @@ function EventQueue:send_data(payload, queue_metadata)
     if (self.sc_params.params.proxy_password ~= '') then
       http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
     else
-      broker_log:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
+      self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
@@ -311,7 +271,8 @@ function EventQueue:send_data(payload, queue_metadata)
   
   -- Handling the return code
   local retval = false
-  if http_response_code == 200 then
+  -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
+  if http_response_code == 202 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
   else
@@ -345,13 +306,12 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
-  queue.sc_event = queue.sc_metrics.sc_event
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
   if queue.sc_event:is_valid_category() then
-    if queue.sc_metrics:is_valid_bbdo_element() then
+    if queue.sc_event:is_valid_element() then
       -- format event if it is validated
-      if queue.sc_metrics:is_valid_metric_event() then
+      if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
   --- log why the event has been dropped 

@@ -98,7 +98,7 @@ end
 -- @param [opt] separator (string) the separator character that will be used to split the string
 -- @return false (boolean) if text param is empty or nil
 -- @return table (table) a table of strings
-function ScCommon:split (text, separator)
+function ScCommon:split(text, separator)
   -- return false if text is nil or empty
   if text == nil or text == "" then
     self.sc_logger:error("[sc_common:split]: could not split text because it is nil or empty")
@@ -221,30 +221,122 @@ end
 -- @param string (string) the string that must be escaped
 -- @return string (string) the string with escaped characters
 function ScCommon:json_escape(string)
-  local type = type(string)
-
-  -- check that param is a valid string
-  if string == nil or type == "table" then
-    self.sc_logger:error("[sc_common:escape_string]: the input parameter is not valid, it is either nil or a table. Sent value: " .. tostring(string))
+  if type(string) ~= "string" then
+    self.sc_logger:error("[sc_common:json_escape]: the input parameter is not valid, it must be a string. Sent value: " .. tostring(string))
     return string
   end
 
-  -- nothing to escape in a boolean or number value
-  if type ~= "string" then
+  return string:gsub('\\', '\\\\')
+    :gsub('\t', '\\t')
+    :gsub('\n', '\\n')
+    :gsub('\b', '\\b')
+    :gsub('\r', '\\r')
+    :gsub('\f', '\\f')
+    :gsub('/', '\\/')
+    :gsub('"', '\\"')
+end
+
+--- xml_escape: escape xml special characters in a string
+-- @param string (string) the string that must be escaped
+-- @return string (string) the string with escaped characters
+function ScCommon:xml_escape(string)
+  if type(string) ~= "string" then
+    self.sc_logger:error("[sc_common:xml_escape]: the input parameter is not valid, it must be a string. Sent value: " .. tostring(string))
     return string
   end
 
-  -- escape all characters
-  string = string.gsub(string, '\\', '\\\\')
-  string = string.gsub(string, '\t', '\\t')
-  string = string.gsub(string, '\n', '\\n')
-  string = string.gsub(string, '\b', '\\b')
-  string = string.gsub(string, '\r', '\\r')
-  string = string.gsub(string, '\f', '\\f')
-  string = string.gsub(string, '/', '\\/')
-  string = string.gsub(string, '"', '\\"')
+  return string:gsub('&', '&amp')
+    :gsub('<', '$lt;')
+    :gsub('>', '&gt;')
+    :gsub('"', '&quot;')
+    :gsub("'", "&apos;")
+end
 
-  return string
+--- lua_regex_escape: escape lua regex special characters in a string
+-- @param string (string) the string that must be escaped
+-- @return string (string) the string with escaped characters
+function ScCommon:lua_regex_escape(string)
+  if type(string) ~= "string" then
+    self.sc_logger:error("[sc_common:lua_regex_escape]: the input parameter is not valid, it must be a string. Sent value: " .. tostring(string))
+    return string
+  end
+
+  return string:gsub('%%', '%%%%')
+    :gsub('%.', '%%.')
+    :gsub("%*", "%%*")
+    :gsub("%-", "%%-")
+    :gsub("%(", "%%(")
+    :gsub("%)", "%%)")
+    :gsub("%[", "%%[")
+    :gsub("%]", "%%]")
+    :gsub("%$", "%%$")
+    :gsub("%^", "%%^")
+    :gsub("%+", "%%+")
+    :gsub("%?", "%%?")
+end
+
+--- dumper: dump variables for debug purpose
+-- @param variable (any) the variable that must be dumped
+-- @param result (string) [opt] the string that contains the dumped variable. ONLY USED INTERNALLY FOR RECURSIVE PURPOSE
+-- @param tab_char (string) [opt] the string that contains the tab character. ONLY USED INTERNALLY FOR RECURSIVE PURPOSE (and design)
+-- @return result (string) the dumped variable
+function ScCommon:dumper(variable, result, tab_char)
+  -- tabulation handling
+  if not tab_char then
+    tab_char = ""
+  else
+    tab_char = tab_char .. "\t"
+  end
+
+  -- non table variables handling
+  if type(variable) ~= "table" then
+    if result then
+      result = result .. "\n" .. tab_char .. "[" .. type(variable) .. "]: " .. tostring(variable)
+    else
+      result = "\n[" .. type(variable) .. "]: " .. tostring(variable)
+    end
+  else
+    if not result then
+      result = "\n[table]"
+      tab_char = "\t"
+    end
+
+    -- recursive looping through each tables in the table
+    for index, value in pairs(variable) do
+      if type(value) ~= "table" then
+        if result then
+          result = result .. "\n" .. tab_char .. "[" .. type(value) .. "] " .. tostring(index) .. ": " .. tostring(value)
+        else
+          result = "\n" .. tostring(index) .. " [" .. type(value) .. "]: " .. tostring(value)
+        end
+      else
+        if result then
+          result = result .. "\n" .. tab_char .. "[" .. type(value) .. "] " .. tostring(index) .. ": "
+        else
+          result = "\n[" .. type(value) .. "] " .. tostring(index) .. ": "
+        end
+        result = self:dumper(value, result, tab_char)
+      end
+    end
+  end
+
+  return result
+end
+
+--- trim: remove spaces at the beginning and end of a string (or remove the provided character)
+-- @param string (string) the string that will be trimmed
+-- @param character [opt] (string) the character to trim
+-- @return string (string) the trimmed string
+function ScCommon:trim(string, character)
+  local result = ""
+  local count = ""
+  if not character then
+    result, count = string.gsub(string, "^%s*(.-)%s*$", "%1")
+  else
+    result, count = string.gsub(string, "^" .. character .. "*(.-)" .. character .. "*$", "%1")
+  end
+
+  return result
 end
 
 return sc_common

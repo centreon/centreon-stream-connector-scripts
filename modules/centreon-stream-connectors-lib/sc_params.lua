@@ -25,6 +25,15 @@ function sc_params.new(common, logger)
   end
   self.common = common
 
+  -- get the version of the bbdo protocol (only the first digit, nothing else matters)
+  if broker.bbdo_version ~= nil then
+    _, _, self.bbdo_version = string.find(broker.bbdo_version(), "(%d+).%d+.%d+")
+  else
+    self.bbdo_version = 2
+  end
+
+  self.bbdo_version = tonumber(self.bbdo_version)
+  
   -- initiate params
   self.params = {
     -- filter broker events
@@ -44,6 +53,7 @@ function sc_params.new(common, logger)
     hard_only = 1,
     acknowledged = 0,
     in_downtime = 0,
+    flapping = 0,
     
     -- objects filter
     accepted_hostgroups = "",
@@ -66,7 +76,9 @@ function sc_params.new(common, logger)
     
     -- communication parameters
     max_buffer_size = 1,
-    max_buffer_age = 5,
+    max_buffer_age = 5, --deprecated
+    max_all_queues_age = 60,
+    send_mixed_events = 1,
 
     -- connection parameters
     connection_timeout = 60,
@@ -77,9 +89,17 @@ function sc_params.new(common, logger)
     proxy_port = "",
     proxy_username = "",
     proxy_password = "",
+    proxy_protocol = "http",
 
     -- event formatting parameters
     format_file = "",
+    use_long_output = 1,
+    remove_line_break_in_output = 1,
+    output_line_break_replacement_character = " ",
+    output_size_limit = "",
+
+    -- custom code parameters
+    custom_code_file = "",
 
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
@@ -87,6 +107,7 @@ function sc_params.new(common, logger)
 
     -- internal parameters
     __internal_ts_last_flush = os.time(),
+    __internal_last_global_flush_date = os.time(),
 
     -- testing parameters
     send_data_test = 0,
@@ -94,7 +115,12 @@ function sc_params.new(common, logger)
     -- logging parameters
     logfile = "",
     log_level = "",
+    log_curl_commands = 0,
     
+    -- metric
+    metric_name_regex = "",
+    metric_replacement_character = "_",
+
     -- initiate mappings
     element_mapping = {},
     status_mapping = {},
@@ -103,7 +129,7 @@ function sc_params.new(common, logger)
       [1] = "HARD"
     },
     validatedEvents = {},
-    
+
     -- FIX BROKER ISSUE 
     max_stored_events = 10 -- do not use values above 100 
   }
@@ -127,6 +153,38 @@ function sc_params.new(common, logger)
   }
   
   local categories = self.params.bbdo.categories
+
+  local bbdo2_bbdo3_compat_mapping = {
+    [2] = {
+      host_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 14,
+        name = "host_status"
+      },
+      service_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 24,
+        name = "service_status"
+      },
+    },
+    [3] = {
+      host_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 32,
+        name = "pb_host_status"
+      },
+      service_status = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 29,
+        name = "pb_service_status"
+      }
+    }
+  }
+
   self.params.bbdo.elements = {
     acknowledgement = {
       category_id = categories.neb.id,
@@ -206,12 +264,7 @@ function sc_params.new(common, logger)
       id = 13,
       name = "host_parent"
     },
-    host_status = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 14,
-      name = "host_status"
-    },
+    host_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["host_status"],
     instance = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -266,17 +319,66 @@ function sc_params.new(common, logger)
       id = 23,
       name = "service"
     },
-    service_status = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 24,
-      name = "service_status"
-    },
+    service_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["service_status"],
     instance_configuration = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
       id = 25,
       name = "instance_configuration"
+    },
+    responsive_instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 26,
+      name = "responsive_instance"
+    },
+    pb_service = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 27,
+      name = "pb_service"
+    },
+    pb_adaptive_service = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 28,
+      name = "pb_adaptive_service"
+    },
+    pb_service_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 29,
+      name = "pb_service_status"
+    },
+    pb_host = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 30,
+      name = "pb_host"
+    },
+    pb_adaptive_host = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 31,
+      name = "pb_adaptive_host"
+    },
+    pb_host_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 32,
+      name = "pb_host_status"
+    },
+    pb_severity = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 33,
+      name = "pb_severity"
+    },
+    pb_tag = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 34,
+      name = "pb_tag"
     },
     metric = {
       category_id = categories.storage.id,
@@ -454,6 +556,15 @@ function sc_params.new(common, logger)
   self.params.element_mapping[categories.neb.id].service = elements.service.id
   self.params.element_mapping[categories.neb.id].service_status = elements.service_status.id
   self.params.element_mapping[categories.neb.id].instance_configuration = elements.instance_configuration.id
+  self.params.element_mapping[categories.neb.id].responsive_instance = elements.responsive_instance.id
+  self.params.element_mapping[categories.neb.id].pb_service = elements.pb_service.id
+  self.params.element_mapping[categories.neb.id].pb_adaptive_service = elements.pb_adaptive_service.id
+  self.params.element_mapping[categories.neb.id].pb_service_status = elements.pb_service_status.id
+  self.params.element_mapping[categories.neb.id].pb_host = elements.pb_host.id
+  self.params.element_mapping[categories.neb.id].pb_adaptive_host = elements.pb_adaptive_host.id
+  self.params.element_mapping[categories.neb.id].pb_host_status = elements.pb_host_status.id
+  self.params.element_mapping[categories.neb.id].pb_severity = elements.pb_severity.id
+  self.params.element_mapping[categories.neb.id].pb_tag = elements.pb_tag.id
 
   -- metric elements mapping
   self.params.element_mapping[categories.storage.id].metric = elements.metric.id
@@ -508,7 +619,15 @@ function sc_params.new(common, logger)
       [elements.service_group_member.id] = "service_group_member",
       [elements.service.id] = "service",
       [elements.service_status.id] = "service_status",
-      [elements.instance_configuration.id] = "instance_configuration"
+      [elements.instance_configuration.id] = "instance_configuration",
+      [elements.pb_service.id] = "pb_service",
+      [elements.pb_adaptive_service.id] = "pb_adaptive_service",
+      [elements.pb_service_status.id] = "pb_service_status",
+      [elements.pb_host.id] = "pb_host",
+      [elements.pb_adaptive_host.id] = "pb_adaptive_host",
+      [elements.pb_host_status.id] = "pb_host_status",
+      [elements.pb_severity.id] = "pb_severity",
+      [elements.pb_tag] = "pb_tag"
     },
     [categories.storage.id] = {
       [elements.metric.id] = "metric",
@@ -580,6 +699,17 @@ function sc_params.new(common, logger)
         [1] = "WARNING",
         [2] = "CRITICAL",
         [3] = "UNKNOWN"
+      },
+      [elements.pb_host_status.id] = {
+        [0] = "UP",
+        [1] = "DOWN",
+        [2] = "UNREACHABLE"
+      },
+      [elements.pb_service_status.id] = {
+        [0] = "OK",
+        [1] = "WARNING",
+        [2] = "CRITICAL",
+        [3] = "UNKNOWN"
       }
     },
     [categories.bam.id] = {
@@ -630,6 +760,7 @@ function ScParams:check_params()
   self.params.hard_only = self.common:check_boolean_number_option_syntax(self.params.hard_only, 1)
   self.params.acknowledged = self.common:check_boolean_number_option_syntax(self.params.acknowledged, 0)
   self.params.in_downtime = self.common:check_boolean_number_option_syntax(self.params.in_downtime, 0)
+  self.params.flapping = self.common:check_boolean_number_option_syntax(self.params.flapping, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
@@ -641,14 +772,15 @@ function ScParams:check_params()
   self.params.service_severity_threshold = self.common:if_wrong_type(self.params.service_severity_threshold, "number", nil)
   self.params.host_severity_operator = self.common:if_wrong_type(self.params.host_severity_operator, "string", ">=")
   self.params.service_severity_operator = self.common:if_wrong_type(self.params.service_severity_operator, "string", ">=")
-  self.params.ack_host_status = self.common:ifnil_or_empty(self.params.ack_host_status,self.params.host_status)
-  self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status,self.params.service_status)
-  self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status,self.params.host_status)
-  self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status,self.params.service_status)
+  self.params.ack_host_status = self.common:ifnil_or_empty(self.params.ack_host_status, self.params.host_status)
+  self.params.ack_service_status = self.common:ifnil_or_empty(self.params.ack_service_status, self.params.service_status)
+  self.params.dt_host_status = self.common:ifnil_or_empty(self.params.dt_host_status, self.params.host_status)
+  self.params.dt_service_status = self.common:ifnil_or_empty(self.params.dt_service_status, self.params.service_status)
   self.params.enable_host_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_host_status_dedup, 0)
   self.params.enable_service_status_dedup = self.common:check_boolean_number_option_syntax(self.params.enable_service_status_dedup, 0)
   self.params.send_data_test = self.common:check_boolean_number_option_syntax(self.params.send_data_test, 0)
   self.params.proxy_address = self.common:if_wrong_type(self.params.proxy_address, "string", "")
+  self.params.proxy_protocol = self.common:if_wrong_type(self.params.proxy_protocol, "string", "http")
   self.params.proxy_port = self.common:if_wrong_type(self.params.proxy_port, "number", "")
   self.params.proxy_username = self.common:if_wrong_type(self.params.proxy_username, "string", "")
   self.params.proxy_password = self.common:if_wrong_type(self.params.proxy_password, "string", "")
@@ -656,6 +788,13 @@ function ScParams:check_params()
   self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.allow_insecure_connection, 0))
   self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
   self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
+  self.params.log_curl_commands = self.common:check_boolean_number_option_syntax(self.params.log_curl_commands, 0)
+  self.params.use_long_output = self.common:check_boolean_number_option_syntax(self.params.use_longoutput, 1)
+  self.params.remove_line_break_in_output = self.common:check_boolean_number_option_syntax(self.params.remove_line_break_in_output, 1)
+  self.params.output_line_break_replacement_character = self.common:if_wrong_type(self.params.output_line_break_replacement_character, "string", " ")
+  self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
+  self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
+  self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -694,7 +833,7 @@ end
 
 --- load_event_format_file: load a json file which purpose is to serve as a template to format events
 -- @param json_string [opt] (boolean) convert template from a lua table to a json string
--- @return true|false (boolean) if file is valid template file or not
+-- @return true|false (boolean) if file is a valid template file or not
 function ScParams:load_event_format_file(json_string)
   -- return if there is no file configured
   if self.params.format_file == "" or self.params.format_file == nil then
@@ -729,8 +868,51 @@ function ScParams:load_event_format_file(json_string)
   return true
 end
 
+--- load_custom_code_file: load a custom code which purpose is to enhance stream connectors possibilities without having to edit any standard code
+-- @param file (string) the file that needs to be loaded (example: /etc/centreon-broker/sc-custom-code.lua)
+-- @return true|false (boolean) if file is a valid custom code file or not
+function ScParams:load_custom_code_file(custom_code_file)
+  -- return if there is no file configured
+  if self.params.custom_code_file == "" or self.params.custom_code_file == nil then
+    return true
+  end 
+  
+  local file = io.open(custom_code_file, "r")
+
+  -- return false if we can't open the file
+  if not file then
+    self.logger:error("[sc_params:load_custom_code_file]: couldn't open file "
+      .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+    return false
+  end
+
+  -- get content of the file
+  local file_content = file:read("*a")
+  io.close(file)
+
+  -- check if it returns self, true or self, false
+  for return_value in string.gmatch(file_content, "return (.-)\n") do
+    if return_value ~= "self, true" and return_value ~= "self, false" then
+      self.logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
+        .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
+      return false
+    end
+  end
+  
+  -- check if it is valid lua code
+  local custom_code, error = loadfile(custom_code_file)
+
+  if not custom_code then
+    self.logger:error("[sc_params:load_custom_code_file]: custom_code_file doesn't contain valid lua code. Error is: " .. tostring(error))
+    return false
+  end
+
+  self.params.custom_code = custom_code
+  return true
+end
+
 function ScParams:build_accepted_elements_info()
-  categories = self.params.bbdo.categories
+  local categories = self.params.bbdo.categories
   self.params.accepted_elements_info = {}
 
   -- list all accepted elements

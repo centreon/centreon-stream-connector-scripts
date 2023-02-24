@@ -47,7 +47,7 @@ function EventQueue.new (params)
   self.events = {}
   self.fail = false
 
-  local logfile = params.logfile or "/var/log/centreon-broker/servicenow-stream-connector.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/servicenow-em-stream-connector.log"
   local log_level = params.log_level or 1
 
   -- initiate mandatory objects
@@ -76,6 +76,12 @@ function EventQueue.new (params)
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
+
+  -- only load the custom code file, not executed yet
+  if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
+    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+  end
+
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
@@ -91,7 +97,11 @@ function EventQueue.new (params)
   }
 
   self.send_data_method = {
-    [1] = function (data, element) return self:send_data(data, element) end
+    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
+  }
+
+  self.build_payload_method = {
+    [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
   setmetatable(self, { __index = EventQueue })
@@ -207,13 +217,30 @@ end
 -- @return {array} decoded output
 -- @throw exception if http call fails or response is empty
 --------------------------------------------------------------------------------
-function EventQueue:call (url, method, data, authToken)
-  method = method or "GET"
+function EventQueue:call(url, method, data, authToken)
   data = data or nil
   authToken = authToken or nil
+  local queue_metadata = {
+    method = method or "GET"
+  }
+
+  -- handle headers
+  if not authToken and queue_metadata.method ~= "GET" then
+    self.sc_logger:debug("EventQueue:call: Add form header")
+    queue_metadata.headers = {"Content-Type: application/x-www-form-urlencoded"}
+  else
+    broker_log:info(3, "Add JSON header")
+    queue_metadata.headers = {
+      "Accept: application/json",
+      "Content-Type: application/json",
+      "Authorization: Bearer " .. authToken
+    }
+  end
 
   local endpoint = "https://" .. tostring(self.sc_params.params.instance) .. ".service-now.com/" .. tostring(url)
   self.sc_logger:debug("EventQueue:call: Prepare url " .. endpoint)
+
+  self.sc_logger:log_curl_command(endpoint, queue_metadata, self.sc_params.params, data)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -228,6 +255,7 @@ function EventQueue:call (url, method, data, authToken)
       res = res .. tostring(response)
     end)
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   self.sc_logger:debug("EventQueue:call: Request initialize")
 
@@ -249,24 +277,7 @@ function EventQueue:call (url, method, data, authToken)
     end
   end
 
-  if not authToken then
-    if method ~= "GET" then
-      self.sc_logger:debug("EventQueue:call: Add form header")
-      request:setopt(curl.OPT_HTTPHEADER, { "Content-Type: application/x-www-form-urlencoded" })
-    end
-  else
-    broker_log:info(3, "Add JSON header")
-    request:setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "Accept: application/json",
-        "Content-Type: application/json",
-        "Authorization: Bearer " .. authToken
-      }
-    )
-  end
-
-  if method ~= "GET" then
+  if queue_metadata.method ~= "GET" then
     self.sc_logger:debug("EventQueue:call: Add post data")
     request:setopt_postfields(data)
   end
@@ -379,17 +390,32 @@ function EventQueue:add()
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
+end
+
+--------------------------------------------------------------------------------
+-- EventQueue:build_payload, concatenate data so it is ready to be sent
+-- @param payload {string} json encoded string
+-- @param event {table} the event that is going to be added to the payload
+-- @return payload {string} json encoded string
+--------------------------------------------------------------------------------
+function EventQueue:build_payload(payload, event)
+  if not payload then
+    payload = broker.json_encode(event)
+  else
+    payload = payload .. ',' .. broker.json_encode(event)
+  end
+  
+  return payload
 end
 
 --------------------------------------------------------------------------------
 -- EventQueue:send_data, send data to external tool
 -- @return {boolean}
 --------------------------------------------------------------------------------
-function EventQueue:send_data(data, element)
+function EventQueue:send_data(payload, queue_metadata)
   local authToken
   local counter = 0
-  local http_post_data
 
   -- generate a fake token for test purpose or use a real one if not testing
   if self.sc_params.params.send_data_test == 1 then
@@ -398,16 +424,7 @@ function EventQueue:send_data(data, element)
     authToken = self:getAuthToken()
   end
 
-  for _, raw_event in ipairs(data) do
-    if counter == 0 then
-      http_post_data = broker.json_encode(raw_event) 
-      counter = counter + 1
-    else
-      http_post_data = http_post_data .. ',' .. broker.json_encode(raw_event)
-    end
-  end
-
-  http_post_data = '{"records":[' .. http_post_data .. ']}'
+  local http_post_data = '{"records":[' .. payload .. ']}'
   self.sc_logger:info('EventQueue:send_data:  creating json: ' .. http_post_data)
 
   if self:call(
@@ -424,45 +441,66 @@ end
 
 --------------------------------------------------------------------------------
 -- write,
--- @param {array} event, the event from broker
+-- @param {table} event, the event from broker
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)
-  -- First, flush all queues if needed (too old or size too big)
-  queue.sc_flush:flush_all_queues(queue.send_data_method[1])
-
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
-    return true
+    return false
   end
 
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
-  -- drop event if wrong category
-  if not queue.sc_event:is_valid_category() then
+  if queue.sc_event:is_valid_category() then
+    if queue.sc_event:is_valid_element() then
+      -- format event if it is validated
+      if queue.sc_event:is_valid_event() then
+        queue:format_accepted_event()
+      end
+  --- log why the event has been dropped 
+    else
+      queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
+        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+    end    
+  else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
+  end
+  
+  return flush()
+end
+
+-- flush method is called by broker every now and then (more often when broker has nothing else to do)
+function flush()
+  local queues_size = queue.sc_flush:get_queues_size()
+  
+  -- nothing to flush
+  if queues_size == 0 then
     return true
   end
 
-  -- drop event if wrong element
-  if not queue.sc_event:is_valid_element() then
-    queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
-      .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+  -- flush all queues because last global flush is too old
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
     return true
   end
 
-  -- drop event if it is not validated
-  if queue.sc_event:is_valid_event() then
-    queue:format_accepted_event()
-  else
+  -- flush queues because too many events are stored in them
+  if queues_size > queue.sc_params.params.max_buffer_size then
+    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      return false
+    end
+
     return true
   end
 
-  -- Since we've added an event to a specific queue, flush it if queue is full
-  queue.sc_flush:flush_queue(queue.send_data_method[1], queue.sc_event.event.category, queue.sc_event.event.element)
-  return true
+  -- there are events in the queue but they were not ready to be send
+  return false
 end
 

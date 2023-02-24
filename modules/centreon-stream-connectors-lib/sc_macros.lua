@@ -32,12 +32,27 @@ function sc_macros.new(params, logger, common)
   -- initiate params
   self.params = params
 
+  -- mapping to help get "group" type macros value
+  self.group_macro_conversion = {
+    hg = function(event, format, regex) return self:get_hg_macro(event, format, regex) end,
+    sg = function(event, format, regex) return self:get_sg_macro(event, format, regex) end,
+    bv = function(event, format, regex) return self:get_bv_macro(event, format, regex) end
+  }
+
+  -- mapping to help transform group macro values into a specific format
+  self.group_macro_format = {
+    table = function(data) return self:group_macro_format_table(data) end,
+    inline = function(data) return self:group_macro_format_inline(data) end
+  }
+
   -- mapping of macro that we will convert if asked
   self.transform_macro = {
     date = function (macro_value) return self:transform_date(macro_value) end,
     type = function (macro_value) return self:transform_type(macro_value) end,
     short = function (macro_value) return self:transform_short(macro_value) end,
-    state = function (macro_value, event) return self:transform_state(macro_value, event) end
+    state = function (macro_value, event) return self:transform_state(macro_value, event) end,
+    number = function (macro_value) return self:transform_number(macro_value) end,
+    string = function (macro_value) return self:transform_string(macro_value) end
   }
 
   -- mapping of centreon standard macros to their stream connectors counterparts
@@ -183,12 +198,14 @@ end
 function ScMacros:replace_sc_macro(string, event, json_string)
   local cache_macro_value = false
   local event_macro_value = false
+  local group_macro_value = false
+  local format = false
   local converted_string = string
 
   -- find all macros for exemple the string: 
   -- {cache.host.name} is the name of host with id: {host_id} 
   -- will generate two macros {cache.host.name} and {host_id})
-  for macro in string.gmatch(string, "{[%w_.]+}") do
+  for macro in string.gmatch(string, "{[%w_.%(%),%%%+%-%*%?%[%]%^%$]+}") do
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
     
     -- check if macro is in the cache
@@ -196,32 +213,36 @@ function ScMacros:replace_sc_macro(string, event, json_string)
     
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
-      self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a cache macro. Macro name: "
-        .. tostring(macro) .. ", value is: " .. tostring(cache_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-      
-      -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
-      if json_string then
-        cache_macro_value = self.sc_common:json_escape(cache_macro_value)
-      end
-
-      converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(cache_macro_value, "%%", "%%%%")))
+      converted_string = self:build_converted_string_for_cache_and_event_macro(cache_macro_value, macro, converted_string)
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
       
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
-        self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is an event macro. Macro name: "
-          .. tostring(macro) .. ", value is: " .. tostring(event_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-
-        -- if the input string was a json encoded string, we must make sure that the value we are going to insert is json ready
-        if json_string then
-          cache_macro_value = self.sc_common:json_escape(cache_macro_value)
-        end
-        
-        converted_string = string.gsub(converted_string, macro, self.sc_common:json_escape(string.gsub(event_macro_value, "%%", "%%%%")))
+        converted_string = self:build_converted_string_for_cache_and_event_macro(event_macro_value, macro, converted_string)
       else
-        self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro")
+        -- if not event or cache macro, maybe it is a group macro
+        group_macro_value, format = self:get_group_macro(macro, event)
+
+        -- replace all group macro such as {group(hg,table)} with their values
+        if group_macro_value then
+          group_macro_value = broker.json_encode(group_macro_value)
+          macro = self.sc_common:lua_regex_escape(macro)
+          
+          self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a group macro. Macro name: "
+            .. tostring(macro) .. ", value is: " .. tostring(group_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string)
+            .. ". Applied format is: " .. tostring(format))
+          
+          if string.match(converted_string, '"' .. macro .. '"') then
+            converted_string = string.gsub(converted_string, '"' .. macro .. '"', group_macro_value)
+          else
+            converted_string = string.gsub(converted_string, "(.*)" .. macro .. "(.*)", "%1" .. self.sc_common:json_escape(self.sc_common:trim(group_macro_value, '"')) .. "%2")
+          end
+        else
+          self.sc_logger:error("[sc_macros:replace_sc_macro]: macro: " .. tostring(macro) .. ", is not a valid stream connector macro or we didn't find a value for it"
+            .. ". For example a {cache.severity.service} macro that is perfectly valid but the service has no severity")
+        end
       end
     end
   end
@@ -236,9 +257,11 @@ function ScMacros:replace_sc_macro(string, event, json_string)
       return converted_string
     end
 
+    self.sc_logger:debug("[sc_macros:replace_sc_macro]: decoded json: " .. self.sc_common:dumper(decoded_json))
     return decoded_json
   end
 
+  self.sc_logger:debug("[sc_macros:replace_sc_macro]: converted string: " .. tostring(converted_string))
   return converted_string
 end
 
@@ -306,6 +329,104 @@ function ScMacros:get_event_macro(macro, event)
   end
 
   return false
+end
+
+--- get_group_macro: check if the macro is a macro which value must be found in a group table (meaning it is a special kind of data in the event) 
+-- @param macro (string) the macro we want to check (for example: {group(hg,table)})
+-- @param event (table) the event table
+-- @return false (boolean) if the macro is not found
+-- @return macro_value (string|boolean|number) the value of the macro
+function ScMacros:get_group_macro(macro, event)
+  -- try to cut the macro 
+  local group_type, format, regex = string.match(macro, "^{groups%((%w+),(%w+),(.*)%)}")
+
+  if not group_type or not format or not regex or not self.group_macro_conversion[group_type] then
+    self.sc_logger:info("[sc_macros:get_group_macro]: macro: " .. tostring(macro) .. " is not a valid group macro")
+    return false
+  end
+
+  local data, index_name = self.group_macro_conversion[group_type](event)
+  local code, converted_data = self:build_group_macro_value(data, index_name, format, regex)
+
+  if not code then
+    self.sc_logger:error("[sc_macros:get_group_macro]: couldn't convert data for group type: " .. tostring(group_type)
+      .. ". Desired format: " .. tostring(format) .. ". Filtering using regex: " .. tostring(regex))
+    return false 
+  end
+
+  return converted_data, format
+end
+
+--- get_hg_macro: retrieve hostgroup information and make it available as a macro
+-- @param event (table) all the event information
+-- @return hostgroups (table) all the hostgroups linked to the event
+-- @return index_name (string) the name of the index that is linked to the name of the hostgroup
+function ScMacros:get_hg_macro(event)
+  return event.cache.hostgroups, "group_name"
+end
+
+--- get_sg_macro: retrieve servicegroup information and make it available as a macro
+-- @param event (table) all the event information
+-- @return servicegroups (table) all the servicegroups linked to the event
+-- @return index_name (string) the name of the index that is linked to the name of the servicegroup
+function ScMacros:get_sg_macro(event)
+  return event.cache.servicegroups, "group_name"
+end
+
+--- get_bv_macro: retrieve BV information and make it available as a macro
+-- @param event (table) all the event information
+-- @return bvs (table) all the BVS linked to the event
+-- @return index_name (string) the name of the index that is linked to the name of the BV
+function ScMacros:get_bv_macro(event)
+  return event.cache.bvs, "bv_name"
+end
+
+--- build_group_macro_value: build the value that must replace the macro (it will also put it in the desired format)
+-- @param data (table) the data from the group (hg, sg or bvs)
+-- @param index_name (string) the name of the index at which we will find the relevant data (most of the time, the name of hg, sg or bv)
+-- @param format (string) the output format we want (can be table or inline)
+-- @param regex (string) the regex that is going to be used to filter unwanted hg, sg or bv (use wildcard .* to accepte everything)
+-- @return boolean (boolean) false if asked format is unknown, true otherwise
+-- @return macro_value (string|table) the value that will replace the macro (the type of returned value depends on the asked format)
+function ScMacros:build_group_macro_value(data, index_name, format, regex)
+  local result = {}
+  for _, group_info in pairs(data) do
+    if string.match(group_info[index_name], regex) then
+      table.insert(result, group_info[index_name])
+    end
+  end
+  
+  if not self.group_macro_format[format] then
+    self.sc_logger:error("[sc_macros:build_group_macro_value]: unknown format for group macro. Format provided: " .. tostring(format))
+    return false
+  end
+
+  return true, self.group_macro_format[format](result)
+end
+
+--- group_macro_format_table: transform the value behind the macro into a table
+-- @param data (table) the values linked to the macro
+-- @return data (table) the values linked to the macro stored inside a table
+function ScMacros:group_macro_format_table(data)
+  -- data is already a table, nothing to do
+  return data
+end
+
+--- group_macro_format_inline: transform the value behind the macro into a single line string separated using a coma
+-- @param data (table) the values linked to the macro
+-- @return result (string) the values linked to the macro stored inside a coma separated string
+function ScMacros:group_macro_format_inline(data)
+  local result = ""
+
+  for _, value in pairs(data) do
+    if result == "" then
+      result = value
+    else
+      result = result .. "," .. value
+    end
+  end
+
+  return result
 end
 
 --- convert_centreon_macro: replace a centreon macro with its value
@@ -397,7 +518,6 @@ end
 -- @param event (table) the event table
 -- @return string (string) the status of the event in a human readable format (e.g: OK, WARNING)
 function ScMacros:transform_state(macro_value, event)
-  
   -- acknowledgement events are special, the state can be for a host or a service. 
   -- We force the element to be host_status or service_status in order to properly convert the state
   if event.element == 1 and event.service_id == 0 then
@@ -407,6 +527,56 @@ function ScMacros:transform_state(macro_value, event)
   end
 
   return self.params.status_mapping[event.category][event.element][macro_value]
+end
+
+--- transform_number: convert a string to a number
+-- @param macro_value (string) the string that needs to be converted
+-- @return number (number) a number based on the provided string
+function ScMacros:transform_number(macro_value)
+  local result = tonumber(macro_value)
+  return result
+end
+
+--- transform_number: convert a something to a number
+-- @param macro_value (any) the value that needs to be converted
+-- @return string (string) a string based on the provided input
+function ScMacros:transform_string(macro_value)
+  return tostring(macro_value)
+end
+
+--- build_converted_string: replace macros in the string that contains macros
+-- @param macro_value (any): the value of the macro that must be replaced
+-- @param macro (string): the macro name
+-- @param converted_string (string): the string in which a macro must be replaced
+-- @return converted_string (string): the string with the macro replaced
+function ScMacros:build_converted_string_for_cache_and_event_macro(macro_value, macro, converted_string)
+  -- need to escape % characters or else it will break the string.gsub that is done later
+  local clean_macro_value, _ = string.gsub(macro_value, "%%", "%%%%")
+  local clean_macro_value_json = ""
+  
+  self.sc_logger:debug("[sc_macros:build_converted_string_for_cache_and_event_macro]: macro is a cache macro. Macro name: "
+  .. tostring(macro) .. ", value is: " .. tostring(clean_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
+  
+  --[[
+    to have the best json possible, we try to remove double quotes. 
+    "service_severity": "{cache.severity.service}" must become "service_severity": 1 and not "service_severity": "1" 
+    "service_severity": "my service severity is: {cache.severity.service}" must become "service_severity": "my service severity is: 1"
+  ]]--
+  if string.match(converted_string, '"' .. macro .. '"') then
+    -- we don't need to json encode numbers and booleans, if people want them as a string, they need to use the _scstring flag in their macro
+    if type(clean_macro_value) == "number" or type(clean_macro_value) == "boolean" then
+      clean_macro_value_json = clean_macro_value
+    else
+      clean_macro_value_json = broker.json_encode(clean_macro_value)
+    end
+
+    converted_string = string.gsub(converted_string, '"' .. macro .. '"', clean_macro_value_json)
+  else
+    -- if the macro is in a middle of a string we can't directly json encode it because it will break the final json if we don't escape characters. (and doing that will result in an ugly json)
+    converted_string = string.gsub(converted_string, "(.*)" .. macro .. "(.*)", "%1" .. self.sc_common:json_escape(clean_macro_value) .. "%2")
+  end
+
+  return converted_string
 end
 
 return sc_macros

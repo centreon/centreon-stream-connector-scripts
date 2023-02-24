@@ -1,12 +1,11 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Pagerduty Connector Events
+-- Centreon Broker Canopsis Connector Events
 --------------------------------------------------------------------------------
 
 
 -- Libraries
 local curl = require "cURL"
-local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -36,13 +35,15 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "pdy_routing_key"
+    "canopsis_user",
+    "canopsis_password",
+    "canopsis_host"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/pagerduty-events.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/canopsis2-events.log"
   local log_level = params.log_level or 1
   
   -- initiate mandatory objects
@@ -56,41 +57,78 @@ function EventQueue.new(params)
     self.fail = true
   end
   
-  -- force buffer size to 1 to avoid breaking the communication with pagerduty (can't send more than one event at once)
-  params.max_buffer_size = 1
-  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.pdy_centreon_url = params.pdy_centreon_url or "http://set.pdy_centreon_url.parameter"
-  self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
-  self.sc_params.params.client = params.client or "Centreon Stream Connector"
+  self.sc_params.params.canopsis_user = params.canopsis_user
+  self.sc_params.params.canopsis_password = params.canopsis_password
+  self.sc_params.params.connector = params.connector or "centreon-stream"
+  self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
+  self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
+  self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v2/event"
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v2/pbehavior"
+  self.sc_params.params.canopsis_host = params.canopsis_host
+  self.sc_params.params.canopsis_port = params.canopsis_port or 8082
+  self.sc_params.params.sending_method = params.sending_method or "api"
+  self.sc_params.params.sending_protocol = params.sending_protocol or "http"
+  self.sc_params.params.timezone = params.timezone or "Europe/Paris"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.pdy_source = params.pdy_source or nil
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement,downtime"
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_params.params.send_mixed_events = 0
+  self.sc_params.params.max_buffer_size = 1
+
+  if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
+    self.sc_params.params.connector_name_type = "poller"
+  end
   
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
   -- only load the custom code file, not executed yet
-  if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
-    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+  if self.sc_params.load_custom_code_file 
+    and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) 
+  then
+    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: "
+      .. tostring(self.sc_params.params.custom_code_file))
   end
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-
+  
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
+  
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.downtime.id, {event_route = self.sc_params.params.canopsis_downtime_route})
 
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
-      [elements.service_status.id] = function () return self:format_event_service() end
+      [elements.service_status.id] = function () return self:format_event_service() end,
+      [elements.downtime.id] = function () return self:format_event_downtime() end,
+      [elements.acknowledgement.id] = function () return self:format_event_acknowledgement() end
     },
     [categories.bam.id] = {}
+  }
+
+  self.centreon_to_canopsis_state = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = {
+        [0] = 0,
+        [1] = 3,
+        [2] = 2
+      },
+      [elements.service_status.id] = {
+        [0] = 0,
+        [1] = 1,
+        [2] = 3,
+        [3] = 2
+      }
+    }
   }
 
   self.send_data_method = {
@@ -99,25 +137,6 @@ function EventQueue.new(params)
 
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
-  }
-
-  self.state_to_severity_mapping = {
-    [0] = {
-      severity = "info",
-      action = "resolve"
-    },
-    [1] = {
-      severity = "warning",
-      action = "trigger"
-    },
-    [2] = {
-      severity = "critical",
-      action = "trigger"
-    }, 
-    [3] = {
-      severity = "error",
-      action = "trigger"
-    }
   }
 
   -- return EventQueue object
@@ -154,146 +173,162 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
+function EventQueue:list_servicegroups()
+  local servicegroups =  {}
+
+  for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
+    table.insert(servicegroups, sg.group_name)
+  end
+
+  return servicegroups
+end
+
+function EventQueue:list_hostgroups()
+  local hostgroups =  {}
+
+  for _, hg in pairs(self.sc_event.event.cache.hostgroups) do
+    table.insert(hostgroups, hg.group_name)
+  end
+
+  return hostgroups
+end
+
+function EventQueue:get_connector_name()
+  -- use poller name as a connector name
+  if self.sc_params.params.connector_name_type == "poller" then
+    return tostring(self.sc_event.event.cache.poller)
+  end
+
+  return tostring(self.sc_params.params.connector_name)
+end
+
 function EventQueue:format_event_host()
   local event = self.sc_event.event
-  local pdy_custom_details = {}
-
-  -- handle hostgroup
-  local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-  local pdy_hostgroups = ""
-
-  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-  if not hostgroups then
-    pdy_hostgroups = "empty host group"
-  else
-    for index, hg_data in ipairs(hostgroups) do
-      if pdy_hostgroups ~= "" then
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-      else
-        pdy_hostgroups = hg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Hostgroups"] = pdy_hostgroups
-  end
-
-  -- handle severity
-  local host_severity = self.sc_broker:get_severity(event.host_id)
-  
-  if host_severity then
-    pdy_custom_details['Hostseverity'] = host_severity
-  end
-  
-  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
 
   self.sc_event.event.formated_event = {
-    payload = {
-      summary = tostring(event.cache.host.name) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
-      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
-      severity = self.state_to_severity_mapping[event.state].severity,
-      source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
-      component = tostring(event.cache.host.name),
-      group = pdy_hostgroups,
-      class = "host",
-      custom_details = pdy_custom_details,
-    },
-    routing_key = self.sc_params.params.pdy_routing_key,
-    event_action = self.state_to_severity_mapping[event.state].action,
-    dedup_key = event.host_id .. "_H",
-    client = self.sc_params.params.client,
-    client_url = self.sc_params.params.client_url,
-    links = {
-      {
-        -- should think about using the new resources page but keep it as is for compatibility reasons
-        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-        text = "Link to Centreon host summary"
-      }
-    }
+    event_type = "check",
+    source_type = "component",
+    connector = self.sc_params.params.connector,
+    connector_name = self:get_connector_name(),
+    component = tostring(event.cache.host.name),
+    resource = "",
+    timestamp = event.last_check,
+    output = event.output,
+    state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
+    -- extra informations
+    hostgroups = self:list_hostgroups(),
+    notes_url = tostring(event.cache.host.notes_url),
+    action_url = tostring(event.cache.host.action_url)
   }
 end
 
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-  local pdy_custom_details = {}
-
-  -- handle hostgroup
-  local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-  local pdy_hostgroups = ""
-
-  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-  if not hostgroups then
-    pdy_hostgroups = "empty host group"
-  else
-    for index, hg_data in ipairs(hostgroups) do
-      if pdy_hostgroups ~= "" then
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-      else
-        pdy_hostgroups = hg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Hostgroups"] = pdy_hostgroups
-  end
-
-  -- handle servicegroups
-  local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
-  local pdy_servicegroups = ""
-
-  -- retrieve servicegroups and store them in pdy_custom_details["Servicegroups"]
-  if not servicegroups then
-    pdy_servicegroups = "empty service group"
-  else
-    for index, sg_data in ipairs(servicegroups) do
-      if pdy_servicegroups ~= "" then
-        pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
-      else
-        pdy_servicegroups = sg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Servicegroups"] = pdy_servicegroups
-  end
-
-  -- handle host severity
-  local host_severity = self.sc_broker:get_severity(event.host_id)
   
-  if host_severity then
-    pdy_custom_details["Hostseverity"] = host_severity
-  end
+  self.sc_event.event.formated_event = {
+    event_type = "check",
+    source_type = "resource",
+    connector = self.sc_params.params.connector,
+    connector_name = self:get_connector_name(),
+    component = tostring(event.cache.host.name),
+    resource = tostring(event.cache.service.description),
+    timestamp = event.last_check,
+    output = event.output,
+    state = self.centreon_to_canopsis_state[event.category][event.element][event.state],
+    -- extra informations
+    servicegroups = self:list_servicegroups(),
+    notes_url = event.cache.service.notes_url,
+    action_url = event.cache.service.action_url,
+    hostgroups = self:list_hostgroups()
+  }
+end
 
-  -- handle service severity
-  local service_severity = self.sc_broker:get_severity(event.host_id, event.service_id)
-
-  if service_severity then
-    pdy_custom_details["Serviceseverity"] = service_severity
-  end
-
-  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
+function EventQueue:format_event_acknowledgement()
+  local event = self.sc_event.event
+  local elements = self.sc_params.params.bbdo.elements
 
   self.sc_event.event.formated_event = {
-    payload = {
-      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
-      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
-      severity = self.state_to_severity_mapping[event.state].severity,
-      source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
-      component = tostring(event.cache.service.description),
-      group = pdy_hostgroups,
-      class = "service",
-      custom_details = pdy_custom_details,
-    },
-    routing_key = self.sc_params.params.pdy_routing_key,
-    event_action = self.state_to_severity_mapping[event.state].action,
-    dedup_key = event.host_id .. "_" .. event.service_id,
-    client = self.sc_params.params.client,
-    client_url = self.sc_params.params.client_url,
-    links = {
-      {
-        -- should think about using the new resources page but keep it as is for compatibility reasons
-        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-        text = "Link to Centreon host summary"
-      }
-    }
+    event_type = "ack",
+    crecord_type = "ack",
+    author = event.author,
+    resource = "",
+    component = tostring(event.cache.host.name),
+    connector = self.sc_params.params.connector,
+    connector_name = self:get_connector_name(),
+    timestamp = event.entry_time,
+    output = event.comment_data,
+    origin = "centreon",
+    ticket = "",
+    state_type = 1,
+    ack_resources = false
   }
+
+  if event.service_id then
+    self.sc_event.event.formated_event['source_type'] = "resource"
+    self.sc_event.event.formated_event['resource'] = tostring(event.cache.service.description)
+    self.sc_event.event.formated_event['ref_rk'] = tostring(event.cache.service.description)
+      .. "/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+      [elements.service_status.id][event.state]
+  else
+    self.sc_event.event.formated_event['source_type'] = "component"
+    self.sc_event.event.formated_event['ref_rk'] = "undefined/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+      [elements.host_status.id][event.state]
+  end
+
+  -- send ackremove
+  if event.deletion_time then
+    self.sc_event.event.formated_event['event_type'] = "ackremove"
+    self.sc_event.event.formated_event['crecord_type'] = "ackremove"
+    self.sc_event.event.formated_event['timestamp'] = event.deletion_time
+  end
+end
+
+function EventQueue:format_event_downtime()
+  local event = self.sc_event.event
+  local elements = self.sc_params.params.bbdo.elements
+  local canopsis_downtime_id = "centreon-downtime-".. event.internal_id .. "-" .. event.entry_time
+
+  if event.cancelled or event.deletion_time then
+    local metadata = {
+      event_route = self.sc_params.params.canopsis_downtime_route .. "/" .. canopsis_downtime_id,
+      method = "DELETE"
+    }
+    self:send_data({}, metadata)
+  else
+    self.sc_event.event.formated_event = {
+      _id = canopsis_downtime_id,
+      author = event.author,
+      name = canopsis_downtime_id,
+      tstart = event.start_time,
+      tstop = event.end_time,
+      type_ = "Maintenance",
+      reason = "Autre",
+      timezone = self.sc_params.params.timezone,
+      comments = {
+        {
+          ['author'] = event.author,
+          ['message'] = event.comment_data
+        }
+      },
+      filter = {
+        ['$and'] = {
+          {
+            ['_id'] = ""
+          }
+        }
+      },
+      exdate = {},
+    }
+
+    if event.service_id then
+      self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.service.description)
+        .. "/" .. tostring(event.cache.host.name)
+    else
+      self.sc_event.event.formated_event['filter']['$and'][1]['_id'] = tostring(event.cache.host.name)
+    end
+  end
 end
 
 --------------------------------------------------------------------------------
@@ -303,15 +338,19 @@ function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
+  local next = next
 
-  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
-    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+  if next(self.sc_event.event.formated_event) ~= nil then
+    self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+      .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+    self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
-  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
-
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+    
+    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
+  end
+
 end
 
 --------------------------------------------------------------------------------
@@ -322,9 +361,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = broker.json_encode(event)
+    payload = event
   else
-    payload = payload .. broker.json_encode(event)
+    table.insert(payload, event)
   end
   
   return payload
@@ -333,10 +372,13 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.http_server_url
+  local params = self.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
+    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  payload = broker.json_encode(payload)
   queue_metadata.headers = {
-    "content-type: application/json",
-    "content-length:" .. string.len(payload),
+    "content-length: " .. string.len(payload),
+    "content-type: application/json"
   }
 
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
@@ -347,8 +389,8 @@ function EventQueue:send_data(payload, queue_metadata)
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. payload)
+  self.sc_logger:info("[EventQueue:send_data]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -374,14 +416,19 @@ function EventQueue:send_data(payload, queue_metadata)
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username 
+        .. ':' .. self.sc_params.params.proxy_password)
     else
       self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload)
+  if queue_metadata.method and queue_metadata.method == "DELETE" then
+    http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+  else
+    http_request:setopt_postfields(payload)
+  end
 
   -- performing the HTTP request
   http_request:perform()
@@ -393,12 +440,19 @@ function EventQueue:send_data(payload, queue_metadata)
   
   -- Handling the return code
   local retval = false
-  -- pagerduty use 202 https://developer.pagerduty.com/api-reference/reference/events-v2/openapiv3.json/paths/~1enqueue/post
-  if http_response_code == 202 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+
+  if http_response_code == 200 then
+    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is "
+      .. tostring(http_response_code))
+    retval = true
+  elseif http_response_code == 400 and string.match(http_response_body, "Trying to insert PBehavior with already existing _id") then
+    self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
+      .. ". Canopsis result: " .. tostring(http_response_body))
+    self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
     retval = true
   else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
+      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
   
   return retval

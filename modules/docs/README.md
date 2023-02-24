@@ -2,16 +2,17 @@
 
 - [Stream Connectors lib documentation](#stream-connectors-lib-documentation)
   - [Libraries list](#libraries-list)
-  - [sc_common methods](#sc_common-methods)
-  - [sc_logger methods](#sc_logger-methods)
-  - [sc_broker methods](#sc_broker-methods)
-  - [sc_param methods](#sc_param-methods)
-  - [sc_event methods](#sc_event-methods)
-  - [sc_macros methods](#sc_macros-methods)
-  - [sc_flush methods](#sc_flush-methods)
-  - [sc_metrics methods](#sc_metrics-methods)
+  - [sc\_common methods](#sc_common-methods)
+  - [sc\_logger methods](#sc_logger-methods)
+  - [sc\_broker methods](#sc_broker-methods)
+  - [sc\_param methods](#sc_param-methods)
+  - [sc\_event methods](#sc_event-methods)
+  - [sc\_macros methods](#sc_macros-methods)
+  - [sc\_flush methods](#sc_flush-methods)
+  - [sc\_metrics methods](#sc_metrics-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
+  - [Additionnal documentations](#additionnal-documentations)
 
 ## Libraries list
 
@@ -42,16 +43,21 @@
 | generate_postfield_param_string    | convert a table of parameters into an url encoded parameters string                         | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
 | load_json_file                     | method loads a json file and parse it                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
 | json_escape                        | escape json characters in a string                                                          | [Documentation](sc_common.md#json_escape-method)                        |
+| xml_escape                         | escape xml characters in a string                                                           | [Documentation](sc_common.md#xml_escape-method)                         |
+| lua_regex_escape                   | escape lua regex special characters in a string                                             | [Documentation](sc_common.md#lua_regex_escape-method)                   |
+| dumper                             | dump any variable for debug purpose                                                         | [Documentation](sc_common.md#dumper-method)                             |
+| trim                               | trim spaces (or provided character) at the beginning and the end of a string                | [Documentation](sc_common.md#trim-method)                               |
 
 ## sc_logger methods
 
-| Method name | Method description                          | Link                                         |
-| ----------- | ------------------------------------------- | -------------------------------------------- |
-| error       | write an error message in the log file      | [Documentation](sc_logger.md#error-method)   |
-| warning     | write a warning message in the log file     | [Documentation](sc_logger.md#warning-method) |
-| notice      | write a notice/info message in the log file | [Documentation](sc_logger.md#notice-method)  |
-| info        | write an info message in the log file       | [Documentation](sc_logger.md#info-method)    |
-| debug       | write a debug message in the log file       | [Documentation](sc_logger.md#debug-method)   |
+| Method name      | Method description                                    | Link                                                  |
+| ---------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| error            | write an error message in the log file                | [Documentation](sc_logger.md#error-method)            |
+| warning          | write a warning message in the log file               | [Documentation](sc_logger.md#warning-method)          |
+| notice           | write a notice/info message in the log file           | [Documentation](sc_logger.md#notice-method)           |
+| info             | write an info message in the log file                 | [Documentation](sc_logger.md#info-method)             |
+| debug            | write a debug message in the log file                 | [Documentation](sc_logger.md#debug-method)            |
+| log_curl_command | creates and log a curl command using given parameters | [Documentation](sc_logger.md#log_curl_command-method) |
 
 ## sc_broker methods
 
@@ -96,6 +102,7 @@
 | is_valid_event_state_type          | check if the state (HARD/SOFT) of the event is valid according to the stream connector params                                                                | [Documentation](sc_event.md#is_valid_event_state_type-method)          |
 | is_valid_event_acknowledge_state   | check if the acknowledgement state of the event is valid according to the stream connector params                                                            | [Documentation](sc_event.md#is_valid_event_acknowledge_state-method)   |
 | is_valid_event_downtime_state      | check if the downtime state of the event is valid according to the stream connector params                                                                   | [Documentation](sc_event.md#is_valid_event_downtime_state-method)      |
+| is_valid_event_flapping_state      | check if the flapping state of the event is valid according to the stream connector params                                                                   | [Documentation](sc_event.md#is_valid_event_flapping_state-method)      |
 | is_valid_hostgroup                 | check if the host is in an accepted hostgroup according to the stream connector params                                                                       | [Documentation](sc_event.md#is_valid_hostgroup-method)                 |
 | find_hostgroup_in_list             | check if one of the hostgroups of the event is in the list of accepted hostgroups provided in the stream connector configuration. Stops at first match       | [Documentation](sc_event.md#find_hostgroup_in_list-method)             |
 | is_valid_servicegroup              | check if the service is in an accepted servicegroup according to the stream connector params                                                                 | [Documentation](sc_event.md#is_valid_servicegroup-method)              |
@@ -123,26 +130,40 @@
 
 ## sc_macros methods
 
-| Method name            | Method description                                                             | Link                                                        |
-| ---------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| replace_sc_macro       | replace a stream connector macro with its value                                | [Documentation](sc_macros.md#replace_sc_macro-method)       |
-| get_cache_macro        | retrieve a macro value in the cache                                            | [Documentation](sc_macros.md#get_cache_macro-method)        |
-| get_event_macro        | retrieve a macro value in the event                                            | [Documentation](sc_macros.md#get_event_macro-method)        |
-| convert_centreon_macro | replace a Centreon macro with its value                                        | [Documentation](sc_macros.md#convert_centreon_macro-method) |
-| get_centreon_macro     | transform a Centreon macro into a stream connector macro                       | [Documentation](sc_macros.md#get_centreon_macro-method)     |
-| get_transform_flag     | try to find a transformation flag in the macro name                            | [Documentation](sc_macros.md#get_transform_flag-method)     |
-| transform_date         | transform a timestamp into a human readable format                             | [Documentation](sc_macros.md#transform_date-method)         |
-| transform_short        | keep the first line of a string                                                | [Documentation](sc_macros.md#transform_short-method)        |
-| transform_type         | convert 0 or 1 into SOFT or HARD                                               | [Documentation](sc_macros.md#transform_type-method)         |
-| transform_state        | convert a status code into its matching human readable status (OK, WARNING...) | [Documentation](sc_macros.md#transform_state-method)        |
+| Method name                                      | Method description                                                                      | Link                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| replace_sc_macro                                 | replace a stream connector macro with its value                                         | [Documentation](sc_macros.md#replace_sc_macro-method)                                 |
+| get_cache_macro                                  | retrieve a macro value in the cache                                                     | [Documentation](sc_macros.md#get_cache_macro-method)                                  |
+| get_event_macro                                  | retrieve a macro value in the event                                                     | [Documentation](sc_macros.md#get_event_macro-method)                                  |
+| get_group_macro                                  | retrieve a macro from groups (hostgroups, servicegroups, business views)                | [Documentation](sc_macros.md#get_group_macro-method)                                  |
+| convert_centreon_macro                           | replace a Centreon macro with its value                                                 | [Documentation](sc_macros.md#convert_centreon_macro-method)                           |
+| get_centreon_macro                               | transform a Centreon macro into a stream connector macro                                | [Documentation](sc_macros.md#get_centreon_macro-method)                               |
+| get_transform_flag                               | try to find a transformation flag in the macro name                                     | [Documentation](sc_macros.md#get_transform_flag-method)                               |
+| transform_date                                   | transform a timestamp into a human readable format                                      | [Documentation](sc_macros.md#transform_date-method)                                   |
+| transform_short                                  | keep the first line of a string                                                         | [Documentation](sc_macros.md#transform_short-method)                                  |
+| transform_type                                   | convert 0 or 1 into SOFT or HARD                                                        | [Documentation](sc_macros.md#transform_type-method)                                   |
+| transform_state                                  | convert a status code into its matching human readable status (OK, WARNING...)          | [Documentation](sc_macros.md#transform_state-method)                                  |
+| transform_number                                 | convert a string into a number                                                          | [Documentation](sc_macros.md#transform_number-method)                                 |
+| transform_string                                 | convert anything into a string                                                          | [Documentation](sc_macros.md#transform_string-method)                                 |
+| get_hg_macro                                     | retrieves hostgroup information and make it available as a macro                        | [Documentation](sc_macros.md#get_hg_macro-method)                                     |
+| get_sg_macro                                     | retrieves servicegroup information and make it available as a macro                     | [Documentation](sc_macros.md#get_sg_macro-method)                                     |
+| get_bv_macro                                     | retrieves business view information and make it available as a macro                    | [Documentation](sc_macros.md#get_bv_macro-method)                                     |
+| build_group_macro_value                          | build the value that must replace the macro (it will also put it in the desired format) | [Documentation](sc_macros.md#build_group_macro_value-method)                          |
+| group_macro_format_table                         | transforms the given macro value into a table                                           | [Documentation](sc_macros.md#group_macro_format_table-method)                         |
+| group_macro_format_inline                        | transforms the give macro value into a string with values separated using comas         | [Documentation](sc_macros.md#group_macro_format_inline-method)                        |
+| build_converted_string_for_cache_and_event_macro | replace event or cache macro in a string that may contain them                          | [Documentation](sc_macros.md#build_converted_string_for_cache_and_event_macro-method) |
 
 ## sc_flush methods
 
-| Method name      | Method description                                | Link                                                 |
-| ---------------- | ------------------------------------------------- | ---------------------------------------------------- |
-| flush_all_queues | flush all the possible queues that can be created | [Documentation](sc_flush.md#flush_all_queues-method) |
-| flush_queue      | flush a specific queue                            | [Documentation](sc_flush.md#flush_queue-method)      |
-| reset_queue      | reset a queue after it has been flushed           | [Documentation](sc_flush.md#reset_queue-method)      |
+| Method name               | Method description                                                     | Link                                                          |
+| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| add_queue_metadata        | add specific metadata to a queue                                       | [Documentation](sc_flush.md#add_queue_metadata-method)        |
+| flush_all_queues          | try to flush all queues according to accepted elements                 | [Documentation](sc_flush.md#flush_all_queues-method)          |
+| reset_all_queues          | put all queues back to their initial state after flushing their events | [Documentation](sc_flush.md#reset_all_queues-method)          |
+| get_queues_size           | get the number of events stored in all the queues                      | [Documentation](sc_flush.md#get_queues_size-method)           |
+| flush_mixed_payload       | flush a payload that contains various type of events                   | [Documentation](sc_flush.md#flush_mixed_payload-method)       |
+| flush_homogeneous_payload | flush a payload that contains a single type of events                  | [Documentation](sc_flush.md#flush_homogeneous_payload-method) |
+| flush_payload             | flush a payload                                                        | [Documentation](sc_flush.md#flush_payload-method)             |
 
 ## sc_metrics methods
 
@@ -154,6 +175,7 @@
 | is_valid_service_metric_event | makes sure that the metric event is valid service metric event                                            | [Documentation](sc_metrics.md#is_valid_service_metric_event-method) |
 | is_valid_kpi_metric_event     | makes sure that the metric event is valid KPI metric event                                                | [Documentation](sc_metrics.md#is_valid_kpi_metric_event-method)     |
 | is_valid_perfdata             | makes sure that the performance data is valid                                                             | [Documentation](sc_metrics.md#is_valid_perfdata-method)             |
+| build_metric                  | use the stream connector format method to parse every metric in the event                                 | [Documentation](sc_metrics.md#build_metric-method)                  |
 
 ## google.bigquery.bigquery methods
 
@@ -178,3 +200,12 @@
 | create_signature | create the signature for the jwt token      | [Documentation](google/auth/oauth.md#create_signature-method) |
 | get_access_token | get a google access token using a jwt token | [Documentation](google/auth/oauth.md#get_access_token-method) |
 | curl_google      | use curl to get an access token             | [Documentation](google/auth/oauth.md#curl_google-method)      |
+
+## Additionnal documentations
+
+| Description                                                   | Link                                                                                                                                |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| learn how to create a custom format using a format file       | [Documentation](./templating.md)                                                                                                    |
+| learn how to create custom code for your stream connector     | [Documentation](./custom_code.md)                                                                                                   |
+| have a look at all the available mappings and how to use them | [Documentation](./mappings.md)                                                                                                      |
+| have a look at the event structure                            | [Documentation](./broker_data_structure.md) and [Documentation](https://docs.centreon.com/docs/developer/developer-broker-mapping/) |
