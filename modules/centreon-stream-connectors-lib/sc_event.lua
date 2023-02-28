@@ -680,11 +680,17 @@ end
 --- is_valid_poller: check if the event is monitored from an accepted poller
 -- @return true|false (boolean)
 function ScEvent:is_valid_poller()
+  -- return false if instance id is not found in cache
+  if not self.event.cache.host.instance_id then
+    self.sc_logger:warning("[sc_event:is_valid_poller]: no instance ID found for host ID: " .. tostring(self.event.host_id))
+    return false
+  end
+
   self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance_id)
 
   -- required if we want to easily have access to poller name with macros {cache.instance.name}
   self.event.cache.instance = {
-    id = self.event.cache.host.instance,
+    id = self.event.cache.host.instance_id,
     name = self.event.cache.poller
   }
   
@@ -693,11 +699,6 @@ function ScEvent:is_valid_poller()
     return true
   end
 
-  -- return false if instance id is not found in cache
-  if not self.event.cache.host.instance then
-    self.sc_logger:warning("[sc_event:is_valid_poller]: no instance ID found for host ID: " .. tostring(self.event.host_id))
-    return false
-  end
 
   -- return false if no poller found in cache
   if not self.event.cache.poller then
