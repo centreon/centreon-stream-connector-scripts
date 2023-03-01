@@ -8,13 +8,14 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - stream-connectors/centreon-certified/**
+      - .github/**
+      - centreon-certified/**
   push:
     branches:
       - develop
       - master
     paths:
-      - stream-connectors/centreon-certified/**
+      - centreon-certified/**
 
 jobs:
   get-version:
@@ -34,7 +35,7 @@ jobs:
           list-files: shell
           filters: |
             connectors:
-              - stream-connectors/centreon-certified/**
+              - centreon-certified/**
 
       - name: transform to directories
         id: list-connectors
@@ -129,8 +130,7 @@ jobs:
 
           rpmbuild -ba packaging/connectors/rpm/connector.spec -D "PACKAGE_NAME $PACKAGE_NAME" -D "VERSION $PACKAGE_VERSION" -D "MIN_LIB_VERSION ${{ steps.list-dependencies.outputs.min_lib_version }}"
 
-          mv ~/rpmbuild/RPMS/**/*.rpm ../
-        working-directory: stream-connectors
+          mv ~/rpmbuild/RPMS/**/*.rpm ./
         shell: bash
 
       - if: ${{ matrix.package_extension == 'deb' }}
@@ -166,8 +166,7 @@ jobs:
           debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
           debuild-pbuilder --no-lintian
 
-          mv ../*.deb ../../
-        working-directory: stream-connectors
+          mv ../*.deb ../
         shell: bash
 
       - if: ${{ matrix.package_extension == 'deb' }}

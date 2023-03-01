@@ -8,13 +8,14 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - .github/workflows/stream-connectors-dependencies.yml
+      - .github/**
+      - dependencies/**
   push:
     branches:
       - develop
       - master
     paths:
-      - .github/workflows/stream-connectors-dependencies.yml
+      - dependencies/**
 
 jobs:
   get-version:
@@ -65,7 +66,7 @@ jobs:
           mkdir ${{ matrix.lib }}
           find /usr/ -type f -name "cffi.so" -exec cp {} ${{ matrix.lib }}/ \;
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-tz' }}
@@ -77,7 +78,7 @@ jobs:
           mkdir ${{ matrix.lib }}
           cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-curl' }}
@@ -91,14 +92,14 @@ jobs:
           cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL ${{ matrix.lib }}/
           cp -p /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL.lua ${{ matrix.lib }}/
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - run: |
           rpmbuild -ba packaging/rpm/${{ matrix.lib }}.spec -D "VERSION `cat version.txt`"
 
-          mv ~/rpmbuild/RPMS/**/*.rpm ../../../
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+          mv ~/rpmbuild/RPMS/**/*.rpm ../../
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - uses: actions/cache@v3
@@ -148,7 +149,7 @@ jobs:
           cp -rp packaging/deb/* $PACKAGE_NAME-$PACKAGE_VERSION/debian/
 
           find /usr/ -type f -name "cffi.so" -exec cp {} $PACKAGE_NAME-$PACKAGE_VERSION/ \;
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-tz' }}
@@ -164,7 +165,7 @@ jobs:
           cp -rp packaging/deb/* $PACKAGE_NAME-$PACKAGE_VERSION/debian/
 
           cp -rp /usr/local/share/lua/5.3/luatz $PACKAGE_NAME-$PACKAGE_VERSION/luatz
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - name: Package
@@ -179,8 +180,8 @@ jobs:
           debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
           debuild-pbuilder --no-lintian
 
-          mv ../*.deb ../../../../
-        working-directory: stream-connectors/dependencies/${{ matrix.lib }}
+          mv ../*.deb ../../../
+        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - uses: actions/cache@v3

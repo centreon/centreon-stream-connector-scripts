@@ -8,13 +8,14 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - stream-connectors/modules/centreon-stream-connectors-lib/**
+      - .github/**
+      - modules/centreon-stream-connectors-lib/**
   push:
     branches:
       - develop
       - master
     paths:
-      - stream-connectors/modules/centreon-stream-connectors-lib/**
+      - modules/centreon-stream-connectors-lib/**
 
 jobs:
   get-version:
@@ -60,8 +61,7 @@ jobs:
 
           rpmbuild -ba packaging/connectors-lib/rpm/centreon-stream-connectors-lib.spec
 
-          mv ~/rpmbuild/RPMS/**/*.rpm ../
-        working-directory: stream-connectors
+          mv ~/rpmbuild/RPMS/**/*.rpm ./
         shell: bash
 
       - if: ${{ matrix.package_extension == 'deb' }}
@@ -79,8 +79,7 @@ jobs:
           debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
           debuild-pbuilder --no-lintian
 
-          mv ../*.deb ../../
-        working-directory: stream-connectors
+          mv ../*.deb ../
         shell: bash
 
       - if: ${{ matrix.package_extension == 'deb' }}
