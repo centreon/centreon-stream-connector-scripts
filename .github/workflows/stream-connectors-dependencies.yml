@@ -242,6 +242,7 @@ jobs:
         uses: ./.github/actions/delivery
         with:
           distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
 
   deliver-deb:
