@@ -1,0 +1,266 @@
+name: stream-connectors-dependencies
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - dependencies/**
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - dependencies/**
+
+jobs:
+  get-environment:
+    uses: ./.github/workflows/get-environment.yml
+
+  package-rpm:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [el8, el9]
+        lib: [lua-cffi, lua-tz, lua-curl]
+        include:
+          - distrib: el8
+            image: packaging-stream-connectors-alma8
+            package_extension: rpm
+          - distrib: el9
+            image: packaging-stream-connectors-alma9
+            package_extension: rpm
+
+    name: package ${{ matrix.distrib }} ${{ matrix.lib }}
+    container:
+      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
+      credentials:
+        username: ${{ secrets.DOCKER_REGISTRY_ID }}
+        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+
+          yum install -y yum-utils epel-release
+          yum config-manager --set-enabled crb || true # alma 9
+          yum config-manager --set-enabled powertools || true # alma 8
+
+          yum install -y git make gcc luarocks meson gcc-c++ cmake libffi libffi-devel lua-devel libcurl-devel
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-cffi' }}
+        run: |
+          luarocks install cffi-lua
+          luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          cat version.txt
+
+          mkdir ${{ matrix.lib }}
+          find /usr/ -type f -name "cffi.so" -exec cp {} ${{ matrix.lib }}/ \;
+          tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-tz' }}
+        run: |
+          luarocks install luatz
+          luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          cat version.txt
+
+          mkdir ${{ matrix.lib }}
+          cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+          tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-curl' }}
+        run: |
+          luarocks install lua-curl
+          luarocks show lua-curl
+          luarocks show lua-curl | grep "Lua-cURL\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          cat version.txt
+
+          mkdir -p ${{ matrix.lib }}/cURL
+          cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL ${{ matrix.lib }}/
+          cp -p /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL.lua ${{ matrix.lib }}/
+          tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - run: |
+          rpmbuild -ba packaging/rpm/${{ matrix.lib }}.spec -D "VERSION `cat version.txt`"
+
+          mv ~/rpmbuild/RPMS/**/*.rpm ../../
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - uses: actions/cache@v3
+        with:
+          path: ./*.${{ matrix.package_extension }}
+          key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.lib }}-${{ matrix.distrib }}
+
+  package-deb:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [bullseye]
+        lib: [lua-cffi, lua-tz]
+        include:
+          - distrib: bullseye
+            image: packaging-stream-connectors-bullseye
+            package_extension: deb
+
+    name: package ${{ matrix.distrib }} ${{ matrix.lib }}
+    container:
+      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
+      credentials:
+        username: ${{ secrets.DOCKER_REGISTRY_ID }}
+        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          apt update
+          apt install -y git make gcc luarocks meson cmake libffi7 libffi-dev lua5.3 liblua5.3-dev
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-cffi' }}
+        name: Package
+        run: |
+          luarocks install cffi-lua
+          luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+
+          PACKAGE_NAME="${{ matrix.lib }}"
+          PACKAGE_VERSION=`cat version.txt`
+
+          mkdir -p $PACKAGE_NAME-$PACKAGE_VERSION/debian
+
+          cp -rp packaging/deb/* $PACKAGE_NAME-$PACKAGE_VERSION/debian/
+
+          find /usr/ -type f -name "cffi.so" -exec cp {} $PACKAGE_NAME-$PACKAGE_VERSION/ \;
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-tz' }}
+        name: Package
+        run: |
+          luarocks install luatz
+          luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+
+          PACKAGE_NAME="${{ matrix.lib }}"
+          PACKAGE_VERSION=`cat version.txt`
+
+          mkdir -p $PACKAGE_NAME-$PACKAGE_VERSION/debian
+          cp -rp packaging/deb/* $PACKAGE_NAME-$PACKAGE_VERSION/debian/
+
+          cp -rp /usr/local/share/lua/5.3/luatz $PACKAGE_NAME-$PACKAGE_VERSION/luatz
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - name: Package
+        run: |
+          PACKAGE_NAME="${{ matrix.lib }}"
+          PACKAGE_VERSION=`cat version.txt`
+
+          tar czf $PACKAGE_NAME-$PACKAGE_VERSION.tar.gz $PACKAGE_NAME-$PACKAGE_VERSION
+
+          cd $PACKAGE_NAME-$PACKAGE_VERSION
+
+          debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
+          debuild-pbuilder --no-lintian
+
+          mv ../*.deb ../../../
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - uses: actions/cache@v3
+        with:
+          path: ./*.${{ matrix.package_extension }}
+          key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.lib }}-${{ matrix.distrib }}
+
+  sign-rpm:
+    needs: [package-rpm]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [el8, el9]
+        lib: [lua-cffi, lua-tz, lua-curl]
+    name: sign rpm ${{ matrix.distrib }} ${{ matrix.lib }}
+    container:
+      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/rpm-signing:ubuntu
+      options: -t
+      credentials:
+        username: ${{ secrets.DOCKER_REGISTRY_ID }}
+        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
+
+    steps:
+      - run: apt-get install -y zstd
+        shell: bash
+
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: ./*.rpm
+          key: unsigned-${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
+
+      - run: echo "HOME=/root" >> $GITHUB_ENV
+        shell: bash
+
+      - run: rpmsign --addsign ./*.rpm
+        shell: bash
+
+      - uses: actions/cache@v3
+        with:
+          path: ./*.rpm
+          key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
+
+  deliver-rpm:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, sign-rpm]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [el8, el9]
+        lib: [lua-cffi, lua-tz, lua-curl]
+    name: deliver ${{ matrix.distrib }} ${{ matrix.lib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Publish RPM packages
+        uses: ./.github/actions/delivery
+        with:
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
+
+  deliver-deb:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package-deb]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [bullseye]
+        lib: [lua-cffi, lua-tz]
+    name: deliver ${{ matrix.distrib }} ${{ matrix.lib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Publish DEB packages
+        uses: ./.github/actions/delivery
+        with:
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.lib }}-${{ matrix.distrib }}
