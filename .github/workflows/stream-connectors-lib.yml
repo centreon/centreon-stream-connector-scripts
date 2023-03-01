@@ -78,8 +78,6 @@ jobs:
 
           debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
           debuild-pbuilder --no-lintian
-
-          mv ../*.deb ../
         shell: bash
 
       - if: ${{ matrix.package_extension == 'deb' }}
