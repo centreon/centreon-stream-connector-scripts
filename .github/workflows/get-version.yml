@@ -1,0 +1,34 @@
+on:
+  workflow_call:
+    outputs:
+      stability:
+        description: "branch stability (stable, testing, unstable, canary)"
+        value: ${{ jobs.get-version.outputs.stability }}
+
+jobs:
+  get-version:
+    runs-on: ubuntu-22.04
+    outputs:
+      stability: ${{ steps.get_version.outputs.stability }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - id: get_version
+        run: |
+          case "$BRANCHNAME" in
+            develop | dev-[2-9][0-9].[0-9][0-9].x)
+              STABILITY="unstable"
+              ;;
+            release* | hotfix*)
+              STABILITY="testing"
+              ;;
+            master | [2-9][0-9].[0-9][0-9].x)
+              STABILITY="stable"
+              ;;
+            *)
+              STABILITY="canary"
+              ;;
+          esac
+          echo "stability=$STABILITY" >> $GITHUB_OUTPUT
+        shell: bash
