@@ -1,0 +1,12 @@
+ARG REGISTRY_URL
+
+FROM ${REGISTRY_URL}/almalinux:8
+
+RUN <<EOF
+
+dnf install -y rpm-build rpm-sign zstd
+dnf clean all
+
+EOF
+
+WORKDIR /src

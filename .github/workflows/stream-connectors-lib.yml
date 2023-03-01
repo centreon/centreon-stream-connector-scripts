@@ -29,17 +29,17 @@ jobs:
         distrib: [el8, el9, bullseye]
         include:
           - distrib: el8
-            image: packaging-alma8
+            image: packaging-stream-connectors-alma8
             package_extension: rpm
           - distrib: el9
-            image: packaging-alma9
+            image: packaging-stream-connectors-alma9
             package_extension: rpm
           - distrib: bullseye
-            image: packaging-bullseye
+            image: packaging-stream-connectors-bullseye
             package_extension: deb
     name: package ${{ matrix.distrib }}
     container:
-      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:23.04
+      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
       credentials:
         username: ${{ secrets.DOCKER_REGISTRY_ID }}
         password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
@@ -97,11 +97,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        include:
-          - image: packaging-alma8
-            distrib: el8
-          - image: packaging-alma9
-            distrib: el9
+        distrib: [el8, el9]
     name: sign rpm ${{ matrix.distrib }}
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/rpm-signing:ubuntu
