@@ -3,18 +3,18 @@ on:
     outputs:
       stability:
         description: "branch stability (stable, testing, unstable, canary)"
-        value: ${{ jobs.get-version.outputs.stability }}
+        value: ${{ jobs.get-environment.outputs.stability }}
 
 jobs:
-  get-version:
+  get-environment:
     runs-on: ubuntu-22.04
     outputs:
-      stability: ${{ steps.get_version.outputs.stability }}
+      stability: ${{ steps.get_environment.outputs.stability }}
 
     steps:
       - uses: actions/checkout@v3
 
-      - id: get_version
+      - id: get_environment
         run: |
           case "$BRANCHNAME" in
             develop | dev-[2-9][0-9].[0-9][0-9].x)

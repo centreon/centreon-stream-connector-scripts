@@ -18,8 +18,8 @@ on:
       - centreon-certified/**
 
 jobs:
-  get-version:
-    uses: ./.github/workflows/get-version.yml
+  get-environment:
+    uses: ./.github/workflows/get-environment.yml
 
   detect-changes:
     runs-on: ubuntu-22.04
@@ -54,7 +54,7 @@ jobs:
 
   package:
     if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
-    needs: [get-version, detect-changes]
+    needs: [detect-changes]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -217,8 +217,8 @@ jobs:
           key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
 
   deliver-rpm:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-version.outputs.stability) }}
-    needs: [get-version, detect-changes, sign-rpm]
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, detect-changes, sign-rpm]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -238,8 +238,8 @@ jobs:
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
 
   deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-version.outputs.stability) }}
-    needs: [get-version, detect-changes, package]
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, detect-changes, package]
     runs-on: ubuntu-22.04
     strategy:
       matrix:

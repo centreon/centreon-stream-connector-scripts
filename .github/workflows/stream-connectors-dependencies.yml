@@ -18,11 +18,10 @@ on:
       - dependencies/**
 
 jobs:
-  get-version:
-    uses: ./.github/workflows/get-version.yml
+  get-environment:
+    uses: ./.github/workflows/get-environment.yml
 
   package-rpm:
-    needs: [get-version]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -108,7 +107,6 @@ jobs:
           key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.lib }}-${{ matrix.distrib }}
 
   package-deb:
-    needs: [get-version]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -227,8 +225,8 @@ jobs:
           key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
 
   deliver-rpm:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-version.outputs.stability) }}
-    needs: [get-version, sign-rpm]
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, sign-rpm]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -247,8 +245,8 @@ jobs:
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
 
   deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-version.outputs.stability) }}
-    needs: [get-version, package-deb]
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package-deb]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
