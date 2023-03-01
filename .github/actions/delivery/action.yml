@@ -45,6 +45,6 @@ runs:
         if [[ "${{ env.extfile }}" == "rpm" ]] ; then
           jf rt upload "*.rpm" "rpm-connector-packs/${{ inputs.distrib }}/${{ inputs.stability }}/noarch/"
         elif [[ "${{ env.extfile }}" == "deb" ]] ; then
-          jf rt upload "*.deb" "apt-connector-packs/pool/" --deb "${{ inputs.distrib }}/main/all"
+          jf rt upload "*.deb" "apt-connector-packs-${{ inputs.stability }}/pool/" --deb "${{ inputs.distrib }}/main/all"
         fi
       shell: bash
