@@ -61,6 +61,7 @@ function EventQueue.new (params)
   self.sc_params.params.client_secret = params.client_secret
   self.sc_params.params.username = params.username
   self.sc_params.params.password = params.password
+  self.sc_params.params.http_server_url = params.http_server_url or "service-now.com"
 
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
@@ -237,7 +238,7 @@ function EventQueue:call(url, method, data, authToken)
     }
   end
 
-  local endpoint = "https://" .. tostring(self.sc_params.params.instance) .. ".service-now.com/" .. tostring(url)
+  local endpoint = "https://" .. tostring(self.sc_params.params.instance) .. "." .. self.sc_params.params.http_server_url .. "/" .. tostring(url)
   self.sc_logger:debug("EventQueue:call: Prepare url " .. endpoint)
 
   self.sc_logger:log_curl_command(endpoint, queue_metadata, self.sc_params.params, data)
@@ -271,7 +272,7 @@ function EventQueue:call(url, method, data, authToken)
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
-      request:setopt(curl.OPT_PROXYUSERPWD, self.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+      request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
     else
       self.sc_logger:error("EventQueue:call: proxy_password parameter is not set but proxy_username is used")
     end
