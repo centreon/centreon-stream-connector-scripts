@@ -193,11 +193,11 @@ function EventQueue:get_beaker_cookie()
 
         -- split function may have splitted part of the header value, need to rebuild it if that's the case 
         if #parsed_headers > 2 then
-          for i=2,#header_split do
+          for i=2,#parsed_headers do
             header_string = header_string .. tostring(parsed_headers[i])
           end
         else
-          header_string = header_split[2]
+          header_string = parsed_headers[2]
         end
 
         headers[parsed_headers[1]] = header_string
