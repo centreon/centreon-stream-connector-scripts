@@ -484,7 +484,10 @@ function EventQueue:send_data(payload, queue_metadata)
   }
 
   -- need to renew beaker cookie if it is too old
-  if os.time() - params.canopsis_cookie_lifespan >= self.cookie_info.creation_date then
+  if os.time() - params.canopsis_cookie_lifespan >= self.cookie_info.creation_date or not self.cookie_info.beaker_cookie then
+    self.sc_logger:notice("[EventQueue:send_data]: beaker cookie not found or too old. Beaker cookie was: " .. tostring(self.cookie_info.beaker_cookie)
+      .. ". Creation date is " .. tostring(os.date("%Y-%m-%d %X", self.cookie_info.creation_date)) .. ". It is more than " 
+      .. tostring(params.canopsis_cookie_lifespan) .. " seconds ago (you can change this delay with the canopsis_cookie_lifespan parameter)")
     local new_beaker_cookie = self:get_beaker_cookie()
     
     if new_beaker_cookie then
