@@ -60,6 +60,9 @@ function EventQueue.new(params)
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.canopsis_user = params.canopsis_user
   self.sc_params.params.canopsis_password = params.canopsis_password
+  self.sc_params.params.canopsis_authkey = params.canopsis_authkey
+  self.sc_params.params.use_canopsis_beaker_cookie = params.use_canopsis_beaker_cookie or 0
+  self.sc_params.params.canopsis_cookie_lifespan = params.canopsis_cookie_lifespan or 3600
   self.sc_params.params.connector = params.connector or "centreon-stream"
   self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
   self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
@@ -141,7 +144,107 @@ function EventQueue.new(params)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
+  self.cookie_info = {
+    beaker_cookie = self:get_beaker_cookie(),
+    creation_date = os.time()
+  }
   return self
+end
+
+function EventQueue:get_beaker_cookie()
+  local params = self.sc_params.params
+
+  local url = params.sending_protocol .. "://" ..  params.canopsis_host .. ':' .. params.canopsis_port .. "/autologin/" .. params.canopsis_authkey
+  self.sc_logger:log_curl_command(url, {}, params, nil)
+
+  if params.send_data_test == 1 then
+    self.sc_logger:notice("[EventQueue:get_beaker_cookie]: trying to get beaker cookie using headers of the following endpoint: "
+      .. tostring(url) .. ". A fake cookie is going to be generated")
+    return "myFakeBeakerCookie"
+  end
+
+  if not params.canopsis_authkey then
+    self.sc_logger:error("[EventQueue:get_beaker_cookie]: selected auth method is beaker cookie but no authkey has been provided")
+    return nil
+  end
+
+  local http_response_body = ""
+  local headers = {}
+
+  local http_request = curl.easy()
+    :setopt_url(url)
+    :setopt_writefunction(
+      function (response)
+        http_response_body = http_response_body .. tostring(response)
+      end
+    )
+    :setopt(curl.OPT_TIMEOUT, params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, params.allow_insecure_connection)
+    :setopt(curl.OPT_HEADERFUNCTION,
+      function (header)
+        local parsed_headers = self.sc_common:split(header, ":")
+        
+        -- ignore abnormal headers
+        if not parsed_headers[2] then
+          return
+        end
+
+        local header_string = ""
+
+        -- split function may have splitted part of the header value, need to rebuild it if that's the case 
+        if #parsed_headers > 2 then
+          for i=2,#header_split do
+            header_string = header_string .. tostring(parsed_headers[i])
+          end
+        else
+          header_string = header_split[2]
+        end
+
+        headers[parsed_headers[1]] = header_string
+      end
+    )
+
+  -- set proxy address configuration
+  if (params.proxy_address ~= '') then
+    if (params.proxy_port ~= '') then
+      http_request:setopt(curl.OPT_PROXY, params.proxy_address .. ':' .. params.proxy_port)
+    else 
+      self.sc_logger:error("[EventQueue:get_beaker_cookie]: proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (params.proxy_username ~= '') then
+    if (params.proxy_password ~= '') then
+      http_request:setopt(curl.OPT_PROXYUSERPWD, params.proxy_username 
+        .. ':' .. params.proxy_password)
+    else
+      self.sc_logger:error("[EventQueue:get_beaker_cookie]: proxy_password parameter is not set but proxy_username is used")
+    end
+  end
+
+  -- performing the HTTP request
+  http_request:perform()
+  
+  -- collecting results
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+
+  http_request:close()
+
+  if http_response_code ~= 200 then
+    self.sc_logger:error("[EventQueue:get_beaker_cookie]: HTTP GET request failed: return code is "
+      .. tostring(http_response_code) .. ". Error message is: " .. tostring(http_response_body))
+    return nil
+  end
+
+  if not headers["set-cookie"] then
+    self.sc_logger:error("[EventQueue:get_beaker_cookie]: Beaker cookie not found in headers. Here are all the found headers: " 
+      .. self.sc_common:dumper(headers))
+    return nil
+  end
+
+  -- remove unwanted data from the cookie
+  return string.gsub(headers["set-cookie"], "; Path=/", "")
 end
 
 --------------------------------------------------------------------------------
@@ -371,15 +474,37 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-
+  
   local params = self.sc_params.params
-  local url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
-    .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  local url
   payload = broker.json_encode(payload)
   queue_metadata.headers = {
     "content-length: " .. string.len(payload),
     "content-type: application/json"
   }
+
+  -- need to renew beaker cookie if it is too old
+  if os.time() - params.canopsis_cookie_lifespan >= self.cookie_info.creation_date then
+    local new_beaker_cookie = self:get_beaker_cookie()
+    
+    if new_beaker_cookie then
+      self.sc_logger:debug("[EventQueue:send_data]: a new beaker cookie has been generated: " .. tostring(new_beaker_cookie))
+      self.cookie_info.beaker_cookie = new_beaker_cookie
+      self.cookie_info.creation_date = os.time()
+    else
+      self.sc_logger:error("[EventQueue:send_data]: couldn't get a new beaker cookie")
+    end
+  end
+  
+  -- change url according to auth method
+  if params.use_canopsis_beaker_cookie == 0 then
+    url = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password 
+      .. "@" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  else
+    url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+    table.insert(queue_metadata.headers, "set-cookie: " .. self.cookie_info.beaker_cookie)
+  end
+  
 
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
 
@@ -448,7 +573,7 @@ function EventQueue:send_data(payload, queue_metadata)
   elseif http_response_code == 400 and string.match(http_response_body, "Trying to insert PBehavior with already existing _id") then
     self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
       .. ". Canopsis result: " .. tostring(http_response_body))
-    self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
+    self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(payload))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
