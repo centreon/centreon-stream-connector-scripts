@@ -26,7 +26,6 @@
 -- max_buffer_size (number): how many events to store before sending them to the server.
 -- max_buffer_age (number): flush the events when the specified time (in second) is reached (even if max_size is not reached).
 
-
 -- Libraries
 local curl = require "cURL"
 require("LuaXML")
