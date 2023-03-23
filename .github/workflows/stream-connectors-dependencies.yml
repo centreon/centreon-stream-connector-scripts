@@ -238,11 +238,13 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Publish RPM packages
-        uses: ./.github/actions/delivery
+        uses: ./.github/actions/rpm-delivery
         with:
+          module_name: stream-connectors-dependencies
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
@@ -259,8 +261,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Publish DEB packages
-        uses: ./.github/actions/delivery
+        uses: ./.github/actions/deb-delivery
         with:
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.lib }}-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
