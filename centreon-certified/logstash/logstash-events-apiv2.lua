@@ -193,6 +193,7 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
+  local url = self.sc_params.params.http_server_url .. ":" .. self.sc_params.params.port
   queue_metadata.headers = {"accept: application/json"}
   queue_metadata.method = "PUT"
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
@@ -204,11 +205,11 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Logstash address is: " .. tostring(self.sc_params.params.http_server_url .. ":" .. self.sc_params.params.port))
+  self.sc_logger:info("[EventQueue:send_data]: Logstash address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
-    :setopt_url(self.sc_params.params.http_server_url .. ":" .. self.sc_params.params.port)
+    :setopt_url(url)
     :setopt_writefunction(
       function (response)
         http_response_body = http_response_body .. tostring(response)
