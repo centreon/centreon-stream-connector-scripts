@@ -1036,3 +1036,4 @@ function EventQueue:is_event_duplicated()
   
   return false
 end
+
