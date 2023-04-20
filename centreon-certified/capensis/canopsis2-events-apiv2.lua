@@ -534,3 +534,4 @@ function flush()
   -- there are events in the queue but they were not ready to be send
   return false
 end
+
