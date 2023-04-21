@@ -189,7 +189,6 @@ function EventQueue:build_payload(payload, event)
   return payload
 end
 
-
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
