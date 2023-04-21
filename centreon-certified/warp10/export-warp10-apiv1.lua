@@ -23,6 +23,7 @@
 -- token (string): the Warp10 write token
 -- max_size (number): how many queries to store before sending them to the server.
 --
+
 local curl = require "cURL"
 
 local my_data = {
