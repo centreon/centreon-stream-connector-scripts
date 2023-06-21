@@ -6,6 +6,7 @@
 
 -- Libraries
 local curl = require "cURL"
+local mime = require("mime")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -74,15 +75,17 @@ function EventQueue.new(params)
   -- elastic search index parameters
   self.sc_params.params.index_template_api_endpoint = params.index_template_api_endpoint or "/_index_template"
   self.sc_params.params.index_name = params.index_name or "centreon-metrics"
-  self.sc_params.params.index_pattern = params.index_pattern or params.index_name .. "*"
+  self.sc_params.params.index_pattern = params.index_pattern or self.sc_params.params.index_name .. "*"
   self.sc_params.params.index_priority = params.index_priority or 200
   self.sc_params.params.create_datastream_index_template = params.create_datastream_index_template or 1
   self.sc_params.params.update_datastream_index_template = params.update_datastream_index_template or 0
 
   -- index dimensions parameters
   self.sc_params.params.add_hostgroups_dimension = params.add_hostgroups_dimension or 1
+  self.sc_params.params.add_hostgroups_dimension = params.add_poller_dimension or 0
   self.sc_params.params.add_servicesgroups_dimension = params.accepted_servicegroups or 0
-  self.sc_params.params.add_geocoords_dimension = params.add_geocoords_dimension or 0
+  -- can't get geo coords from cache nor event
+  -- self.sc_params.params.add_geocoords_dimension = params.add_geocoords_dimension or 0 
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -99,6 +102,13 @@ function EventQueue.new(params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
+  local queue_metadata = {
+    endpoint = "/" .. self.sc_params.params.index_name .. "/_bulk",
+    method = "PUT"
+  }
+
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, queue_metadata)
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, queue_metadata)
 
   self.format_event = {
     [categories.neb.id] = {
@@ -130,16 +140,23 @@ function EventQueue.new(params)
 end
 
 function EventQueue:build_index_template(params)
-  self.index_templat_meta = {
+  self.index_template_meta = {
     description = "Timeseries index template for Centreon metrics",
-    create_by_centreon = true
+    created_by_centreon = true
+  }
+  
+  self.index_routing_path = {
+    "host.name",
+    "service.description",
+    "metric.name",
+    "metric.instance",
+    "metric.subinstances"
   }
 
   self.elastic_index_template = {
     index_patterns = {params.index_pattern},
-    data_stream = {},
     priority = params.index_priority,
-    _meta = self.index_templat_meta,
+    _meta = self.index_template_meta,
     template = {
       settings = {
         ["index.mode"] = "time_series"
@@ -174,14 +191,65 @@ function EventQueue:build_index_template(params)
             type = "double",
             time_series_metric = gauge
           },
+          ["@timestamp"] = {
+            type = "date",
+            format = "epoch_second"
+          }
         }
       }
     }
   }
+
+  -- add hostgroup property in the template
+  if params.add_hostgroups_dimension == 1 then
+    self.elastic_index_template.mappings.properties["host.groups"] = {
+      type = "keyword",
+      time_series_dimension = true
+    }
+
+    table.insert(self.index_routing_path, "host.groups")
+  end
+
+  -- add servicegroup property in the template
+  if params.add_servicegroups_dimension == 1 then
+    self.elastic_index_template.mappings.properties["service.groups"] = {
+      type = "keyword",
+      time_series_dimension = true
+    }
+
+    table.insert(self.index_routing_path, "service.groups")
+  end
+
+  -- add poller property in the template
+  if params.add_poller_dimension == 1 then
+    self.elastic_index_template.mappings.properties["poller"] = {
+      type = "keyword",
+      time_series_dimension = true
+    }
+
+    table.insert(self.index_routing_path, "poller")
+  end
+
+
+  self.elastic_index_template.template.settings["index.routing_path"] = self.index_routing_path
+  -- add geocoords property in the template
+  -- can't get geo coords from cache nor event
+  --[[
+    if params.add_geocoords_dimension == 1 then
+      self.elastic_index_template.mappings.properties["host.geocoords"] = {
+        type = "geo_point"
+      }
+    end
+  ]]--
 end
 
 function EventQueue:handle_index(params)
-  local index_structure = self:check_index_template(params)
+  local index_state = self:check_index_template(params)
+
+  if (not index_state.is_created or not index_state.is_up_to_date) then
+    self.sc_logger:error("[EventQueue:handle_index]: It will not be possible to send data to elasticsearch because of an invalid index template structure")
+    self.fail = true
+  end
 end
 
 function EventQueue:check_index_template(params)
@@ -195,15 +263,46 @@ function EventQueue:check_index_template(params)
     is_up_to_date = false,
   }
 
-  if send_data(payload, metadata) then
+  local return_code = self:send_data(payload, metadata)
+  
+  if return_code then
     self.sc_logger:debug("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has been found")
     index_state.is_created = true
     index_state.is_up_to_date = self:validate_index_template(params)
-  else
-    self.sc_logger:error("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has not been found")
+    return index_state
   end
 
-  return retval
+  if (not return_code and params.create_datastream_index_template == 1) then
+    self.sc_logger:notice("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has not been found"
+      .. ". Trying to create it because create_datastream_index_template parameter is set to 1...")
+    
+    if self:create_index_template(params) then
+      index_state.is_created = true
+      -- it has just been created so obviously, it is up to date
+      index_state.is_up_to_date = true
+    end
+  end
+    
+  self.sc_logger:error("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has not been found"
+    .. " and could not be created.")
+
+  return index_state
+end
+
+function EventQueue:create_index_template(params)
+  local metadata = {
+    endpoint = params.index_template_api_endpoint .. "/" .. params.index_name,
+    method = "PUT"
+  }
+
+  if not self:send_data(broker.json_encode(self.elastic_index_template), metadata) then
+    self.sc_logger:debug("[EventQueue:create_index_template]: Index template " .. tostring(params.index_name) .. " could not be created."
+      .. ". Error is: " .. tostring(self.elastic_result))
+    return false
+  end
+
+  self.sc_logger:debug("[EventQueue:create_index_template]: Index template " .. tostring(params.index_name) .. " successfully created")
+  return true
 end
 
 function EventQueue:validate_index_template(params)
@@ -233,36 +332,63 @@ function EventQueue:validate_index_template(params)
     table.insert(required_index_mappings, "service.groups")
   end
 
-  if params.add_geocoords_dimension == 1 then
-    table.insert(required_index_mappings, "host.geocoords")
+  -- can't get geo coords from cache nor event
+  --[[
+    if params.add_geocoords_dimension == 1 then
+      table.insert(required_index_mappings, "host.geocoords")
+    end
+  ]]--
+
+  if params.add_poller_dimension == 1 then
+    table.insert(required_index_mappings, "poller")
   end
   
   -- check if all the mappings are created in the index template
-  for _, index_mapping_name in ipairs(required_index_mappings) do
-    if not index_template_structure.template.mappings.properties[index_mapping_name] then
+  for _, index_mapping_property_name in ipairs(required_index_mapping_properties) do
+    if not index_template_structure.template.mappings.properties[index_mapping_property_name] then
       -- we will only try to update the index if it has already been created by centreon
-      if (params.update_datastream_index_template == 1 and index_template_structure["_meta"].create_by_centreon) then
-        if not self:update_index_template(params) then
+      if (params.update_datastream_index_template == 1 and index_template_structure["_meta"].created_by_centreon) then
+        if not self:update_index_template(index_mapping_property_name, params) then
           return_code = false
         end
       else
         -- we do not return at the first missing property because we want to display all the missing one in one go instead.
         self.sc_logger:error("[EventQueue:validate_index_template]: Elastic index template is not valid. Missing mapping property: "
-          .. tostring(index_mapping_name))
+          .. tostring(index_mapping_property_name))
         return_code = false
       end
+    end
   end
 
   return return_code
 end
 
-function EventQueue:update_index_template(params)
+function EventQueue:update_index_template(index_mapping_property_name, params)
   local metadata = {
     method = "PUT",
     endpoint = params.index_template_api_endpoint .. "/" .. params.index_name
   }
 
+  local payload = {
+    mappings = {
+      properties = {
+        [index_mapping_property_name] = self.elastic_index_template.mappings.properties[index_mapping_property_name]
+      }
+    }
+    -- may need to always add _meta information
+    -- ["_meta"] = self.index_templat_meta
+  }
 
+  if not self:send_data(broker.json_encode(payload), metadata) then
+    self.sc_logger:error("[EventQueue:update_index_template]: could not update index template: " .. tostring(metadata.endpoint) 
+      .. " while wanting to add property: " .. self.sc_common:dumper(payload) .. ". Error message is: " .. tostring(self.elastic_result))
+    return false
+  end
+
+  self.sc_logger:debug("[EventQueue:update_index_template]: Successfully updated index template: " .. tostring(metadata.endpoint)
+    .. ". New property added: " .. tostring(index_mapping_property_name))
+  
+  return true
 end
 
 --------------------------------------------------------------------------------
@@ -311,7 +437,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
-  self:format_metric_event(metric)
+  self:add_generic_information()
+  self:add_optional_information()
+  self:add()
 end
 
 --------------------------------------------------------------------------------
@@ -320,53 +448,58 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
-  self:format_metric_event(metric)
-end
 
---------------------------------------------------------------------------------
----- EventQueue:format_metric_service method
--- @param metric {table} a single metric data
--------------------------------------------------------------------------------
-function EventQueue:format_metric_event(metric)
-  self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
-  local event = self.sc_event.event
-  self.sc_event.event.formated_event = {
-    host = tostring(event.cache.host.name),
-    metric = metric.metric_name,
-    points = {{event.last_check, metric.value}},
-    tags = self:build_metadata(metric)
-  }
-
+  self.sc_event.event.formated_event["service.description"] = tostring(self.sc_event.event.cache.service.description)
+  self:add_generic_information()
+  self:add_optional_information()
+  self:add_service_optional_information()
   self:add()
-  self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
 
---------------------------------------------------------------------------------
----- EventQueue:build_metadata method
--- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata 
---------------------------------------------------------------------------------
-function EventQueue:build_metadata(metric)
-  local tags = {}
+function EventQueue:add_generic_information()
+  self.sc_event.event.formated_event = {
+    ["@timestamp"] = event.last_check,
+    ["host.name"] = tostring(event.cache.host.name),
+    ["metric.name"] = tostring(metric.metric_name),
+    ["metric.value"] = metric.value,
+    ["metric.instance"] = metric.instance,
+    ["metric.subinstances"] = metric.subinstances,
+    ["metric.unit"] = metric.unit
+  }
+end
 
-  -- add service name in tags
-  if self.sc_event.event.cache.service.description then
-    table.insert(tags, "service:" .. self.sc_event.event.cache.service.description)
-  end
+function EventQueue:add_generic_optional_information()
+  local params = self.sc_event.params
+  local event = self.sc_event.event
 
-  -- add metric instance in tags
-  if metric.instance ~= "" then
-    table.insert(tags, "instance:" .. metric.instance)
-  end
+  -- add hostgroups
+  if params.add_hostgroups_dimension == 1 then
+    local hostgroups = {}
 
-  -- add metric subinstances in tags
-  if metric.subinstance[1] then
-    for _, subinstance in ipairs(metric.subinstance) do
-      table.insert(tags, "subinstance:" .. subinstance)
+    for _, hg_info in ipairs(event.cache.hostgroups) do
+      table.insert(hostgroups, hg_info.group_name)
     end
+    
+    self.sc_event.event.formated_event["host.groups"] = hostgroups
   end
 
-  return tags
+  -- add poller
+  if params.add_poller_dimension == 1 then
+    self.sc_event.event.formated_event.poller = event.cache.poller
+  end
+end
+
+function EventQueue:add_service_optional_information() 
+  -- add servicegroups 
+  if params.add_servicegroups_dimension == 1 then
+    local servicegroups = {}
+
+    for _, sg_info in ipairs(event.cache.servicegroups) do
+      table.insert(servicegroups, sg_info.group_name)
+    end
+    
+    self.sc_event.event.formated_event["service.groups"] = servicegroups
+  end
 end
 
 --------------------------------------------------------------------------------
@@ -395,11 +528,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = {
-      series = {event}
-    }
+    payload = '{"create":{}}\n' .. broker.json_encode(event)
   else
-    table.insert(payload.series, event)
+    payload = payload .. "\n" .. '{"create":{}}\n' .. broker.json_encode(event)
   end
   
   return payload
@@ -410,25 +541,23 @@ function EventQueue:send_data(payload, queue_metadata)
 
   local params = self.sc_params.params
   local url = params.http_server_url .. queue_metadata.endpoint
-  local basic_auth = {
-    username = params.elastic_username,
-    password = params.elastic_password
+  queue_metadata.headers = {
+    "Authorization: Basic " .. mime.b64(params.elastic_username .. ":" .. params.elastic_password),
+    "Content-type: application/json"
   }
 
   
   if payload then
-    local payload_json = broker.json_encode(payload)
-    
     -- write payload in the logfile for test purpose
     if params.send_data_test == 1 then
-      self.sc_logger:notice("[send_data]: " .. tostring(payload_json))
-      self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload_json))
+      self.sc_logger:notice("[send_data]: " .. tostring(payload))
+      self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
       return true
     end
   end
   
   self.sc_logger:info("[EventQueue:send_data]: Elastic address is: " .. tostring(url))
-  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload_json, basic_auth)
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload, basic_auth)
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -440,12 +569,8 @@ function EventQueue:send_data(payload, queue_metadata)
     )
     :setopt(curl.OPT_TIMEOUT, params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, params.allow_insecure_connection)
-    :setopt(
-      curl.OPT_HTTPHEADER,
-      {
-        "content-type: application/json"
-      }
-  )
+    :setopt(curl.OPT_USERPWD, params.elastic_username .. ":" .. params.elastic_password)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
   if (params.proxy_address ~= '') then
@@ -466,8 +591,13 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   -- adding the HTTP POST data
-  if payload_json then
-    http_request:setopt_postfields(payload_json)
+  if queue_metadata.method and queue_metadata.method == "PUT" then
+    http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+  end
+
+  -- adding the HTTP POST data
+  if payload then
+    http_request:setopt_postfields(payload)
   end
 
   -- performing the HTTP request
@@ -480,10 +610,10 @@ function EventQueue:send_data(payload, queue_metadata)
   
   -- Handling the return code
   local retval = false
+  self.elastic_result = http_response_body
   
-  if http_response_code == 202 then
+  if http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
-    self.elastic_result = http_response_body
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
