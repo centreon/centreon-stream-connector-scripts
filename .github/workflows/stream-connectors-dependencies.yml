@@ -89,6 +89,7 @@ jobs:
           mkdir -p ${{ matrix.lib }}/cURL
           cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL ${{ matrix.lib }}/
           cp -p /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL.lua ${{ matrix.lib }}/
+          cp -p /usr/lib64/lua/`lua -e "print(string.sub(_VERSION, 5))"`/lcurl.so ${{ matrix.lib }}/
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
         working-directory: dependencies/${{ matrix.lib }}
         shell: bash
