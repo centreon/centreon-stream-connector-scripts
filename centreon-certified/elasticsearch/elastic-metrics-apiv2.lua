@@ -107,8 +107,7 @@ function EventQueue.new(params)
     method = "PUT"
   }
 
-  self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, queue_metadata)
-  self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, queue_metadata)
+  self.sc_flush.queues.global_queues_metadata = queue_metadata
 
   self.format_event = {
     [categories.neb.id] = {
@@ -202,7 +201,7 @@ function EventQueue:build_index_template(params)
 
   -- add hostgroup property in the template
   if params.add_hostgroups_dimension == 1 then
-    self.elastic_index_template.mappings.properties["host.groups"] = {
+    self.elastic_index_template.template.mappings.properties["host.groups"] = {
       type = "keyword",
       time_series_dimension = true
     }
@@ -212,7 +211,7 @@ function EventQueue:build_index_template(params)
 
   -- add servicegroup property in the template
   if params.add_servicegroups_dimension == 1 then
-    self.elastic_index_template.mappings.properties["service.groups"] = {
+    self.elastic_index_template.template.mappings.properties["service.groups"] = {
       type = "keyword",
       time_series_dimension = true
     }
@@ -222,7 +221,7 @@ function EventQueue:build_index_template(params)
 
   -- add poller property in the template
   if params.add_poller_dimension == 1 then
-    self.elastic_index_template.mappings.properties["poller"] = {
+    self.elastic_index_template.template.mappings.properties["poller"] = {
       type = "keyword",
       time_series_dimension = true
     }
@@ -263,8 +262,9 @@ function EventQueue:check_index_template(params)
     is_up_to_date = false,
   }
 
+  self.sc_logger:error("[TANGUY:TANGUY]: AVANT")
   local return_code = self:send_data(payload, metadata)
-  
+  self.sc_logger:error("[TANGUY:TANGUY]: AVANT")
   if return_code then
     self.sc_logger:debug("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has been found")
     index_state.is_created = true
@@ -275,11 +275,12 @@ function EventQueue:check_index_template(params)
   if (not return_code and params.create_datastream_index_template == 1) then
     self.sc_logger:notice("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has not been found"
       .. ". Trying to create it because create_datastream_index_template parameter is set to 1...")
-    
+
     if self:create_index_template(params) then
       index_state.is_created = true
       -- it has just been created so obviously, it is up to date
       index_state.is_up_to_date = true
+      return index_state
     end
   end
     
@@ -306,15 +307,19 @@ function EventQueue:create_index_template(params)
 end
 
 function EventQueue:validate_index_template(params)
+  self.sc_logger:error("1")
   local index_template_structure, error = broker.json_decode(self.elastic_result)
-
+  self.sc_logger:error("2")
+  -- self.sc_logger:error(self.sc_common:dumper(index_template_structure))
   if error then
     self.sc_logger:error("[EventQueue:validate_index_template]: Could not decode json: " .. tostring(self.elastic_result) .. ". Error message is: " .. tostring(error))
     return true
   end
 
+  self.sc_logger:error("3")
+
   local return_code = true
-  local required_index_mappings = {
+  local required_index_mapping_properties = {
     "host.name",
     "service.description",
     "metric.value",
@@ -323,39 +328,48 @@ function EventQueue:validate_index_template(params)
     "metric.instance",
     "metric.subinstances"
   }
+  self.sc_logger:error("4")
 
   if params.add_hostgroups_dimension == 1 then
-    table.insert(required_index_mappings, "host.groups")
+    table.insert(required_index_mapping_properties, "host.groups")
   end
+  self.sc_logger:error("5")
 
   if params.add_servicesgroups_dimension == 1 then
-    table.insert(required_index_mappings, "service.groups")
+    table.insert(required_index_mapping_properties, "service.groups")
   end
+  self.sc_logger:error("6")
 
   -- can't get geo coords from cache nor event
   --[[
     if params.add_geocoords_dimension == 1 then
-      table.insert(required_index_mappings, "host.geocoords")
+      table.insert(required_index_mapping_properties, "host.geocoords")
     end
   ]]--
 
+  self.sc_logger:error("7")
   if params.add_poller_dimension == 1 then
-    table.insert(required_index_mappings, "poller")
+    table.insert(required_index_mapping_properties, "poller")
   end
   
-  -- check if all the mappings are created in the index template
-  for _, index_mapping_property_name in ipairs(required_index_mapping_properties) do
-    if not index_template_structure.template.mappings.properties[index_mapping_property_name] then
-      -- we will only try to update the index if it has already been created by centreon
-      if (params.update_datastream_index_template == 1 and index_template_structure["_meta"].created_by_centreon) then
-        if not self:update_index_template(index_mapping_property_name, params) then
-          return_code = false
+  self.sc_logger:error("8")
+  for _, index_information in ipairs(index_template_structure.index_templates) do
+    if index_information.name == params.index_name then
+      for _, index_mapping_property_name in pairs(required_index_mapping_properties) do
+        -- check if all the mappings are created in the index template
+        if not index_information.index_template.template.mappings.properties[index_mapping_property_name] then
+          -- we will only try to update the index if it has already been created by centreon
+          if (params.update_datastream_index_template == 1 and index_information.index_template["_meta"].created_by_centreon) then
+            if not self:update_index_template(index_mapping_property_name, params) then
+              return_code = false
+            end
+          else
+            -- we do not return at the first missing property because we want to display all the missing one in one go instead.
+            self.sc_logger:error("[EventQueue:validate_index_template]: Elastic index template is not valid. Missing mapping property: "
+              .. tostring(index_mapping_property_name))
+            return_code = false
+          end
         end
-      else
-        -- we do not return at the first missing property because we want to display all the missing one in one go instead.
-        self.sc_logger:error("[EventQueue:validate_index_template]: Elastic index template is not valid. Missing mapping property: "
-          .. tostring(index_mapping_property_name))
-        return_code = false
       end
     end
   end
@@ -372,7 +386,7 @@ function EventQueue:update_index_template(index_mapping_property_name, params)
   local payload = {
     mappings = {
       properties = {
-        [index_mapping_property_name] = self.elastic_index_template.mappings.properties[index_mapping_property_name]
+        [index_mapping_property_name] = self.elastic_index_template.template.mappings.properties[index_mapping_property_name]
       }
     }
     -- may need to always add _meta information
@@ -419,6 +433,7 @@ end
 function EventQueue:format_event_host()
   local event = self.sc_event.event
   self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
+  self.sc_event.event.formated_event = {}
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
@@ -428,6 +443,7 @@ end
 function EventQueue:format_event_service()
   self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
   local event = self.sc_event.event
+  self.sc_event.event.formated_event = {}
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
@@ -438,6 +454,7 @@ end
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
   self:add_generic_information()
+  self:add_generic_optional_information()
   self:add_optional_information()
   self:add()
 end
@@ -450,13 +467,14 @@ function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
 
   self.sc_event.event.formated_event["service.description"] = tostring(self.sc_event.event.cache.service.description)
-  self:add_generic_information()
-  self:add_optional_information()
+  self:add_generic_information(metric)
+  self:add_generic_optional_information()
   self:add_service_optional_information()
   self:add()
 end
 
-function EventQueue:add_generic_information()
+function EventQueue:add_generic_information(metric)
+  local event = self.sc_event.event
   self.sc_event.event.formated_event = {
     ["@timestamp"] = event.last_check,
     ["host.name"] = tostring(event.cache.host.name),
@@ -491,7 +509,7 @@ end
 
 function EventQueue:add_service_optional_information() 
   -- add servicegroups 
-  if params.add_servicegroups_dimension == 1 then
+  if self.sc_params.params.add_servicegroups_dimension == 1 then
     local servicegroups = {}
 
     for _, sg_info in ipairs(event.cache.servicegroups) do
@@ -528,9 +546,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = '{"create":{}}\n' .. broker.json_encode(event)
+    payload = '{"create":{}}\n' .. broker.json_encode(event) .. "\n"
   else
-    payload = payload .. "\n" .. '{"create":{}}\n' .. broker.json_encode(event)
+    payload = payload .. '{"create":{}}\n' .. broker.json_encode(event)
   end
   
   return payload
@@ -538,7 +556,7 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-
+self.sc_logger:error(self.sc_common:dumper(queue_metadata))
   local params = self.sc_params.params
   local url = params.http_server_url .. queue_metadata.endpoint
   queue_metadata.headers = {
@@ -569,7 +587,7 @@ function EventQueue:send_data(payload, queue_metadata)
     )
     :setopt(curl.OPT_TIMEOUT, params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, params.allow_insecure_connection)
-    :setopt(curl.OPT_USERPWD, params.elastic_username .. ":" .. params.elastic_password)
+    :setopt(curl.OPT_SSL_VERIFYHOST, params.allow_insecure_connection)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
