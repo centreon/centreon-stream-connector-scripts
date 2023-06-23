@@ -33,6 +33,7 @@ lua curl library
 %install
 %{__install} -d $RPM_BUILD_ROOT%{luapkgdir}/cURL
 %{__cp} -rp ./* $RPM_BUILD_ROOT%{luapkgdir}/
+%{__install} -d $RPM_BUILD_ROOT%{lualibdir}
 %{__cp} -rp ./lcurl.so $RPM_BUILD_ROOT%{lualibdir}/
 
 %clean
