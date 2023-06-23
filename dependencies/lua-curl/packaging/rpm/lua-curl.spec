@@ -44,8 +44,8 @@ lua curl library
 %{__rm} -rf $RPM_BUILD_ROOT
 
 %files
-%{lualibdir}/lcurl.so
-%{luapkgdir}/cURL.lua
-%{luapkgdir}/cURL
+%defattr(-, root, root, 0755)
+%{lualibdir}/*
+%{luapkgdir}/*
 
 %changelog
