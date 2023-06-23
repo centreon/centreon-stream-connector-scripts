@@ -31,7 +31,7 @@ lua curl library
 %build
 
 %install
-%{__install} -Dp -m0755 lcurl.so $RPM_BUILD_ROOT%{luapkgdir}//lcurl.so
+%{__install} -Dp -m0755 lcurl.so %{luapkgdir}/lcurl.so
 %{__install} -d $RPM_BUILD_ROOT%{luapkgdir}/cURL
 %{__cp} -rp ./* $RPM_BUILD_ROOT%{luapkgdir}/
 
