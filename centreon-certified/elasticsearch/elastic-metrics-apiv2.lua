@@ -82,8 +82,8 @@ function EventQueue.new(params)
 
   -- index dimensions parameters
   self.sc_params.params.add_hostgroups_dimension = params.add_hostgroups_dimension or 1
-  self.sc_params.params.add_hostgroups_dimension = params.add_poller_dimension or 0
-  self.sc_params.params.add_servicesgroups_dimension = params.accepted_servicegroups or 0
+  self.sc_params.params.add_poller_dimension = params.add_poller_dimension or 0
+  self.sc_params.params.add_servicegroups_dimension = params.add_servicegroups_dimension or 0
   -- can't get geo coords from cache nor event
   -- self.sc_params.params.add_geocoords_dimension = params.add_geocoords_dimension or 0 
 
@@ -240,6 +240,7 @@ function EventQueue:build_index_template(params)
       }
     end
   ]]--
+  self.sc_logger:notice(self.sc_common:dumper(self.elastic_index_template))
 end
 
 function EventQueue:handle_index(params)
@@ -262,11 +263,9 @@ function EventQueue:check_index_template(params)
     is_up_to_date = false,
   }
 
-  self.sc_logger:error("[TANGUY:TANGUY]: AVANT")
   local return_code = self:send_data(payload, metadata)
-  self.sc_logger:error("[TANGUY:TANGUY]: AVANT")
   if return_code then
-    self.sc_logger:debug("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has been found")
+    self.sc_logger:notice("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has been found")
     index_state.is_created = true
     index_state.is_up_to_date = self:validate_index_template(params)
     return index_state
@@ -297,7 +296,7 @@ function EventQueue:create_index_template(params)
   }
 
   if not self:send_data(broker.json_encode(self.elastic_index_template), metadata) then
-    self.sc_logger:debug("[EventQueue:create_index_template]: Index template " .. tostring(params.index_name) .. " could not be created."
+    self.sc_logger:error("[EventQueue:create_index_template]: Index template " .. tostring(params.index_name) .. " could not be created."
       .. ". Error is: " .. tostring(self.elastic_result))
     return false
   end
@@ -307,18 +306,13 @@ function EventQueue:create_index_template(params)
 end
 
 function EventQueue:validate_index_template(params)
-  self.sc_logger:error("1")
   local index_template_structure, error = broker.json_decode(self.elastic_result)
-  self.sc_logger:error("2")
-  -- self.sc_logger:error(self.sc_common:dumper(index_template_structure))
+
   if error then
     self.sc_logger:error("[EventQueue:validate_index_template]: Could not decode json: " .. tostring(self.elastic_result) .. ". Error message is: " .. tostring(error))
     return true
   end
 
-  self.sc_logger:error("3")
-
-  local return_code = true
   local required_index_mapping_properties = {
     "host.name",
     "service.description",
@@ -328,41 +322,39 @@ function EventQueue:validate_index_template(params)
     "metric.instance",
     "metric.subinstances"
   }
-  self.sc_logger:error("4")
-
+  
   if params.add_hostgroups_dimension == 1 then
     table.insert(required_index_mapping_properties, "host.groups")
   end
-  self.sc_logger:error("5")
 
-  if params.add_servicesgroups_dimension == 1 then
+  if params.add_servicegroups_dimension == 1 then
     table.insert(required_index_mapping_properties, "service.groups")
   end
-  self.sc_logger:error("6")
-
+  
   -- can't get geo coords from cache nor event
   --[[
     if params.add_geocoords_dimension == 1 then
       table.insert(required_index_mapping_properties, "host.geocoords")
     end
-  ]]--
-
-  self.sc_logger:error("7")
+    ]]--
+    
   if params.add_poller_dimension == 1 then
     table.insert(required_index_mapping_properties, "poller")
   end
-  
-  self.sc_logger:error("8")
+    
+  local return_code = true
+  local update_template = false
+  -- this double for_loop is only doing two things: logging all the missing properties in the index template for the sake of verbosity
+  -- and change above flags
   for _, index_information in ipairs(index_template_structure.index_templates) do
     if index_information.name == params.index_name then
       for _, index_mapping_property_name in pairs(required_index_mapping_properties) do
         -- check if all the mappings are created in the index template
         if not index_information.index_template.template.mappings.properties[index_mapping_property_name] then
-          -- we will only try to update the index if it has already been created by centreon
           if (params.update_datastream_index_template == 1 and index_information.index_template["_meta"].created_by_centreon) then
-            if not self:update_index_template(index_mapping_property_name, params) then
-              return_code = false
-            end
+            self.sc_logger:notice("[EventQueue:validate_index_template]: Elastic index template is not valid. Missing mapping property: "
+              .. tostring(index_mapping_property_name) .. ". Template is going to be automatically updated")
+            update_template = true
           else
             -- we do not return at the first missing property because we want to display all the missing one in one go instead.
             self.sc_logger:error("[EventQueue:validate_index_template]: Elastic index template is not valid. Missing mapping property: "
@@ -374,35 +366,12 @@ function EventQueue:validate_index_template(params)
     end
   end
 
-  return return_code
-end
-
-function EventQueue:update_index_template(index_mapping_property_name, params)
-  local metadata = {
-    method = "PUT",
-    endpoint = params.index_template_api_endpoint .. "/" .. params.index_name
-  }
-
-  local payload = {
-    mappings = {
-      properties = {
-        [index_mapping_property_name] = self.elastic_index_template.template.mappings.properties[index_mapping_property_name]
-      }
-    }
-    -- may need to always add _meta information
-    -- ["_meta"] = self.index_templat_meta
-  }
-
-  if not self:send_data(broker.json_encode(payload), metadata) then
-    self.sc_logger:error("[EventQueue:update_index_template]: could not update index template: " .. tostring(metadata.endpoint) 
-      .. " while wanting to add property: " .. self.sc_common:dumper(payload) .. ". Error message is: " .. tostring(self.elastic_result))
-    return false
+  if update_template then
+    self.sc_logger:notice(self.sc_common:dumper(self.elastic_index_template))
+    return_code = self:create_index_template(params)
   end
 
-  self.sc_logger:debug("[EventQueue:update_index_template]: Successfully updated index template: " .. tostring(metadata.endpoint)
-    .. ". New property added: " .. tostring(index_mapping_property_name))
-  
-  return true
+  return return_code
 end
 
 --------------------------------------------------------------------------------
@@ -453,9 +422,8 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
-  self:add_generic_information()
+  self:add_generic_information(metric)
   self:add_generic_optional_information()
-  self:add_optional_information()
   self:add()
 end
 
@@ -512,7 +480,7 @@ function EventQueue:add_service_optional_information()
   if self.sc_params.params.add_servicegroups_dimension == 1 then
     local servicegroups = {}
 
-    for _, sg_info in ipairs(event.cache.servicegroups) do
+    for _, sg_info in ipairs(self.sc_event.event.cache.servicegroups) do
       table.insert(servicegroups, sg_info.group_name)
     end
     
@@ -548,7 +516,7 @@ function EventQueue:build_payload(payload, event)
   if not payload then
     payload = '{"create":{}}\n' .. broker.json_encode(event) .. "\n"
   else
-    payload = payload .. '{"create":{}}\n' .. broker.json_encode(event)
+    payload = payload .. '{"create":{}}\n' .. broker.json_encode(event) .. "\n"
   end
   
   return payload
