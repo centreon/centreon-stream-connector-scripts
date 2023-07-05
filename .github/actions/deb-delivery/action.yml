@@ -1,0 +1,43 @@
+name: "deb-delivery"
+description: "Deliver deb packages"
+inputs:
+  distrib:
+    description: "The distribution used for packaging"
+    required: true
+  cache_key:
+    description: "The cached package key"
+    required: true
+  stability:
+    description: "The package stability (stable, testing, unstable)"
+    required: true
+  artifactory_token:
+    description: "Artifactory token"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Use cache DEB files
+      uses: actions/cache@v3
+      with:
+        path: ./*.deb
+        key: ${{ inputs.cache_key }}
+        fail-on-cache-miss: true
+
+    - uses: jfrog/setup-jfrog-cli@v3
+      env:
+        JF_URL: https://centreon.jfrog.io
+        JF_ACCESS_TOKEN: ${{ inputs.artifactory_token }}
+
+    - name: Publish DEBs
+      run: |
+        FILES="*.deb"
+
+        for FILE in $FILES; do
+          echo "[DEBUG] - File: $FILE"
+
+          ARCH=$(echo $FILE | cut -d '_' -f3 | cut -d '.' -f1)
+
+          jf rt upload "$FILE" "apt-plugins-${{ inputs.stability }}/pool/" --deb "${{ inputs.distrib }}/main/$ARCH"
+        done
+      shell: bash
