@@ -149,7 +149,7 @@ function EventQueue:build_index_template(params)
     "service.description",
     "metric.name",
     "metric.instance",
-    "metric.subinstances"
+    -- "metric.subinstances"
   }
 
   self.elastic_index_template = {
@@ -184,7 +184,7 @@ function EventQueue:build_index_template(params)
           },
           ["metric.subinstances"] = {
             type = "keyword",
-            time_series_dimension = true
+            time_series_dimension = false
           },
           ["metric.value"] = {
             type = "double",
@@ -203,20 +203,20 @@ function EventQueue:build_index_template(params)
   if params.add_hostgroups_dimension == 1 then
     self.elastic_index_template.template.mappings.properties["host.groups"] = {
       type = "keyword",
-      time_series_dimension = true
+      time_series_dimension = false
     }
 
-    table.insert(self.index_routing_path, "host.groups")
+    -- table.insert(self.index_routing_path, "host.groups")
   end
 
   -- add servicegroup property in the template
   if params.add_servicegroups_dimension == 1 then
     self.elastic_index_template.template.mappings.properties["service.groups"] = {
       type = "keyword",
-      time_series_dimension = true
+      time_series_dimension = false
     }
 
-    table.insert(self.index_routing_path, "service.groups")
+    -- table.insert(self.index_routing_path, "service.groups")
   end
 
   -- add poller property in the template
@@ -240,7 +240,7 @@ function EventQueue:build_index_template(params)
       }
     end
   ]]--
-  self.sc_logger:notice(self.sc_common:dumper(self.elastic_index_template))
+  self.sc_logger:notice("[EventQueue:build_index_template]: The following index template is going to be created: " .. self.sc_common:dumper(self.elastic_index_template))
 end
 
 function EventQueue:handle_index(params)
@@ -282,7 +282,7 @@ function EventQueue:check_index_template(params)
       return index_state
     end
   end
-    
+
   self.sc_logger:error("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has not been found"
     .. " and could not be created.")
 
@@ -301,7 +301,7 @@ function EventQueue:create_index_template(params)
     return false
   end
 
-  self.sc_logger:debug("[EventQueue:create_index_template]: Index template " .. tostring(params.index_name) .. " successfully created")
+  self.sc_logger:notice("[EventQueue:create_index_template]: Index template " .. tostring(params.index_name) .. " successfully created")
   return true
 end
 
@@ -330,20 +330,21 @@ function EventQueue:validate_index_template(params)
   if params.add_servicegroups_dimension == 1 then
     table.insert(required_index_mapping_properties, "service.groups")
   end
-  
+
   -- can't get geo coords from cache nor event
   --[[
     if params.add_geocoords_dimension == 1 then
       table.insert(required_index_mapping_properties, "host.geocoords")
     end
     ]]--
-    
+
   if params.add_poller_dimension == 1 then
     table.insert(required_index_mapping_properties, "poller")
   end
-    
+
   local return_code = true
   local update_template = false
+
   -- this double for_loop is only doing two things: logging all the missing properties in the index template for the sake of verbosity
   -- and change above flags
   for _, index_information in ipairs(index_template_structure.index_templates) do
@@ -367,7 +368,7 @@ function EventQueue:validate_index_template(params)
   end
 
   if update_template then
-    self.sc_logger:notice(self.sc_common:dumper(self.elastic_index_template))
+    self.sc_logger:notice("[EventQueue:validate_index_template]: Going to update index template with the following structure: " .. self.sc_common:dumper(self.elastic_index_template))
     return_code = self:create_index_template(params)
   end
 
@@ -385,7 +386,7 @@ function EventQueue:format_accepted_event()
 
   -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
   if not self.format_event[category][element] then
-    self.sc_logger:error("[format_event]: You are trying to format an event with category: "
+    self.sc_logger:error("[EventQueue:format_event]: You are trying to format an event with category: "
       .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
       .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
       .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
@@ -421,7 +422,7 @@ end
 -- @param metric {table} a single metric data
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric host")
   self:add_generic_information(metric)
   self:add_generic_optional_information()
   self:add()
@@ -432,7 +433,7 @@ end
 -- @param metric {table} a single metric data
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric service")
 
   self.sc_event.event.formated_event["service.description"] = tostring(self.sc_event.event.cache.service.description)
   self:add_generic_information(metric)
@@ -514,9 +515,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = '{"create":{}}\n' .. broker.json_encode(event) .. "\n"
+    payload = '{"index":{}}\n' .. broker.json_encode(event) .. "\n"
   else
-    payload = payload .. '{"create":{}}\n' .. broker.json_encode(event) .. "\n"
+    payload = payload .. '{"index":{}}\n' .. broker.json_encode(event) .. "\n"
   end
   
   return payload
@@ -594,18 +595,24 @@ self.sc_logger:error(self.sc_common:dumper(queue_metadata))
 
   http_request:close()
   
-  -- Handling the return code
-  local retval = false
-  self.elastic_result = http_response_body
+  -- the gsub function is here to fix a bug with the broker method json_decode that crashes when a value is null. Internal issue: MON-20481
+  self.elastic_result = string.gsub(http_response_body, "null", "false")
+  local decoded_elastic_result, error_json = broker.json_decode(self.elastic_result)
   
-  if http_response_code == 200 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
-    retval = true
-  else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  if error_json then
+    self.sc_logger:error("[EventQueue:send_data]: Couldn't decode json from elasticsearch. Error is: " .. tostring(error_json)
+      .. ". Received json is: " .. tostring(http_response_body))
+    return false
   end
   
-  return retval
+  if (http_response_code == 200 and not decoded_elastic_result.errors) then
+    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+    return true
+  end
+
+
+  self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  return false
 end
 
 --------------------------------------------------------------------------------
