@@ -634,7 +634,7 @@ end
 function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
-    queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
+    queue.sc_logger:error("Skipping event because a mandatory parameter is not set or elastic index is not valid")
     return false
   end
 
