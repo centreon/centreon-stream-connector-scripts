@@ -525,7 +525,6 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-self.sc_logger:error(self.sc_common:dumper(queue_metadata))
   local params = self.sc_params.params
   local url = params.http_server_url .. queue_metadata.endpoint
   queue_metadata.headers = {
