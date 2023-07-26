@@ -82,7 +82,7 @@ jobs:
 
       - if: ${{ matrix.lib == 'lua-curl' }}
         run: |
-          dnf install openssl-devel openssl libcurl-devel
+          dnf install -y openssl-devel openssl libcurl-devel
 
           luarocks install lua-curl
           luarocks show lua-curl
