@@ -7,8 +7,8 @@ concurrency:
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - dependencies/**
+    # paths:
+    #   - dependencies/**
   push:
     branches:
       - develop
@@ -24,15 +24,16 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [el8, el9]
-        lib: [lua-cffi, lua-tz, lua-curl]
+        # distrib: [el8, el9]
+        # lib: [lua-cffi, lua-tz, lua-curl]
         include:
-          - distrib: el8
-            image: packaging-stream-connectors-alma8
-            package_extension: rpm
+          # - distrib: el8
+          #   image: packaging-stream-connectors-alma8
+          #   package_extension: rpm
           - distrib: el9
             image: packaging-stream-connectors-alma9
             package_extension: rpm
+            lib: lua-curl
 
     name: package ${{ matrix.distrib }} ${{ matrix.lib }}
     container:
@@ -81,6 +82,8 @@ jobs:
 
       - if: ${{ matrix.lib == 'lua-curl' }}
         run: |
+          dnf install openssl-devel openssl libcurl libcurl-devel
+
           luarocks install lua-curl
           luarocks show lua-curl
           luarocks show lua-curl | grep "Lua-cURL\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -105,6 +108,11 @@ jobs:
         with:
           path: ./*.${{ matrix.package_extension }}
           key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.lib }}-${{ matrix.distrib }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./*.${{ matrix.package_extension }}
+          name: packages-${{ matrix.package_extension }}
 
   package-deb:
     runs-on: ubuntu-22.04
