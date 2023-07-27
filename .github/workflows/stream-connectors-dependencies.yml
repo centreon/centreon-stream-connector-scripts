@@ -57,7 +57,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-cffi' }}
-        name: Prepare packaging of ${{ matrix.lib }}
+        name: Prepare packaging of lua-cffi
         run: |
           luarocks install cffi-lua
           luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -70,7 +70,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-tz' }}
-        name: Prepare packaging of ${{ matrix.lib }}
+        name: Prepare packaging of lua-tz
         run: |
           luarocks install luatz
           luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -83,7 +83,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-curl' }}
-        name: Checkout sources of ${{ matrix.lib }}
+        name: Checkout sources of lua-curl
         uses: actions/checkout@v3
         with:
           repository: Lua-cURL/Lua-cURLv3
@@ -91,7 +91,7 @@ jobs:
           ref: v0.3.13
 
       - if: ${{ matrix.lib == 'lua-curl' }}
-        name: Compile ${{ matrix.lib }} and prepare packaging
+        name: Compile lua-curl and prepare packaging
         run: |
           dnf install -y openssl-devel openssl libcurl-devel python3-pip perl-IPC-Cmd perl-Digest-SHA perl-Thread-Queue perl-IO-Socket-SSL
 
@@ -161,7 +161,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-cffi' }}
-        name: Prepare packaging of ${{ matrix.lib }}
+        name: Prepare packaging of lua-cffi
         run: |
           luarocks install cffi-lua
           luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -178,7 +178,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-tz' }}
-        name: Prepare packaging of ${{ matrix.lib }}
+        name: Prepare packaging of lua-tz
         run: |
           luarocks install luatz
           luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
