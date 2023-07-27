@@ -81,20 +81,48 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-curl' }}
+        uses: actions/checkout@v3
+        with:
+          repository: Lua-cURL/Lua-cURLv3
+          path: lua-curl-src
+          ref: v0.3.13
+
+      - if: ${{ matrix.lib == 'lua-curl' }}
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel
+          dnf install -y openssl-devel openssl libcurl-devel pip
 
-          luarocks install lua-curl
-          luarocks show lua-curl
-          luarocks show lua-curl | grep "Lua-cURL\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          cat version.txt
+          cd lua-curl-src
 
-          mkdir -p ${{ matrix.lib }}/cURL
-          cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL ${{ matrix.lib }}/
-          cp -p /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL.lua ${{ matrix.lib }}/
-          cp -p /usr/lib64/lua/`lua -e "print(string.sub(_VERSION, 5))"`/lcurl.so ${{ matrix.lib }}/
+          pip3 install conan
+          conan profile detect
+          conan install --requires=libcurl/8.1.2 -g CMakeToolchain --deployer=full_deploy
+
+          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a#" Makefile
+          make
+
+          cd ..
+
+          cp lua-curl-src/lcurl.so dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp lua-curl-src/src/lua/cURL dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp lua-curl-src/src/lua/cURL.lua dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+
+          cd dependencies/${{ matrix.lib }}
+
+          echo "0.3.13" >> version.txt
+
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
-        working-directory: dependencies/${{ matrix.lib }}
+
+          #luarocks install lua-curl
+          #luarocks show lua-curl
+          #luarocks show lua-curl | grep "Lua-cURL\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          #cat version.txt
+
+          #mkdir -p ${{ matrix.lib }}/cURL
+          #cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL ${{ matrix.lib }}/
+          #cp -p /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL.lua ${{ matrix.lib }}/
+          #cp -p /usr/lib64/lua/`lua -e "print(string.sub(_VERSION, 5))"`/lcurl.so ${{ matrix.lib }}/
+          #tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
+        #working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
       - run: |
