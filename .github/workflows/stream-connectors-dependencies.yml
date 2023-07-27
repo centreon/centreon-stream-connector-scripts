@@ -93,13 +93,13 @@ jobs:
           cd lua-curl-src
 
           sudo pip3 install conan
-          sudo conan profile detect
-          sudo conan install --requires=libcurl/8.1.2 --build=missing -g CMakeToolchain --deployer=full_deploy
-          sudo conan install --requires=openssl/3.1.1 --build=missing -g CMakeToolchain --deployer=full_deploy
-          sudo conan install --requires=zlib/1.2.13 --build=missing -g CMakeToolchain --deployer=full_deploy
+          conan profile detect
+          conan install --requires=libcurl/8.1.2 --build=missing -g CMakeToolchain --deployer=full_deploy
+          conan install --requires=openssl/3.1.1 --build=missing -g CMakeToolchain --deployer=full_deploy
+          conan install --requires=zlib/1.2.13 --build=missing -g CMakeToolchain --deployer=full_deploy
 
           sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/3.1.1/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -L full_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a#" Makefile
-          sudo make
+          make
 
           cd ..
 
