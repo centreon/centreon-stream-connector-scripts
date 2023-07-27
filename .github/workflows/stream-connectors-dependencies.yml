@@ -86,12 +86,9 @@ jobs:
           path: lua-curl-src
           ref: v0.3.13
 
-      - run: echo "HOME=/root" >> $GITHUB_ENV
-        shell: bash
-
       - if: ${{ matrix.lib == 'lua-curl' }}
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel python3-pip sudo
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip perl-IPC-Cmd
 
           cd lua-curl-src
 
