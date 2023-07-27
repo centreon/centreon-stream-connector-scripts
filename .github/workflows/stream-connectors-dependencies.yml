@@ -103,6 +103,7 @@ jobs:
 
           cd ..
 
+          mkdir -p dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
           cp lua-curl-src/lcurl.so dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
           cp lua-curl-src/src/lua/cURL dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
           cp lua-curl-src/src/lua/cURL.lua dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
