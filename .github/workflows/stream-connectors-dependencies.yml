@@ -93,7 +93,6 @@ jobs:
           cd lua-curl-src
 
           pip3 install conan==1.57.0 --upgrade
-          conan profile detect
           conan install --requires=libcurl/8.0.1 --build=missing -g CMakeToolchain --deployer=full_deploy
           conan install --requires=openssl/1.1.1t --build=missing -g CMakeToolchain --deployer=full_deploy
           conan install --requires=zlib/1.2.13 --build=missing -g CMakeToolchain --deployer=full_deploy
