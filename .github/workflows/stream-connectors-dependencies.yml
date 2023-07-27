@@ -86,13 +86,16 @@ jobs:
           path: lua-curl-src
           ref: v0.3.13
 
+      - run: echo "HOME=/root" >> $GITHUB_ENV
+        shell: bash
+
       - if: ${{ matrix.lib == 'lua-curl' }}
         run: |
           dnf install -y openssl-devel openssl libcurl-devel python3-pip sudo
 
           cd lua-curl-src
 
-          sudo pip3 install conan
+          pip3 install conan
           conan profile detect
           conan install --requires=libcurl/8.1.2 --build=missing -g CMakeToolchain --deployer=full_deploy
           conan install --requires=openssl/3.1.1 --build=missing -g CMakeToolchain --deployer=full_deploy
