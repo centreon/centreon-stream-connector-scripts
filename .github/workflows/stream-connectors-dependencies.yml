@@ -95,10 +95,10 @@ jobs:
 
           pip3 install conan
           conan profile detect
-          conan install --requires=libcurl/8.1.2 -g CMakeToolchain --deployer=full_deploy
-          conan install --requires=openssl/3.1.1 -g CMakeToolchain --deployer=full_deploy
+          conan install --requires=libcurl/8.0.1 -g CMakeToolchain --deployer=full_deploy
+          conan install --requires=openssl/1.1.1t -g CMakeToolchain --deployer=full_deploy
 
-          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/3.1.1/Release/x86_64/lib -l:libcrypto.a -l:libssl.a#" Makefile
+          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libcrypto.a -l:libssl.a#" Makefile
           make
 
           cd ..
