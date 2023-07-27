@@ -120,7 +120,7 @@ jobs:
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
         shell: bash
 
-      - name: Package
+      - name: Package ${{ matrix.lib }}
         run: |
           rpmbuild -ba packaging/rpm/${{ matrix.lib }}.spec -D "VERSION `cat version.txt`"
 
