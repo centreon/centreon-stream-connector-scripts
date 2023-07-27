@@ -89,7 +89,7 @@ jobs:
 
       - if: ${{ matrix.lib == 'lua-curl' }}
         run: |
-          sudo dnf install -y openssl-devel openssl libcurl-devel python3-pip
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip
 
           cd lua-curl-src
 
