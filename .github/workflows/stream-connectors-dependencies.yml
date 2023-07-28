@@ -42,7 +42,8 @@ jobs:
         password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout sources
+        uses: actions/checkout@v3
 
       - name: Install dependencies
         run: |
@@ -56,6 +57,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-cffi' }}
+        name: Prepare packaging of lua-cffi
         run: |
           luarocks install cffi-lua
           luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -68,6 +70,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-tz' }}
+        name: Prepare packaging of lua-tz
         run: |
           luarocks install luatz
           luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -80,21 +83,45 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-curl' }}
-        run: |
-          luarocks install lua-curl
-          luarocks show lua-curl
-          luarocks show lua-curl | grep "Lua-cURL\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          cat version.txt
+        name: Checkout sources of lua-curl
+        uses: actions/checkout@v3
+        with:
+          repository: Lua-cURL/Lua-cURLv3
+          path: lua-curl-src
+          ref: v0.3.13
 
-          mkdir -p ${{ matrix.lib }}/cURL
-          cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL ${{ matrix.lib }}/
-          cp -p /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/cURL.lua ${{ matrix.lib }}/
-          cp -p /usr/lib64/lua/`lua -e "print(string.sub(_VERSION, 5))"`/lcurl.so ${{ matrix.lib }}/
+      - if: ${{ matrix.lib == 'lua-curl' }}
+        name: Compile lua-curl and prepare packaging
+        run: |
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip perl-IPC-Cmd perl-Digest-SHA perl-Thread-Queue perl-IO-Socket-SSL
+
+          cd lua-curl-src
+
+          pip3 install conan
+          conan profile detect
+          conan install --requires=libcurl/8.1.2 --build=missing -g CMakeToolchain --deployer=full_deploy
+          conan install --requires=openssl/3.1.1 --build=missing -g CMakeToolchain --deployer=full_deploy
+          conan install --requires=zlib/1.2.13 --build=missing -g CMakeToolchain --deployer=full_deploy
+
+          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/3.1.1/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -L full_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a#" Makefile
+          make
+
+          cd ..
+
+          mkdir -p dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp -p lua-curl-src/lcurl.so dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp -rp lua-curl-src/src/lua/cURL dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp -p lua-curl-src/src/lua/cURL.lua dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+
+          cd dependencies/${{ matrix.lib }}
+
+          echo "0.3.13" >> version.txt
+
           tar czf ~/rpmbuild/SOURCES/${{ matrix.lib }}.tar.gz ${{ matrix.lib }}
-        working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
-      - run: |
+      - name: Package ${{ matrix.lib }}
+        run: |
           rpmbuild -ba packaging/rpm/${{ matrix.lib }}.spec -D "VERSION `cat version.txt`"
 
           mv ~/rpmbuild/RPMS/**/*.rpm ../../
@@ -134,7 +161,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-cffi' }}
-        name: Package
+        name: Prepare packaging of lua-cffi
         run: |
           luarocks install cffi-lua
           luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -151,7 +178,7 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.lib == 'lua-tz' }}
-        name: Package
+        name: Prepare packaging of lua-tz
         run: |
           luarocks install luatz
           luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
@@ -166,7 +193,7 @@ jobs:
         working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
-      - name: Package
+      - name: Package ${{ matrix.lib }}
         run: |
           PACKAGE_NAME="${{ matrix.lib }}"
           PACKAGE_VERSION=`cat version.txt`
