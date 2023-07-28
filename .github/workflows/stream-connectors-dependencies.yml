@@ -93,7 +93,14 @@ jobs:
       - if: ${{ matrix.lib == 'lua-curl' }}
         name: Compile lua-curl and prepare packaging
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel python3-pip perl-IPC-Cmd perl-Digest-SHA perl-Thread-Queue perl-IO-Socket-SSL perl-File-Copy perl-File-Compare
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+
+          cpanm IPC::Cmd
+          cpanm Digest::SHA
+          cpanm Thread::Queue
+          cpanm IO::Socket::SSL
+          cpanm File::Copy
+          cpanm File::Compare
 
           cd lua-curl-src
 
