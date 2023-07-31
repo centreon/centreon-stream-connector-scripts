@@ -273,11 +273,6 @@ jobs:
           path: ./*.rpm
           key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
 
-      - uses: actions/upload-artifact@v3
-        with:
-          path: ./*.rpm
-          name: packages-${{ matrix.distrib }}
-
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
     needs: [get-environment, sign-rpm]
