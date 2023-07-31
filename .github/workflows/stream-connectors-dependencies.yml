@@ -93,17 +93,39 @@ jobs:
       - if: ${{ matrix.lib == 'lua-curl' }}
         name: Compile lua-curl and prepare packaging
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel python3-pip perl-IPC-Cmd perl-Digest-SHA perl-Thread-Queue perl-IO-Socket-SSL
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+
+          cpanm \
+            IPC::Cmd \
+            Digest::SHA \
+            Thread::Queue \
+            IO::Socket::SSL \
+            File::Copy \
+            File::Compare
 
           cd lua-curl-src
 
           pip3 install conan
           conan profile detect
-          conan install --requires=libcurl/8.1.2 --build=missing -g CMakeToolchain --deployer=full_deploy
-          conan install --requires=openssl/3.1.1 --build=missing -g CMakeToolchain --deployer=full_deploy
-          conan install --requires=zlib/1.2.13 --build=missing -g CMakeToolchain --deployer=full_deploy
 
-          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/3.1.1/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -L full_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a#" Makefile
+          cat <<'EOF' >> conanfile.txt
+          [requires]
+          libcurl/8.1.2
+          openssl/3.1.1
+          zlib/1.2.13
+
+          [generators]
+          CMakeToolchain
+
+          [options]
+          libcurl/*:with_ca_bundle=/etc/ssl/certs/ca-bundle.crt
+          libcurl/*:with_ca_fallback=False
+          libcurl/*:with_ca_path=/etc/ssl/certs/
+          EOF
+
+          conan install . --build=missing --deployer=full_deploy
+
+          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/3.1.1/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
           make
 
           cd ..
