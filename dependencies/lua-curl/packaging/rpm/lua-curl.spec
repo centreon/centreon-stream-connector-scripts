@@ -5,7 +5,7 @@
 
 Name:           lua-curl
 Version:        %{VERSION}
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        lua curl
 
 Group:          Applications/System

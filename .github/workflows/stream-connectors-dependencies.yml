@@ -110,8 +110,8 @@ jobs:
 
           cat <<'EOF' >> conanfile.txt
           [requires]
-          libcurl/8.1.2
-          openssl/3.1.1
+          libcurl/8.0.1
+          openssl/1.1.1t
           zlib/1.2.13
 
           [generators]
@@ -125,7 +125,7 @@ jobs:
 
           conan install . --build=missing --deployer=full_deploy
 
-          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.1.2/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/3.1.1/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
+          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
           make
 
           cd ..
