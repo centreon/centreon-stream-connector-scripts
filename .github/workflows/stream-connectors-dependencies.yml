@@ -110,8 +110,8 @@ jobs:
 
           cat <<'EOF' >> conanfile.txt
           [requires]
-          libcurl/8.1.2
-          openssl/3.1.1
+          libcurl/8.0.1
+          openssl/1.1.1t
           zlib/1.2.13
 
           [generators]
@@ -272,6 +272,11 @@ jobs:
         with:
           path: ./*.rpm
           key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./*.rpm
+          name: packages-${{ matrix.distrib }}
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
