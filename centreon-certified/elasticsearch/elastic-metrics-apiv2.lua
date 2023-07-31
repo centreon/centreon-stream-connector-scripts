@@ -223,10 +223,10 @@ function EventQueue:build_index_template(params)
   if params.add_poller_dimension == 1 then
     self.elastic_index_template.template.mappings.properties["poller"] = {
       type = "keyword",
-      time_series_dimension = true
+      time_series_dimension = false
     }
 
-    table.insert(self.index_routing_path, "poller")
+    -- table.insert(self.index_routing_path, "poller")
   end
 
 
