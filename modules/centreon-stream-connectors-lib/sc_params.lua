@@ -61,6 +61,7 @@ function sc_params.new(common, logger)
     accepted_bvs = "",
     accepted_pollers = "",
     accepted_authors = "",
+    accepted_metrics = ".*",
     service_severity_threshold = nil,
     service_severity_operator = ">=",
     host_severity_threshold = nil,

@@ -264,16 +264,19 @@ end
 -- dynatrace matric name [a-zA-Z0-9-_.] https://dynatrace.com/support/help/how-to-use-dynatrace/metrics/metric-ingestion/metric-ingestion-protocol#metric-key
 -- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
 
---- build_metric: use the stream connector format method to parse every metric in the event
+--- build_metric: use the stream connector format method to parse every metric in the event and remove unwanted metrics based on their name
 -- @param format_metric (function) the format method from the stream connector
 function ScMetrics:build_metric(format_metric)
   local metrics_info = self.metrics_info
-  self.sc_logger:debug("perfdata: " .. self.sc_common:dumper(metrics_info))
 
   for metric, metric_data in pairs(self.metrics_info) do
-    metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, self.params.metric_name_regex, self.params.metric_replacement_character)
-    -- use stream connector method to format the metric event
-    format_metric(metrics_info[metric])
+    if string.match(metric_data.metric_name, self.params.accepted_metrics) then
+      metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, self.params.metric_name_regex, self.params.metric_replacement_character)
+      -- use stream connector method to format the metric event
+      format_metric(metrics_info[metric])
+    else
+      self.sc_logger:debug("[ScMetric:build_metric]: metric name is filtered out: " .. tostring(metric_data.metric_name) .. ". Metric name filter is: " .. tostring(self.params.accepted_metrics))
+    end
   end
 end
 
