@@ -738,6 +738,22 @@ function sc_params.new(common, logger)
   return self
 end
 
+--- deprecated_params: check if param_name provides from the web configuration is deprecated or not
+-- @param param_name (string) the name of a parameter from the web interface
+-- @return final_param_name (string) the right name of the parameter to avoid deprecated ones.
+function deprecated_params(param_name)
+  local final_param_name
+
+  -- max_buffer_age param had been replace by max_all_queues_age
+  if param_name == "max_buffer_age" then
+    final_param_name = "max_all_queues_age"
+  else
+    final_param_name = param_name
+  end
+
+  return final_param_name
+end
+
 --- param_override: change default param values with the one provides from the web configuration
 -- @param user_params (table) the table of all parameters from the web interface
 function ScParams:param_override(user_params)
@@ -748,11 +764,18 @@ function ScParams:param_override(user_params)
 
   for param_name, param_value in pairs(user_params) do
     if self.params[param_name] or string.find(param_name, "^_sc") ~= nil then
-      self.params[param_name] = param_value
-      self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
-    else 
+
+      -- Check if the param is deprecated
+      local param_name_verified = deprecated_params(param_name)
+      if param_name_verified ~= param_name then
+        self.logger:notice("[sc_params:param_override]: following parameter: " .. tostring(param_name) .. " is deprecated and had been replace by : " .. tostring(param_name_verified))
+      end
+
+    self.params[param_name_verified] = param_value
+    self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
+    else
       self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name) .. " is not handled by this stream connector")
-    end
+      end
   end
 end
 
