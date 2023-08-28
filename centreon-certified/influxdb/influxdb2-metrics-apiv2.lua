@@ -200,8 +200,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_generic_tags(metric)
   local event = self.sc_event.event
-  local tags = 'host.name=' .. self:escape_special_characters(event.cache.host.alias)
-    .. ',poller=' .. self:escape_special_characters(event.cache.poller)
+  local tags = 'host.name=' .. event.cache.host.name .. ',poller=' .. self:escape_special_characters(event.cache.poller)
 
   -- add metric instance in tags
   if metric.instance ~= "" then
@@ -209,7 +208,7 @@ function EventQueue:build_generic_tags(metric)
   end
 
   if metric.uom ~= "" then
-    tags = tags .. ',metric.unit=' .. self:escape_special_characters(metric.uom)
+    tags = tags .. ',metric.unit=' .. metric.uom
   end
 
   -- add metric subinstances in tags
