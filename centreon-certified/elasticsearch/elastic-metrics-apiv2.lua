@@ -37,8 +37,8 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "elastic_username",
-    "elastic_password",
+    -- "elastic_username",
+    -- "elastic_password",
     "http_server_url"
   }
 
@@ -60,8 +60,8 @@ function EventQueue.new(params)
   end
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.elastic_username = params.elastic_username
-  self.sc_params.params.elastic_password = params.elastic_password
+  self.sc_params.params.elastic_username = params.elastic_username or ""
+  self.sc_params.params.elastic_password = params.elastic_password or ""
   self.sc_params.params.http_server_url = params.http_server_url
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
@@ -528,11 +528,13 @@ function EventQueue:send_data(payload, queue_metadata)
   local params = self.sc_params.params
   local url = params.http_server_url .. queue_metadata.endpoint
   queue_metadata.headers = {
-    "Authorization: Basic " .. mime.b64(params.elastic_username .. ":" .. params.elastic_password),
     "Content-type: application/json"
   }
 
-  
+  if (params.elastic_username ~= "" and params.elastic_password ~= "") then
+    table.insert(queue_metadata.headers, "Authorization: Basic " .. mime.b64(params.elastic_username .. ":" .. params.elastic_password))
+  end
+
   if payload then
     -- write payload in the logfile for test purpose
     if params.send_data_test == 1 then
