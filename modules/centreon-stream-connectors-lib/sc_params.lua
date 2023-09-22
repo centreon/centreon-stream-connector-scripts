@@ -741,8 +741,6 @@ end
 -- @param param_name (string) the name of a parameter from the web interface
 -- @return if a match had been found with deprecated parameter : new_param_name (string) the right name of the parameter to avoid deprecated ones. Else, param_name is return.
 local function deprecated_params(param_name)
-  local final_param_name
-
   -- initiate deprecated parameters table
   local deprecated_params = {
     -- max_buffer_age param had been replace by max_all_queues_age
