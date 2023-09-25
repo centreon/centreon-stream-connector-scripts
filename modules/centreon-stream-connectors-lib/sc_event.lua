@@ -446,28 +446,43 @@ end
 function ScEvent:is_valid_hostgroup()
   self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
-  -- return true if option is not set
-  if self.params.accepted_hostgroups == "" then
+  -- return true if options are not set
+  if self.params.accepted_hostgroups == "" and self.params.rejected_hostgroups == "" then
     return true
   end
 
   -- return false if no hostgroups were found
   if not self.event.cache.hostgroups then
-    self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
-      .. " is not linked to a hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups)
+    local warning_message = "[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id)
+    if not self.params.accepted_hostgroups == "" then
+      warning_message = warning_message .. " is not linked to a hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups .."."
+    elseif not self.params.rejected_hostgroups == "" then
+      warning_message = warning_message .. " is linked to a hostgroup. Rejected hostgroups are: " .. self.params.rejected_hostgroups .."."
+    end
+    self.sc_logger:warning(warning_message)
     return false
   end
 
-  local accepted_hostgroup_name = self:find_hostgroup_in_list()
+  local accepted_hostgroup_name = self:find_hostgroup_in_list(self.params.accepted_hostgroups)
+  local rejected_hostgroup_name = self:find_hostgroup_in_list(self.params.rejected_hostgroups)
 
   -- return false if the host is not in a valid hostgroup
-  if not accepted_hostgroup_name then
+  if not(self.params.accepted_hostgroups == "") and not accepted_hostgroup_name then
     self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
       .. " is not in an accepted hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups)
     return false
+  elseif not(self.params.rejected_hostgroups == "") and rejected_hostgroup_name then
+    self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
+      .. " is in a rejected hostgroup. Rejected hostgroups are: " .. self.params.rejected_hostgroups)
+    return false
   else
-    self.sc_logger:debug("[sc_event:is_valid_hostgroup]: event for host with id: " .. tostring(self.event.host_id)
-      .. " matched hostgroup: " .. accepted_hostgroup_name)
+    local debug_msg = "[sc_event:is_valid_hostgroup]: event for host with id: " .. tostring(self.event.host_id)
+    if not self.params.accepted_hostgroups == "" then
+      debug_msg = debug_msg .. " matched hostgroup: " .. accepted_hostgroup_name
+    elseif not self.params.rejected_hostgroups == "" then
+      debug_msg = debug_msg .. " did not match hostgroup: " .. rejected_hostgroup_name
+    end
+    self.sc_logger:debug(debug_msg)
   end
 
   return true
@@ -476,14 +491,18 @@ end
 --- find_hostgroup_in_list: compare accepted hostgroups from parameters with the event hostgroups
 -- @return accepted_name (string) the name of the first matching hostgroup 
 -- @return false (boolean) if no matching hostgroup has been found
-function ScEvent:find_hostgroup_in_list()
-  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_hostgroups, ",")) do
-    for _, event_hostgroup in pairs(self.event.cache.hostgroups) do
-      if accepted_name == event_hostgroup.group_name then
-        return accepted_name
+function ScEvent:find_hostgroup_in_list(hostgroups_list)
+  if hostgroups_list == nil or hostgroups_list == "" then
+    return false
+  else
+    for _, hostgroup_name in ipairs(self.sc_common:split(hostgroups_list, ",")) do
+      for _, event_hostgroup in pairs(self.event.cache.hostgroups) do
+        if hostgroup_name == event_hostgroup.group_name then
+          return hostgroup_name
+        end
       end
     end
-  end 
+  end
 
   return false
 end

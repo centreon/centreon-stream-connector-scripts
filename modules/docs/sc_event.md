@@ -73,6 +73,7 @@
     - [is\_valid\_bv: returns](#is_valid_bv-returns)
     - [is\_valid\_bv: example](#is_valid_bv-example)
   - [find\_hostgroup\_in\_list method](#find_hostgroup_in_list-method)
+    - [find\_hostgroup\_in\_list: parameters](#find_hostgroup_in_list-parameters)
     - [find\_hostgroup\_in\_list: returns](#find_hostgroup_in_list-returns)
     - [find\_hostgroup\_in\_list: example](#find_hostgroup_in_list-example)
   - [find\_servicegroup\_in\_list method](#find_servicegroup_in_list-method)
@@ -697,7 +698,13 @@ local result = test_event:is_valid_bv()
 
 ## find_hostgroup_in_list method
 
-The **find_hostgroup_in_list** method checks if one of the hostgroup in [**accepted_hostgroups**](sc_param.md#default-parameters) is linked to the host.
+The **find_hostgroup_in_list** method checks if one of the hostgroup in [**accepted_hostgroups or rejected_hostgroups parameters**](sc_param.md#default-parameters) is linked to the host.
+
+### find_hostgroup_in_list: parameters
+
+| parameter            | type   | optional | default value |
+| -------------------- | ------ | -------- | ------------- |
+| a list of hostgroups | string | no       |               |
 
 ### find_hostgroup_in_list: returns
 
@@ -712,13 +719,13 @@ The **find_hostgroup_in_list** method checks if one of the hostgroup in [**accep
 -- accepted_hostgroups are my_hostgroup_1 and my_hostgroup_2
 -- host from event is linked to my_hostgroup_2
 
-local result = test_event:find_hostgroup_in_list()
+local result = test_event:find_hostgroup_in_list(accepted_hostgroups)
 --> result is: "my_hostgroup_2"
 
 -- accepted_hostgroups are my_hostgroup_1 and my_hostgroup_2
 -- host from is linked to my_hostgroup_2712
 
-result = test_event:find_hostgroup_in_list()
+result = test_event:find_hostgroup_in_list(accepted_hostgroups)
 --> result is: false
 ```
 

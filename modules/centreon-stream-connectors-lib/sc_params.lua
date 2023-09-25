@@ -62,6 +62,7 @@ function sc_params.new(common, logger)
     accepted_pollers = "",
     accepted_authors = "",
     accepted_metrics = ".*",
+    rejected_hostgroups = "",
     service_severity_threshold = nil,
     service_severity_operator = ">=",
     host_severity_threshold = nil,
@@ -791,6 +792,7 @@ function ScParams:check_params()
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
+  self.params.rejected_hostgroups = self.common:if_wrong_type(self.params.rejected_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
   self.params.accepted_pollers = self.common:if_wrong_type(self.params.accepted_pollers, "string", "")
@@ -821,6 +823,9 @@ function ScParams:check_params()
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
+  if not(self.params.accepted_hostgroups == '') and not(self.params.rejected_hostgroups == '') then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together.")
+  end
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
