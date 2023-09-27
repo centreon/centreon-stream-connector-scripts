@@ -503,7 +503,6 @@ function ScEvent:find_hostgroup_in_list(hostgroups_list)
       end
     end
   end
-
   return false
 end
 
@@ -512,44 +511,63 @@ end
 function ScEvent:is_valid_servicegroup()
   self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
   
-  -- return true if option is not set
-  if self.params.accepted_servicegroups == "" then
+  -- return true if options are not set
+  if self.params.accepted_servicegroups == "" and self.params.rejected_servicegroups == "" then
     return true
   end
 
   -- return false if no servicegroups were found
   if not self.event.cache.servicegroups then
-    self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
-      .. " is not linked to a servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
+    local debug_message = "[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id)
+    if not self.params.accepted_servicegroups == "" then
+      debug_message = debug_message .. " is not linked to a servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups .."."
+    elseif not self.params.rejected_servicegroups == "" then
+      debug_message = debug_message .. " is linked to a servicegroup. Rejected servicegroups are: " .. self.params.rejected_servicegroups .."."
+    end
+    self.sc_logger:debug(debug_message)
+
     return false
   end
 
-  local accepted_servicegroup_name = self:find_servicegroup_in_list()
+  local accepted_servicegroup_name = self:find_servicegroup_in_list(self.params.accepted_servicegroups)
+  local rejected_servicegroup_name = self:find_servicegroup_in_list(self.params.rejected_servicegroups)
 
-  -- return false if the host is not in a valid servicegroup
-  if not accepted_servicegroup_name then
+  -- return false if the service is not in a valid servicegroup
+  if not(self.params.accepted_servicegroups == "") and not accepted_servicegroup_name then
     self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
       .. " is not in an accepted servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
     return false
+  elseif not(self.params.rejected_servicegroups == "") and rejected_servicegroup_name then
+    self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
+      .. " is in an rejected servicegroup. Rejected servicegroups are: " .. self.params.rejected_servicegroups)
+    return false
   end
-    
-  self.sc_logger:debug("[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
-      .. "matched servicegroup: " .. accepted_servicegroup_name)
+  
+  local debug_msg = "[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
+  if not self.params.accepted_hostgroups == "" then
+    debug_msg = debug_msg .. " matched servicegroup: " .. accepted_servicegroup_name
+  elseif not self.params.rejected_hostgroups == "" then
+    debug_msg = debug_msg .. " did not match servicegroup: " .. rejected_servicegroup_name
+  end
+  self.sc_logger:debug(debug_msg)
 
   return true
 end
 
 --- find_servicegroup_in_list: compare accepted servicegroups from parameters with the event servicegroups
 -- @return accepted_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
-function ScEvent:find_servicegroup_in_list()
-  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_servicegroups, ",")) do
-    for _, event_servicegroup in pairs(self.event.cache.servicegroups) do
-      if accepted_name == event_servicegroup.group_name then
-        return accepted_name
+function ScEvent:find_servicegroup_in_list(servicegroups_list)
+  if servicegroups_list == nil or servicegroups_list == "" then
+    return false
+  else
+    for _, servicegroup_name in ipairs(self.sc_common:split(servicegroups_list, ",")) do
+      for _, event_servicegroup in pairs(self.event.cache.servicegroups) do
+        if servicegroup_name == event_servicegroup.group_name then
+          return servicegroup_name
+        end
       end
-    end
-  end 
-
+    end 
+  end
   return false
 end
 

@@ -57,12 +57,13 @@ function sc_params.new(common, logger)
     
     -- objects filter
     accepted_hostgroups = "",
+    rejected_hostgroups = "",
     accepted_servicegroups = "",
+    rejected_servicegroups = "",
     accepted_bvs = "",
     accepted_pollers = "",
     accepted_authors = "",
     accepted_metrics = ".*",
-    rejected_hostgroups = "",
     service_severity_threshold = nil,
     service_severity_operator = ">=",
     host_severity_threshold = nil,
@@ -794,6 +795,7 @@ function ScParams:check_params()
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
   self.params.rejected_hostgroups = self.common:if_wrong_type(self.params.rejected_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
+  self.params.rejected_servicegroups = self.common:if_wrong_type(self.params.rejected_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
   self.params.accepted_pollers = self.common:if_wrong_type(self.params.accepted_pollers, "string", "")
   self.params.host_severity_threshold = self.common:if_wrong_type(self.params.host_severity_threshold, "number", nil)
@@ -825,6 +827,9 @@ function ScParams:check_params()
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
   if not(self.params.accepted_hostgroups == '') and not(self.params.rejected_hostgroups == '') then
     self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together.")
+  end
+  if not(self.params.accepted_servicegroups == '') and not(self.params.rejected_servicegroups == '') then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_servicegroups and rejected_servicegroups cannot be used together.")
   end
 end
 

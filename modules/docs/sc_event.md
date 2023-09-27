@@ -77,6 +77,7 @@
     - [find\_hostgroup\_in\_list: returns](#find_hostgroup_in_list-returns)
     - [find\_hostgroup\_in\_list: example](#find_hostgroup_in_list-example)
   - [find\_servicegroup\_in\_list method](#find_servicegroup_in_list-method)
+    - [find\_servicegroup\_in\_list: parameters](#find_servicegroup_in_list-parameters)
     - [find\_servicegroup\_in\_list: returns](#find_servicegroup_in_list-returns)
     - [find\_servicegroup\_in\_list: example](#find_servicegroup_in_list-example)
   - [find\_bv\_in\_list method](#find_bv_in_list-method)
@@ -494,9 +495,9 @@ local result = test_event:is_valid_event_flapping_state()
 
 ## is_valid_hostgroup method
 
-The **is_valid_hostgroup** method checks if the event is in a valid hostgroup based on [**accepted_hostgroups**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+The **is_valid_hostgroup** method checks if the event is in a valid hostgroup based on [**accepted_hostgroups or rejected_hostgroups**](sc_param.md#default-parameters) in the **host_status or service_status** scope
 
-If the **accepted_hostgroup** is configured, all broker cache information regarding the hostgroups linked to a host will be added to the event in a cache.hostgroups table. More details about this cache table [**here**](sc_broker.md#get_hostgroups-example)
+If the **accepted_hostgroups or rejected_hostgroups** is configured, all broker cache information regarding the hostgroups linked to a host will be added to the event in a cache.hostgroups table. More details about this cache table [**here**](sc_broker.md#get_hostgroups-example)
 
 ### is_valid_hostgroup: returns
 
@@ -525,9 +526,9 @@ local result = test_event:is_valid_hostgroup()
 
 ## is_valid_servicegroup method
 
-The **is_valid_servicegroup** method checks if the event is in a valid servicegroup based on [**accepted_servicegroups**](sc_param.md#default-parameters) in the **service_status** scope
+The **is_valid_servicegroup** method checks if the event is in a valid servicegroup based on [**accepted_servicegroups or rejected_servicegroups**](sc_param.md#default-parameters) in the **service_status** scope
 
-If the **accepted_servicegroup** is configured, all broker cache information regarding the servicegroups linked to a service will be added to the event in a cache.servicegroups table. More details about this cache table [**here**](sc_broker.md#get_servicegroups-example)
+If the **accepted_servicegroup or rejected_servicegroups** is configured, all broker cache information regarding the servicegroups linked to a service will be added to the event in a cache.servicegroups table. More details about this cache table [**here**](sc_broker.md#get_servicegroups-example)
 
 ### is_valid_servicegroup: returns
 
@@ -698,7 +699,7 @@ local result = test_event:is_valid_bv()
 
 ## find_hostgroup_in_list method
 
-The **find_hostgroup_in_list** method checks if one of the hostgroup in [**accepted_hostgroups or rejected_hostgroups parameters**](sc_param.md#default-parameters) is linked to the host.
+The **find_hostgroup_in_list** method checks if one of the hostgroup in the hostgroups list parameter like [**accepted_hostgroups or rejected_hostgroups parameters**](sc_param.md#default-parameters) is linked to the host.
 
 ### find_hostgroup_in_list: parameters
 
@@ -731,7 +732,13 @@ result = test_event:find_hostgroup_in_list(accepted_hostgroups)
 
 ## find_servicegroup_in_list method
 
-The **find_servicegroup_in_list** method checks if one of the servicegroup in [**accepted_servicegroups**](sc_param.md#default-parameters) is linked to the service.
+The **find_servicegroup_in_list** method checks if one of the servicegroup in the servicegroups list parameter like [**accepted_servicegroups or rejected_servicegroups**](sc_param.md#default-parameters) is linked to the service.
+
+### find_servicegroup_in_list: parameters
+
+| parameter               | type   | optional | default value |
+| ----------------------- | ------ | -------- | ------------- |
+| a list of servicegroups | string | no       |               |
 
 ### find_servicegroup_in_list: returns
 
