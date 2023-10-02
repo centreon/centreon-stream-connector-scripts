@@ -446,17 +446,19 @@ end
 function ScEvent:is_valid_hostgroup()
   self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
-  -- return true if options are not set
-  if self.params.accepted_hostgroups == "" and self.params.rejected_hostgroups == "" then
+  -- return true if options are not set or if both options are set
+  local accepted_hostgroups_isnotempty = self.params.accepted_hostgroups ~= ""
+  local rejected_hostgroups_isnotempty = self.params.rejected_hostgroups ~= ""
+  if (not accepted_hostgroups_isnotempty and not rejected_hostgroups_isnotempty) or (accepted_hostgroups_isnotempty and rejected_hostgroups_isnotempty) then
     return true
   end
 
   -- return false if no hostgroups were found
   if not self.event.cache.hostgroups then
     local warning_message = "[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id)
-    if not self.params.accepted_hostgroups == "" then
+    if accepted_hostgroups_isnotempty then
       warning_message = warning_message .. " is not linked to a hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups .."."
-    elseif not self.params.rejected_hostgroups == "" then
+    elseif rejected_hostgroups_isnotempty then
       warning_message = warning_message .. " is linked to a hostgroup. Rejected hostgroups are: " .. self.params.rejected_hostgroups .."."
     end
     self.sc_logger:warning(warning_message)
@@ -467,20 +469,20 @@ function ScEvent:is_valid_hostgroup()
   local rejected_hostgroup_name = self:find_hostgroup_in_list(self.params.rejected_hostgroups)
 
   -- return false if the host is not in a valid hostgroup
-  if not(self.params.accepted_hostgroups == "") and not accepted_hostgroup_name then
+  if accepted_hostgroups_isnotempty and not accepted_hostgroup_name then
     self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
       .. " is not in an accepted hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups)
     return false
-  elseif not(self.params.rejected_hostgroups == "") and rejected_hostgroup_name then
+  elseif rejected_hostgroups_isnotempty and rejected_hostgroup_name then
     self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
       .. " is in a rejected hostgroup. Rejected hostgroups are: " .. self.params.rejected_hostgroups)
     return false
   else
     local debug_msg = "[sc_event:is_valid_hostgroup]: event for host with id: " .. tostring(self.event.host_id)
-    if not self.params.accepted_hostgroups == "" then
-      debug_msg = debug_msg .. " matched hostgroup: " .. accepted_hostgroup_name
-    elseif not self.params.rejected_hostgroups == "" then
-      debug_msg = debug_msg .. " did not match hostgroup: " .. rejected_hostgroup_name
+    if accepted_hostgroups_isnotempty then
+      debug_msg = debug_msg .. " matched hostgroup: " .. tostring(accepted_hostgroup_name)
+    elseif rejected_hostgroups_isnotempty then
+      debug_msg = debug_msg .. " did not match hostgroup: " .. tostring(rejected_hostgroup_name)
     end
     self.sc_logger:debug(debug_msg)
   end
@@ -510,18 +512,20 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_servicegroup()
   self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
-  
-  -- return true if options are not set
-  if self.params.accepted_servicegroups == "" and self.params.rejected_servicegroups == "" then
+
+  -- return true if options are not set or if both options are set
+  local accepted_servicegroups_isnotempty = self.params.accepted_servicegroups ~= ""
+  local rejected_servicegroups_isnotempty = self.params.rejected_servicegroups ~= ""
+  if (not accepted_servicegroups_isnotempty and not rejected_servicegroups_isnotempty) or (accepted_servicegroups_isnotempty and rejected_servicegroups_isnotempty) then
     return true
   end
 
   -- return false if no servicegroups were found
   if not self.event.cache.servicegroups then
     local debug_message = "[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id)
-    if not self.params.accepted_servicegroups == "" then
+    if accepted_servicegroups_isnotempty then
       debug_message = debug_message .. " is not linked to a servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups .."."
-    elseif not self.params.rejected_servicegroups == "" then
+    elseif rejected_servicegroups_isnotempty then
       debug_message = debug_message .. " is linked to a servicegroup. Rejected servicegroups are: " .. self.params.rejected_servicegroups .."."
     end
     self.sc_logger:debug(debug_message)
@@ -533,21 +537,21 @@ function ScEvent:is_valid_servicegroup()
   local rejected_servicegroup_name = self:find_servicegroup_in_list(self.params.rejected_servicegroups)
 
   -- return false if the service is not in a valid servicegroup
-  if not(self.params.accepted_servicegroups == "") and not accepted_servicegroup_name then
+  if accepted_servicegroups_isnotempty and not accepted_servicegroup_name then
     self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
       .. " is not in an accepted servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
     return false
-  elseif not(self.params.rejected_servicegroups == "") and rejected_servicegroup_name then
+  elseif rejected_servicegroups_isnotempty and rejected_servicegroup_name then
     self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
       .. " is in an rejected servicegroup. Rejected servicegroups are: " .. self.params.rejected_servicegroups)
     return false
   end
   
   local debug_msg = "[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
-  if not self.params.accepted_hostgroups == "" then
-    debug_msg = debug_msg .. " matched servicegroup: " .. accepted_servicegroup_name
-  elseif not self.params.rejected_hostgroups == "" then
-    debug_msg = debug_msg .. " did not match servicegroup: " .. rejected_servicegroup_name
+  if accepted_servicegroups_isnotempty then
+    debug_msg = debug_msg .. " matched servicegroup: " .. tostring(accepted_servicegroup_name)
+  elseif rejected_servicegroups_isnotempty then
+    debug_msg = debug_msg .. " did not match servicegroup: " .. tostring(rejected_servicegroup_name)
   end
   self.sc_logger:debug(debug_msg)
 

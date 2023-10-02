@@ -699,7 +699,7 @@ local result = test_event:is_valid_bv()
 
 ## find_hostgroup_in_list method
 
-The **find_hostgroup_in_list** method checks if one of the hostgroup in the hostgroups list parameter like [**accepted_hostgroups or rejected_hostgroups parameters**](sc_param.md#default-parameters) is linked to the host.
+The **find_hostgroup_in_list** method checks if one of the hostgroup in the hostgroups list parameter ([**accepted_hostgroups or rejected_hostgroups parameters**](sc_param.md#default-parameters)) is linked to the host.
 
 ### find_hostgroup_in_list: parameters
 
@@ -732,7 +732,7 @@ result = test_event:find_hostgroup_in_list(accepted_hostgroups)
 
 ## find_servicegroup_in_list method
 
-The **find_servicegroup_in_list** method checks if one of the servicegroup in the servicegroups list parameter like [**accepted_servicegroups or rejected_servicegroups**](sc_param.md#default-parameters) is linked to the service.
+The **find_servicegroup_in_list** method checks if one of the servicegroup in the servicegroups list parameter ([**accepted_servicegroups or rejected_servicegroups**](sc_param.md#default-parameters)) is linked to the service.
 
 ### find_servicegroup_in_list: parameters
 
