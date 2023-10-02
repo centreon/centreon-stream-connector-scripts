@@ -732,10 +732,28 @@ function sc_params.new(common, logger)
   -- acknowledgement status mapping
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
-  
 
   setmetatable(self, { __index = ScParams })
   return self
+end
+
+--- deprecated_params: check if param_name provides from the web configuration is deprecated or not
+-- @param param_name (string) the name of a parameter from the web interface
+-- @return if a match had been found with deprecated parameter : new_param_name (string) the right name of the parameter to avoid deprecated ones. Else, param_name is return.
+local function deprecated_params(param_name)
+  -- initiate deprecated parameters table
+  local deprecated_params = {
+    -- max_buffer_age param had been replace by max_all_queues_age
+    ["max_buffer_age"] = "max_all_queues_age"
+  }
+
+  for deprecated_param_name, new_param_name in pairs(deprecated_params) do
+    if param_name == deprecated_param_name then
+      return new_param_name
+    end
+  end
+  return param_name
+
 end
 
 --- param_override: change default param values with the one provides from the web configuration
@@ -748,11 +766,18 @@ function ScParams:param_override(user_params)
 
   for param_name, param_value in pairs(user_params) do
     if self.params[param_name] or string.find(param_name, "^_sc") ~= nil then
-      self.params[param_name] = param_value
-      self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
-    else 
-      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name) .. " is not handled by this stream connector")
-    end
+
+      -- Check if the param is deprecated
+      local param_name_verified = deprecated_params(param_name)
+      if param_name_verified ~= param_name then
+        self.logger:notice("[sc_params:param_override]: following parameter: " .. tostring(param_name) .. " is deprecated and had been replace by: " .. tostring(param_name_verified))
+      end
+
+    self.params[param_name_verified] = param_value
+    self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(param_value))
+    else
+      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name_verified) .. " is not handled by this stream connector")
+      end
   end
 end
 
