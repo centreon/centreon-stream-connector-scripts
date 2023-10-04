@@ -831,11 +831,20 @@ function ScParams:check_params()
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
-  if not(self.params.accepted_hostgroups == '') and not(self.params.rejected_hostgroups == '') then
-    self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together.")
+  if self.params.accepted_hostgroups ~= '' and self.params.rejected_hostgroups ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together. None will be used.")
   end
-  if not(self.params.accepted_servicegroups == '') and not(self.params.rejected_servicegroups == '') then
-    self.logger:error("[sc_params:check_params]: Parameters accepted_servicegroups and rejected_servicegroups cannot be used together.")
+  if self.params.accepted_servicegroups ~= '' and self.params.rejected_servicegroups ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_servicegroups and rejected_servicegroups cannot be used together. None will be used.")
+  end
+  if self.params.accepted_bvs ~= '' and self.params.rejected_bvs ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_bvs and rejected_bvs cannot be used together. None will be used.")
+  end
+  if self.params.accepted_pollers ~= '' and self.params.rejected_pollers ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_pollers and rejected_pollers cannot be used together. None will be used.")
+  end
+  if self.params.accepted_authors ~= '' and self.params.rejected_authors ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_authors and rejected_authors cannot be used together. None will be used.")
   end
 end
 
