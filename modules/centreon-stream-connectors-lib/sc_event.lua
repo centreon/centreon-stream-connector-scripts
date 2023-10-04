@@ -1037,11 +1037,11 @@ function ScEvent:is_valid_author()
   local rejected_author_name = self:find_author_in_list(self.params.rejected_authors)
   if accepted_authors_isnotempty and not accepted_author_name then
     self.sc_logger:debug("[sc_event:is_valid_author]: dropping event because author: " .. tostring(self.event.author) 
-      .. " is not in an accepted authors list. Accepted authorss are: " .. self.params.accepted_authors)
+      .. " is not in an accepted authors list. Accepted authors are: " .. self.params.accepted_authors)
     return false
   elseif rejected_authors_isnotempty and rejected_author_name then
     self.sc_logger:debug("[sc_event:is_valid_author]: dropping event because author: " .. tostring(self.event.author)
-      .. " is in a rejected authors list. Rejected authorss are: " .. self.params.rejected_authors)
+      .. " is in a rejected authors list. Rejected authors are: " .. self.params.rejected_authors)
     return false
   end
 

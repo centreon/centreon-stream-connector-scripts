@@ -668,7 +668,7 @@ local result = test_event:is_valid_ba_acknowledge_state()
 
 ## is_valid_bv method
 
-The **is_valid_bv** method checks if the event is linked to a valid BV based on [**accepted_bvs**](sc_param.md#default-parameters) in the **ba_status** scope
+The **is_valid_bv** method checks if the event is linked to a valid BV based on [**accepted_bvs or rejected_bvs**](sc_param.md#default-parameters) in the **ba_status** scope
 
 If the **accepted_bvs** is configured, all broker cache information regarding the BVs linked to a service will be added to the event in a cache.bvs table. More details about this cache table [**here**](sc_broker.md#get_bvs_infos-example)
 
@@ -753,19 +753,25 @@ The **find_servicegroup_in_list** method checks if one of the servicegroup in th
 -- accepted_servicegroups are my_servicegroup_1 and my_servicegroup_2
 -- service from event is linked to my_servicegroup_2
 
-local result = test_event:find_servicegroup_in_list()
+local result = test_event:find_servicegroup_in_list(accepted_servicegroups)
 --> result is: "my_servicegroup_2"
 
 -- accepted_servicegroups are my_servicegroup_1 and my_servicegroup_2
 -- service from is linked to my_servicegroup_2712
 
-result = test_event:find_servicegroup_in_list()
+result = test_event:find_servicegroup_in_list(accepted_servicegroups)
 --> result is: false
 ```
 
 ## find_bv_in_list method
 
-The **find_bv_in_list** method checks if one of the BV in [**accepted_bvs**](sc_param.md#default-parameters) is linked to the BA.
+The **find_bv_in_list** method checks if one of the BV in the bvs list parameter ([**accepted_bvs or rejected_bvs**](sc_param.md#default-parameters)) is linked to the BA.
+
+### find_bv_in_list: parameters
+
+| parameter     | type   | optional | default value |
+|---------------| ------ | -------- | ------------- |
+| a list of bvs | string | no       |               |
 
 ### find_bv_in_list: returns
 
@@ -780,19 +786,19 @@ The **find_bv_in_list** method checks if one of the BV in [**accepted_bvs**](sc_
 -- accepted_bvs are my_bv_1 and my_bv_2
 -- BA from event is linked to my_bv_2
 
-local result = test_event:find_bv_in_list()
+local result = test_event:find_bv_in_list(accepted_bvs)
 --> result is: "my_bv_2"
 
 -- accepted_bvs are my_bv_1 and my_bv_2
 -- BA from is linked to my_bv_2712
 
-result = test_event:find_bv_in_list()
+result = test_event:find_bv_in_list(accepted_bvs)
 --> result is: false
 ```
 
 ## is_valid_poller method
 
-The **is_valid_poller** method checks if the event is monitored from an accepted poller based on [**accepted_pollers**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+The **is_valid_poller** method checks if the event is monitored from an accepted poller based on [**accepted_pollers or rejected_pollers**](sc_param.md#default-parameters) in the **host_status or service_status** scope
 
 If the **accepted_pollers** is configured, all broker cache information regarding the poller linked to a host will be added to the event in a cache.poller index. More details about this cache index [**here**](sc_broker.md#get_instance-example)
 
@@ -821,7 +827,13 @@ local result = test_event:is_valid_poller()
 
 ## find_poller_in_list method
 
-The **find_poller_in_list** method checks if one of the pollers in [**accepted_pollers**](sc_param.md#default-parameters) is monitoring the host.
+The **find_poller_in_list** method checks if one of the pollers in the pollers list parameter ([**accepted_pollers or rejected_pollers**](sc_param.md#default-parameters)) is monitoring the host.
+
+### find_poller_in_list: parameters
+
+| parameter         | type   | optional | default value |
+|-------------------| ------ | -------- | ------------- |
+| a list of pollers | string | no       |               |
 
 ### find_poller_in_list: returns
 
@@ -1038,7 +1050,7 @@ The **get_downtime_service_status** method retrieve the status of the host in a 
 
 ## is_valid_author method
 
-The **is_valid_author** method checks if the author of a comment is valid according to the [**accepted_authors parameter**](sc_param.md#default-parameters).
+The **is_valid_author** method checks if the author of a comment is valid according to the [**accepted_authors or rejected_authors parameter**](sc_param.md#default-parameters).
 
 ### is_valid_author: returns
 
@@ -1051,6 +1063,39 @@ The **is_valid_author** method checks if the author of a comment is valid accord
 ```lua
 local result = test_event:is_valid_author()
 --> result is true or false
+```
+
+## find_author_in_list method
+
+The **find_author_in_list** method checks if one of the author in the authors list parameter ([**accepted_authors or rejected_authors**](sc_param.md#default-parameters)) is the author of a comment.
+
+### find_author_in_list: parameters
+
+| parameter         | type   | optional | default value |
+|-------------------| ------ | -------- | ------------- |
+| a list of authors | string | no       |               |
+
+### find_author_in_list: returns
+
+| return                                     | type    | always | condition            |
+|--------------------------------------------| ------- | ------ |----------------------|
+| the name of the first author that is found | string  | no     | an author must match |
+| false                                      | boolean | no     | if no author matched |
+
+### find_author_in_list: example
+
+```lua
+-- accepted_authors are author_1 and author_2
+-- author_1 is the author of the comment
+
+local result = test_event:find_author_in_list(accepted_authors)
+--> result is: "author_1"
+
+-- accepted_authors are author_1 and author_2
+-- author_3 is the author of the comment
+
+result = test_event:find_author_in_list(accepted_authors)
+--> result is: false
 ```
 
 ## is_downtime_event_useless method
