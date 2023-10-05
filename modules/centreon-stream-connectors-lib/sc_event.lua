@@ -721,10 +721,14 @@ end
 -- @return bv_name (string) the name of the first matching BV
 -- @return false (boolean) if no matching BV has been found
 function ScEvent:find_bv_in_list(bvs_list)
-  for _, bv_name in ipairs(self.sc_common:split(bvs_list,",")) do
-    for _, event_bv in pairs(self.event.cache.bvs) do
-      if bv_name == event_bv.bv_name then
-        return bv_name
+  if bvs_list == nil or bvs_list == "" then
+    return false
+  else
+    for _, bv_name in ipairs(self.sc_common:split(bvs_list,",")) do
+      for _, event_bv in pairs(self.event.cache.bvs) do
+        if bv_name == event_bv.bv_name then
+          return bv_name
+        end
       end
     end
   end
@@ -791,9 +795,13 @@ end
 --- find_poller_in_list: compare accepted pollers from parameters with the event poller
 -- @return poller_name or false (string|boolean) the name of the first matching poller if found or false if not found
 function ScEvent:find_poller_in_list(pollers_list)
-  for _, poller_name in ipairs(self.sc_common:split(pollers_list, ",")) do
-    if poller_name == self.event.cache.poller then
-      return poller_name
+  if pollers_list == nil or pollers_list == "" then
+    return false
+  else
+    for _, poller_name in ipairs(self.sc_common:split(pollers_list, ",")) do
+      if poller_name == self.event.cache.poller then
+        return poller_name
+      end
     end
   end
   return false
@@ -1051,9 +1059,13 @@ end
 --- find_author_in_list: compare accepted authors from parameters with the event author
 -- @return accepted_alias or false (string|boolean) the alias of the first matching author if found or false if not found
 function ScEvent:find_author_in_list(authors_list)
-  for _, author_alias in ipairs(self.sc_common:split(authors_list, ",")) do
-    if author_alias == self.event.author then
-      return author_alias
+  if authors_list == nil or authors_list == "" then
+    return false
+  else
+    for _, author_alias in ipairs(self.sc_common:split(authors_list, ",")) do
+      if author_alias == self.event.author then
+        return author_alias
+      end
     end
   end
   return false
