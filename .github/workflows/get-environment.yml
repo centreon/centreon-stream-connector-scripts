@@ -12,7 +12,7 @@ jobs:
       stability: ${{ steps.get_environment.outputs.stability }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - id: get_environment
         run: |
