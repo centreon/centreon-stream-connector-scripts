@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -84,7 +84,7 @@ jobs:
 
       - if: ${{ matrix.lib == 'lua-curl' }}
         name: Checkout sources of lua-curl
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: Lua-cURL/Lua-cURLv3
           path: lua-curl-src
@@ -174,7 +174,7 @@ jobs:
         password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -255,7 +255,7 @@ jobs:
       - run: apt-get install -y zstd
         shell: bash
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/cache@v3
         with:
@@ -285,7 +285,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -308,11 +308,12 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
+          module_name: stream-connectors-dependencies
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.lib }}-${{ matrix.distrib }}
