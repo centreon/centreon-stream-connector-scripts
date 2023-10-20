@@ -9,11 +9,13 @@ on:
 
 jobs:
   test-pull:
-    runs-on: ubuntu-22.04
 
     strategy:
       matrix:
+        runner_type: [ubuntu-22.04, common]
         dimension1: [1,2,3,4,5,6,7,8,9,10]
+
+    runs-on: ${{ matrix.runner_type }}
 
     steps:
       - name: Checkout sources
