@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Datadog Connector Events
+-- Centreon Broker Warp10 Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -36,13 +36,14 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "api_key"
+    "api_token",
+    "warp10_http_address"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/datadog-metrics.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/warp10-metrics.log"
   local log_level = params.log_level or 1
   
   -- initiate mandatory objects
@@ -56,20 +57,21 @@ function EventQueue.new(params)
     self.fail = true
   end
   
-  --params.max_buffer_size = 1
-  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.api_key = params.api_key
-  self.sc_params.params.datadog_centreon_url = params.datadog_centreon_url or "http://yourcentreonaddress.local"
-  self.sc_params.params.datadog_metric_endpoint = params.datadog_metric_endpoint or "/api/v1/series"
-  self.sc_params.params.http_server_url = params.http_server_url or "https://api.datadoghq.com"
+  self.sc_params.params.api_token = params.api_token
+  self.sc_params.params.warp10_address = params.warp10_http_address
+  self.sc_params.params.warp10_api_endpoint = params.warp10_api_endpoint or "/api/v0/update"
+  self.sc_params.params.add_hg_in_labels = params.add_hg_in_labels or 1
+  self.sc_params.params.add_sg_in_labels = params.add_sg_in_labels or 0
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.max_buffer_size = params.max_buffer_size or 30
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
-  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[^a-zA-Z0-9_%.]"
+  -- just need to url encode the metric name  so we don't need to filter out characters
+  -- https://www.warp10.io/content/03_Documentation/03_Interacting_with_Warp_10/03_Ingesting_data/02_GTS_input_format#lines
+  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[.*]"
   self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "_" 
   
   -- apply users params and check syntax of standard ones
@@ -103,7 +105,7 @@ function EventQueue.new(params)
   }
 
   self.send_data_method = {
-    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
+    [1] = function (payload) return self:send_data(payload) end
   }
 
   self.build_payload_method = {
@@ -180,11 +182,9 @@ end
 function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   local event = self.sc_event.event
+
   self.sc_event.event.formated_event = {
-    host = tostring(event.cache.host.name),
-    metric = metric.metric_name,
-    points = {{event.last_check, metric.value}},
-    tags = self:build_metadata(metric)
+    data = event.last_check .. "000000// " .. broker.url_encode(metric.metric_name) .. self:build_labels(metric) .. self:build_attributes(metric) .. " " .. metric.value
   }
 
   self:add()
@@ -192,31 +192,128 @@ function EventQueue:format_metric_event(metric)
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:build_metadata method
+---- EventQueue:build_labels method
 -- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata 
+-- @return labels_string {string} a string with all labels 
 --------------------------------------------------------------------------------
-function EventQueue:build_metadata(metric)
-  local tags = {}
+function EventQueue:build_labels(metric)
+  local event = self.sc_event.event
+  local labels_string = "host=" .. broker.url_encode(event.cache.host.name)
 
-  -- add service name in tags
-  if self.sc_event.event.cache.service.description then
-    table.insert(tags, "service:" .. self.sc_event.event.cache.service.description)
+  -- add service name in labels
+  if event.cache.service.description then
+    labels_string = labels_string .. ",service=" .. broker.url_encode(event.cache.service.description)
   end
 
-  -- add metric instance in tags
+  -- add hostgroups name in labels
+  if event.cache.hostgroups and event.cache.hostgroups[1] and self.sc_params.params.add_hg_in_labels == 1 then
+    local hostgroups_string = ""
+    for _, hostgroup in ipairs(event.cache.hostgroups) do
+      if hostgroups_string == "" then
+        hostgroups_string = hostgroup.group_name
+      else
+        hostgroups_string = hostgroups_string .. " " .. hostgroup.group_name
+      end
+    end
+
+    labels_string = labels_string .. ",hostgroups=" .. broker.url_encode(hostgroups_string)
+  end
+
+  -- add servicegroups name in labels
+  if event.cache.servicegroups and event.cache.servicegroups[1] and self.sc_params.params.add_sg_in_labels == 1 then
+    local servicegroups_string = ""
+    for _, servicegroup in ipairs(event.cache.servicegroups) do
+      if servicegroups_string == "" then
+        servicegroups_string = servicegroup.group_name
+      else
+        servicegroups_string = servicegroups_string .. " " .. servicegroup.group_name
+      end
+    end
+
+    labels_string = labels_string .. ",servicegroups=" .. broker.url_encode(servicegroups_string)
+  end
+
+  -- add metric instance in labels
   if metric.instance ~= "" then
-    table.insert(tags, "instance:" .. metric.instance)
+    labels_string = labels_string .. ",instance=" .. broker.url_encode(metric.instance)
   end
 
-  -- add metric subinstances in tags
+  -- add metric subinstances in labels
   if metric.subinstance[1] then
+    local subinstances_string = ""
     for _, subinstance in ipairs(metric.subinstance) do
-      table.insert(tags, "subinstance:" .. subinstance)
+      if subinstances_string == "" then
+        subinstances_string = subinstance
+      else
+        subinstances_string = subinstances_string .. " " .. subinstance
+      end
+    end
+
+    labels_string = labels_string .. ",subinstance=" .. broker.url_encode(subinstances_string)
+  end
+
+  return "{" .. labels_string .. "}"
+end
+
+--------------------------------------------------------------------------------
+---- EventQueue:build_attributes method
+-- @param metric {table} a single metric data
+-- @return tags {table} a string with all attributes 
+--------------------------------------------------------------------------------
+function EventQueue:build_attributes(metric)
+  local event = self.sc_event.event
+  local attributes_string = ""
+
+  -- add min to attributes
+  if metric.min and metric.min == metric.min then
+    if attributes_string == "" then
+      attributes_string = "min=" .. metric.min
+    else
+      attributes_string = attributes_string .. ",min=" .. metric.min
     end
   end
 
-  return tags
+  -- add max to attributes
+  if metric.max and metric.max == metric.max then
+    if attributes_string == "" then
+      attributes_string = "max=" .. metric.max
+    else
+      attributes_string = attributes_string .. ",max=" .. metric.max
+    end
+  end
+
+  -- add warning to attributes
+  if metric.warning_high and metric.warning_high == metric.warning_high then
+    if attributes_string == "" then
+      attributes_string = "warning=" .. metric.warning_high
+    else
+      attributes_string = attributes_string .. ",warning=" .. metric.warning_high
+    end
+  end
+
+  -- add critical to attributes
+  if metric.critical_high and metric.critical_high == metric.critical_high then
+    if attributes_string == "" then
+      attributes_string = "critical=" .. metric.critical_high
+    else
+      attributes_string = attributes_string .. ",critical=" .. metric.critical_high
+    end
+  end
+
+  -- add UOM to attributes
+  if metric.uom then
+    if attributes_string == "" then
+      attributes_string = "uom=" .. metric.uom
+    else
+      attributes_string = attributes_string .. ",uom=" .. broker.url_encode(metric.uom)
+    end
+  end
+
+  if attributes_string ~= "" then
+    return "{" .. attributes_string .. "}"
+  end
+
+  return attributes_string
 end
 
 --------------------------------------------------------------------------------
@@ -234,7 +331,7 @@ function EventQueue:add()
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -245,36 +342,27 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = {
-      series = {event}
-    }
+    payload = event.data
   else
-    table.insert(payload.series, event)
+    payload = payload .. "\n" .. event.data
   end
   
   return payload
 end
 
-function EventQueue:send_data(payload, queue_metadata)
+function EventQueue:send_data(payload)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.http_server_url .. tostring(self.sc_params.params.datadog_metric_endpoint)
-  local payload_json = broker.json_encode(payload)
-  queue_metadata.headers = {
-    "content-type: application/json",
-    "DD-API-KEY:" .. self.sc_params.params.api_key
-  }
-
-  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload_json)
+  local url = tostring(self.sc_params.params.warp10_address) .. tostring(self.sc_params.params.warp10_api_endpoint)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(payload_json))
+    self.sc_logger:notice("[send_data]: " .. tostring(payload))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload_json))
-  self.sc_logger:info("[EventQueue:send_data]: Datadog address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: warp10 address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -286,7 +374,13 @@ function EventQueue:send_data(payload, queue_metadata)
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
+    :setopt(
+      curl.OPT_HTTPHEADER,
+      {
+        "Transfer-Encoding:chunked",
+        "X-Warp10-Token:" .. self.sc_params.params.api_token
+      }
+  )
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
@@ -307,7 +401,7 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload_json)
+  http_request:setopt_postfields(payload)
 
   -- performing the HTTP request
   http_request:perform()
@@ -319,8 +413,8 @@ function EventQueue:send_data(payload, queue_metadata)
   
   -- Handling the return code
   local retval = false
-  -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
-  if http_response_code == 202 then
+  -- https://www.warp10.io/content/03_Documentation/03_Interacting_with_Warp_10/03_Ingesting_data/01_Ingress#response-status-code other than 200 is not good
+  if http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
   else
@@ -407,4 +501,3 @@ function flush()
   -- there are events in the queue but they were not ready to be send
   return false
 end
-
