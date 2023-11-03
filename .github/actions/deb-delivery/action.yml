@@ -1,6 +1,9 @@
 name: "deb-delivery"
 description: "Deliver deb packages"
 inputs:
+  module_name:
+    description: "The package module name"
+    required: true
   distrib:
     description: "The distribution used for packaging"
     required: true
@@ -18,7 +21,7 @@ runs:
   using: "composite"
   steps:
     - name: Use cache DEB files
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v3
       with:
         path: ./*.deb
         key: ${{ inputs.cache_key }}
@@ -38,6 +41,6 @@ runs:
 
           ARCH=$(echo $FILE | cut -d '_' -f3 | cut -d '.' -f1)
 
-          jf rt upload "$FILE" "apt-plugins-${{ inputs.stability }}/pool/" --deb "${{ inputs.distrib }}/main/$ARCH"
+          jf rt upload "$FILE" "apt-plugins-${{ inputs.stability }}/pool/${{ inputs.module_name }}/" --deb "${{ inputs.distrib }}/main/$ARCH"
         done
       shell: bash
