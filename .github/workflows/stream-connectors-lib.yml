@@ -74,6 +74,7 @@ jobs:
 
           cd centreon-stream-connectors-lib-$PACKAGE_VERSION
 
+          apt-get update
           debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
           debuild-pbuilder --no-lintian
         shell: bash
