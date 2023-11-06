@@ -503,12 +503,7 @@ function sc_params.new(common, logger)
       id = 6,
       name = "metric_mapping"
     },
-    ba_status = {
-      category_id = categories.bam.id,
-      category_name = categories.bam.name,
-      id = 1,
-      name = "ba_status"
-    },
+    ba_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["ba_status"],
     kpi_status = {
       category_id = categories.bam.id,
       category_name = categories.bam.name,
