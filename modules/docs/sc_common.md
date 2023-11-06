@@ -545,7 +545,7 @@ local result = test_common:trim(string, ";")
 
 ## get_bbdo_version method
 
-The **get_bbod_version** method returns the first digit of the bbdo protocol version.
+The **get_bbdo_version** method returns the first digit of the bbdo protocol version.
 
 ### get_bbdo_version: returns
 
