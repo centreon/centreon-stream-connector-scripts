@@ -1179,7 +1179,7 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_downtime_event_end()
   -- event is about the end of the downtime (deletion_time key is only present in a end downtime event)
-  if (self.bbdo_version == 2 and self.event.deletion_time) or (self.bbdo_version > 2 and deletion_time ~= -1) then
+  if (self.bbdo_version == 2 and self.event.deletion_time) or (self.bbdo_version > 2 and self.event.deletion_time ~= -1) then
     -- start compat patch bbdo2 => bbdo 3
     if (not self.event.internal_id and self.event.id) then
       self.event.internal_id = self.event.id
