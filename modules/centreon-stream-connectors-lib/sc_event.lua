@@ -492,6 +492,7 @@ function ScEvent:is_valid_hostgroup()
 end
 
 --- find_hostgroup_in_list: compare accepted hostgroups from parameters with the event hostgroups
+-- @param hostgroups_list (string) a coma separated list of hostgroup name
 -- @return hostgroup_name (string) the name of the first matching hostgroup
 -- @return false (boolean) if no matching hostgroup has been found
 function ScEvent:find_hostgroup_in_list(hostgroups_list)
