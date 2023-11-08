@@ -686,7 +686,7 @@ function ScEvent:is_valid_bv()
   
   -- return false if no bvs were found
   if not self.event.cache.bvs then
-    if accepted_hostgroups_isnotempty then
+    if accepted_bvs_isnotempty then
       self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because host with id: " .. tostring(self.event.host_id)
         .. " is not linked to a BV. Accepted BVs are: " .. self.params.accepted_bvs ..".")
       return false
