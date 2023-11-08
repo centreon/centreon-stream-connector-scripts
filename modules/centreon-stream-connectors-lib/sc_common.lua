@@ -339,4 +339,18 @@ function ScCommon:trim(string, character)
   return result
 end
 
+--- get the first digit of bbdo protocol version
+-- @return bbdo_version (number) the first digit of the bddo version
+function ScCommon:get_bbdo_version()
+  local bbdo_version
+
+  if broker.bbdo_version ~= nil then
+      _, _, bbdo_version = string.find(broker.bbdo_version(), "(%d+).%d+.%d+")
+  else
+      bbdo_version = 2
+  end
+
+  return tonumber(bbdo_version)
+end
+
 return sc_common

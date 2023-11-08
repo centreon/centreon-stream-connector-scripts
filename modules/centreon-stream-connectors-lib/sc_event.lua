@@ -25,6 +25,7 @@ function sc_event.new(event, params, common, logger, broker)
   self.params = params
   self.event = event
   self.sc_broker = broker
+  self.bbdo_version = self.sc_common:get_bbdo_version()
 
   self.event.cache = {}
 
@@ -1236,17 +1237,29 @@ end
 --- is_valid_downtime_event_start: make sure that the event is the one notifying us that a downtime has just started
 -- @return true|false (boolean)
 function ScEvent:is_valid_downtime_event_start()
-  -- event is about the end of the downtime (actual_end_time key is not present in a start downtime event)
-  if self.event.actual_end_time then
-    self.sc_logger:debug("[sc_event:is_valid_downtime_event_start]: actual_end_time found in the downtime event. It can't be a downtime start event")
+  -- event is about the end of the downtime (actual_end_time key is not present in a start downtime bbdo2 event)
+  -- with bbdo3 value is set to -1
+  if (self.bbdo_version > 2 and self.event.actual_end_time ~= -1) or (self.bbdo_version == 2 and self.event.actual_end_time) then
+    self.sc_logger:debug("[sc_event:is_valid_downtime_event_start]: actual_end_time found in the downtime event and value equal to -1 or bbdo v2 in use. It can't be a downtime start event")
     return false
   end
 
-  -- event hasn't actually started until the actual_start_time key is present in the start downtime event
-  if not self.event.actual_start_time then
-    self.sc_logger:debug("[sc_event:is_valid_downtime_event_start]: actual_start_time not found in the downtime event. The downtime hasn't yet started")
+  -- event hasn't actually started until the actual_start_time key is present in the start downtime bbdo 2 event
+  -- with bbdo3 donwtime is not started until value is a valid timestamp
+  if (not self.event.actual_start_time and self.bbdo_version == 2) or (self.event.actual_start_time == -1 and self.bbdo_version > 2) then
+    self.sc_logger:debug("[sc_event:is_valid_downtime_event_start]: actual_start_time not found in the downtime event (or value set to -1). The downtime hasn't yet started")
     return false
   end
+
+  -- start compat patch bbdo2 => bbdo 3
+  if (not self.event.internal_id and self.event.id) then
+    self.event.internal_id = self.event.id
+  end
+
+  if (not self.event.id and self.event.internal_id) then
+    self.event.id = self.event.internal_id
+  end
+  -- end compat patch
 
   return true
 end
@@ -1255,12 +1268,22 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_downtime_event_end()
   -- event is about the end of the downtime (deletion_time key is only present in a end downtime event)
-  if self.event.deletion_time then
+  if (self.bbdo_version == 2 and self.event.deletion_time) or (self.bbdo_version > 2 and self.event.deletion_time ~= -1) then
+    -- start compat patch bbdo2 => bbdo 3
+    if (not self.event.internal_id and self.event.id) then
+      self.event.internal_id = self.event.id
+    end
+
+    if (not self.event.id and self.event.internal_id) then
+      self.event.id = self.event.internal_id
+    end
+    -- end compat patch
+
     return true
   end
   
   -- any other downtime event is not about the actual end of a downtime so we return false
-  self.sc_logger:debug("[sc_event:is_valid_downtime_event_end]: deletion_time not found in the downtime event. The downtime event is not about the end of a downtime")
+  self.sc_logger:debug("[sc_event:is_valid_downtime_event_end]: deletion_time not found in the downtime event or equal to -1. The downtime event is not about the end of a downtime")
   return false
 end
 

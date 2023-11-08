@@ -26,13 +26,7 @@ function sc_params.new(common, logger)
   self.common = common
 
   -- get the version of the bbdo protocol (only the first digit, nothing else matters)
-  if broker.bbdo_version ~= nil then
-    _, _, self.bbdo_version = string.find(broker.bbdo_version(), "(%d+).%d+.%d+")
-  else
-    self.bbdo_version = 2
-  end
-
-  self.bbdo_version = tonumber(self.bbdo_version)
+  self.bbdo_version = self.common:get_bbdo_version()
   
   -- initiate params
   self.params = {
@@ -174,6 +168,24 @@ function sc_params.new(common, logger)
         id = 24,
         name = "service_status"
       },
+      acknowledgement = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 1,
+        name = "acknowledgement"
+      },
+      downtime = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 5,
+        name = "downtime"
+      },
+      ba_status = {
+        category_id = categories.bam.id,
+        category_name = categories.bam.name,
+        id = 1,
+        name = "ba_status"
+      }
     },
     [3] = {
       host_status = {
@@ -187,17 +199,30 @@ function sc_params.new(common, logger)
         category_name = categories.neb.name,
         id = 29,
         name = "pb_service_status"
+      },
+      acknowledgement = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 45,
+        name = "pb_acknowledgement"
+      },
+      downtime = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 36,
+        name = "pb_downtime"
+      },
+      ba_status = {
+        category_id = categories.bam.id,
+        category_name = categories.bam.name,
+        id = 19,
+        name = "pb_ba_status"
       }
     }
   }
 
   self.params.bbdo.elements = {
-    acknowledgement = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 1,
-      name = "acknowledgement"
-    },
+    acknowledgement = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["acknowledgement"],
     comment = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -216,12 +241,7 @@ function sc_params.new(common, logger)
       id = 4,
       name = "custom_variable_status"
     },
-    downtime = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 5,
-      name = "downtime"
-    },
+    downtime = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["downtime"],
     event_handler = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -386,6 +406,72 @@ function sc_params.new(common, logger)
       id = 34,
       name = "pb_tag"
     },
+    pb_comment = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 35,
+      name = "pb_comment"
+    },
+    pb_downtime = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 36,
+      name = "pb_downtime"
+    },
+    pb_custom_variable = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 37,
+      name = "pb_custom_variable"
+    },
+    pb_custom_variable_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 38,
+      name = "pb_custom_variable_status"
+    },
+    pb_host_check = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 39,
+      name = "pb_host_check"
+    },
+    pb_service_check = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 40,
+      name = "pb_host_check"
+    },
+    pb_log_entry = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 41,
+      name = "pb_log_entry"
+    },
+    pb_instance_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 42,
+      name = "pb_instance_status"
+    },
+    pb_instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 44,
+      name = "pb_instance"
+    },
+    pb_acknowledgement = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 45,
+      name = "pb_acknowledgement"
+    },
+    pb_responsive_instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 46,
+      name = "pb_responsive_instance"
+    },
     metric = {
       category_id = categories.storage.id,
       category_name = categories.storage.name,
@@ -422,12 +508,7 @@ function sc_params.new(common, logger)
       id = 6,
       name = "metric_mapping"
     },
-    ba_status = {
-      category_id = categories.bam.id,
-      category_name = categories.bam.name,
-      id = 1,
-      name = "ba_status"
-    },
+    ba_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["ba_status"],
     kpi_status = {
       category_id = categories.bam.id,
       category_name = categories.bam.name,
@@ -523,6 +604,84 @@ function sc_params.new(common, logger)
       category_name = categories.bam.name,
       id = 17,
       name = "inherited_downtime"
+    },
+    pb_inherited_downtime = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 18,
+      name = "pb_inherited_downtime"
+    },
+    pb_ba_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 19,
+      name = "pb_ba_status"
+    },
+    pb_ba_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 20,
+      name = "pb_ba_event"
+    },
+    pb_kpi_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 20,
+      name = "pb_kpi_event"
+    },
+    pb_dimension_bv_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 21,
+      name = "pb_dimension_bv_event"
+    },
+    pb_dimension_ba_bv_relation_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 22,
+      name = "pb_dimension_ba_bv_relation_event"
+    },
+    pb_dimension_timeperiod = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 23,
+      name = "pb_dimension_timeperiod"
+    },
+    pb_dimension_ba_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 24,
+      name = "pb_dimension_ba_event"
+    },
+    pb_dimension_kpi_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 25,
+      name = "pb_dimension_kpi_event"
+    },
+    pb_kpi_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 26,
+      name = "pb_kpi_status"
+    },
+    pb_ba_duration_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 27,
+      name = "pb_ba_duration_event"
+    },
+    pb_dimension_ba_timeperiod_relation = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 28,
+      name = "pb_dimension_ba_timeperiod_relation"
+    },
+    pb_dimension_truncate_table_signal = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 29,
+      name = "pb_dimension_truncate_table_signal"
     }
   }
 
