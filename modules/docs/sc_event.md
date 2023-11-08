@@ -703,8 +703,8 @@ The **find_hostgroup_in_list** method checks if one of the hostgroup in the host
 
 ### find_hostgroup_in_list: parameters
 
-| parameter            | type   | optional | default value |
-| -------------------- | ------ | -------- | ------------- |
+| parameter                           | type   | optional | default value |
+|-------------------------------------| ------ | -------- | ------------- |
 | a coma separated list of hostgroups | string | no       |               |
 
 ### find_hostgroup_in_list: returns
@@ -736,8 +736,8 @@ The **find_servicegroup_in_list** method checks if one of the servicegroup in th
 
 ### find_servicegroup_in_list: parameters
 
-| parameter               | type   | optional | default value |
-| ----------------------- | ------ | -------- | ------------- |
+| parameter                              | type   | optional | default value |
+|----------------------------------------| ------ | -------- | ------------- |
 | a coma separated list of servicegroups | string | no       |               |
 
 ### find_servicegroup_in_list: returns
@@ -769,8 +769,8 @@ The **find_bv_in_list** method checks if one of the BV in the bvs list parameter
 
 ### find_bv_in_list: parameters
 
-| parameter     | type   | optional | default value |
-|---------------| ------ | -------- | ------------- |
+| parameter                    | type   | optional | default value |
+|------------------------------| ------ | -------- | ------------- |
 | a coma separated list of bvs | string | no       |               |
 
 ### find_bv_in_list: returns
@@ -831,8 +831,8 @@ The **find_poller_in_list** method checks if one of the pollers in the pollers l
 
 ### find_poller_in_list: parameters
 
-| parameter         | type   | optional | default value |
-|-------------------| ------ | -------- | ------------- |
+| parameter                        | type   | optional | default value |
+|----------------------------------| ------ | -------- | ------------- |
 | a coma separated list of pollers | string | no       |               |
 
 ### find_poller_in_list: returns
@@ -1071,8 +1071,8 @@ The **find_author_in_list** method checks if one of the author in the authors li
 
 ### find_author_in_list: parameters
 
-| parameter         | type   | optional | default value |
-|-------------------| ------ | -------- | ------------- |
+| parameter                        | type   | optional | default value |
+|----------------------------------| ------ | -------- | ------------- |
 | a coma separated list of authors | string | no       |               |
 
 ### find_author_in_list: returns
