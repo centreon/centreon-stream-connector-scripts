@@ -58,6 +58,12 @@ function sc_params.new(common, logger)
     -- objects filter
     accepted_hostgroups = "",
     accepted_servicegroups = "",
+    accepted_hosts = "",
+    accepted_services = "",
+    accepted_hosts_enable_split_pattern = 0,
+    accepted_services_enable_split_pattern = 0,
+    accepted_hosts_split_character = ",",
+    accepted_services_split_character = ",",
     accepted_bvs = "",
     accepted_pollers = "",
     accepted_authors = "",
@@ -733,7 +739,6 @@ function sc_params.new(common, logger)
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
   
-
   setmetatable(self, { __index = ScParams })
   return self
 end
@@ -796,6 +801,9 @@ function ScParams:check_params()
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
+
+  -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
+  self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -929,6 +937,61 @@ function ScParams:build_accepted_elements_info()
           element_name = accepted_element
         }
       end
+    end
+  end
+end
+
+--- validate_pattern_param: check if paramater has a valid lua pattern
+-- @param param_name (string) the name of the parameter
+-- @param param_value (string) the Lua pattern to test
+-- @return param_value (string) either the param value if pattern is valid, empty string otherwise
+function ScParams:validate_pattern_param(param_name, param_value)
+  if not self.common:validate_pattern(param_value) then
+    self.logger:error("[sc_params:validate_pattern_param]: couldn't validate Lua pattern: " .. tostring(param_value)
+      .. " for parameter: " .. tostring(param_name) .. ". The filter will be reset to an empty value.")
+    return ""
+  end
+
+  return param_value
+end
+
+--- build_and_validate_filters_pattern: make sure lua patterns are valid and build a table of pattern according to the
+-- @param param_list (table) a list of all parameters that must be checked.
+--[[
+  exemple: self.params.accepted_hosts value is "foo.*,.*bar.*"
+  this method will generate the following parameter
+  self.params.accepted_hosts_pattern_list = {
+    "foo.*",
+    ".*bar.*"
+  }
+]]--
+function ScParams:build_and_validate_filters_pattern(param_list)
+  local temp_pattern_table
+
+  -- we need to build a table containing all patterns for each filter compatible with this feature
+  for index, param_name in ipairs(param_list) do
+    self.params[param_name .. "_pattern_list"] = {}
+
+    -- we try to split the pattern in multiple sub patterns if option is enabled
+    -- this option is here to overcome the lack of alternation operator ("|" character in POSIX regex) in Lua regex
+    if self.params[param_name .. "_enable_split_pattern"] == 1 then
+      temp_pattern_table = self.common:split(self.params[param_name], self.params[param_name .. "_split_character"])
+      
+      for index, temp_pattern in ipairs(temp_pattern_table) do
+        -- each sub pattern must be a valid standalone pattern. We are not here to develop regex in Lua
+        if self.common:validate_pattern(temp_pattern) then
+          table.insert(self.params[param_name .. "_pattern_list"], temp_pattern)
+          self.logger:notice("[sc_params:build_accepted_filters_pattern]: adding " .. tostring(temp_pattern)
+            .. " to the list of filtering patterns for parameter: " .. param_name)
+        else
+          -- if the sub pattern is not valid, just ignore it
+          self.logger:error("[sc_params:build_accepted_filters_pattern]: ignoring pattern for param: " 
+            .. param_name .. " because after splitting the string:" .. param_name
+            .. ", we end up with the following pattern: " .. tostring(temp_pattern) .. " which is not a valid Lua pattern")
+        end
+      end
+    else
+      table.insert(self.params[param_name .. "_pattern_list"], self.params[param_name])
     end
   end
 end

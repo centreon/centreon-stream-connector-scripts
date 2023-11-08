@@ -339,4 +339,17 @@ function ScCommon:trim(string, character)
   return result
 end
 
+--- validate_pattern: check if a Lua pattern is valid or not
+-- @param pattern (string) the pattern that must be validated
+-- @return boolean (boolean) true if pattern is valid, false otherwise
+function ScCommon:validate_pattern(pattern)
+  local status, result = pcall(string.match, "a random string", pattern)
+
+  if not status then
+    self.sc_logger:error("[sc_common:validate_pattern]: invalid pattern. Error message is: " .. tostring(result))
+  end
+
+  return status
+end
+
 return sc_common
