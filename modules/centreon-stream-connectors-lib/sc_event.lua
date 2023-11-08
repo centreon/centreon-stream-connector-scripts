@@ -690,7 +690,7 @@ function ScEvent:is_valid_bv()
       self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because host with id: " .. tostring(self.event.host_id)
         .. " is not linked to a BV. Accepted BVs are: " .. self.params.accepted_bvs ..".")
       return false
-    elseif rejected_hostgroups_isnotempty then
+    elseif rejected_bvs_isnotempty then
       self.sc_logger:debug("[sc_event:is_valid_bv]: accepting event because host with id: " .. tostring(self.event.host_id)
         .. " is not linked to a BV. Rejected BVs are: " .. self.params.rejected_bvs ..".")
       return true
