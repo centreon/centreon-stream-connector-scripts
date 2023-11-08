@@ -58,6 +58,7 @@ function sc_params.new(common, logger)
     -- objects filter
     accepted_hostgroups = "",
     accepted_servicegroups = "",
+    rejected_servicegroups = "",
     accepted_hosts = "",
     accepted_services = "",
     accepted_hosts_enable_split_pattern = 0,
@@ -739,6 +740,7 @@ function sc_params.new(common, logger)
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
   
+
   setmetatable(self, { __index = ScParams })
   return self
 end
@@ -802,6 +804,22 @@ function ScParams:check_params()
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
 
+  if self.params.accepted_hostgroups ~= '' and self.params.rejected_hostgroups ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together. None will be used.")
+  end
+  if self.params.accepted_servicegroups ~= '' and self.params.rejected_servicegroups ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_servicegroups and rejected_servicegroups cannot be used together. None will be used.")
+  end
+  if self.params.accepted_bvs ~= '' and self.params.rejected_bvs ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_bvs and rejected_bvs cannot be used together. None will be used.")
+  end
+  if self.params.accepted_pollers ~= '' and self.params.rejected_pollers ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_pollers and rejected_pollers cannot be used together. None will be used.")
+  end
+  if self.params.accepted_authors ~= '' and self.params.rejected_authors ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_authors and rejected_authors cannot be used together. None will be used.")
+  end
+  
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
   self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
 end
