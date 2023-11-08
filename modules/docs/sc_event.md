@@ -833,7 +833,7 @@ The **find_poller_in_list** method checks if one of the pollers in the pollers l
 
 | parameter         | type   | optional | default value |
 |-------------------| ------ | -------- | ------------- |
-| a list of pollers | string | no       |               |
+| a coma separated list of pollers | string | no       |               |
 
 ### find_poller_in_list: returns
 
