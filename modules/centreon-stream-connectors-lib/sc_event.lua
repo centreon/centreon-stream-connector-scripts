@@ -1059,6 +1059,7 @@ function ScEvent:is_valid_author()
 end
 
 --- find_author_in_list: compare accepted authors from parameters with the event author
+-- @param authors_list (string) a coma separeted list of author name
 -- @return accepted_alias or false (string|boolean) the alias of the first matching author if found or false if not found
 function ScEvent:find_author_in_list(authors_list)
   if authors_list == nil or authors_list == "" then
