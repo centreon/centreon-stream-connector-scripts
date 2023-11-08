@@ -718,6 +718,7 @@ function ScEvent:is_valid_bv()
 end
 
 --- find_bv_in_list: compare accepted BVs from parameters with the event BVs
+-- @param bvs_list (string) a coma separated list of BV name
 -- @return bv_name (string) the name of the first matching BV
 -- @return false (boolean) if no matching BV has been found
 function ScEvent:find_bv_in_list(bvs_list)
