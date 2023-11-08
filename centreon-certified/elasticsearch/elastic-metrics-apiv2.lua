@@ -145,10 +145,10 @@ function EventQueue:build_index_template(params)
   }
   
   self.index_routing_path = {
-    "host.name",
-    "service.description",
-    "metric.name",
-    "metric.instance",
+    "host_name",
+    "service_description",
+    "metric_name",
+    "metric_instance",
     -- "metric.subinstances"
   }
 
@@ -162,31 +162,31 @@ function EventQueue:build_index_template(params)
       },
       mappings = {
         properties = {
-          ["host.name"] = {
+          ["host_name"] = {
             type = "keyword",
             time_series_dimension = true
           },
-          ["service.description"] = {
+          ["service_description"] = {
             type = "keyword",
             time_series_dimension = true
           },
-          ["metric.name"] = {
+          ["metric_name"] = {
             type = "keyword",
             time_series_dimension = true
           },
-          ["metric.unit"] = {
+          ["metric_unit"] = {
             type = "keyword",
             time_series_dimension = false
           },
-          ["metric.instance"] = {
+          ["metric_instance"] = {
             type = "keyword",
             time_series_dimension = true
           },
-          ["metric.subinstances"] = {
+          ["metric_subinstances"] = {
             type = "keyword",
             time_series_dimension = false
           },
-          ["metric.value"] = {
+          ["metric_value"] = {
             type = "double",
             time_series_metric = gauge
           },
@@ -201,7 +201,7 @@ function EventQueue:build_index_template(params)
 
   -- add hostgroup property in the template
   if params.add_hostgroups_dimension == 1 then
-    self.elastic_index_template.template.mappings.properties["host.groups"] = {
+    self.elastic_index_template.template.mappings.properties["host_groups"] = {
       type = "keyword",
       time_series_dimension = false
     }
@@ -211,7 +211,7 @@ function EventQueue:build_index_template(params)
 
   -- add servicegroup property in the template
   if params.add_servicegroups_dimension == 1 then
-    self.elastic_index_template.template.mappings.properties["service.groups"] = {
+    self.elastic_index_template.template.mappings.properties["service_groups"] = {
       type = "keyword",
       time_series_dimension = false
     }
@@ -314,21 +314,21 @@ function EventQueue:validate_index_template(params)
   end
 
   local required_index_mapping_properties = {
-    "host.name",
-    "service.description",
-    "metric.value",
-    "metric.unit",
-    "metric.value",
-    "metric.instance",
-    "metric.subinstances"
+    "host_name",
+    "service_description",
+    "metric_value",
+    "metric_unit",
+    "metric_value",
+    "metric_instance",
+    "metric_subinstances"
   }
   
   if params.add_hostgroups_dimension == 1 then
-    table.insert(required_index_mapping_properties, "host.groups")
+    table.insert(required_index_mapping_properties, "host_groups")
   end
 
   if params.add_servicegroups_dimension == 1 then
-    table.insert(required_index_mapping_properties, "service.groups")
+    table.insert(required_index_mapping_properties, "service_groups")
   end
 
   -- can't get geo coords from cache nor event
@@ -446,12 +446,12 @@ function EventQueue:add_generic_information(metric)
   local event = self.sc_event.event
   self.sc_event.event.formated_event = {
     ["@timestamp"] = event.last_check,
-    ["host.name"] = tostring(event.cache.host.name),
-    ["metric.name"] = tostring(metric.metric_name),
-    ["metric.value"] = metric.value,
-    ["metric.instance"] = metric.instance,
-    ["metric.subinstances"] = metric.subinstances,
-    ["metric.unit"] = metric.unit
+    ["host_name"] = tostring(event.cache.host.name),
+    ["metric_name"] = tostring(metric.metric_name),
+    ["metric_value"] = metric.value,
+    ["metric_instance"] = metric.instance,
+    ["metric_subinstances"] = metric.subinstances,
+    ["metric_unit"] = metric.unit
   }
 end
 
@@ -467,7 +467,7 @@ function EventQueue:add_generic_optional_information()
       table.insert(hostgroups, hg_info.group_name)
     end
     
-    self.sc_event.event.formated_event["host.groups"] = hostgroups
+    self.sc_event.event.formated_event["host_groups"] = hostgroups
   end
 
   -- add poller
@@ -485,7 +485,7 @@ function EventQueue:add_service_optional_information()
       table.insert(servicegroups, sg_info.group_name)
     end
     
-    self.sc_event.event.formated_event["service.groups"] = servicegroups
+    self.sc_event.event.formated_event["service_groups"] = servicegroups
   end
 end
 
