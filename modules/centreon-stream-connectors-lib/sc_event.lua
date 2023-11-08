@@ -794,6 +794,7 @@ function ScEvent:is_valid_poller()
 end
 
 --- find_poller_in_list: compare accepted pollers from parameters with the event poller
+-- @param pollers_list (string) a coma separated list of poller name
 -- @return poller_name or false (string|boolean) the name of the first matching poller if found or false if not found
 function ScEvent:find_poller_in_list(pollers_list)
   if pollers_list == nil or pollers_list == "" then
