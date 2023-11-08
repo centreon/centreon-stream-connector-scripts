@@ -446,45 +446,67 @@ end
 function ScEvent:is_valid_hostgroup()
   self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
-  -- return true if option is not set
-  if self.params.accepted_hostgroups == "" then
+  -- return true if options are not set or if both options are set
+  local accepted_hostgroups_isnotempty = self.params.accepted_hostgroups ~= ""
+  local rejected_hostgroups_isnotempty = self.params.rejected_hostgroups ~= ""
+  if (not accepted_hostgroups_isnotempty and not rejected_hostgroups_isnotempty) or (accepted_hostgroups_isnotempty and rejected_hostgroups_isnotempty) then
     return true
   end
 
   -- return false if no hostgroups were found
   if not self.event.cache.hostgroups then
-    self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
-      .. " is not linked to a hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups)
-    return false
+    if accepted_hostgroups_isnotempty then
+      self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id)
+        .. " is not linked to a hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups ..".")
+      return false
+    elseif rejected_hostgroups_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_hostgroup]: accepting event because host with id: " .. tostring(self.event.host_id)
+        .. " is not linked to a hostgroup. Rejected hostgroups are: " .. self.params.rejected_hostgroups ..".")
+      return true
+    end
   end
 
-  local accepted_hostgroup_name = self:find_hostgroup_in_list()
+  local accepted_hostgroup_name = self:find_hostgroup_in_list(self.params.accepted_hostgroups)
+  local rejected_hostgroup_name = self:find_hostgroup_in_list(self.params.rejected_hostgroups)
 
   -- return false if the host is not in a valid hostgroup
-  if not accepted_hostgroup_name then
+  if accepted_hostgroups_isnotempty and not accepted_hostgroup_name then
     self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
       .. " is not in an accepted hostgroup. Accepted hostgroups are: " .. self.params.accepted_hostgroups)
     return false
+  elseif rejected_hostgroups_isnotempty and rejected_hostgroup_name then
+    self.sc_logger:warning("[sc_event:is_valid_hostgroup]: dropping event because host with id: " .. tostring(self.event.host_id) 
+      .. " is in a rejected hostgroup. Rejected hostgroups are: " .. self.params.rejected_hostgroups)
+    return false
   else
-    self.sc_logger:debug("[sc_event:is_valid_hostgroup]: event for host with id: " .. tostring(self.event.host_id)
-      .. " matched hostgroup: " .. accepted_hostgroup_name)
+    local debug_msg = "[sc_event:is_valid_hostgroup]: event for host with id: " .. tostring(self.event.host_id)
+    if accepted_hostgroups_isnotempty then
+      debug_msg = debug_msg .. " matched hostgroup: " .. tostring(accepted_hostgroup_name)
+    elseif rejected_hostgroups_isnotempty then
+      debug_msg = debug_msg .. " did not match hostgroup: " .. tostring(rejected_hostgroup_name)
+    end
+    self.sc_logger:debug(debug_msg)
   end
 
   return true
 end
 
 --- find_hostgroup_in_list: compare accepted hostgroups from parameters with the event hostgroups
--- @return accepted_name (string) the name of the first matching hostgroup 
+-- @param hostgroups_list (string) a coma separated list of hostgroup name
+-- @return hostgroup_name (string) the name of the first matching hostgroup
 -- @return false (boolean) if no matching hostgroup has been found
-function ScEvent:find_hostgroup_in_list()
-  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_hostgroups, ",")) do
-    for _, event_hostgroup in pairs(self.event.cache.hostgroups) do
-      if accepted_name == event_hostgroup.group_name then
-        return accepted_name
+function ScEvent:find_hostgroup_in_list(hostgroups_list)
+  if hostgroups_list == nil or hostgroups_list == "" then
+    return false
+  else
+    for _, hostgroup_name in ipairs(self.sc_common:split(hostgroups_list, ",")) do
+      for _, event_hostgroup in pairs(self.event.cache.hostgroups) do
+        if hostgroup_name == event_hostgroup.group_name then
+          return hostgroup_name
+        end
       end
     end
-  end 
-
+  end
   return false
 end
 
@@ -492,45 +514,67 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_servicegroup()
   self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
-  
-  -- return true if option is not set
-  if self.params.accepted_servicegroups == "" then
+
+  -- return true if options are not set or if both options are set
+  local accepted_servicegroups_isnotempty = self.params.accepted_servicegroups ~= ""
+  local rejected_servicegroups_isnotempty = self.params.rejected_servicegroups ~= ""
+  if (not accepted_servicegroups_isnotempty and not rejected_servicegroups_isnotempty) or (accepted_servicegroups_isnotempty and rejected_servicegroups_isnotempty) then
     return true
   end
 
   -- return false if no servicegroups were found
   if not self.event.cache.servicegroups then
-    self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
-      .. " is not linked to a servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
-    return false
+    if accepted_servicegroups_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id)
+        .. " is not linked to a servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups ..".")
+      return false
+    elseif rejected_servicegroups_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_servicegroup]: accepting event because service with id: " .. tostring(self.event.service_id)
+        .. " is not linked to a servicegroup. Rejected servicegroups are: " .. self.params.rejected_servicegroups ..".")
+      return true
+    end
   end
 
-  local accepted_servicegroup_name = self:find_servicegroup_in_list()
+  local accepted_servicegroup_name = self:find_servicegroup_in_list(self.params.accepted_servicegroups)
+  local rejected_servicegroup_name = self:find_servicegroup_in_list(self.params.rejected_servicegroups)
 
-  -- return false if the host is not in a valid servicegroup
-  if not accepted_servicegroup_name then
+  -- return false if the service is not in a valid servicegroup
+  if accepted_servicegroups_isnotempty and not accepted_servicegroup_name then
     self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
       .. " is not in an accepted servicegroup. Accepted servicegroups are: " .. self.params.accepted_servicegroups)
     return false
+  elseif rejected_servicegroups_isnotempty and rejected_servicegroup_name then
+    self.sc_logger:debug("[sc_event:is_valid_servicegroup]: dropping event because service with id: " .. tostring(self.event.service_id) 
+      .. " is in an rejected servicegroup. Rejected servicegroups are: " .. self.params.rejected_servicegroups)
+    return false
   end
-    
-  self.sc_logger:debug("[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
-      .. "matched servicegroup: " .. accepted_servicegroup_name)
+  
+  local debug_msg = "[sc_event:is_valid_servicegroup]: event for service with id: " .. tostring(self.event.service_id)
+  if accepted_servicegroups_isnotempty then
+    debug_msg = debug_msg .. " matched servicegroup: " .. tostring(accepted_servicegroup_name)
+  elseif rejected_servicegroups_isnotempty then
+    debug_msg = debug_msg .. " did not match servicegroup: " .. tostring(rejected_servicegroup_name)
+  end
+  self.sc_logger:debug(debug_msg)
 
   return true
 end
 
 --- find_servicegroup_in_list: compare accepted servicegroups from parameters with the event servicegroups
--- @return accepted_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
-function ScEvent:find_servicegroup_in_list()
-  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_servicegroups, ",")) do
-    for _, event_servicegroup in pairs(self.event.cache.servicegroups) do
-      if accepted_name == event_servicegroup.group_name then
-        return accepted_name
+-- @param servicegroups_list (string) a coma separated list of servicegroup name
+-- @return servicegroup_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
+function ScEvent:find_servicegroup_in_list(servicegroups_list)
+  if servicegroups_list == nil or servicegroups_list == "" then
+    return false
+  else
+    for _, servicegroup_name in ipairs(self.sc_common:split(servicegroups_list, ",")) do
+      for _, event_servicegroup in pairs(self.event.cache.servicegroups) do
+        if servicegroup_name == event_servicegroup.group_name then
+          return servicegroup_name
+        end
       end
-    end
-  end 
-
+    end 
+  end
   return false
 end
 
@@ -634,25 +678,38 @@ end
 -- @return true|false (boolean)
 function ScEvent:is_valid_bv()
   self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
-  
-  -- return true if option is not set
-  if self.params.accepted_bvs == "" then
+
+  -- return true if options are not set or if both options are set
+  local accepted_bvs_isnotempty = self.params.accepted_bvs ~= ""
+  local rejected_bvs_isnotempty = self.params.rejected_bvs ~= ""
+  if (not accepted_bvs_isnotempty and not rejected_bvs_isnotempty) or (accepted_bvs_isnotempty and rejected_bvs_isnotempty) then
     return true
   end
   
-  -- return false if no hostgroups were found
+  -- return false if no bvs were found
   if not self.event.cache.bvs then
-    self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
-      .. " is not linked to a BV. Accepted BVs are: " .. self.params.accepted_bvs)
-    return false
+    if accepted_bvs_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because host with id: " .. tostring(self.event.host_id)
+        .. " is not linked to a BV. Accepted BVs are: " .. self.params.accepted_bvs ..".")
+      return false
+    elseif rejected_bvs_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_bv]: accepting event because host with id: " .. tostring(self.event.host_id)
+        .. " is not linked to a BV. Rejected BVs are: " .. self.params.rejected_bvs ..".")
+      return true
+    end
   end
 
-  local accepted_bv_name = self:find_bv_in_list()
+  local accepted_bv_name = self:find_bv_in_list(self.params.accepted_bvs)
+  local rejected_bv_name = self:find_bv_in_list(self.params.rejected_bvs)
 
   -- return false if the BA is not in a valid BV
-  if not accepted_bv_name then
-    self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id) 
+  if accepted_bvs_isnotempty and not accepted_bv_name then
+    self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id)
       .. " is not in an accepted BV. Accepted BVs are: " .. self.params.accepted_bvs)
+    return false
+  elseif rejected_bvs_isnotempty and rejected_bv_name then
+    self.sc_logger:debug("[sc_event:is_valid_bv]: dropping event because BA with id: " .. tostring(self.event.ba_id)
+      .. " is in a rejected BV. Rejected BVs are: " .. self.params.rejected_bvs)
     return false
   else
     self.sc_logger:debug("[sc_event:is_valid_bv]: event for BA with id: " .. tostring(self.event.ba_id)
@@ -663,17 +720,21 @@ function ScEvent:is_valid_bv()
 end
 
 --- find_bv_in_list: compare accepted BVs from parameters with the event BVs
--- @return accepted_name (string) the name of the first matching BV
+-- @param bvs_list (string) a coma separated list of BV name
+-- @return bv_name (string) the name of the first matching BV
 -- @return false (boolean) if no matching BV has been found
-function ScEvent:find_bv_in_list()
-  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_bvs,",")) do
-    for _, event_bv in pairs(self.event.cache.bvs) do
-      if accepted_name == event_bv.bv_name then
-        return accepted_name
+function ScEvent:find_bv_in_list(bvs_list)
+  if bvs_list == nil or bvs_list == "" then
+    return false
+  else
+    for _, bv_name in ipairs(self.sc_common:split(bvs_list,",")) do
+      for _, event_bv in pairs(self.event.cache.bvs) do
+        if bv_name == event_bv.bv_name then
+          return bv_name
+        end
       end
     end
-  end 
-
+  end
   return false
 end
 
@@ -693,26 +754,38 @@ function ScEvent:is_valid_poller()
     id = self.event.cache.host.instance_id,
     name = self.event.cache.poller
   }
-  
-  -- return true if option is not set
-  if self.params.accepted_pollers == "" then
+
+  -- return true if options are not set or if both options are set
+  local accepted_pollers_isnotempty = self.params.accepted_pollers ~= ""
+  local rejected_pollers_isnotempty = self.params.rejected_pollers ~= ""
+  if (not accepted_pollers_isnotempty and not rejected_pollers_isnotempty) or (accepted_pollers_isnotempty and rejected_pollers_isnotempty) then
     return true
   end
 
-
   -- return false if no poller found in cache
   if not self.event.cache.poller then
-    self.sc_logger:debug("[sc_event:is_valid_poller]: dropping event because host with id: " .. tostring(self.event.host_id) 
-      .. " is not linked to an accepted poller (no poller found in cache). Accepted pollers are: " .. self.params.accepted_pollers)
-    return false
+    if accepted_pollers_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_poller]: dropping event because host with id: " .. tostring(self.event.host_id)
+        .. " is not linked to an accepted poller (no poller found in cache). Accepted pollers are: " .. self.params.accepted_pollers)
+      return false
+    elseif rejected_pollers_isnotempty then
+      self.sc_logger:debug("[sc_event:is_valid_poller]: accepting event because host with id: " .. tostring(self.event.host_id)
+        .. " is not linked to a rejected poller (no poller found in cache). Rejected pollers are: " .. self.params.rejected_pollers)
+      return true
+    end
   end
 
-  local accepted_poller_name = self:find_poller_in_list()
+  local accepted_poller_name = self:find_poller_in_list(self.params.accepted_pollers)
+  local rejected_poller_name = self:find_poller_in_list(self.params.rejected_pollers)
 
   -- return false if the host is not monitored from a valid poller
-  if not accepted_poller_name then
+  if accepted_pollers_isnotempty and not accepted_poller_name then
     self.sc_logger:debug("[sc_event:is_valid_poller]: dropping event because host with id: " .. tostring(self.event.host_id) 
       .. " is not linked to an accepted poller. Host is monitored from: " .. tostring(self.event.cache.poller) .. ". Accepted pollers are: " .. self.params.accepted_pollers)
+    return false
+  elseif rejected_pollers_isnotempty and rejected_poller_name then
+    self.sc_logger:debug("[sc_event:is_valid_poller]: dropping event because host with id: " .. tostring(self.event.host_id)
+      .. " is linked to a rejected poller. Host is monitored from: " .. tostring(self.event.cache.poller) .. ". Rejected pollers are: " .. self.params.rejected_pollers)
     return false
   else
     self.sc_logger:debug("[sc_event:is_valid_poller]: event for host with id: " .. tostring(self.event.host_id)
@@ -723,14 +796,18 @@ function ScEvent:is_valid_poller()
 end
 
 --- find_poller_in_list: compare accepted pollers from parameters with the event poller
--- @return accepted_name or false (string|boolean) the name of the first matching poller if found or false if not found
-function ScEvent:find_poller_in_list()
-  for _, accepted_name in ipairs(self.sc_common:split(self.params.accepted_pollers, ",")) do
-    if accepted_name == self.event.cache.poller then
-      return accepted_name
+-- @param pollers_list (string) a coma separated list of poller name
+-- @return poller_name or false (string|boolean) the name of the first matching poller if found or false if not found
+function ScEvent:find_poller_in_list(pollers_list)
+  if pollers_list == nil or pollers_list == "" then
+    return false
+  else
+    for _, poller_name in ipairs(self.sc_common:split(pollers_list, ",")) do
+      if poller_name == self.event.cache.poller then
+        return poller_name
+      end
     end
-  end 
-
+  end
   return false
 end
 
@@ -960,15 +1037,23 @@ end
 --- is_valid_author: check if the author of a comment is valid based on contact alias in Centreon
 -- return true|false (boolean)
 function ScEvent:is_valid_author()
-  -- do not handle authors if it is not configured
-  if self.params.accepted_authors == "" then
+    -- return true if options are not set or if both options are set
+  local accepted_authors_isnotempty = self.params.accepted_authors ~= ""
+  local rejected_authors_isnotempty = self.params.rejected_authors ~= ""
+  if (not accepted_authors_isnotempty and not rejected_authors_isnotempty) or (accepted_authors_isnotempty and rejected_authors_isnotempty) then
     return true
   end
 
   -- check if author is accepted
-  if not self:find_author_in_list() then
+  local accepted_author_name = self:find_author_in_list(self.params.accepted_authors)
+  local rejected_author_name = self:find_author_in_list(self.params.rejected_authors)
+  if accepted_authors_isnotempty and not accepted_author_name then
     self.sc_logger:debug("[sc_event:is_valid_author]: dropping event because author: " .. tostring(self.event.author) 
-      .. " is not in an accepted authors list. Accepted authorss are: " .. self.params.accepted_authors)
+      .. " is not in an accepted authors list. Accepted authors are: " .. self.params.accepted_authors)
+    return false
+  elseif rejected_authors_isnotempty and rejected_author_name then
+    self.sc_logger:debug("[sc_event:is_valid_author]: dropping event because author: " .. tostring(self.event.author)
+      .. " is in a rejected authors list. Rejected authors are: " .. self.params.rejected_authors)
     return false
   end
 
@@ -976,14 +1061,18 @@ function ScEvent:is_valid_author()
 end
 
 --- find_author_in_list: compare accepted authors from parameters with the event author
+-- @param authors_list (string) a coma separeted list of author name
 -- @return accepted_alias or false (string|boolean) the alias of the first matching author if found or false if not found
-function ScEvent:find_author_in_list()
-  for _, accepted_alias in ipairs(self.sc_common:split(self.params.accepted_authors, ",")) do
-    if accepted_alias == self.event.author then
-      return accepted_alias
+function ScEvent:find_author_in_list(authors_list)
+  if authors_list == nil or authors_list == "" then
+    return false
+  else
+    for _, author_alias in ipairs(self.sc_common:split(authors_list, ",")) do
+      if author_alias == self.event.author then
+        return author_alias
+      end
     end
   end
-
   return false
 end
 
