@@ -705,7 +705,7 @@ The **find_hostgroup_in_list** method checks if one of the hostgroup in the host
 
 | parameter            | type   | optional | default value |
 | -------------------- | ------ | -------- | ------------- |
-| a list of hostgroups | string | no       |               |
+| a coma separated list of hostgroups | string | no       |               |
 
 ### find_hostgroup_in_list: returns
 
