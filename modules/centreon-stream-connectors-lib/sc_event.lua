@@ -561,6 +561,7 @@ function ScEvent:is_valid_servicegroup()
 end
 
 --- find_servicegroup_in_list: compare accepted servicegroups from parameters with the event servicegroups
+-- @param servicegroups_list (string) a coma separated list of servicegroup name
 -- @return servicegroup_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
 function ScEvent:find_servicegroup_in_list(servicegroups_list)
   if servicegroups_list == nil or servicegroups_list == "" then
