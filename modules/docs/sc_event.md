@@ -771,7 +771,7 @@ The **find_bv_in_list** method checks if one of the BV in the bvs list parameter
 
 | parameter     | type   | optional | default value |
 |---------------| ------ | -------- | ------------- |
-| a list of bvs | string | no       |               |
+| a coma separated list of bvs | string | no       |               |
 
 ### find_bv_in_list: returns
 
