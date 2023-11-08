@@ -1012,7 +1012,7 @@ function ScParams:check_params()
   if self.params.accepted_authors ~= '' and self.params.rejected_authors ~= '' then
     self.logger:error("[sc_params:check_params]: Parameters accepted_authors and rejected_authors cannot be used together. None will be used.")
   end
-  
+
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
   self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
 end
@@ -1190,7 +1190,7 @@ function ScParams:build_and_validate_filters_pattern(param_list)
       
       for index, temp_pattern in ipairs(temp_pattern_table) do
         -- each sub pattern must be a valid standalone pattern. We are not here to develop regex in Lua
-        if self.common:validate_pattern(temp_pattern) then
+        if self.common:is_valid_pattern(temp_pattern) then
           table.insert(self.params[param_name .. "_pattern_list"], temp_pattern)
           self.logger:notice("[sc_params:build_accepted_filters_pattern]: adding " .. tostring(temp_pattern)
             .. " to the list of filtering patterns for parameter: " .. param_name)
