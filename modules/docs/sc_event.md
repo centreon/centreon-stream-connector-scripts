@@ -738,7 +738,7 @@ The **find_servicegroup_in_list** method checks if one of the servicegroup in th
 
 | parameter               | type   | optional | default value |
 | ----------------------- | ------ | -------- | ------------- |
-| a list of servicegroups | string | no       |               |
+| a coma separated list of servicegroups | string | no       |               |
 
 ### find_servicegroup_in_list: returns
 
