@@ -1073,7 +1073,7 @@ The **find_author_in_list** method checks if one of the author in the authors li
 
 | parameter         | type   | optional | default value |
 |-------------------| ------ | -------- | ------------- |
-| a list of authors | string | no       |               |
+| a coma separated list of authors | string | no       |               |
 
 ### find_author_in_list: returns
 
