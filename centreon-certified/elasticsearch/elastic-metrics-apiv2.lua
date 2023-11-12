@@ -264,6 +264,7 @@ function EventQueue:check_index_template(params)
   }
 
   local return_code = self:send_data(payload, metadata)
+
   if return_code then
     self.sc_logger:notice("[EventQueue:check_index_template]: Elasticsearch index template " .. tostring(params.index_name) .. " has been found")
     index_state.is_created = true
@@ -306,6 +307,11 @@ function EventQueue:create_index_template(params)
 end
 
 function EventQueue:validate_index_template(params)
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[EventQueue:validate_index_template]: send_data_test is set to 1, ignoring template validation")
+    return true
+  end
+
   local index_template_structure, error = broker.json_decode(self.elastic_result)
 
   if error then
@@ -435,7 +441,7 @@ end
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric service")
 
-  self.sc_event.event.formated_event["service.description"] = tostring(self.sc_event.event.cache.service.description)
+  self.sc_event.event.formated_event["service_description"] = tostring(self.sc_event.event.cache.service.description)
   self:add_generic_information(metric)
   self:add_generic_optional_information()
   self:add_service_optional_information()
@@ -535,7 +541,7 @@ function EventQueue:send_data(payload, queue_metadata)
     table.insert(queue_metadata.headers, "Authorization: Basic " .. mime.b64(params.elastic_username .. ":" .. params.elastic_password))
   end
 
-  if payload then
+  if payload or queue_metadata.method == "GET" then
     -- write payload in the logfile for test purpose
     if params.send_data_test == 1 then
       self.sc_logger:notice("[send_data]: " .. tostring(payload))
