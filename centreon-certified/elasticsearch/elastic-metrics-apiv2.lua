@@ -409,7 +409,6 @@ end
 function EventQueue:format_event_host()
   local event = self.sc_event.event
   self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
-  self.sc_event.event.formated_event = {}
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
@@ -419,7 +418,6 @@ end
 function EventQueue:format_event_service()
   self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
   local event = self.sc_event.event
-  self.sc_event.event.formated_event = {}
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
@@ -441,8 +439,8 @@ end
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric service")
 
-  self.sc_event.event.formated_event["service_description"] = tostring(self.sc_event.event.cache.service.description)
   self:add_generic_information(metric)
+  self.sc_event.event.formated_event["service_description"] = tostring(self.sc_event.event.cache.service.description)
   self:add_generic_optional_information()
   self:add_service_optional_information()
   self:add()
@@ -508,7 +506,6 @@ function EventQueue:add()
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
-
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
