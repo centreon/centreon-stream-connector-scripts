@@ -291,6 +291,8 @@ function ScEvent:is_valid_host()
         break
       end
     end
+  else
+    is_valid_pattern = true
   end
 
   if not is_valid_pattern then
@@ -342,6 +344,8 @@ function ScEvent:is_valid_service()
         break
       end
     end
+  else
+    is_valid_pattern = true
   end
 
   if not is_valid_pattern then
