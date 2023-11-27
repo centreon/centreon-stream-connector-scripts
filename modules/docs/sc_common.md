@@ -1,58 +1,58 @@
 # Documentation of the sc_common module
 
-- [Documentation of the sc_common module](#documentation-of-the-sc_common-module)
+- [Documentation of the sc\_common module](#documentation-of-the-sc_common-module)
   - [Introduction](#introduction)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
-  - [ifnil_or_empty method](#ifnil_or_empty-method)
-    - [ifnil_or_empty: parameters](#ifnil_or_empty-parameters)
-    - [ifnil_or_empty: returns](#ifnil_or_empty-returns)
-    - [ifnil_empty: example](#ifnil_empty-example)
-  - [if_wrong_type method](#if_wrong_type-method)
-    - [if_wrong_type: parameters](#if_wrong_type-parameters)
-    - [if_wrong_type: returns](#if_wrong_type-returns)
-    - [if_wrong_type: example](#if_wrong_type-example)
-  - [boolean_to_number method](#boolean_to_number-method)
-    - [boolean_to_number: parameters](#boolean_to_number-parameters)
-    - [boolean_to_number: returns](#boolean_to_number-returns)
-    - [boolean_to_number: example](#boolean_to_number-example)
-  - [number_to_boolean method](#number_to_boolean-method)
-    - [number_to_boolean: parameters](#number_to_boolean-parameters)
-    - [number_to_boolean: returns](#number_to_boolean-returns)
-    - [number_to_boolean: example](#number_to_boolean-example)
-  - [check_boolean_number_option_syntax method](#check_boolean_number_option_syntax-method)
-    - [check_boolean_number_option_syntax: parameters](#check_boolean_number_option_syntax-parameters)
-    - [check_boolean_number_option_syntax: returns](#check_boolean_number_option_syntax-returns)
-    - [check_boolean_number_option_syntax: example](#check_boolean_number_option_syntax-example)
+  - [ifnil\_or\_empty method](#ifnil_or_empty-method)
+    - [ifnil\_or\_empty: parameters](#ifnil_or_empty-parameters)
+    - [ifnil\_or\_empty: returns](#ifnil_or_empty-returns)
+    - [ifnil\_empty: example](#ifnil_empty-example)
+  - [if\_wrong\_type method](#if_wrong_type-method)
+    - [if\_wrong\_type: parameters](#if_wrong_type-parameters)
+    - [if\_wrong\_type: returns](#if_wrong_type-returns)
+    - [if\_wrong\_type: example](#if_wrong_type-example)
+  - [boolean\_to\_number method](#boolean_to_number-method)
+    - [boolean\_to\_number: parameters](#boolean_to_number-parameters)
+    - [boolean\_to\_number: returns](#boolean_to_number-returns)
+    - [boolean\_to\_number: example](#boolean_to_number-example)
+  - [number\_to\_boolean method](#number_to_boolean-method)
+    - [number\_to\_boolean: parameters](#number_to_boolean-parameters)
+    - [number\_to\_boolean: returns](#number_to_boolean-returns)
+    - [number\_to\_boolean: example](#number_to_boolean-example)
+  - [check\_boolean\_number\_option\_syntax method](#check_boolean_number_option_syntax-method)
+    - [check\_boolean\_number\_option\_syntax: parameters](#check_boolean_number_option_syntax-parameters)
+    - [check\_boolean\_number\_option\_syntax: returns](#check_boolean_number_option_syntax-returns)
+    - [check\_boolean\_number\_option\_syntax: example](#check_boolean_number_option_syntax-example)
   - [split method](#split-method)
     - [split: parameters](#split-parameters)
     - [split: returns](#split-returns)
     - [split: example](#split-example)
-  - [compare_numbers method](#compare_numbers-method)
-    - [compare_numbers: parameters](#compare_numbers-parameters)
-    - [compare_numbers: returns](#compare_numbers-returns)
-    - [compare_numbers: example](#compare_numbers-example)
-  - [generate_postfield_param_string method](#generate_postfield_param_string-method)
-    - [generate_postfield_param_string: parameters](#generate_postfield_param_string-parameters)
-    - [generate_postfield_param_string: returns](#generate_postfield_param_string-returns)
-    - [generate_postfield_param_string: example](#generate_postfield_param_string-example)
-  - [load_json_file method](#load_json_file-method)
-    - [load_json_file: parameters](#load_json_file-parameters)
-    - [load_json_file: returns](#load_json_file-returns)
-    - [load_json_file: example](#load_json_file-example)
-  - [json_escape method](#json_escape-method)
-    - [json_escape: parameters](#json_escape-parameters)
-    - [json_escape: returns](#json_escape-returns)
-    - [json_escape: example](#json_escape-example)
-  - [xml_escape method](#xml_escape-method)
-    - [xml_escape: parameters](#xml_escape-parameters)
-    - [xml_escape: returns](#xml_escape-returns)
-    - [xml_escape: example](#xml_escape-example)
-  - [lua_regex_escape method](#lua_regex_escape-method)
-    - [lua_regex_escape: parameters](#lua_regex_escape-parameters)
-    - [lua_regex_escape: returns](#lua_regex_escape-returns)
-    - [lua_regex_escape: example](#lua_regex_escape-example)
+  - [compare\_numbers method](#compare_numbers-method)
+    - [compare\_numbers: parameters](#compare_numbers-parameters)
+    - [compare\_numbers: returns](#compare_numbers-returns)
+    - [compare\_numbers: example](#compare_numbers-example)
+  - [generate\_postfield\_param\_string method](#generate_postfield_param_string-method)
+    - [generate\_postfield\_param\_string: parameters](#generate_postfield_param_string-parameters)
+    - [generate\_postfield\_param\_string: returns](#generate_postfield_param_string-returns)
+    - [generate\_postfield\_param\_string: example](#generate_postfield_param_string-example)
+  - [load\_json\_file method](#load_json_file-method)
+    - [load\_json\_file: parameters](#load_json_file-parameters)
+    - [load\_json\_file: returns](#load_json_file-returns)
+    - [load\_json\_file: example](#load_json_file-example)
+  - [json\_escape method](#json_escape-method)
+    - [json\_escape: parameters](#json_escape-parameters)
+    - [json\_escape: returns](#json_escape-returns)
+    - [json\_escape: example](#json_escape-example)
+  - [xml\_escape method](#xml_escape-method)
+    - [xml\_escape: parameters](#xml_escape-parameters)
+    - [xml\_escape: returns](#xml_escape-returns)
+    - [xml\_escape: example](#xml_escape-example)
+  - [lua\_regex\_escape method](#lua_regex_escape-method)
+    - [lua\_regex\_escape: parameters](#lua_regex_escape-parameters)
+    - [lua\_regex\_escape: returns](#lua_regex_escape-returns)
+    - [lua\_regex\_escape: example](#lua_regex_escape-example)
   - [dumper method](#dumper-method)
     - [dumper: parameters](#dumper-parameters)
     - [dumper: returns](#dumper-returns)
@@ -61,6 +61,9 @@
     - [trim: parameters](#trim-parameters)
     - [trim: returns](#trim-returns)
     - [trim: example](#trim-example)
+  - [get\_bbdo\_version method](#get_bbdo_version-method)
+    - [get\_bbdo\_version: returns](#get_bbdo_version-returns)
+    - [get\_bbdo\_version: example](#get_bbdo_version-example)
 
 ## Introduction
 
@@ -522,8 +525,8 @@ The **trim** methods remove spaces (or the specified character) at the beginning
 
 ### trim: returns
 
-| return              | type   | always | condition |
-| ------------------- | ------ | ------ | --------- |
+| return               | type   | always | condition |
+| -------------------- | ------ | ------ | --------- |
 | the trimmed variable | string | yes    |           |
 
 ### trim: example
@@ -538,4 +541,21 @@ local string = ";;;;;;I'm no longer a space maaaaan;;;;;;;;;;;;;;"
 
 local result = test_common:trim(string, ";")
 --> result is: "I'm no longer a space maaaaan"
+```
+
+## get_bbdo_version method
+
+The **get_bbdo_version** method returns the first digit of the bbdo protocol version.
+
+### get_bbdo_version: returns
+
+| return           | type   | always | condition |
+| ---------------- | ------ | ------ | --------- |
+| the bbdo version | number | yes    |           |
+
+### get_bbdo_version: example
+
+```lua
+local result = test_common:get_bbdo_version()
+--> result is: 3
 ```

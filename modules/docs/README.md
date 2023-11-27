@@ -47,6 +47,7 @@
 | lua_regex_escape                   | escape lua regex special characters in a string                                             | [Documentation](sc_common.md#lua_regex_escape-method)                   |
 | dumper                             | dump any variable for debug purpose                                                         | [Documentation](sc_common.md#dumper-method)                             |
 | trim                               | trim spaces (or provided character) at the beginning and the end of a string                | [Documentation](sc_common.md#trim-method)                               |
+| get_bbdo_version                   | returns the first digit of the bbdo protocol version                                        | [Documentation](sc_common.md#get_bbdo_version-method)                   |
 
 ## sc_logger methods
 

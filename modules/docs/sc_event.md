@@ -73,9 +73,11 @@
     - [is\_valid\_bv: returns](#is_valid_bv-returns)
     - [is\_valid\_bv: example](#is_valid_bv-example)
   - [find\_hostgroup\_in\_list method](#find_hostgroup_in_list-method)
+    - [find\_hostgroup\_in\_list: parameters](#find_hostgroup_in_list-parameters)
     - [find\_hostgroup\_in\_list: returns](#find_hostgroup_in_list-returns)
     - [find\_hostgroup\_in\_list: example](#find_hostgroup_in_list-example)
   - [find\_servicegroup\_in\_list method](#find_servicegroup_in_list-method)
+    - [find\_servicegroup\_in\_list: parameters](#find_servicegroup_in_list-parameters)
     - [find\_servicegroup\_in\_list: returns](#find_servicegroup_in_list-returns)
     - [find\_servicegroup\_in\_list: example](#find_servicegroup_in_list-example)
   - [find\_bv\_in\_list method](#find_bv_in_list-method)
@@ -493,9 +495,9 @@ local result = test_event:is_valid_event_flapping_state()
 
 ## is_valid_hostgroup method
 
-The **is_valid_hostgroup** method checks if the event is in a valid hostgroup based on [**accepted_hostgroups**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+The **is_valid_hostgroup** method checks if the event is in a valid hostgroup based on [**accepted_hostgroups or rejected_hostgroups**](sc_param.md#default-parameters) in the **host_status or service_status** scope
 
-If the **accepted_hostgroup** is configured, all broker cache information regarding the hostgroups linked to a host will be added to the event in a cache.hostgroups table. More details about this cache table [**here**](sc_broker.md#get_hostgroups-example)
+If the **accepted_hostgroups or rejected_hostgroups** is configured, all broker cache information regarding the hostgroups linked to a host will be added to the event in a cache.hostgroups table. More details about this cache table [**here**](sc_broker.md#get_hostgroups-example)
 
 ### is_valid_hostgroup: returns
 
@@ -524,9 +526,9 @@ local result = test_event:is_valid_hostgroup()
 
 ## is_valid_servicegroup method
 
-The **is_valid_servicegroup** method checks if the event is in a valid servicegroup based on [**accepted_servicegroups**](sc_param.md#default-parameters) in the **service_status** scope
+The **is_valid_servicegroup** method checks if the event is in a valid servicegroup based on [**accepted_servicegroups or rejected_servicegroups**](sc_param.md#default-parameters) in the **service_status** scope
 
-If the **accepted_servicegroup** is configured, all broker cache information regarding the servicegroups linked to a service will be added to the event in a cache.servicegroups table. More details about this cache table [**here**](sc_broker.md#get_servicegroups-example)
+If the **accepted_servicegroup or rejected_servicegroups** is configured, all broker cache information regarding the servicegroups linked to a service will be added to the event in a cache.servicegroups table. More details about this cache table [**here**](sc_broker.md#get_servicegroups-example)
 
 ### is_valid_servicegroup: returns
 
@@ -666,7 +668,7 @@ local result = test_event:is_valid_ba_acknowledge_state()
 
 ## is_valid_bv method
 
-The **is_valid_bv** method checks if the event is linked to a valid BV based on [**accepted_bvs**](sc_param.md#default-parameters) in the **ba_status** scope
+The **is_valid_bv** method checks if the event is linked to a valid BV based on [**accepted_bvs or rejected_bvs**](sc_param.md#default-parameters) in the **ba_status** scope
 
 If the **accepted_bvs** is configured, all broker cache information regarding the BVs linked to a service will be added to the event in a cache.bvs table. More details about this cache table [**here**](sc_broker.md#get_bvs_infos-example)
 
@@ -697,7 +699,13 @@ local result = test_event:is_valid_bv()
 
 ## find_hostgroup_in_list method
 
-The **find_hostgroup_in_list** method checks if one of the hostgroup in [**accepted_hostgroups**](sc_param.md#default-parameters) is linked to the host.
+The **find_hostgroup_in_list** method checks if one of the hostgroup in the hostgroups list parameter ([**accepted_hostgroups or rejected_hostgroups parameters**](sc_param.md#default-parameters)) is linked to the host.
+
+### find_hostgroup_in_list: parameters
+
+| parameter                           | type   | optional | default value |
+|-------------------------------------| ------ | -------- | ------------- |
+| a coma separated list of hostgroups | string | no       |               |
 
 ### find_hostgroup_in_list: returns
 
@@ -712,19 +720,25 @@ The **find_hostgroup_in_list** method checks if one of the hostgroup in [**accep
 -- accepted_hostgroups are my_hostgroup_1 and my_hostgroup_2
 -- host from event is linked to my_hostgroup_2
 
-local result = test_event:find_hostgroup_in_list()
+local result = test_event:find_hostgroup_in_list(accepted_hostgroups)
 --> result is: "my_hostgroup_2"
 
 -- accepted_hostgroups are my_hostgroup_1 and my_hostgroup_2
 -- host from is linked to my_hostgroup_2712
 
-result = test_event:find_hostgroup_in_list()
+result = test_event:find_hostgroup_in_list(accepted_hostgroups)
 --> result is: false
 ```
 
 ## find_servicegroup_in_list method
 
-The **find_servicegroup_in_list** method checks if one of the servicegroup in [**accepted_servicegroups**](sc_param.md#default-parameters) is linked to the service.
+The **find_servicegroup_in_list** method checks if one of the servicegroup in the servicegroups list parameter ([**accepted_servicegroups or rejected_servicegroups**](sc_param.md#default-parameters)) is linked to the service.
+
+### find_servicegroup_in_list: parameters
+
+| parameter                              | type   | optional | default value |
+|----------------------------------------| ------ | -------- | ------------- |
+| a coma separated list of servicegroups | string | no       |               |
 
 ### find_servicegroup_in_list: returns
 
@@ -739,19 +753,25 @@ The **find_servicegroup_in_list** method checks if one of the servicegroup in [*
 -- accepted_servicegroups are my_servicegroup_1 and my_servicegroup_2
 -- service from event is linked to my_servicegroup_2
 
-local result = test_event:find_servicegroup_in_list()
+local result = test_event:find_servicegroup_in_list(accepted_servicegroups)
 --> result is: "my_servicegroup_2"
 
 -- accepted_servicegroups are my_servicegroup_1 and my_servicegroup_2
 -- service from is linked to my_servicegroup_2712
 
-result = test_event:find_servicegroup_in_list()
+result = test_event:find_servicegroup_in_list(accepted_servicegroups)
 --> result is: false
 ```
 
 ## find_bv_in_list method
 
-The **find_bv_in_list** method checks if one of the BV in [**accepted_bvs**](sc_param.md#default-parameters) is linked to the BA.
+The **find_bv_in_list** method checks if one of the BV in the bvs list parameter ([**accepted_bvs or rejected_bvs**](sc_param.md#default-parameters)) is linked to the BA.
+
+### find_bv_in_list: parameters
+
+| parameter                    | type   | optional | default value |
+|------------------------------| ------ | -------- | ------------- |
+| a coma separated list of bvs | string | no       |               |
 
 ### find_bv_in_list: returns
 
@@ -766,19 +786,19 @@ The **find_bv_in_list** method checks if one of the BV in [**accepted_bvs**](sc_
 -- accepted_bvs are my_bv_1 and my_bv_2
 -- BA from event is linked to my_bv_2
 
-local result = test_event:find_bv_in_list()
+local result = test_event:find_bv_in_list(accepted_bvs)
 --> result is: "my_bv_2"
 
 -- accepted_bvs are my_bv_1 and my_bv_2
 -- BA from is linked to my_bv_2712
 
-result = test_event:find_bv_in_list()
+result = test_event:find_bv_in_list(accepted_bvs)
 --> result is: false
 ```
 
 ## is_valid_poller method
 
-The **is_valid_poller** method checks if the event is monitored from an accepted poller based on [**accepted_pollers**](sc_param.md#default-parameters) in the **host_status or service_status** scope
+The **is_valid_poller** method checks if the event is monitored from an accepted poller based on [**accepted_pollers or rejected_pollers**](sc_param.md#default-parameters) in the **host_status or service_status** scope
 
 If the **accepted_pollers** is configured, all broker cache information regarding the poller linked to a host will be added to the event in a cache.poller index. More details about this cache index [**here**](sc_broker.md#get_instance-example)
 
@@ -807,7 +827,13 @@ local result = test_event:is_valid_poller()
 
 ## find_poller_in_list method
 
-The **find_poller_in_list** method checks if one of the pollers in [**accepted_pollers**](sc_param.md#default-parameters) is monitoring the host.
+The **find_poller_in_list** method checks if one of the pollers in the pollers list parameter ([**accepted_pollers or rejected_pollers**](sc_param.md#default-parameters)) is monitoring the host.
+
+### find_poller_in_list: parameters
+
+| parameter                        | type   | optional | default value |
+|----------------------------------| ------ | -------- | ------------- |
+| a coma separated list of pollers | string | no       |               |
 
 ### find_poller_in_list: returns
 
@@ -1024,7 +1050,7 @@ The **get_downtime_service_status** method retrieve the status of the host in a 
 
 ## is_valid_author method
 
-The **is_valid_author** method checks if the author of a comment is valid according to the [**accepted_authors parameter**](sc_param.md#default-parameters).
+The **is_valid_author** method checks if the author of a comment is valid according to the [**accepted_authors or rejected_authors parameter**](sc_param.md#default-parameters).
 
 ### is_valid_author: returns
 
@@ -1037,6 +1063,39 @@ The **is_valid_author** method checks if the author of a comment is valid accord
 ```lua
 local result = test_event:is_valid_author()
 --> result is true or false
+```
+
+## find_author_in_list method
+
+The **find_author_in_list** method checks if one of the author in the authors list parameter ([**accepted_authors or rejected_authors**](sc_param.md#default-parameters)) is the author of a comment.
+
+### find_author_in_list: parameters
+
+| parameter                        | type   | optional | default value |
+|----------------------------------| ------ | -------- | ------------- |
+| a coma separated list of authors | string | no       |               |
+
+### find_author_in_list: returns
+
+| return                                     | type    | always | condition            |
+|--------------------------------------------| ------- | ------ |----------------------|
+| the name of the first author that is found | string  | no     | an author must match |
+| false                                      | boolean | no     | if no author matched |
+
+### find_author_in_list: example
+
+```lua
+-- accepted_authors are author_1 and author_2
+-- author_1 is the author of the comment
+
+local result = test_event:find_author_in_list(accepted_authors)
+--> result is: "author_1"
+
+-- accepted_authors are author_1 and author_2
+-- author_3 is the author of the comment
+
+result = test_event:find_author_in_list(accepted_authors)
+--> result is: false
 ```
 
 ## is_downtime_event_useless method
