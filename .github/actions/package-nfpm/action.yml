@@ -68,15 +68,9 @@ runs:
         luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
         echo "luaver is $luaver"
 
-        for FILE in ${{ inputs.nfpm_file_pattern }}; do
-          DIRNAME=$(dirname $FILE)
-          BASENAME=$(basename $FILE)
-          cd $DIRNAME
-          sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" $BASENAME
-          nfpm package --config $BASENAME --packager ${{ inputs.package_extension }}
-          cd -
-          mv $DIRNAME/*.${{ inputs.package_extension }} ./
-        done
+        sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./packaging/connectors-lib/centreon-stream-connectors-lib.yaml
+        nfpm package --config ./packaging/connectors-lib/centreon-stream-connectors-lib.yaml --packager ${{ inputs.package_extension }}
+
       shell: bash
 
     - name: Cache packages
