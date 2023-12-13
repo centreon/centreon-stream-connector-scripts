@@ -6,6 +6,13 @@ RUN <<EOF
 
 apt-get update
 apt-get install -y debmake pbuilder aptitude zstd
+
+echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
+
+apt-get update
+
+apt-get install -y nfpm
+
 apt-get clean
 
 EOF
