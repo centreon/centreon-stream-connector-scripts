@@ -15,7 +15,7 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "./modules/centreon-stream-connectors-lib"
+  - src: "../modules/centreon-stream-connectors-lib"
     dst: "/usr/share/lua/@luaver@/centreon-stream-connectors-lib"
 
 overrides:
