@@ -68,45 +68,9 @@ jobs:
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
 
-  sign-rpm:
-    needs: [package]
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        distrib: [el8, el9]
-    name: sign rpm ${{ matrix.distrib }}
-    container:
-      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/rpm-signing:ubuntu
-      options: -t
-      credentials:
-        username: ${{ secrets.DOCKER_REGISTRY_ID }}
-        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
-
-    steps:
-      - run: apt-get install -y zstd
-        shell: bash
-
-      - uses: actions/checkout@v4
-
-      - uses: actions/cache@v3
-        with:
-          path: ./*.rpm
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
-
-      - run: echo "HOME=/root" >> $GITHUB_ENV
-        shell: bash
-
-      - run: rpmsign --addsign ./*.rpm
-        shell: bash
-
-      - uses: actions/cache@v3
-        with:
-          path: ./*.rpm
-          key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
-
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, sign-rpm]
+    needs: [get-environment]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
