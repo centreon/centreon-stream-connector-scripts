@@ -24,7 +24,7 @@ overrides:
       - lua-socket >= 3.0
   deb:
     depends:
-      # - "centreon-broker-core (>= 22.04.0)"
+      - "centreon-broker-core (>= 22.04.0)"
       - "lua-socket (>= 3.0~)"
       - "lua-curl"
 
