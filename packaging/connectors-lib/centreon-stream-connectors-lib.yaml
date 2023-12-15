@@ -22,6 +22,8 @@ overrides:
   rpm:
     depends:
       - lua-socket >= 3.0
+      - centreon-broker-core >= 22.04.0
+      - lua-curl
   deb:
     depends:
       - "centreon-broker-core (>= 22.04.0)"
