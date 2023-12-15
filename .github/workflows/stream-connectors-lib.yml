@@ -27,7 +27,7 @@ jobs:
     if: ${{ needs.get-environment.outputs.stability != 'stable' }}
 
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         distrib: [el8, el9, bullseye]
         include:

@@ -67,9 +67,9 @@ runs:
 
         luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
         echo "luaver is $luaver"
-
-        sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./packaging/connectors-lib/centreon-stream-connectors-lib.yaml
-        nfpm package --config ./packaging/connectors-lib/centreon-stream-connectors-lib.yaml --packager ${{ inputs.package_extension }}
+        sed -i "s/@luaver@/$luaver/g" ./${{ inputs.nfpm_file_pattern }}
+        sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./${{ inputs.nfpm_file_pattern }}
+        nfpm package --config ./${{ inputs.nfpm_file_pattern }} --packager ${{ inputs.package_extension }}
 
       shell: bash
 
