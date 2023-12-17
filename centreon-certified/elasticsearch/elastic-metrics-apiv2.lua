@@ -84,6 +84,8 @@ function EventQueue.new(params)
   self.sc_params.params.add_hostgroups_dimension = params.add_hostgroups_dimension or 1
   self.sc_params.params.add_poller_dimension = params.add_poller_dimension or 0
   self.sc_params.params.add_servicegroups_dimension = params.add_servicegroups_dimension or 0
+  self.sc_params.params.add_min_max_dimension = params.add_min_max_dimension or 0
+  self.sc_params.params.add_thresholds_dimension = params.add_thresholds_dimension or 0
   -- can't get geo coords from cache nor event
   -- self.sc_params.params.add_geocoords_dimension = params.add_geocoords_dimension or 0 
 
@@ -229,6 +231,42 @@ function EventQueue:build_index_template(params)
     -- table.insert(self.index_routing_path, "poller")
   end
 
+  -- add min and max property in the template
+  if params.add_min_max_dimension == 1 then
+    self.elastic_index_template.template.mappings.properties["metric_min"] = {
+      type = "keyword",
+      time_series_dimension = false
+    }
+
+    self.elastic_index_template.template.mappings.properties["metric_max"] = {
+      type = "keyword",
+      time_series_dimension = false
+    }
+  end
+
+  -- add warn and max property in the template
+  if params.add_thresholds_dimension == 1 then
+    self.elastic_index_template.template.mappings.properties["metric_warning_low"] = {
+      type = "keyword",
+      time_series_dimension = false
+    }
+
+    self.elastic_index_template.template.mappings.properties["metric_warning_high"] = {
+      type = "keyword",
+      time_series_dimension = false
+    }
+
+    self.elastic_index_template.template.mappings.properties["metric_critical_low"] = {
+      type = "keyword",
+      time_series_dimension = false
+    }
+
+    self.elastic_index_template.template.mappings.properties["metric_critical_high"] = {
+      type = "keyword",
+      time_series_dimension = false
+    }
+  end
+
 
   self.elastic_index_template.template.settings["index.routing_path"] = self.index_routing_path
   -- add geocoords property in the template
@@ -337,6 +375,18 @@ function EventQueue:validate_index_template(params)
     table.insert(required_index_mapping_properties, "service_groups")
   end
 
+  if params.add_min_max_dimension == 1 then
+    table.insert(required_index_mapping_properties, "metric_min")
+    table.insert(required_index_mapping_properties, "metric_max")
+  end
+
+  if params.add_thresholds_dimension == 1 then
+    table.insert(required_index_mapping_properties, "metric_warning_low")
+    table.insert(required_index_mapping_properties, "metric_warning_high")
+    table.insert(required_index_mapping_properties, "metric_critical_low")
+    table.insert(required_index_mapping_properties, "metric_critical_high")
+  end
+
   -- can't get geo coords from cache nor event
   --[[
     if params.add_geocoords_dimension == 1 then
@@ -441,7 +491,7 @@ function EventQueue:format_metric_service(metric)
 
   self:add_generic_information(metric)
   self.sc_event.event.formated_event["service_description"] = tostring(self.sc_event.event.cache.service.description)
-  self:add_generic_optional_information()
+  self:add_generic_optional_information(metric)
   self:add_service_optional_information()
   self:add()
 end
@@ -459,7 +509,7 @@ function EventQueue:add_generic_information(metric)
   }
 end
 
-function EventQueue:add_generic_optional_information()
+function EventQueue:add_generic_optional_information(metric)
   local params = self.sc_event.params
   local event = self.sc_event.event
 
@@ -478,6 +528,28 @@ function EventQueue:add_generic_optional_information()
   if params.add_poller_dimension == 1 then
     self.sc_event.event.formated_event.poller = event.cache.poller
   end
+
+  -- add min and max
+  if params.add_min_max_dimension == 1 then
+    self.sc_event.event.formated_event.metric_min = self:handle_NaN(metric.min)
+    self.sc_event.event.formated_event.metric_max = self:handle_NaN(metric.max)
+  end
+
+  -- add thresholds
+  if params.add_thresholds_dimension == 1 then
+    self.sc_event.event.formated_event.metric_warning_low = self:handle_NaN(metric.warning_low)
+    self.sc_event.event.formated_event.metric_warning_high = self:handle_NaN(metric.warning_high)
+    self.sc_event.event.formated_event.metric_critical_low = self:handle_NaN(metric.critical_low)
+    self.sc_event.event.formated_event.metric_critical_high = self:handle_NaN(metric.critical_high)
+  end
+end
+
+function EventQueue:handle_NaN(value)
+  if value == value then
+    return value
+  end
+
+  return nil
 end
 
 function EventQueue:add_service_optional_information() 
