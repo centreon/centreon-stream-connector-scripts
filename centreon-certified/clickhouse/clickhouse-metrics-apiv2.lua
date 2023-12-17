@@ -72,6 +72,7 @@ function EventQueue.new(params)
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
+  self.sc_params.params.use_deprecated_metric_system = params.use_deprecated_metric_system or 0
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -181,17 +182,43 @@ end
 function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   local event = self.sc_event.event
-  self.sc_event.event.formated_event = {
-    "'" .. tostring(event.cache.host.name) .. "',"
-    .. event.last_check .. ",'"
-    .. metric.metric_name .. "',"
-    .. metric.value .. ",'"
-    .. metric.uom .. "',"
-    .. self:convert_NaN(metric.min) .. ","
-    .. self:convert_NaN(metric.max) .. ",'"
-    .. self:get_service_name() .. "',"
-    .. self:get_hostgroups()
-  }
+  local params = self.sc_params.params
+
+  
+
+  
+  -- self.sc_event.event.formated_event = {
+  --   "'" .. tostring(event.cache.host.name) .. "',"
+  --   .. event.last_check .. ",'"
+  --   .. metric.metric_name .. "',"
+  --   .. metric.value .. ",'"
+  --   .. metric.uom .. "',"
+  --   .. self:convert_NaN(metric.min) .. ","
+  --   .. self:convert_NaN(metric.max) .. ",'"
+  --   .. self:get_service_name() .. "',"
+  --   .. self:get_hostgroups()
+  -- }
+  
+  local structure = "'" .. tostring(event.cache.host.name) .. "',"
+  .. event.last_check .. ",'"
+  .. metric.metric_name .. "',"
+  .. metric.value .. ",'"
+  .. metric.uom .. "',"
+  .. self:convert_NaN(metric.min) .. ","
+  .. self:convert_NaN(metric.max) .. ",'"
+  .. self:get_service_name() .. "',"
+  .. self:get_hostgroups()
+
+
+
+  -- add metric id ?
+  if params.use_deprecated_metric_system == 1 then
+    structure = structure .. ",'" .. event.metric_id .. "'"
+  else
+    structure = structure .. ",'" .. event.host_id .. "-" .. event.service_id .. "-" .. event.metric_name .. "'"
+  end
+
+  self.sc_event.event.formated_event = {structure}
 
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
@@ -260,7 +287,7 @@ end
 function EventQueue:build_payload(payload, event)
   if not payload then
     local params = self.sc_params.params
-    payload = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table .. " (host, timestamp, metric_name, metric_value, metric_unit, metric_min, metric_max, service, hostgroups) VALUES "
+    payload = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table .. " (host, timestamp, metric_name, metric_value, metric_unit, metric_min, metric_max, service, hostgroups, metric_id) VALUES "
       .. "(" .. event[1] .. ")"
   else
     payload = payload .. ",(" .. event[1] .. ")"
@@ -346,6 +373,38 @@ function EventQueue:send_data(payload, queue_metadata)
   return retval
 end
 
+function EventQueue:convert_metric_event(event)
+  local params = self.sc_params.params
+  
+  -- 
+  if event.category ~= params.bbdo.categories["storage"].id then
+    return false
+  end
+
+  if event.element ~= params.bbdo.elements["metric"].id then
+    return false
+  end
+
+  -- hack event to make stream connector lib think it is a standard status neb event.
+  event.perfdata = event.name .. "=" .. event.value .. ";;;;"
+  event.category = params.bbdo.categories["neb"].id
+  event.last_check = event.time or event.ctime
+
+  if not event.ctime then
+    event.last_check = event.time
+  else
+    event.last_check = event.ctime
+  end
+
+  if event.service_id and event.service_id ~= 0 then
+    event.element = params.bbdo.elements["service_status"].id
+  else
+    event.element = params.bbdo.elements["host_status"].id
+  end
+
+  return event
+end
+
 --------------------------------------------------------------------------------
 -- Required functions for Broker StreamConnector
 --------------------------------------------------------------------------------
@@ -367,6 +426,22 @@ function write (event)
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
     return false
+  end
+
+  if (event.element == 29) then
+    queue.sc_logger:notice(queue.sc_common:dumper(event))
+  end
+  if (event.category == 3 and event.category == 9) then
+      queue.sc_logger:notice("metric")
+      queue.sc_logger:notice(queue.sc_common:dumper(event))
+  end
+
+  if queue.sc_params.params.use_deprecated_metric_system == 1 then
+    event = queue:convert_metric_event(event)
+
+    if not event then
+      return flush()
+    end
   end
 
   -- initiate event object

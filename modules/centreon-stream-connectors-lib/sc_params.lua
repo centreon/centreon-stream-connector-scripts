@@ -185,6 +185,12 @@ function sc_params.new(common, logger)
         category_name = categories.bam.name,
         id = 1,
         name = "ba_status"
+      },
+      metric = {
+        category_id = categories.storage.id,
+        category_name = categories.storage.name,
+        id = 1,
+        name = "metric"
       }
     },
     [3] = {
@@ -217,6 +223,12 @@ function sc_params.new(common, logger)
         category_name = categories.bam.name,
         id = 19,
         name = "pb_ba_status"
+      },
+      metric = {
+        category_id = categories.storage.id,
+        category_name = categories.storage.name,
+        id = 9,
+        name = "metric"
       }
     }
   }
@@ -472,12 +484,7 @@ function sc_params.new(common, logger)
       id = 46,
       name = "pb_responsive_instance"
     },
-    metric = {
-      category_id = categories.storage.id,
-      category_name = categories.storage.name,
-      id = 1,
-      name = "metric"
-    },
+    metric = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["metric"],
     rebuild = {
       category_id = categories.storage.id,
       category_name = categories.storage.name,
