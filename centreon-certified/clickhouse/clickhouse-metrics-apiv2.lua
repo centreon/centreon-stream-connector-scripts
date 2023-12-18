@@ -163,6 +163,8 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  local event = self.sc_event.event
+  metric.custom_id = event.host_id .. "-" .. metric.metric_name
   self:format_metric_event(metric)
 end
 
@@ -172,6 +174,8 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  local event = self.sc_event.event
+  metric.custom_id = event.host_id .. "-" .. event.service_id .. "-" .. metric.metric_name
   self:format_metric_event(metric)
 end
 
@@ -213,7 +217,7 @@ function EventQueue:format_metric_event(metric)
   else
     -- add more info if you are using the standard system
     structure = structure 
-      .. ",'" .. event.host_id .. "-" .. event.service_id .. "-" .. metric.metric_name
+      .. ",'" .. metric.custom_id
       .. "','" .. metric.uom
       .. "'," .. self:convert_NaN(metric.min)
       .. "," .. self:convert_NaN(metric.max) .. ""
