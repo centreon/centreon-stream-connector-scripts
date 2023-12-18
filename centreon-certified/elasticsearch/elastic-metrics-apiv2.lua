@@ -43,6 +43,8 @@ function EventQueue.new(params)
   }
 
   self.fail = false
+  self.last_fail_message_date = 0
+  self.fail_message_counter = 0
 
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/elastic-metrics.log"
@@ -478,7 +480,7 @@ end
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric host")
   self:add_generic_information(metric)
-  self:add_generic_optional_information()
+  self:add_generic_optional_information(metric)
   self:add()
 end
 
@@ -710,7 +712,15 @@ end
 function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
-    queue.sc_logger:error("Skipping event because a mandatory parameter is not set or elastic index is not valid")
+    if queue.fail_message_counter <= 3 and queue.last_fail_message_date + 30 < os.time(os.date("*t")) then
+      queue.sc_logger:error("Skipping event because a mandatory parameter is not set or elastic index is not valid")
+      queue.last_fail_message_date = os.time(os.date("*t"))
+      queue.fail_message_counter = queue.fail_message_counter + 1
+    elseif queue.fail_message_counter > 3 and queue.last_fail_message_date + 300 < os.time(os.date("*t")) then
+      queue.sc_logger:error("Skipping event because a mandatory parameter is not set or elastic index is not valid")
+      queue.last_fail_message_date = os.time(os.date("*t"))
+      queue.fail_message_counter = queue.fail_message_counter + 1
+    end
     return false
   end
 
