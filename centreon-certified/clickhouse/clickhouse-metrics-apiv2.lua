@@ -387,7 +387,7 @@ end
 function EventQueue:convert_metric_event(event)
   local params = self.sc_params.params
   
-  -- 
+  -- drop the event if it is not a metric event from the storage category
   if event.category ~= params.bbdo.categories["storage"].id then
     return false
   end
