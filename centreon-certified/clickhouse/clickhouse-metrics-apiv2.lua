@@ -184,9 +184,6 @@ function EventQueue:format_metric_event(metric)
   local event = self.sc_event.event
   local params = self.sc_params.params
 
-  
-
-  
   -- self.sc_event.event.formated_event = {
   --   "'" .. tostring(event.cache.host.name) .. "',"
   --   .. event.last_check .. ",'"
@@ -199,23 +196,27 @@ function EventQueue:format_metric_event(metric)
   --   .. self:get_hostgroups()
   -- }
   
+  -- concatenation order is VERY IMPORTANT. It must match the order set in the query in the build_payload() method
   local structure = "'" .. tostring(event.cache.host.name) .. "',"
   .. event.last_check .. ",'"
   .. metric.metric_name .. "',"
   .. metric.value .. ",'"
-  .. metric.uom .. "',"
-  .. self:convert_NaN(metric.min) .. ","
-  .. self:convert_NaN(metric.max) .. ",'"
   .. self:get_service_name() .. "',"
   .. self:get_hostgroups()
 
 
 
-  -- add metric id ?
+  -- concatenation order is VERY IMPORTANT. It must match the order set in the query in the build_payload() method
+  -- add metric id
   if params.use_deprecated_metric_system == 1 then
-    structure = structure .. ",'" .. event.metric_id .. "'"
+    structure = structure .. "," .. event.metric_id
   else
-    structure = structure .. ",'" .. event.host_id .. "-" .. event.service_id .. "-" .. event.metric_name .. "'"
+    -- add more info if you are using the standard system
+    structure = structure 
+      .. ",'" .. event.host_id .. "-" .. event.service_id .. "-" .. metric.metric_name
+      .. "','" .. metric.uom
+      .. "'," .. self:convert_NaN(metric.min)
+      .. "," .. self:convert_NaN(metric.max) .. ""
   end
 
   self.sc_event.event.formated_event = {structure}
@@ -285,10 +286,20 @@ end
 -- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
+  local params = self.sc_params.params
+  local query_insert
+  
+  if self.use_deprecated_metric_system == 1 then
+    query_insert = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table 
+      .. " (host, timestamp, metric_name, metric_value, service, hostgroups, metric_id) VALUES ("
+  else
+    query_insert = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table 
+      .. " (host, timestamp, metric_name, metric_value, service, hostgroups, metric_id, metric_unit, metric_min, metric_max) VALUES ("
+  end
+  
   if not payload then
     local params = self.sc_params.params
-    payload = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table .. " (host, timestamp, metric_name, metric_value, metric_unit, metric_min, metric_max, service, hostgroups, metric_id) VALUES "
-      .. "(" .. event[1] .. ")"
+    payload = query_insert .. event[1] .. ")"
   else
     payload = payload .. ",(" .. event[1] .. ")"
   end
@@ -428,14 +439,7 @@ function write (event)
     return false
   end
 
-  if (event.element == 29) then
-    queue.sc_logger:notice(queue.sc_common:dumper(event))
-  end
-  if (event.category == 3 and event.category == 9) then
-      queue.sc_logger:notice("metric")
-      queue.sc_logger:notice(queue.sc_common:dumper(event))
-  end
-
+  -- to get the maximum compatibility between a storage metric event and a neb status event, we kind of convert the first into the later
   if queue.sc_params.params.use_deprecated_metric_system == 1 then
     event = queue:convert_metric_event(event)
 
