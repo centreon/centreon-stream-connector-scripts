@@ -948,7 +948,7 @@ function ScParams:param_override(user_params)
     self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(param_value))
     else
       self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name_verified) .. " is not handled by this stream connector")
-      end
+    end
   end
 end
 
