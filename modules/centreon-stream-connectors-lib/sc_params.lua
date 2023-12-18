@@ -118,7 +118,7 @@ function sc_params.new(common, logger)
     log_curl_commands = 0,
     
     -- metric
-    metric_name_regex = "",
+    metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
 
     -- initiate mappings
