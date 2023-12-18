@@ -293,7 +293,7 @@ function EventQueue:build_payload(payload, event)
   local params = self.sc_params.params
   local query_insert
   
-  if self.use_deprecated_metric_system == 1 then
+  if params.use_deprecated_metric_system == 1 then
     query_insert = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table 
       .. " (host, timestamp, metric_name, metric_value, service, hostgroups, metric_id) VALUES ("
   else
