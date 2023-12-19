@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install dependencies
         run: |
@@ -84,7 +84,7 @@ jobs:
 
       - if: ${{ matrix.lib == 'lua-curl' }}
         name: Checkout sources of lua-curl
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: Lua-cURL/Lua-cURLv3
           path: lua-curl-src
@@ -150,7 +150,7 @@ jobs:
         working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           path: ./*.${{ matrix.package_extension }}
           key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.lib }}-${{ matrix.distrib }}
@@ -174,7 +174,7 @@ jobs:
         password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install dependencies
         run: |
@@ -231,7 +231,7 @@ jobs:
         working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           path: ./*.${{ matrix.package_extension }}
           key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.lib }}-${{ matrix.distrib }}
@@ -255,9 +255,9 @@ jobs:
       - run: apt-get install -y zstd
         shell: bash
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           path: ./*.rpm
           key: unsigned-${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
@@ -268,7 +268,7 @@ jobs:
       - run: rpmsign --addsign ./*.rpm
         shell: bash
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           path: ./*.rpm
           key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
@@ -285,7 +285,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -308,7 +308,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
