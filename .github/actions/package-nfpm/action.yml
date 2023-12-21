@@ -57,15 +57,16 @@ runs:
 
         if  [ "${{ inputs.package_extension }}" = "rpm" ]; then
           export DIST=".${{ inputs.distrib }}"
+          luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
         else
           export DIST=""
+          luaver=$(lua -e "print(string.sub(_VERSION, 5.3))" 2>/dev/null || echo 0)
         fi
 
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
 
-        luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
         echo "luaver is $luaver"
         sed -i "s/@luaver@/$luaver/g" ./${{ inputs.nfpm_file_pattern }}
         sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./${{ inputs.nfpm_file_pattern }}
