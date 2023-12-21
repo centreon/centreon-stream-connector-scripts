@@ -60,7 +60,7 @@ runs:
           luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
         else
           export DIST=""
-          luaver=$(lua -e "print(string.sub(_VERSION, 5.3))" 2>/dev/null || echo 0)
+          luaver=$(lua -e "print(string.match(_VERSION, '%d+.%d+'))" 2>/dev/null || echo 0)
         fi
 
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
