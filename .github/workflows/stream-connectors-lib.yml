@@ -9,14 +9,12 @@ on:
   pull_request:
     paths:
       - modules/centreon-stream-connectors-lib/**
-      - '.github/workflows/stream-connectors-lib.yml'
   push:
     branches:
       - develop
       - master
     paths:
       - modules/centreon-stream-connectors-lib/**
-      - '.github/workflows/stream-connectors-lib.yml'
 
 jobs:
   get-environment:
@@ -24,7 +22,6 @@ jobs:
 
   package:
     needs: [get-environment]
-    if: ${{ needs.get-environment.outputs.stability != 'stable' }}
 
     strategy:
       fail-fast: false
