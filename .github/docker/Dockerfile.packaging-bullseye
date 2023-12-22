@@ -5,7 +5,7 @@ FROM ${REGISTRY_URL}/debian:bullseye
 RUN <<EOF
 
 apt-get update
-apt-get install -y debmake pbuilder aptitude zstd ca-certificates
+apt-get install -y debmake pbuilder aptitude zstd ca-certificates lua
 
 echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
 
