@@ -24,7 +24,7 @@ overrides:
       - centreon-stream-connectors-lib >= ${MIN_LIB_VERSION}
   deb:
     depends:
-      - "centreon-stream-connectors-lib (>=@MIN_LIB_VERSION@)"
+      - "centreon-stream-connectors-lib (>= ${MIN_LIB_VERSION})"
 
 rpm:
   summary: Centreon stream connectors lua modules
