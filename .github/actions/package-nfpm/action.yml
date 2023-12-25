@@ -66,6 +66,7 @@ runs:
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
 
         version=`date '+%Y%m%d'`
+        echo "[DEBUG] - $version"
         for pack in `ls ./centreon-certified`; do
             echo "[DEBUG] - $pack"
             sed -e "s/@PACKAGE_NAME@/$pack/g" -e "s/@VERSION@/$version/g" < packaging/connectors/centreon-stream-connectors.yaml >> packaging/connectors/$pack.yaml
