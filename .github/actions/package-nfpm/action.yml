@@ -70,7 +70,6 @@ runs:
             echo "[DEBUG] - $pack"
             sed -e "s/@PACKAGE_NAME@/$pack/g" -e "s/@VERSION@/$version/g" < packaging/connectors/centreon-stream-connectors.yaml >> packaging/connectors/$pack.yaml
             nfpm package --config packaging/connectors/$pack.yaml --packager ${{ inputs.package_extension }}
-          fi
         done
       shell: bash
 
