@@ -9,12 +9,14 @@ on:
   pull_request:
     paths:
       - centreon-certified/**
+      - '.github/workflows/stream-connectors.yml'
   push:
     branches:
       - develop
       - master
     paths:
       - centreon-certified/**
+      - '.github/workflows/stream-connectors.yml'
 
 jobs:
   get-environment:
