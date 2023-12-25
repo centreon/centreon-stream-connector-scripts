@@ -61,21 +61,17 @@ runs:
           export DIST=""
         fi
 
-        luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
-        echo "luaver is $luaver"
-        if [ $luaver = "0" ]; then
-          echo "Cannot get lua version"
-          exit 1
-        fi
-
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
 
-        sed -i "s/@luaver@/$luaver/g" ./${{ inputs.nfpm_file_pattern }}
-        sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./${{ inputs.nfpm_file_pattern }}
-        nfpm package --config ./${{ inputs.nfpm_file_pattern }} --packager ${{ inputs.package_extension }}
-
+        version=`date '+%Y%m%d'`
+        for pack in `ls ./centreon-certified`; do
+            echo "[DEBUG] - $pack"
+            sed -e "s/@PACKAGE_NAME@/$pack/g" -e "s/@VERSION@/$version/g" < packaging/connectors/centreon-stream-connectors.yaml >> packaging/connectors/$pack.yaml
+            nfpm package --config packaging/connectors/$pack.yaml --packager ${{ inputs.package_extension }}
+          fi
+        done
       shell: bash
 
     - name: Cache packages
