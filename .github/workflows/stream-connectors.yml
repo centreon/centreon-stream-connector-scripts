@@ -54,7 +54,7 @@ jobs:
         shell: bash
 
   package:
-    if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
+    # if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
     needs: [detect-changes]
     runs-on: ubuntu-22.04
     strategy:
