@@ -2,10 +2,16 @@ ARG REGISTRY_URL
 
 FROM ${REGISTRY_URL}/debian:bullseye
 
-RUN <<EOF
+RUN bash -e <<EOF
 
 apt-get update
-apt-get install -y debmake pbuilder aptitude zstd
+apt-get install -y debmake pbuilder aptitude zstd ca-certificates lua5.4
+
+echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
+
+apt-get update
+apt-get install -y nfpm
+
 apt-get clean
 
 EOF
