@@ -54,6 +54,19 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
+            yum install -y yum-utils epel-release
+            yum config-manager --set-enabled crb || true
+            yum config-manager --set-enabled powertools || true
+            yum install -y git make gcc luarocks meson gcc-c++ cmake libffi libffi-devel lua-devel libcurl-devel
+          else
+            apt update
+            apt install -y git make gcc luarocks meson cmake libffi7 libffi-dev lua5.3 liblua5.3-dev
+          fi
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
