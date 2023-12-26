@@ -69,7 +69,7 @@ jobs:
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment]
+    needs: [get-environment, package]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -92,7 +92,7 @@ jobs:
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package-deb]
+    needs: [get-environment, package]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
