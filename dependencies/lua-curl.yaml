@@ -14,16 +14,16 @@ vendor: "Centreon"
 homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
-# contents:
-#   - src: "lua-curl-src/"
-#     dst: "/usr/lib64/lua/@luaver@/*"
-#     file_info:
-#       mode: 0755
+contents:
+  - src: "lua-curl-src/"
+    dst: "/usr/lib64/lua/@luaver@/*"
+    file_info:
+      mode: 0755
 
-#   - src: ""
-#     dst: "/usr/share/lua/@luaver@/*"
-#     file_info:
-#       mode: 0755
+  - src: "lua-curl-src/"
+    dst: "/usr/share/lua/@luaver@/*"
+    file_info:
+      mode: 0755
 
 overrides:
   rpm:
