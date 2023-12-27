@@ -86,9 +86,13 @@ jobs:
           luarocks install luatz
           luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
           cat version.txt
-
+          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
           mkdir ${{ matrix.lib }}
           cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+          else
+          cp -rp /usr/local/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+          fi
+
         working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
