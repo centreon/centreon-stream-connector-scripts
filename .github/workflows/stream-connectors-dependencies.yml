@@ -153,7 +153,7 @@ jobs:
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "dependencies/lua-cffi/packaging/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-*/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
