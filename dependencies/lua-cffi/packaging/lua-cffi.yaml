@@ -15,7 +15,7 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "dependencies/lua-cffi/cffi.so"
+  - src: "./cffi.so"
     dst: "/usr/lib64/lua/@luaver@/cffi.so"
 
 overrides:
