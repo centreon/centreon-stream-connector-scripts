@@ -74,6 +74,7 @@ runs:
 
         sed -i "s/@luaver@/$luaver/g" ./${{ inputs.nfpm_file_pattern }}
         sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./${{ inputs.nfpm_file_pattern }}
+        echo "Current directory: $(pwd)"
         nfpm package --config ./${{ inputs.nfpm_file_pattern }} --packager ${{ inputs.package_extension }}
 
       shell: bash
