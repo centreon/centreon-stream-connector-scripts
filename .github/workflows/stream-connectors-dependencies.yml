@@ -29,6 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         distrib: [el8, el9, bullseye]
+        lib: [lua-cffi, lua-tz, lua-curl]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-alma8
@@ -52,7 +53,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install dependencies
         run: |
@@ -65,6 +66,89 @@ jobs:
             apt update
             apt install -y git make gcc luarocks meson cmake libffi7 libffi-dev lua5.3 liblua5.3-dev
           fi
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-cffi' }}
+        name: Prepare packaging of lua-cffi
+        run: |
+          luarocks install cffi-lua
+          luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          cat version.txt
+
+          mkdir ${{ matrix.lib }}
+          find /usr/ -type f -name "cffi.so" -exec cp {} ${{ matrix.lib }}/ \;
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-tz' }}
+        name: Prepare packaging of lua-tz
+        run: |
+          luarocks install luatz
+          luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          cat version.txt
+
+          mkdir ${{ matrix.lib }}
+          cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+        working-directory: dependencies/${{ matrix.lib }}
+        shell: bash
+
+      - if: ${{ matrix.lib == 'lua-curl' }}
+        name: Checkout sources of lua-curl
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: Lua-cURL/Lua-cURLv3
+          path: lua-curl-src
+          ref: v0.3.13
+
+      - if: ${{ matrix.lib == 'lua-curl' }}
+        name: Compile lua-curl and prepare packaging
+        run: |
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+
+          cpanm \
+            IPC::Cmd \
+            Digest::SHA \
+            Thread::Queue \
+            IO::Socket::SSL \
+            File::Copy \
+            File::Compare
+
+          cd lua-curl-src
+
+          pip3 install conan
+          conan profile detect
+
+          cat <<'EOF' >> conanfile.txt
+          [requires]
+          libcurl/8.0.1
+          openssl/1.1.1t
+          zlib/1.2.13
+
+          [generators]
+          CMakeToolchain
+
+          [options]
+          libcurl/*:with_ca_bundle=/etc/ssl/certs/ca-bundle.crt
+          libcurl/*:with_ca_fallback=False
+          libcurl/*:with_ca_path=/etc/ssl/certs/
+          EOF
+
+          conan install . --build=missing --deployer=full_deploy
+
+          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
+          make
+
+          cd ..
+
+          mkdir -p dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp -p lua-curl-src/lcurl.so dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp -rp lua-curl-src/src/lua/cURL dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          cp -p lua-curl-src/src/lua/cURL.lua dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+
+          cd dependencies/${{ matrix.lib }}
+
+          echo "0.3.13" >> version.txt
+
         shell: bash
 
       - name: Package
