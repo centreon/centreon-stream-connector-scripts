@@ -15,7 +15,7 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "dependencies/lua-curl/lua-curl/"
+  - src: "../lua-curl/"
     dst: "/usr/lib64/lua/@luaver@/*"
     file_info:
       mode: 0755
