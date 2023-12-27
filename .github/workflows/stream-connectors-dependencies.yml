@@ -148,13 +148,12 @@ jobs:
           cd dependencies/${{ matrix.lib }}
 
           echo "0.3.13" >> version.txt
-
         shell: bash
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "../dependencies/lua-*/packaging/*.yaml"
+          nfpm_file_pattern: "dependencies/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
