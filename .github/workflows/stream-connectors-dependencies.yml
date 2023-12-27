@@ -92,7 +92,7 @@ jobs:
         working-directory: dependencies/${{ matrix.lib }}
         shell: bash
 
-      - if: ${{ matrix.lib == 'lua-curl' }}
+      - if: ${{ matrix.lib == 'lua-curl' }} && ${{ matrix.package_extension == 'rpm'  }}
         name: Checkout sources of lua-curl
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
@@ -100,7 +100,7 @@ jobs:
           path: lua-curl-src
           ref: v0.3.13
 
-      - if: ${{ matrix.lib == 'lua-curl' }}
+      - if: ${{ matrix.lib == 'lua-curl' }} && ${{ matrix.package_extension == 'rpm'  }}
         name: Compile lua-curl and prepare packaging
         run: |
           dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus

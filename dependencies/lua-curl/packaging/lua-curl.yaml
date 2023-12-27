@@ -21,7 +21,7 @@ contents:
       mode: 0755
     packager: rpm
 
-  - src: "dependencies/lua-curl/lua-curl/"
+  - src: "../lua-curl/"
     dst: "/usr/share/lua/@luaver@/*"
     file_info:
       mode: 0755
