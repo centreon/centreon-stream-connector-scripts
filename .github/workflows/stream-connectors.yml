@@ -54,13 +54,13 @@ jobs:
         shell: bash
 
   package:
-    # if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
-    # needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
+    needs: [detect-changes]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         distrib: [el8, el9, bullseye]
-        # connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
+        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
             image: packaging-stream-connectors-alma8
@@ -72,8 +72,7 @@ jobs:
             image: packaging-stream-connectors-bullseye
             package_extension: deb
 
-    # name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
-    name: package ${{ matrix.distrib }}
+    name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
       credentials:

@@ -68,11 +68,14 @@ runs:
 
         version=`date '+%Y%m%d'`
         echo "[DEBUG] - $version"
-        for pack in `ls ./centreon-certified`; do
-            echo "[DEBUG] - $pack"
-            sed -e "s/@PACKAGE_NAME@/$pack/g" -e "s/@VERSION@/$version/g" < ${{ inputs.nfpm_file_pattern }} >> packaging/connectors/$pack.yaml
-            nfpm package --config packaging/connectors/$pack.yaml --packager ${{ inputs.package_extension }}
-        done
+        sed -i "s/@VERSION@/$version/g" ${{ inputs.nfpm_file_pattern }}
+        nfpm package --config ${{ inputs.nfpm_file_pattern }} --packager ${{ inputs.package_extension }}
+
+        # for pack in `ls ./centreon-certified`; do
+        #     echo "[DEBUG] - $pack"
+        #     sed -e "s/@PACKAGE_NAME@/$pack/g" -e "s/@VERSION@/$version/g" < ${{ inputs.nfpm_file_pattern }} >> packaging/connectors/$pack.yaml
+        #     nfpm package --config packaging/connectors/$pack.yaml --packager ${{ inputs.package_extension }}
+        # done
       shell: bash
 
     - name: Cache packages
