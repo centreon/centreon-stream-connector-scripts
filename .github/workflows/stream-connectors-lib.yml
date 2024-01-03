@@ -21,115 +21,53 @@ jobs:
     uses: ./.github/workflows/get-environment.yml
 
   package:
-    runs-on: ubuntu-22.04
+    needs: [get-environment]
+
     strategy:
+      fail-fast: false
       matrix:
         distrib: [el8, el9, bullseye]
         include:
-          - distrib: el8
+          - package_extension: rpm
             image: packaging-stream-connectors-alma8
-            package_extension: rpm
-          - distrib: el9
+            distrib: el8
+          - package_extension: rpm
             image: packaging-stream-connectors-alma9
-            package_extension: rpm
-          - distrib: bullseye
+            distrib: el9
+          - package_extension: deb
             image: packaging-stream-connectors-bullseye
-            package_extension: deb
-    name: package ${{ matrix.distrib }}
+            distrib: bullseye
+
+    runs-on: ubuntu-22.04
+
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
       credentials:
         username: ${{ secrets.DOCKER_REGISTRY_ID }}
         password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
 
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
-      - if: ${{ matrix.package_extension == 'rpm' }}
-        run: |
-          yum install -y yum-utils
-          yum config-manager --set-enabled crb || true # alma 9
-          yum config-manager --set-enabled powertools || true # alma 8
-          yum install -y lua lua-devel
-          mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-
-          cd modules
-          tar czf ~/rpmbuild/SOURCES/centreon-stream-connectors-lib.tar.gz centreon-stream-connectors-lib
-          cd ..
-
-          rpmbuild -ba packaging/connectors-lib/rpm/centreon-stream-connectors-lib.spec
-
-          mv ~/rpmbuild/RPMS/**/*.rpm ./
-        shell: bash
-
-      - if: ${{ matrix.package_extension == 'deb' }}
-        run: |
-          PACKAGE_VERSION=`cat packaging/connectors-lib/deb/control | grep "^Version:" | cut -d" " -f2`
-          mkdir -p centreon-stream-connectors-lib-$PACKAGE_VERSION/debian
-
-          cp -rp modules/centreon-stream-connectors-lib/* centreon-stream-connectors-lib-$PACKAGE_VERSION/
-          cp -rp packaging/connectors-lib/deb/* centreon-stream-connectors-lib-$PACKAGE_VERSION/debian/
-
-          tar czf centreon-stream-connectors-lib-$PACKAGE_VERSION.tar.gz centreon-stream-connectors-lib-$PACKAGE_VERSION
-
-          cd centreon-stream-connectors-lib-$PACKAGE_VERSION
-
-          apt-get update
-          debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
-          debuild-pbuilder --no-lintian
-        shell: bash
-
-      - if: ${{ matrix.package_extension == 'deb' }}
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
-        with:
-          path: ./*.${{ matrix.package_extension }}
-          key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
-
-      - if: ${{ matrix.package_extension == 'rpm' }}
-        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
-        with:
-          path: ./*.${{ matrix.package_extension }}
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
-
-  sign-rpm:
-    needs: [package]
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        distrib: [el8, el9]
-    name: sign rpm ${{ matrix.distrib }}
-    container:
-      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/rpm-signing:ubuntu
-      options: -t
-      credentials:
-        username: ${{ secrets.DOCKER_REGISTRY_ID }}
-        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
+    name: package ${{ matrix.distrib }}
 
     steps:
-      - run: apt-get install -y zstd
-        shell: bash
+      - name: Checkout sources
+        uses: actions/checkout@v4
 
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
-      - uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+      - name: Package
+        uses: ./.github/actions/package-nfpm
         with:
-          path: ./*.rpm
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
-
-      - run: echo "HOME=/root" >> $GITHUB_ENV
-        shell: bash
-
-      - run: rpmsign --addsign ./*.rpm
-        shell: bash
-
-      - uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
-        with:
-          path: ./*.rpm
-          key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
+          nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
+          distrib: ${{ matrix.distrib }}
+          package_extension: ${{ matrix.package_extension }}
+          arch: all
+          commit_hash: ${{ github.sha }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
+          rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
+          rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, sign-rpm]
+    needs: [get-environment]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
