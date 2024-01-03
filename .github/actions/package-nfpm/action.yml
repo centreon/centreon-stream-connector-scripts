@@ -60,7 +60,8 @@ runs:
         else
           export DIST=""
         fi
-
+        MIN_LIB_VERSION="3.0.0"
+        export MIN_LIB_VERSION="$MIN_LIB_VERSION"
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"

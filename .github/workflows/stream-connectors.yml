@@ -85,13 +85,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Add specific dependencies
-        id: list-dependencies
-        run: |
-          MIN_LIB_VERSION="3.0.0"
-          echo "min_lib_version=$MIN_LIB_VERSION" >> $GITHUB_OUTPUT
-        shell: bash
-
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
