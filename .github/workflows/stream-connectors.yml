@@ -84,6 +84,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: package name variable
+        run: |
+          sed -i "s/@PACKAGE_NAME@/${{ matrix.connector_path }}/g" ./packaging/connectors/centreon-stream-connectors.yaml
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:

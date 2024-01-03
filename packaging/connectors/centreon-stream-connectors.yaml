@@ -15,7 +15,7 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "./centreon-certified"
+  - src: "./centreon-certified/@PACKAGE_NAME@"
     dst: "/usr/share/centreon-broker/lua"
 
 overrides:
