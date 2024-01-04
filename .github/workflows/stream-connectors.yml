@@ -96,8 +96,8 @@ jobs:
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
           if [ "${{ matrix.connector_path }}" = "kafka" ]; then
-            DEB_DEPENDENCIES="librdkafka1,lua-cffi"
-            RPM_DEPENDENCIES="librdkafka,lua-cffi"
+            DEB_DEPENDENCIES=("librdkafka1" "lua-cffi")
+            RPM_DEPENDENCIES=("librdkafka" "lua-cffi")
           elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
@@ -113,15 +113,15 @@ jobs:
         run: |
           touch dependencies.txt
           if [ ! -z "${{ steps.list-dependencies.outputs.rpm_dependencies }}" ]; then
-            for dependency in "${{ steps.list-dependencies.outputs.rpm_dependencies }}"; do
+            for dependency in "${{ steps.list-dependencies.outputs.rpm_dependencies }}[@]"; do
               echo "      - $dependency" >> dependencies.txt
               echo "$dependency"
             done
           fi
-          sed -i '/^overrides/,/^rpm:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i '/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
 
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
-            for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
+            for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}[@]"; do
               echo "- $dependency" >> dependencies.txt
             done
           fi
