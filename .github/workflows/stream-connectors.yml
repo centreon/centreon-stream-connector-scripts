@@ -117,7 +117,7 @@ jobs:
               echo "      - $dependency" >> dependencies.txt
             done
           fi
-          sed -i '/^rpm:/,/depends:/ depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          awk '/^rpm:/,/depends:/ {if (/depends:/) print "      - " $0 "\n'"$(awk '{print "      - " $0}' dependencies.txt)"'"; else print $0}' ./packaging/connectors/centreon-stream-connectors.yaml > tmp.yaml && mv tmp.yaml ./packaging/connectors/centreon-stream-connectors.yaml
 
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
