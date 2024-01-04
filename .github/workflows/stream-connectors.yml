@@ -124,6 +124,7 @@ jobs:
             done
           fi
           sed -i '/deb:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          cat ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Package
