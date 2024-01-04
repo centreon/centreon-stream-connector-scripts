@@ -147,8 +147,8 @@ function EventQueue:add(e)
       end
     end
   end
-  
-  local pdy_dedup_key 
+
+  local pdy_dedup_key
   if e.service_id then --to remain consistent in the alert handling even in the event of the loss of the broker cache, we should use the ids to link the events
     pdy_dedup_key = e.host_id .. "_" .. e.service_id
   else
