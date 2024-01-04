@@ -117,13 +117,15 @@ jobs:
               echo "- $dependency" >> dependencies.txt
             done
           fi
-          sed -i '/rpm:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i '/^rpm:/,/depends:/ {/depends:/r dependencies.txt
+                           }' ./packaging/connectors/centreon-stream-connectors.yaml
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
               echo "- $dependency" >> dependencies.txt
             done
           fi
-          sed -i '/deb:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i '/^deb:/,/depends:/ {/depends:/r dependencies.txt
+                           }' ./packaging/connectors/centreon-stream-connectors.yaml
           cat ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
