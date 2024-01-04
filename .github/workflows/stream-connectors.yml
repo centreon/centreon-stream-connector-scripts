@@ -118,7 +118,7 @@ jobs:
               echo "$dependency"
             done
           fi
-          sed -i '/overrides/,/rpm:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i '/^overrides/,/^rpm:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
 
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
