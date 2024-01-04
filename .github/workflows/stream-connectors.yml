@@ -97,15 +97,17 @@ jobs:
           if [ "${{ matrix.connector_path }}" = "kafka" ]; then
             DEPENDENCIES=("librdkafka1" "lua-cffi")
             for dependency in "${DEPENDENCIES[@]}"; do
-              export DEB_DEPENDENCIES="$dependency"
-              export RPM_DEPENDENCIES="$dependency"
+              sed -i "s/@DEB_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
+              sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
             done
           elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
-            export DEB_DEPENDENCIES="lua-tz"
-            export RPM_DEPENDENCIES="lua-tz"
+            dependency = "lua-tz"
+            sed -i "s/@DEB_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
+            sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
           elif [ "${{ matrix.connector_path }}" = "splunk" ]; then
-            export DEB_DEPENDENCIES="lua-tz"
-            export RPM_DEPENDENCIES="lua-tz"
+            dependency = "lua-tz"
+            sed -i "s/@DEB_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
+            sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
           fi
         shell: bash
 
