@@ -101,13 +101,13 @@ jobs:
               sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
             done
           elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
-            dependency = "lua-tz"
-            sed -i "s/@DEB_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
-            sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
+            DEPENDENCY = "lua-tz"
+            sed -i "s/@DEB_DEPENDENCIES@/$DEPENDENCY/g" ./packaging/connectors/centreon-stream-connectors.yaml
+            sed -i "s/@RPM_DEPENDENCIES@/$DEPENDENCY/g" ./packaging/connectors/centreon-stream-connectors.yaml
           elif [ "${{ matrix.connector_path }}" = "splunk" ]; then
-            dependency = "lua-tz"
-            sed -i "s/@DEB_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
-            sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
+            DEPENDENCY = "lua-tz"
+            sed -i "s/@DEB_DEPENDENCIES@/$DEPENDENCY/g" ./packaging/connectors/centreon-stream-connectors.yaml
+            sed -i "s/@RPM_DEPENDENCIES@/$DEPENDENCY/g" ./packaging/connectors/centreon-stream-connectors.yaml
           fi
         shell: bash
 
