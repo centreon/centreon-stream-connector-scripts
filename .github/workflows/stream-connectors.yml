@@ -90,25 +90,40 @@ jobs:
           sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
-      - name: Add specific dependencies
+      - name: Dependency configuration
+        id: list-dependencies
         run: |
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
           if [ "${{ matrix.connector_path }}" = "kafka" ]; then
-            DEPENDENCIES=("librdkafka1" "lua-cffi")
-            for dependency in "${DEPENDENCIES[@]}"; do
-              sed -i "s/@DEB_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
-              sed -i "s/@RPM_DEPENDENCIES@/$dependency/g" ./packaging/connectors/centreon-stream-connectors.yaml
-            done
+            DEB_DEPENDENCIES="librdkafka1,lua-cffi"
+            RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
-            sed -i 's/@DEB_DEPENDENCIES@/"lua-tz"/g' ./packaging/connectors/centreon-stream-connectors.yaml
-            sed -i 's/@RPM_DEPENDENCIES@/"lua-tz"/g' ./packaging/connectors/centreon-stream-connectors.yaml
+            DEB_DEPENDENCIES="lua-tz"
+            RPM_DEPENDENCIES="lua-tz"
           elif [ "${{ matrix.connector_path }}" = "splunk" ]; then
-            sed -i 's/@DEB_DEPENDENCIES@/"lua-tz"/g' ./packaging/connectors/centreon-stream-connectors.yaml
-            sed -i 's/@RPM_DEPENDENCIES@/"lua-tz"/g' ./packaging/connectors/centreon-stream-connectors.yaml
+            DEB_DEPENDENCIES="lua-tz"
+            RPM_DEPENDENCIES="lua-tz"
           fi
-          echo "@RPM_DEPENDENCIES@"
-          echo "@DEB_DEPENDENCIES@"
+          echo "deb_dependencies=$DEB_DEPENDENCIES" >> $GITHUB_OUTPUT
+          echo "rpm_dependencies=$RPM_DEPENDENCIES" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Add specific dependencies
+        run: |
+          touch dependencies.txt
+          if [ ! -z "${{ steps.list-dependencies.outputs.rpm_dependencies }}" ]; then
+            for dependency in "${{ steps.list-dependencies.outputs.rpm_dependencies }}"; do
+              echo "  - $dependency" >> dependencies.txt
+            done
+          fi
+          sed -i '/rpm:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+          if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
+            for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
+              echo "  - $dependency" >> dependencies.txt
+            done
+          fi
+          sed -i '/deb:/,/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Package
