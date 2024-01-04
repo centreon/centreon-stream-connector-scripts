@@ -116,13 +116,14 @@ jobs:
             for dependency in "${{ steps.list-dependencies.outputs.rpm_dependencies }}"; do
               echo "      - $dependency" >> dependencies.txt
               echo "$dependency"
+              sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
-          sed -i '/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+  
 
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
-              echo "- $dependency" >> dependencies.txt
+              echo "      - $dependency" >> dependencies.txt
             done
           fi
           sed -i '/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
