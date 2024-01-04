@@ -119,7 +119,6 @@ jobs:
               sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
-  
 
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
