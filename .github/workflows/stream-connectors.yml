@@ -82,11 +82,31 @@ jobs:
     steps:
 
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: package name variable
+      - name: Replace package name variable
         run: |
-          sed -i "s/@PACKAGE_NAME@/${{ matrix.connector_path }}/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          package_name="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
+          sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+        shell: bash
+
+      - name: Add specific dependencies
+        run: |
+          DEB_DEPENDENCIES=""
+          RPM_DEPENDENCIES=""
+          if [ "${{ matrix.connector_path }}" = "kafka" ]; then
+            DEPENDENCIES=("librdkafka1" "lua-cffi")
+            for dependency in "${DEPENDENCIES[@]}"; do
+              export DEB_DEPENDENCIES="$dependency"
+              export RPM_DEPENDENCIES="$dependency"
+            done
+          elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
+            export DEB_DEPENDENCIES="lua-tz"
+            export RPM_DEPENDENCIES="lua-tz"
+          elif [ "${{ matrix.connector_path }}" = "splunk" ]; then
+            export DEB_DEPENDENCIES="lua-tz"
+            export RPM_DEPENDENCIES="lua-tz"
+          fi
         shell: bash
 
       - name: Package
