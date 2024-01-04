@@ -107,6 +107,8 @@ jobs:
             sed -i 's/@DEB_DEPENDENCIES@/"lua-tz"/g' ./packaging/connectors/centreon-stream-connectors.yaml
             sed -i 's/@RPM_DEPENDENCIES@/"lua-tz"/g' ./packaging/connectors/centreon-stream-connectors.yaml
           fi
+          echo "@RPM_DEPENDENCIES@"
+          echo "@DEB_DEPENDENCIES@"
         shell: bash
 
       - name: Package
