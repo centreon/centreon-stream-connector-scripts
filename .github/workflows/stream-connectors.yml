@@ -121,6 +121,7 @@ jobs:
           fi
           # sed -i '/depends:/r dependencies_rpm.txt' ./packaging/connectors/centreon-stream-connectors.yaml
           rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,\([^ ]\)/,\n\1/g')
+          echo "$rpm_dependencies"
           sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
 
           # touch dependencies_deb.txt
