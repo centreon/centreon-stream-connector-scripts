@@ -96,8 +96,8 @@ jobs:
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
           if [ "${{ matrix.connector_path }}" = "kafka" ]; then
-            DEB_DEPENDENCIES=("librdkafka1" "lua-cffi")
-            RPM_DEPENDENCIES=("librdkafka" "lua-cffi")
+            DEB_DEPENDENCIES="librdkafka1,lua-cffi"
+            RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
