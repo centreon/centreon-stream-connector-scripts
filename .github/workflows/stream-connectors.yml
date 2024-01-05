@@ -118,6 +118,7 @@ jobs:
               echo "      - $dependency" >> dependencies.txt
               echo "$dependency"
               sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
+              sed -i "/^rpm/,/depends/ s/depends:.*/&\n$(printf "      - %s\n" "$dependency")/" ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
 
