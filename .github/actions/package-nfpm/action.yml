@@ -74,7 +74,7 @@ runs:
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
 
         sed -i 's/@MIN_LIB_VERSION@/"3.0.0"/g' ./${{ inputs.nfpm_file_pattern }}
-        cat ./packaging/connectors/centreon-stream-connectors.yaml
+
         version=`date '+%Y%m%d'`
         echo "[DEBUG] - $version"
         sed -i "s/@VERSION@/$version/g" ./${{ inputs.nfpm_file_pattern }}
