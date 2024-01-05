@@ -20,8 +20,10 @@ contents:
 
 overrides:
   rpm:
-    depends:
-      - centreon-stream-connectors-lib >= ${MIN_LIB_VERSION}
+    depends: [
+    centreon-stream-connectors-lib >= @MIN_LIB_VERSION@,
+    @RPM_DEPENDENCY@
+    ]
   deb:
     depends:
       - "centreon-stream-connectors-lib (>= ${MIN_LIB_VERSION}~)"
