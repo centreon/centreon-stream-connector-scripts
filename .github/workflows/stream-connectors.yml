@@ -124,7 +124,8 @@ jobs:
           rpm_dependencies=$(echo "$rpm_dependencies" | sed '$s/,$//')
           echo "$rpm_dependencies"
           # sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
-          sed -i "s#@RPM_DEPENDENCY@#$rpm_dependencies#g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          escaped_dependencies=$(printf "%s\n" "$rpm_dependencies" | sed 's/[\&/]/\\&/g')
+          sed -i "s/@RPM_DEPENDENCY@/$escaped_dependencies/g" ./packaging/connectors/centreon-stream-connectors.yaml
 
           # touch dependencies_deb.txt
           # if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
