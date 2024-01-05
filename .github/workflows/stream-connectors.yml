@@ -111,23 +111,25 @@ jobs:
 
       - name: Add specific dependencies
         run: |
-          touch dependencies.txt
+          touch dependencies_rpm.txt
           if [ ! -z "${{ steps.list-dependencies.outputs.rpm_dependencies }}" ]; then
             IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.rpm_dependencies }}"
             for dependency in "${dependencies_array[@]}"; do
-              # echo "      - $dependency" >> dependencies.txt
-              # echo "$dependency"
-              sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
+              echo "      - $dependency" >> dependencies_rpm.txt
+              echo "$dependency"
             done
           fi
+          sed -i '/depends:/r dependencies_rpm.txt' ./packaging/connectors/centreon-stream-connectors.yaml
 
+          touch dependencies_deb.txt
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.deb_dependencies }}"
             for dependency in "${dependencies_array[@]}"; do
-              sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
+              echo "      - $dependency" >> dependencies_deb.txt
+              # sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
-
+          sed -i '/depends:/r dependencies_deb.txt' ./packaging/connectors/centreon-stream-connectors.yaml
           cat ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
