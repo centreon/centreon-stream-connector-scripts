@@ -120,9 +120,10 @@ jobs:
           fi
 
           # rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,$//')
-          rpm_dependencies=$(sed ':a;N;$!ba;s/\n/,/g' dependencies_rpm.txt)
+          rpm_dependencies=$(sed ':a;N;$!ba;s/\n/,/g' dependencies_rpm.txt | sed 's/,\([^,]*\)$/,\1\n/')
           echo "$rpm_dependencies"
-          sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          # sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s#@RPM_DEPENDENCY@#$rpm_dependencies#g;" ./packaging/connectors/centreon-stream-connectors.yaml
 
           # touch dependencies_deb.txt
           # if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
