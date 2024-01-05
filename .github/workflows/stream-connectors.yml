@@ -115,21 +115,19 @@ jobs:
           if [ ! -z "${{ steps.list-dependencies.outputs.rpm_dependencies }}" ]; then
             IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.rpm_dependencies }}"
             for dependency in "${dependencies_array[@]}"; do
-              echo "      - $dependency" >> dependencies.txt
-              echo "$dependency"
-              # sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
-              sed -i "/^rpm/,/depends/ s/depends:.*/&\n$(printf "      - %s\n" "$dependency")/" ./packaging/connectors/centreon-stream-connectors.yaml
+              # echo "      - $dependency" >> dependencies.txt
+              # echo "$dependency"
+              sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
 
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
             IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.deb_dependencies }}"
             for dependency in "${dependencies_array[@]}"; do
-              echo "      - $dependency" >> dependencies.txt
-              sed -i "/^deb/,/depends/ s/depends:.*/&\n$(printf "      - %s\n" "$dependency")/" ./packaging/connectors/centreon-stream-connectors.yaml
+              sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
-          # sed -i '/depends:/r dependencies.txt' ./packaging/connectors/centreon-stream-connectors.yaml
+
           cat ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
