@@ -116,7 +116,7 @@ jobs:
             for dependency in "${{ steps.list-dependencies.outputs.rpm_dependencies }}"; do
               echo "      - $dependency" >> dependencies.txt
               echo "$dependency"
-              sed -i '/^overrides/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
+              sed -i '/depends:/r "      - $dependency"' ./packaging/connectors/centreon-stream-connectors.yaml
             done
           fi
 
