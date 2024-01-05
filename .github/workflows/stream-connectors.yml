@@ -116,15 +116,12 @@ jobs:
             IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.rpm_dependencies }}"
             for dependency in "${dependencies_array[@]}"; do
               echo "$dependency" >> dependencies_rpm.txt
-              rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,\([^ ]\)/,\n\1/g')
-              sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
-              truncate -s 0 dependencies_rpm.txt
             done
           fi
-          # sed -i '/depends:/r dependencies_rpm.txt' ./packaging/connectors/centreon-stream-connectors.yaml
-          rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,\([^ ]\)/,\n\1/g')
+
+          rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,$//')
           echo "$rpm_dependencies"
-          # sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
 
           # touch dependencies_deb.txt
           # if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
