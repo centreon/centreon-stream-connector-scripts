@@ -9,14 +9,12 @@ on:
   pull_request:
     paths:
       - dependencies/**
-      - '.github/workflows/stream-connectors-dependencies.yml'
   push:
     branches:
       - develop
       - master
     paths:
       - dependencies/**
-      - '.github/workflows/stream-connectors-dependencies.yml'
 
 jobs:
   get-environment:
@@ -89,9 +87,9 @@ jobs:
 
           mkdir ${{ matrix.lib }}
           if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-          cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+            cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
           else
-          cp -rp /usr/local/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+            cp -rp /usr/local/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
           fi
 
         working-directory: dependencies/${{ matrix.lib }}
