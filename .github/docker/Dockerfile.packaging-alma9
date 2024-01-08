@@ -4,13 +4,7 @@ FROM ${REGISTRY_URL}/almalinux:9
 
 RUN <<EOF
 
-echo '[goreleaser]
-name=GoReleaser
-baseurl=https://repo.goreleaser.com/yum/
-enabled=1
-gpgcheck=0' | tee /etc/yum.repos.d/goreleaser.repo
-
-dnf install -y rpm-build rpm-sign zstd nfpm lua
+dnf install -y rpm-build rpm-sign zstd
 dnf clean all
 
 EOF
