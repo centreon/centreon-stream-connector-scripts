@@ -71,6 +71,7 @@ runs:
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
+        export MIN_LIB_VERSION="3.0.0"
 
         min_lib_version="3.0.0"
         sed -i 's/@MIN_LIB_VERSION@/$min_lib_version/g' ./${{ inputs.nfpm_file_pattern }}
