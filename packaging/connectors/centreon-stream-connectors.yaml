@@ -16,7 +16,7 @@ license: "Apache-2.0"
 
 contents:
   - src: "./centreon-certified"
-    dst: "/usr/share/centreon-broker/lua"
+    dst: "/usr/share/centreon-broker/lua/@PACKAGE_NAME@"
 
 overrides:
   rpm:
