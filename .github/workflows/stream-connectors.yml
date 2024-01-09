@@ -82,10 +82,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Replace package name variable
+      - name: Replace package and connector name variables
         run: |
           package_name="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
           sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          connector_name="`basename ${{ matrix.connector_path }}`"
+          sed -i "s/@CONNECTOR_NAME@/$connector_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Dependency configuration
