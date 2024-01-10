@@ -679,7 +679,7 @@ function EventQueue:send_data(payload, queue_metadata)
   
   if error_json then
     self.sc_logger:error("[EventQueue:send_data]: Couldn't decode json from elasticsearch. Error is: " .. tostring(error_json)
-      .. ". Received json is: " .. tostring(http_response_body))
+      .. ". Received json is: " .. tostring(http_response_body) .. ". Sent data is: " .. tostring(payload))
     return false
   end
   
@@ -689,7 +689,7 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
 
-  self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body) .. ". Sent data is: " .. tostring(payload))
   return false
 end
 
