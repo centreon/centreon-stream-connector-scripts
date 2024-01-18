@@ -298,7 +298,7 @@ function ScEvent:is_valid_host()
   if not is_valid_pattern then
     self.sc_logger:info("[sc_event:is_valid_host]: Host: " .. tostring(self.event.cache.host.name) 
         .. " doesn't match accepted_hosts pattern: " .. tostring(self.params.accepted_hosts)
-        .. " or any of the sub pattern if accepted_hosts_enable_split_pattern is enabled")
+        .. " or any of the sub-patterns if accepted_hosts_enable_split_pattern is enabled")
     return false
   end
 
