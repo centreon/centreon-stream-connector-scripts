@@ -351,7 +351,7 @@ function ScEvent:is_valid_service()
   if not is_valid_pattern then
     self.sc_logger:info("[sc_event:is_valid_service]: Service: " .. tostring(self.event.cache.service.description) .. " from host: " .. tostring(self.event.cache.host.name) 
         .. " doesn't match accepted_services pattern: " .. tostring(self.params.accepted_services)
-        .. " or any of the sub pattern if accepted_services_enable_split_pattern is enabled")
+        .. " or any of the sub-patterns if accepted_services_enable_split_pattern is enabled")
     return false
   end
 
