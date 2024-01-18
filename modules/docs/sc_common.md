@@ -566,7 +566,7 @@ local result = test_common:get_bbdo_version()
 
 ## is_valid_pattern method
 
-The **is_valid_pattern** check if a Lua pattern is valid or not
+The **is_valid_pattern** method checks if a Lua pattern is valid or not.
 
 ### is_valid_pattern: parameters
 
