@@ -87,7 +87,7 @@
 | load_event_format_file       | load a file that serves as a template for formatting events                                                                                   | [Documentation](sc_param.md#load_event_format_file-method)       |
 | build_accepted_elements_info | build a table that store information about accepted elements                                                                                  | [Documentation](sc_param.md#build_accepted_elements_info-method) |
 | validate_pattern_param | check if a parameter has a valid Lua pattern as a value                                                                                 | [Documentation](sc_param.md#validate_pattern_param-method) |
-| build_and_validate_filters_pattern | build a table that store information about patterns for compatibles parameters                                                                                 | [Documentation](sc_param.md#build_and_validate_filters_pattern-method) |
+| build_and_validate_filters_pattern | build a table that stores information about patterns for compatible parameters                                                                                 | [Documentation](sc_param.md#build_and_validate_filters_pattern-method) |
 
 ## sc_event methods
 
