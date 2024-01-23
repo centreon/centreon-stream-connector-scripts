@@ -64,6 +64,10 @@
   - [get\_bbdo\_version method](#get_bbdo_version-method)
     - [get\_bbdo\_version: returns](#get_bbdo_version-returns)
     - [get\_bbdo\_version: example](#get_bbdo_version-example)
+  - [is\_valid\_pattern method](#is_valid_pattern-method)
+    - [is\_valid\_pattern: parameters](#is_valid_pattern-parameters)
+    - [is\_valid\_pattern: returns](#is_valid_pattern-returns)
+    - [is\_valid\_pattern: example](#is_valid_pattern-example)
 
 ## Introduction
 
@@ -558,4 +562,34 @@ The **get_bbdo_version** method returns the first digit of the bbdo protocol ver
 ```lua
 local result = test_common:get_bbdo_version()
 --> result is: 3
+```
+
+## is_valid_pattern method
+
+The **is_valid_pattern** method checks if a Lua pattern is valid or not.
+
+### is_valid_pattern: parameters
+
+| parameter                                                                         | type   | optional | default value |
+| --------------------------------------------------------------------------------- | ------ | -------- | ------------- |
+| the pattern that must be checked                                                  | string | no       |               |
+
+### is_valid_pattern: returns
+
+| return              | type   | always | condition |
+| ------------------- | ------ | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### is_valid_pattern: example
+
+```lua
+local good_pattern = "a random pattern .*"
+
+local result = test_common:is_valid_pattern(good_pattern)
+--> result is: true
+
+local wrong_pattern = "a random pattern %2"
+
+local result = test_common:is_valid_pattern(wrong_pattern)
+--> result is: false
 ```
