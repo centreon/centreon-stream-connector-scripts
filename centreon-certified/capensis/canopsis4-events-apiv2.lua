@@ -467,6 +467,10 @@ function EventQueue:send_data(payload, queue_metadata)
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+    end
   end
   
   return retval
