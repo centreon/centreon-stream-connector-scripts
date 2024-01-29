@@ -10,11 +10,8 @@ inputs:
   distrib:
     description: The package distrib
     required: true
-  major_version:
-    description: The major version
-    required: false
-  minor_version:
-    description: The minor version
+  version:
+    description: The version
     required: false
   release:
     description: The package release number
@@ -68,6 +65,7 @@ runs:
           exit 1
         fi
 
+        export VERSION="${{ inputs.version }}"
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
@@ -76,16 +74,20 @@ runs:
         min_lib_version="3.0.0"
         sed -i 's/@MIN_LIB_VERSION@/$min_lib_version/g' ./${{ inputs.nfpm_file_pattern }}
 
-        version=`date '+%Y%m%d'`
-        echo "[DEBUG] - $version"
-        sed -i "s/@VERSION@/$version/g" ./${{ inputs.nfpm_file_pattern }}
-        sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" ./${{ inputs.nfpm_file_pattern }}
-        nfpm package --config ./${{ inputs.nfpm_file_pattern }} --packager ${{ inputs.package_extension }}
-
+        for FILE in ${{ inputs.nfpm_file_pattern }}; do
+          DIRNAME=$(dirname $FILE)
+          BASENAME=$(basename $FILE)
+          cd $DIRNAME
+          sed -i "s/@luaver@/$luaver/g" $BASENAME
+          sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" $BASENAME
+          nfpm package --config $BASENAME --packager ${{ inputs.package_extension }}
+          cd -
+          mv $DIRNAME/*.${{ inputs.package_extension }} ./
+        done
       shell: bash
 
     - name: Cache packages
-      uses: actions/cache/save@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+      uses: actions/cache/save@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
       with:
         path: ./*.${{ inputs.package_extension }}
         key: ${{ inputs.cache_key }}
