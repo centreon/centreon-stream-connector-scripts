@@ -1,4 +1,4 @@
-name: stream-connectors-dependencies
+name: lua-curl
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -8,13 +8,13 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - dependencies/**
+      - dependencies/lua-curl/**
   push:
     branches:
       - develop
       - master
     paths:
-      - dependencies/**
+      - dependencies/lua-curl/**
 
 jobs:
   get-environment:
@@ -26,8 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye]
-        lib: [lua-cffi, lua-tz, lua-curl]
+        distrib: [el8, el9]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-alma8
@@ -35,9 +34,6 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-alma9
             distrib: el9
-          - package_extension: deb
-            image: packaging-stream-connectors-bullseye
-            distrib: bullseye
 
     runs-on: ubuntu-22.04
 
@@ -55,56 +51,25 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            yum install -y yum-utils epel-release
-            yum config-manager --set-enabled crb || true
-            yum config-manager --set-enabled powertools || true
-            yum install -y git make gcc luarocks meson gcc-c++ cmake libffi libffi-devel lua-devel libcurl-devel
+          dnf install -y dnf-plugins-core epel-release
+
+          if  [ "${{ matrix.distrib }}" = "el9" ]; then
+            dnf config-manager --set-enabled crb
           else
-            apt update
-            apt install -y git make gcc luarocks meson cmake libffi7 libffi-dev lua5.3 liblua5.3-dev
-          fi
-        shell: bash
-
-      - if: ${{ matrix.lib == 'lua-cffi' }}
-        name: Prepare packaging of lua-cffi
-        run: |
-          luarocks install cffi-lua
-          luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          cat version.txt
-
-          mkdir ${{ matrix.lib }}
-          find /usr/ -type f -name "cffi.so" -exec cp {} ${{ matrix.lib }}/ \;
-        working-directory: dependencies/${{ matrix.lib }}
-        shell: bash
-
-      - if: ${{ matrix.lib == 'lua-tz' }}
-        name: Prepare packaging of lua-tz
-        run: |
-          luarocks install luatz
-          luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          cat version.txt
-
-          mkdir ${{ matrix.lib }}
-          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
-          else
-            cp -rp /usr/local/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* ${{ matrix.lib }}/
+            dnf config-manager --set-enabled powertools
           fi
 
-        working-directory: dependencies/${{ matrix.lib }}
+          dnf install -y make gcc luarocks meson gcc-c++ cmake lua-devel libcurl-devel
         shell: bash
 
-      - if: ${{ matrix.lib == 'lua-curl' && matrix.package_extension == 'rpm' }}
-        name: Checkout sources of lua-curl
+      - name: Checkout sources of lua-curl
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: Lua-cURL/Lua-cURLv3
           path: lua-curl-src
           ref: v0.3.13
 
-      - if: ${{ matrix.lib == 'lua-curl' && matrix.package_extension == 'rpm' }}
-        name: Compile lua-curl and prepare packaging
+      - name: Compile lua-curl and prepare packaging
         run: |
           dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
 
@@ -143,12 +108,12 @@ jobs:
 
           cd ..
 
-          mkdir -p dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
-          cp -p lua-curl-src/lcurl.so dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
-          cp -rp lua-curl-src/src/lua/cURL dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
-          cp -p lua-curl-src/src/lua/cURL.lua dependencies/${{ matrix.lib }}/${{ matrix.lib }}/
+          mkdir -p dependencies/lua-curl/lua-curl/
+          cp -p lua-curl-src/lcurl.so dependencies/lua-curl/lua-curl/
+          cp -rp lua-curl-src/src/lua/cURL dependencies/lua-curl/lua-curl/
+          cp -p lua-curl-src/src/lua/cURL.lua dependencies/lua-curl/lua-curl/
 
-          cd dependencies/${{ matrix.lib }}
+          cd dependencies/lua-curl
 
           echo "0.3.13" >> version.txt
         shell: bash
@@ -161,7 +126,7 @@ jobs:
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "dependencies/${{ matrix.lib }}/packaging/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-curl/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
@@ -193,27 +158,4 @@ jobs:
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
-
-  deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        distrib: [bullseye]
-        lib: [lua-cffi, lua-tz]
-    name: deliver ${{ matrix.distrib }} ${{ matrix.lib }}
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
-      - name: Publish DEB packages
-        uses: ./.github/actions/deb-delivery
-        with:
-          module_name: stream-connectors-dependencies
-          distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.lib }}-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
