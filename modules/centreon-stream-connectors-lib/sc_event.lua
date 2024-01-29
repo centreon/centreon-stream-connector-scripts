@@ -280,6 +280,28 @@ function ScEvent:is_valid_host()
     return false
   end
 
+  -- loop through each Lua pattern to check if host name match the filter
+  local is_valid_pattern = false
+  if self.params.accepted_hosts ~= "" then
+    for index, pattern in ipairs(self.params.accepted_hosts_pattern_list) do
+      if string.match(self.event.cache.host.name, pattern) then
+        self.sc_logger:debug("[sc_event:is_valid_host]: host " .. tostring(self.event.cache.host.name)
+          .. " matched pattern: " .. tostring(pattern))
+        is_valid_pattern = true
+        break
+      end
+    end
+  else
+    is_valid_pattern = true
+  end
+
+  if not is_valid_pattern then
+    self.sc_logger:info("[sc_event:is_valid_host]: Host: " .. tostring(self.event.cache.host.name) 
+        .. " doesn't match accepted_hosts pattern: " .. tostring(self.params.accepted_hosts)
+        .. " or any of the sub-patterns if accepted_hosts_enable_split_pattern is enabled")
+    return false
+  end
+
   return true
 end
 
@@ -309,6 +331,28 @@ function ScEvent:is_valid_service()
   -- force service description to its id if no description has been found
   if not self.event.cache.service.description then
     self.event.cache.service.description = self.event.service_id
+  end
+
+  -- loop through each Lua pattern to check if service description match the filter
+  local is_valid_pattern = false
+  if self.params.accepted_services ~= "" then
+    for index, pattern in ipairs(self.params.accepted_services_pattern_list) do
+      if string.match(self.event.cache.service.description, pattern) then
+        self.sc_logger:debug("[sc_event:is_valid_service]: service " .. tostring(self.event.cache.service.description)
+          .. " from host: " .. tostring(self.event.cache.host.name) .. " matched pattern: " .. tostring(pattern))
+        is_valid_pattern = true
+        break
+      end
+    end
+  else
+    is_valid_pattern = true
+  end
+
+  if not is_valid_pattern then
+    self.sc_logger:info("[sc_event:is_valid_service]: Service: " .. tostring(self.event.cache.service.description) .. " from host: " .. tostring(self.event.cache.host.name) 
+        .. " doesn't match accepted_services pattern: " .. tostring(self.params.accepted_services)
+        .. " or any of the sub-patterns if accepted_services_enable_split_pattern is enabled")
+    return false
   end
 
   return true

@@ -48,6 +48,7 @@
 | dumper                             | dump any variable for debug purpose                                                         | [Documentation](sc_common.md#dumper-method)                             |
 | trim                               | trim spaces (or provided character) at the beginning and the end of a string                | [Documentation](sc_common.md#trim-method)                               |
 | get_bbdo_version                   | returns the first digit of the bbdo protocol version                                        | [Documentation](sc_common.md#get_bbdo_version-method)                   |
+| is_valid_pattern                   | check if a Lua pattern is valid                                        | [Documentation](sc_common.md#is_valid_pattern-method)                   |
 
 ## sc_logger methods
 
@@ -85,6 +86,8 @@
 | get_kafka_params             | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                  | [Documentation](sc_param.md#get_kafka_params-method)             |
 | load_event_format_file       | load a file that serves as a template for formatting events                                                                                   | [Documentation](sc_param.md#load_event_format_file-method)       |
 | build_accepted_elements_info | build a table that store information about accepted elements                                                                                  | [Documentation](sc_param.md#build_accepted_elements_info-method) |
+| validate_pattern_param | check if a parameter has a valid Lua pattern as a value                                                                                 | [Documentation](sc_param.md#validate_pattern_param-method) |
+| build_and_validate_filters_pattern | build a table that stores information about patterns for compatible parameters                                                                                 | [Documentation](sc_param.md#build_and_validate_filters_pattern-method) |
 
 ## sc_event methods
 
