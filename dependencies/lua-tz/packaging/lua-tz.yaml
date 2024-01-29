@@ -15,10 +15,10 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "./*"
+  - src: "../lua-tz"
     dst: "/usr/share/lua/@luaver@/luatz"
 
-  - src: "./*"
+  - src: "./lua-tz"
     dst: "/usr/share/lua/5.3/luatz"
     packager: deb
 
