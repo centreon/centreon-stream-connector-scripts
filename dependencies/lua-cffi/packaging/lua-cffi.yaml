@@ -28,7 +28,7 @@ overrides:
     depends:
       - "libffi7"
       - "libffi-dev"
-      - "lua5.3"
+      - "lua5.4"
 
 rpm:
   summary: lua cffi

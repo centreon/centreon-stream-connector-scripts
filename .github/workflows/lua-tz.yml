@@ -120,7 +120,7 @@ jobs:
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
         with:
-          module_name: stream-connectors-dependencies
+          module_name: lua-tz
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-tz-${{ matrix.distrib }}
@@ -142,7 +142,7 @@ jobs:
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
-          module_name: stream-connectors-dependencies
+          module_name: lua-tz
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-tz-${{ matrix.distrib }}

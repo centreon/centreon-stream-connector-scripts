@@ -11,9 +11,9 @@ on:
       - develop
     paths:
       - ".github/docker/Dockerfile.packaging-*"
-  # pull_request:
-  #   paths:
-  #     - ".github/docker/Dockerfile.packaging-*"
+  pull_request:
+    paths:
+      - ".github/docker/Dockerfile.packaging-*"
 
 jobs:
   dockerize:

@@ -129,7 +129,7 @@ jobs:
           nfpm_file_pattern: "dependencies/lua-curl/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
-          arch: all
+          arch: amd64
           version: ${{ steps.package-version.outputs.package-version }}
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
@@ -144,8 +144,7 @@ jobs:
     strategy:
       matrix:
         distrib: [el8, el9]
-        lib: [lua-cffi, lua-tz, lua-curl]
-    name: deliver ${{ matrix.distrib }} ${{ matrix.lib }}
+    name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
@@ -154,8 +153,8 @@ jobs:
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
         with:
-          module_name: stream-connectors-dependencies
+          module_name: lua-curl
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.lib }}-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-curl-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}

@@ -66,7 +66,7 @@ jobs:
             dnf install -y make gcc luarocks meson gcc-c++ cmake libffi libffi-devel lua-devel
           else
             apt-get update
-            apt-get install -y make gcc luarocks meson cmake libffi7 libffi-dev lua5.3 liblua5.3-dev
+            apt-get install -y make gcc luarocks meson cmake libffi7 libffi-dev lua5.4 liblua5.4-dev
           fi
         shell: bash
 
@@ -92,7 +92,7 @@ jobs:
           nfpm_file_pattern: "dependencies/lua-cffi/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
-          arch: all
+          arch: amd64
           version: ${{ steps.package-version.outputs.package-version }}
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
@@ -116,7 +116,7 @@ jobs:
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
         with:
-          module_name: stream-connectors-dependencies
+          module_name: lua-cffi
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-cffi-${{ matrix.distrib }}
@@ -138,7 +138,7 @@ jobs:
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
-          module_name: stream-connectors-dependencies
+          module_name: lua-cffi
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-cffi-${{ matrix.distrib }}
