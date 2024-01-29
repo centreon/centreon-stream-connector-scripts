@@ -17,6 +17,14 @@ license: "Apache-2.0"
 contents:
   - src: "../../modules/centreon-stream-connectors-lib"
     dst: "/usr/share/lua/@luaver@/centreon-stream-connectors-lib"
+    packager: rpm
+
+  - src: "../../modules/centreon-stream-connectors-lib"
+    dst: "/usr/share/lua/5.3/centreon-stream-connectors-lib"
+    packager: deb
+  - src: "../../modules/centreon-stream-connectors-lib"
+    dst: "/usr/share/lua/5.4/centreon-stream-connectors-lib"
+    packager: deb
 
 overrides:
   rpm:
