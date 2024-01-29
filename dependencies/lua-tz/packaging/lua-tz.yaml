@@ -17,9 +17,10 @@ license: "Apache-2.0"
 contents:
   - src: "../lua-tz"
     dst: "/usr/share/lua/@luaver@/luatz"
+    packager: rpm
 
   - src: "../lua-tz"
-    dst: "/usr/share/lua/5.3/luatz"
+    dst: "/usr/share/lua/5.{3,4}/luatz"
     packager: deb
 
 overrides:

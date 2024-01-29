@@ -17,9 +17,10 @@ license: "Apache-2.0"
 contents:
   - src: "../lua-cffi/cffi.so"
     dst: "/usr/lib64/lua/@luaver@/cffi.so"
+    packager: rpm
 
   - src: "../lua-cffi/cffi.so"
-    dst: "/usr/lib64/lua/5.3/cffi.so"
+    dst: "/usr/lib64/lua/5.{3,4}/cffi.so"
     packager: deb
 
 overrides:
