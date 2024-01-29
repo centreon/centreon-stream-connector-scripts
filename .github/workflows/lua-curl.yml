@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: Install dependencies
-        run: dnf install -y make gcc luarocks meson gcc-c++ cmake libcurl-devel
+        run: dnf install -y make gcc meson gcc-c++ cmake libcurl-devel
         shell: bash
 
       - name: Checkout sources of lua-curl

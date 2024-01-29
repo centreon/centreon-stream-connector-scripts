@@ -62,20 +62,35 @@ jobs:
           fi
         shell: bash
 
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: "q66/cffi-lua"
+          ref: "0.2.3"
+
       - name: Prepare packaging of lua-cffi
         run: |
-          luarocks install cffi-lua
-          luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          cat version.txt
+          #luarocks install cffi-lua
+          #luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
+          #cat version.txt
+          cd cffi-lua
+          mkdir build
+          cd build
+          meson .. -Dlua_version=5.3
+          ninja all
+          cd ..
+          mkdir -p lua-cffi/lua-cffi
+          mv build/cffi.so lua-cffi/lua-cffi/
 
-          mkdir lua-cffi
-          find /usr/ -type f -name "cffi.so" -exec cp {} lua-cffi/ \;
+
+          #mkdir lua-cffi
+          #find /usr/ -type f -name "cffi.so" -exec cp {} lua-cffi/ \;
         working-directory: dependencies/lua-cffi
         shell: bash
 
       - name: Export package version
         id: package-version
-        run: echo "package_version=`cat version.txt`" >> $GITHUB_OUTPUT
+        run: echo "package_version=0.2.3" >> $GITHUB_OUTPUT
         shell: bash
         working-directory: dependencies/lua-cffi
 
