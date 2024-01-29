@@ -95,5 +95,5 @@ runs:
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
         name: packages-${{ inputs.distrib }}
-        pattern: ./*.${{ inputs.package_extension}}
+        path: ./*.${{ inputs.package_extension}}
         retention-days: 1
