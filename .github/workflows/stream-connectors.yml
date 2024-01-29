@@ -121,7 +121,7 @@ jobs:
 
           rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,$//')
           echo "$rpm_dependencies"
-          sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@RPM_DEPENDENCIES@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
 
           touch dependencies_deb.txt
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
@@ -132,7 +132,7 @@ jobs:
           fi
           deb_dependencies=$(cat "dependencies_deb.txt" | tr '\n' ',' | sed 's/,$//')
           echo "$deb_dependencies"
-          sed -i "s/@DEB_DEPENDENCY@/$deb_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@DEB_DEPENDENCIES@/$deb_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
 
           cat ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
