@@ -77,6 +77,7 @@ jobs:
         id: package-version
         run: echo "package_version=`cat version.txt`" >> $GITHUB_OUTPUT
         shell: bash
+        working-directory: dependencies/lua-cffi
 
       - name: Package
         uses: ./.github/actions/package-nfpm
