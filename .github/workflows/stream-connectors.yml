@@ -119,13 +119,9 @@ jobs:
             done
           fi
 
-          # rpm_dependencies=$(awk '{printf "%s,\n", $0}' dependencies_rpm.txt)
-          # rpm_dependencies=$(echo "$rpm_dependencies" | sed '$s/,$//')
-
           rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,$//')
           echo "$rpm_dependencies"
           sed -i "s/@RPM_DEPENDENCY@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
-
 
           touch dependencies_deb.txt
           if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
@@ -141,7 +137,6 @@ jobs:
           cat ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
-<<<<<<< HEAD
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
@@ -154,56 +149,6 @@ jobs:
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
-=======
-      - if: ${{ matrix.package_extension == 'deb' }}
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.${{ matrix.package_extension }}
-          key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
-
-      - if: ${{ matrix.package_extension == 'rpm' }}
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.${{ matrix.package_extension }}
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
-
-  sign-rpm:
-    needs: [detect-changes, package]
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        distrib: [el8, el9]
-        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: sign rpm ${{ matrix.distrib }} ${{ matrix.connector_path }}
-    container:
-      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/rpm-signing:ubuntu
-      options: -t
-      credentials:
-        username: ${{ secrets.DOCKER_REGISTRY_ID }}
-        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
-
-    steps:
-      - run: apt-get install -y zstd
-        shell: bash
-
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
-      - uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.rpm
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
-
-      - run: echo "HOME=/root" >> $GITHUB_ENV
-        shell: bash
-
-      - run: rpmsign --addsign ./*.rpm
-        shell: bash
-
-      - uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.rpm
-          key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
->>>>>>> develop
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
