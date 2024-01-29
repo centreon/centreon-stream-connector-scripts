@@ -23,7 +23,7 @@ contents:
     dst: "/usr/lib/x86_64-linux-gnu/lua/5.3/cffi.so"
     packager: deb
   - src: "../lua-cffi/cffi.so"
-    dst: "/usr/lib64/lua/5.4/cffi.so"
+    dst: "/usr/lib/x86_64-linux-gnu/lua/5.4/cffi.so"
     packager: deb
 
 overrides:
