@@ -69,7 +69,6 @@ runs:
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
-        echo "Current directory: $(pwd)"
 
         for FILE in ${{ inputs.nfpm_file_pattern }}; do
           DIRNAME=$(dirname $FILE)
