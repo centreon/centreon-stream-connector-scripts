@@ -55,10 +55,10 @@ jobs:
       - name: Install dependencies
         run: |
           if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            dnf install -y make gcc luarocks meson gcc-c++ cmake perl
+            dnf install -y make gcc meson gcc-c++ cmake perl
           else
             apt-get update
-            apt-get install -y make gcc luarocks meson cmake perl
+            apt-get install -y make gcc meson cmake perl
           fi
         shell: bash
 
