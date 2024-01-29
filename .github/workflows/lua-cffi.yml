@@ -73,26 +73,25 @@ jobs:
           #luarocks install cffi-lua
           #luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
           #cat version.txt
+
           cd cffi-lua
           mkdir build
           cd build
           meson .. -Dlua_version=5.3
           ninja all
           cd ..
-          mkdir -p lua-cffi/lua-cffi
-          mv build/cffi.so lua-cffi/lua-cffi/
+          mkdir -p dependencies/lua-cffi/lua-cffi
+          mv build/cffi.so dependencies/lua-cffi/lua-cffi/
 
 
           #mkdir lua-cffi
           #find /usr/ -type f -name "cffi.so" -exec cp {} lua-cffi/ \;
-        working-directory: dependencies/lua-cffi
         shell: bash
 
       - name: Export package version
         id: package-version
         run: echo "package_version=0.2.3" >> $GITHUB_OUTPUT
         shell: bash
-        working-directory: dependencies/lua-cffi
 
       - name: Package
         uses: ./.github/actions/package-nfpm
