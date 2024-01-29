@@ -55,14 +55,6 @@ jobs:
       - name: Install dependencies
         run: |
           if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            dnf install -y dnf-plugins-core epel-release
-
-            if  [ "${{ matrix.distrib }}" = "el9" ]; then
-              dnf config-manager --set-enabled crb
-            else
-              dnf config-manager --set-enabled powertools
-            fi
-
             dnf install -y make gcc luarocks meson gcc-c++ cmake perl
           else
             apt-get update

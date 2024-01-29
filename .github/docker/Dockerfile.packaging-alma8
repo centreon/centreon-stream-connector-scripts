@@ -4,6 +4,9 @@ FROM ${REGISTRY_URL}/almalinux:8
 
 RUN bash -e <<EOF
 
+dnf install -y dnf-plugins-core epel-release
+dnf config-manager --set-enabled powertools
+
 echo '[goreleaser]
 name=GoReleaser
 baseurl=https://repo.goreleaser.com/yum/
