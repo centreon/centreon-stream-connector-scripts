@@ -65,7 +65,6 @@ runs:
           exit 1
         fi
 
-        export VERSION="${{ inputs.version }}"
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
@@ -75,6 +74,7 @@ runs:
           BASENAME=$(basename $FILE)
           cd $DIRNAME
           sed -i "s/@luaver@/$luaver/g" $BASENAME
+          sed -i "s/@VERSION@/${{ inputs.version }}/g" $BASENAME
           sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" $BASENAME
           nfpm package --config $BASENAME --packager ${{ inputs.package_extension }}
           cd -
