@@ -78,7 +78,11 @@ jobs:
           cd cffi-lua-src
           mkdir build
           cd build
+          if  [ "${{ matrix.distrib }}" = "el9" ]; then
+            meson .. -Dlua_version=5.4
+          else
           meson .. -Dlua_version=5.3
+          fi
           ninja all
           cd ../..
           mkdir -p dependencies/lua-cffi/lua-cffi
