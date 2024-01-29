@@ -84,7 +84,7 @@ runs:
       shell: bash
 
     - name: Cache packages
-      uses: actions/cache/save@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
+      uses: actions/cache/save@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
       with:
         path: ./*.${{ inputs.package_extension }}
         key: ${{ inputs.cache_key }}
@@ -92,7 +92,7 @@ runs:
     # Update if condition to true to get packages as artifacts
     - if: ${{ true }}
       name: Upload package artifacts
-      uses: actions/upload-artifact/merge@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
+      uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
         name: packages-${{ inputs.distrib }}
         pattern: ./*.${{ inputs.package_extension}}
