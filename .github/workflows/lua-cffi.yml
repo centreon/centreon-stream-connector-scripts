@@ -63,10 +63,10 @@ jobs:
               dnf config-manager --set-enabled powertools
             fi
 
-            dnf install -y make gcc luarocks meson gcc-c++ cmake libffi libffi-devel lua-devel
+            dnf install -y make gcc luarocks meson gcc-c++ cmake libffi libffi-devel
           else
             apt-get update
-            apt-get install -y make gcc luarocks meson cmake libffi7 libffi-dev lua5.4 liblua5.4-dev
+            apt-get install -y make gcc luarocks meson cmake libffi7 libffi-dev
           fi
         shell: bash
 

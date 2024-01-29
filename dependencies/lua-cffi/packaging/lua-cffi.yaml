@@ -18,6 +18,10 @@ contents:
   - src: "../lua-cffi/cffi.so"
     dst: "/usr/lib64/lua/@luaver@/cffi.so"
 
+  - src: "../lua-cffi/cffi.so"
+    dst: "/usr/lib64/lua/5.3/cffi.so"
+    packager: deb
+
 overrides:
   rpm:
     depends:

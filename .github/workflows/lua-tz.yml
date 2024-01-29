@@ -63,10 +63,10 @@ jobs:
               dnf config-manager --set-enabled powertools
             fi
 
-            dnf install -y make gcc luarocks meson gcc-c++ cmake lua-devel perl
+            dnf install -y make gcc luarocks meson gcc-c++ cmake perl
           else
             apt-get update
-            apt-get install -y make gcc luarocks meson cmake lua5.3 liblua5.3-dev perl
+            apt-get install -y make gcc luarocks meson cmake perl
           fi
         shell: bash
 

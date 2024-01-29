@@ -59,7 +59,7 @@ jobs:
             dnf config-manager --set-enabled powertools
           fi
 
-          dnf install -y make gcc luarocks meson gcc-c++ cmake lua-devel libcurl-devel
+          dnf install -y make gcc luarocks meson gcc-c++ cmake libcurl-devel
         shell: bash
 
       - name: Checkout sources of lua-curl

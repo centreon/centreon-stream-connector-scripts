@@ -5,7 +5,7 @@ FROM ${REGISTRY_URL}/debian:bullseye
 RUN bash -e <<EOF
 
 apt-get update
-apt-get install -y git debmake pbuilder aptitude zstd ca-certificates lua5.4
+apt-get install -y git debmake pbuilder aptitude zstd ca-certificates lua5.4 liblua5.4-dev
 
 echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
 
