@@ -66,6 +66,7 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: "q66/cffi-lua"
+          path: "cffi-lua-src"
           ref: "v0.2.3"
 
       - name: Prepare packaging of lua-cffi
@@ -74,14 +75,14 @@ jobs:
           #luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
           #cat version.txt
 
-          cd cffi-lua
+          cd cffi-lua-src
           mkdir build
           cd build
           meson .. -Dlua_version=5.3
           ninja all
-          cd ..
+          cd ../..
           mkdir -p dependencies/lua-cffi/lua-cffi
-          mv build/cffi.so dependencies/lua-cffi/lua-cffi/
+          mv cffi-lua-src/build/cffi.so dependencies/lua-cffi/lua-cffi/
 
 
           #mkdir lua-cffi
