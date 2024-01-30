@@ -90,8 +90,7 @@ jobs:
           sed -i "s/@CONNECTOR_NAME@/$connector_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
-      - name: Dependency configuration
-        id: list-dependencies
+      - name: Add specific dependencies
         run: |
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
@@ -105,36 +104,8 @@ jobs:
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
           fi
-          echo "deb_dependencies=$DEB_DEPENDENCIES" >> $GITHUB_OUTPUT
-          echo "rpm_dependencies=$RPM_DEPENDENCIES" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Add specific dependencies
-        run: |
-          touch dependencies_rpm.txt
-          if [ ! -z "${{ steps.list-dependencies.outputs.rpm_dependencies }}" ]; then
-            IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.rpm_dependencies }}"
-            for dependency in "${dependencies_array[@]}"; do
-              echo "$dependency" >> dependencies_rpm.txt
-            done
-          fi
-
-          rpm_dependencies=$(cat "dependencies_rpm.txt" | tr '\n' ',' | sed 's/,$//')
-          echo "$rpm_dependencies"
-          sed -i "s/@RPM_DEPENDENCIES@/$rpm_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
-
-          touch dependencies_deb.txt
-          if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
-            IFS=',' read -ra dependencies_array <<< "${{ steps.list-dependencies.outputs.deb_dependencies }}"
-            for dependency in "${dependencies_array[@]}"; do
-              echo "$dependency" >> dependencies_deb.txt
-            done
-          fi
-          deb_dependencies=$(cat "dependencies_deb.txt" | tr '\n' ',' | sed 's/,$//')
-          echo "$deb_dependencies"
-          sed -i "s/@DEB_DEPENDENCIES@/$deb_dependencies/g;" ./packaging/connectors/centreon-stream-connectors.yaml
-
-          cat ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Export package version
