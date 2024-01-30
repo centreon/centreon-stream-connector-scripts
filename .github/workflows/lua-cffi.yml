@@ -55,10 +55,10 @@ jobs:
       - name: Install dependencies
         run: |
           if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            dnf install -y make gcc luarocks meson gcc-c++ cmake libffi libffi-devel
+            dnf install -y make gcc meson gcc-c++ cmake libffi libffi-devel
           else
             apt-get update
-            apt-get install -y make gcc luarocks meson cmake libffi7 libffi-dev
+            apt-get install -y make gcc meson cmake libffi7 libffi-dev
           fi
         shell: bash
 
@@ -71,10 +71,6 @@ jobs:
 
       - name: Prepare packaging of lua-cffi
         run: |
-          #luarocks install cffi-lua
-          #luarocks show cffi-lua | grep "cffi-lua\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          #cat version.txt
-
           cd cffi-lua-src
           mkdir build
           cd build
@@ -87,10 +83,6 @@ jobs:
           cd ../..
           mkdir -p dependencies/lua-cffi/lua-cffi
           mv cffi-lua-src/build/cffi.so dependencies/lua-cffi/lua-cffi/
-
-
-          #mkdir lua-cffi
-          #find /usr/ -type f -name "cffi.so" -exec cp {} lua-cffi/ \;
         shell: bash
 
       - name: Export package version
