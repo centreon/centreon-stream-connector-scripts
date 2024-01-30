@@ -69,7 +69,7 @@ jobs:
             dnf install -y make cmake openssl-devel libcurl-devel python3-pip cpanminus
           else
             apt-get update
-            apt-get install -y make cmake libssl-dev python3-pip cpanminus openssh-client
+            apt-get install -y make cmake libssl-dev python3-pip cpanminus
           fi
 
           cpanm -v \
