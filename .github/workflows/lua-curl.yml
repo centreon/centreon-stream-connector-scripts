@@ -66,10 +66,10 @@ jobs:
       - name: Compile lua-curl and prepare packaging
         run: |
           if [ "${{ matrix.package_extension }}" == "rpm" ]; then
-            dnf install -y make cmake openssl-devel libcurl-devel python3-pip cpanminus
+            dnf install -y make cmake gcc meson gcc-c++ openssl-devel libcurl-devel python3-pip cpanminus
           else
             apt-get update
-            apt-get install -y make cmake libssl-dev python3-pip cpanminus
+            apt-get install -y make cmake gcc meson libssl-dev python3-pip cpanminus
           fi
 
           cpanm -v \
@@ -116,7 +116,7 @@ jobs:
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "dependencies/lua-curl/packaging/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-curl/packaging/lua-curl.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: amd64
