@@ -26,18 +26,11 @@ contents:
       mode: 0644
     packager: deb
 
-  - src: "../lua-curl/{safe.lua,utils.lua}"
-    dst: "/usr/share/lua/@luaver@/cURL/"
+  - src: "../lua-curl/cURL"
+    dst: "/usr/share/lua/@luaver@/cURL"
     packager: rpm
-  - src: "../lua-curl/{safe.lua,utils.lua}"
-    dst: "/usr/share/lua/5.3/cURL/"
-    packager: deb
-
-  - src: "../lua-curl/impl"
-    dst: "/usr/share/lua/@luaver@/cURL/impl"
-    packager: rpm
-  - src: "../lua-curl/impl"
-    dst: "/usr/share/lua/5.3/cURL/impl"
+  - src: "../lua-curl/cURL"
+    dst: "/usr/share/lua/5.3/cURL"
     packager: deb
 
 overrides:
