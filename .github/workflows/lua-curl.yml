@@ -62,7 +62,15 @@ jobs:
 
       - name: Compile lua-curl and prepare packaging
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel python3-pip
+          dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+
+          cpanm \
+            IPC::Cmd \
+            Digest::SHA \
+            Thread::Queue \
+            IO::Socket::SSL \
+            File::Copy \
+            File::Compare
 
           cd lua-curl-src
 
