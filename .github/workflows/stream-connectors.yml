@@ -6,9 +6,9 @@ concurrency:
 
 on:
   workflow_dispatch:
-  # pull_request:
-  #   paths:
-  #     - centreon-certified/**
+  pull_request:
+    paths:
+      - centreon-certified/**
   push:
     branches:
       - develop
@@ -53,7 +53,7 @@ jobs:
 
   package:
     if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
-    needs: [detect-changes]
+    needs: [get-environment, detect-changes]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -126,6 +126,7 @@ jobs:
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
+          stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
