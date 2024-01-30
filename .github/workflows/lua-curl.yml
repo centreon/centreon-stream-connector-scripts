@@ -105,10 +105,10 @@ jobs:
           if [ "${{ matrix.package_extension }}" == "rpm" ]; then
             sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
           else
-            export LUA= /usr/include/lua5.3
-            export LUAINC= /usr/include/lua5.3
-            export LUALIB= /usr/lib/lua/5.3
-            export LUABIN= /usr/bin
+            export LUA="/usr/include/lua5.3"
+            export LUAINC="/usr/include/lua5.3"
+            export LUALIB="/usr/lib/lua/5.3"
+            export LUABIN="/usr/bin"
             sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread -llua5.3#" Makefile
           fi
 
