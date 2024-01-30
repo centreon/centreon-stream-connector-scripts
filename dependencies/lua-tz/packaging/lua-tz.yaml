@@ -22,9 +22,6 @@ contents:
   - src: "../lua-tz"
     dst: "/usr/share/lua/5.3/luatz"
     packager: deb
-  - src: "../lua-tz"
-    dst: "/usr/share/lua/5.4/luatz"
-    packager: deb
 
 overrides:
   rpm:
