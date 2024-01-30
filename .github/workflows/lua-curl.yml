@@ -69,7 +69,7 @@ jobs:
             dnf install -y make cmake gcc openssl openssl-devel libcurl-devel python3-pip cpanminus
           else
             apt-get update
-            apt-get install -y make cmake gcc openssl libssl-dev libcurl4-openssl-dev python3-pip cpanminus
+            apt-get install -y make cmake gcc openssl libssl-dev libcurl4-openssl-dev python3-pip cpanminus liblua5.3-dev
           fi
 
           cpanm -v \
@@ -111,6 +111,16 @@ jobs:
           cp -p lua-curl-src/lcurl.so dependencies/lua-curl/lua-curl/
           cp -rp lua-curl-src/src/lua/cURL dependencies/lua-curl/lua-curl/
           cp -p lua-curl-src/src/lua/cURL.lua dependencies/lua-curl/lua-curl/
+        shell: bash
+
+      - name: Update package name
+        run: |
+          if [ "${{ matrix.package_extension }}" == "rpm" ]; then
+            NAME="lua-curl"
+          else
+            NAME="lua5.3-curl"
+          fi
+          sed -i "s/@NAME@/$NAME/g" ./dependencies/lua-curl/packaging/lua-curl.yaml
         shell: bash
 
       - name: Package
