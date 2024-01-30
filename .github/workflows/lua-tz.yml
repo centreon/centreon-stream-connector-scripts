@@ -52,36 +52,16 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Install dependencies
-        run: |
-          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            dnf install -y make gcc meson gcc-c++ cmake perl
-          else
-            apt-get update
-            apt-get install -y make gcc meson cmake perl
-          fi
-        shell: bash
+      - name: Checkout luatz sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: "daurnimator/luatz"
+          path: "luatz-src"
+          ref: "v0.4-1"
 
       - name: Prepare packaging of lua-tz
-        run: |
-          luarocks install luatz
-          luarocks show luatz | grep "luatz\s[0-9]" | cut -d' ' -f2 | perl -nle 'm/(\d+\.\d+(\.\d+)?)/; print $1' >> version.txt
-          cat version.txt
-
-          mkdir lua-tz
-          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            cp -rp /usr/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* lua-tz/
-          else
-            cp -rp /usr/local/share/lua/`lua -e "print(string.sub(_VERSION, 5))"`/luatz/* lua-tz/
-          fi
-        working-directory: dependencies/lua-tz
+        run: cp -r luatz-src/luatz dependencies/lua-tz/lua-tz
         shell: bash
-
-      - name: Export package version
-        id: package-version
-        run: echo "package_version=`cat version.txt`" >> $GITHUB_OUTPUT
-        shell: bash
-        working-directory: dependencies/lua-tz
 
       - name: Package
         uses: ./.github/actions/package-nfpm
@@ -90,7 +70,7 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
-          version: ${{ steps.package-version.outputs.package_version }}
+          version: "0.4"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}

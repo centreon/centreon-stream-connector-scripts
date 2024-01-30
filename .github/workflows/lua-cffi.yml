@@ -55,14 +55,14 @@ jobs:
       - name: Install dependencies
         run: |
           if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
-            dnf install -y make gcc meson gcc-c++ cmake libffi libffi-devel
+            dnf install -y make gcc gcc-c++ meson cmake libffi libffi-devel
           else
             apt-get update
-            apt-get install -y make gcc meson cmake libffi7 libffi-dev
+            apt-get install -y make gcc g++ meson cmake libffi7 libffi-dev
           fi
         shell: bash
 
-      - name: Checkout sources
+      - name: Checkout cffi-lua sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: "q66/cffi-lua"
@@ -85,11 +85,6 @@ jobs:
           mv cffi-lua-src/build/cffi.so dependencies/lua-cffi/lua-cffi/
         shell: bash
 
-      - name: Export package version
-        id: package-version
-        run: echo "package_version=0.2.3" >> $GITHUB_OUTPUT
-        shell: bash
-
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
@@ -97,7 +92,7 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: amd64
-          version: ${{ steps.package-version.outputs.package_version }}
+          version: "0.2.3"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
