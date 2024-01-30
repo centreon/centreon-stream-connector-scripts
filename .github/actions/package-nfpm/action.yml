@@ -50,6 +50,7 @@ runs:
         RPM_GPG_SIGNING_KEY_ID: ${{ inputs.rpm_gpg_signing_key_id }}
         RPM_GPG_SIGNING_PASSPHRASE: ${{ inputs.rpm_gpg_signing_passphrase }}
       run: |
+        export VERSION="${{ inputs.version }}"
         export ARCH="${{ inputs.arch }}"
 
         if  [ "${{ inputs.package_extension }}" = "rpm" ]; then
@@ -74,7 +75,6 @@ runs:
           BASENAME=$(basename $FILE)
           cd $DIRNAME
           sed -i "s/@luaver@/$luaver/g" $BASENAME
-          sed -i "s/@VERSION@/${{ inputs.version }}/g" $BASENAME
           sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" $BASENAME
           nfpm package --config $BASENAME --packager ${{ inputs.package_extension }}
           cd -
