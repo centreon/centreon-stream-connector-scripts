@@ -120,6 +120,8 @@ jobs:
           cp -p lua-curl-src/lcurl.so dependencies/lua-curl/lua-curl/
           cp -rp lua-curl-src/src/lua/cURL dependencies/lua-curl/lua-curl/
           cp -p lua-curl-src/src/lua/cURL.lua dependencies/lua-curl/lua-curl/
+
+          ls -lRa dependencies/lua-curl/lua-curl/
         shell: bash
 
       - name: Update package name
