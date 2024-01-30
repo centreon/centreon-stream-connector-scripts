@@ -1,4 +1,4 @@
-name: stream-connectors-lib
+name: lua-cffi
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -8,13 +8,13 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - modules/centreon-stream-connectors-lib/**
+      - dependencies/lua-cffi/**
   push:
     branches:
       - develop
       - master
     paths:
-      - modules/centreon-stream-connectors-lib/**
+      - dependencies/lua-cffi/**
 
 jobs:
   get-environment:
@@ -50,15 +50,49 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Install dependencies
+        run: |
+          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
+            dnf install -y make gcc gcc-c++ meson cmake libffi libffi-devel
+          else
+            apt-get update
+            apt-get install -y make gcc g++ meson cmake libffi7 libffi-dev
+          fi
+        shell: bash
+
+      - name: Checkout cffi-lua sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: "q66/cffi-lua"
+          path: "cffi-lua-src"
+          ref: "v0.2.3"
+
+      - name: Prepare packaging of lua-cffi
+        run: |
+          cd cffi-lua-src
+          mkdir build
+          cd build
+          if  [ "${{ matrix.distrib }}" = "el9" ]; then
+            meson .. -Dlua_version=5.4
+          else
+            meson .. -Dlua_version=5.3
+          fi
+          ninja all
+          cd ../..
+          mkdir -p dependencies/lua-cffi/lua-cffi
+          mv cffi-lua-src/build/cffi.so dependencies/lua-cffi/lua-cffi/
+        shell: bash
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-cffi/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
-          arch: all
+          arch: amd64
+          version: "0.2.3"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
@@ -67,7 +101,7 @@ jobs:
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment]
+    needs: [get-environment, package]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -81,10 +115,10 @@ jobs:
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
         with:
-          module_name: stream-connectors-lib
+          module_name: lua-cffi
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-cffi-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-deb:
@@ -103,8 +137,8 @@ jobs:
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
-          module_name: stream-connectors-lib
+          module_name: lua-cffi
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-cffi-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
