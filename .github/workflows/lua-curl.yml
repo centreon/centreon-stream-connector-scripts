@@ -34,6 +34,9 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bullseye
+            distrib: bullseye
 
     runs-on: ubuntu-22.04
 
@@ -49,9 +52,9 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Install dependencies
-        run: dnf install -y make gcc meson gcc-c++ cmake libcurl-devel
-        shell: bash
+      # - name: Install dependencies
+      #   run: dnf install -y make gcc meson gcc-c++ cmake libcurl-devel
+      #   shell: bash
 
       - name: Checkout sources of lua-curl
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -62,7 +65,12 @@ jobs:
 
       - name: Compile lua-curl and prepare packaging
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+          if [ "${{ matrix.package_extension }}" == "rpm" ]; then
+            dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+          else
+            apt-get update
+            apt-get install -y python3-pip cpanminus
+          fi
 
           cpanm \
             IPC::Cmd \
