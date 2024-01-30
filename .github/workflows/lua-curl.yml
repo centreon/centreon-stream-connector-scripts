@@ -29,10 +29,10 @@ jobs:
         distrib: [el8, el9]
         include:
           - package_extension: rpm
-            image: packaging-stream-connectors-alma8
+            image: packaging-stream-connectors-nfpm-alma8
             distrib: el8
           - package_extension: rpm
-            image: packaging-stream-connectors-alma9
+            image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
 
     runs-on: ubuntu-22.04

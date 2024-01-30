@@ -42,4 +42,4 @@ jobs:
           build-args: "REGISTRY_URL=${{ vars.DOCKER_PROXY_REGISTRY_URL }}"
           pull: true
           push: true
-          tags: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/packaging-stream-connectors-${{ matrix.distrib }}:latest
+          tags: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/packaging-stream-connectors-nfpm-${{ matrix.distrib }}:latest
