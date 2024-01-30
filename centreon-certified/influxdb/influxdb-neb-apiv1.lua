@@ -4,7 +4,7 @@
 -- Tested with versions
 -- 1.4.3, 1.7.4, 1.7.6
 --
--- References: 
+-- References:
 -- https://docs.influxdata.com/influxdb/v1.4/write_protocols/line_protocol_tutorial/
 -- https://docs.influxdata.com/influxdb/v1.4/guides/writing_data/
 --------------------------------------------------------------------------------
@@ -24,7 +24,7 @@
 
 --------------------------------------------------------------------------------
 -- Access to the data:
--- curl -G 'http://<influxdb-server>:8086/query?pretty=true' --data-urlencode "db=mydb" 
+-- curl -G 'http://<influxdb-server>:8086/query?pretty=true' --data-urlencode "db=mydb"
 --  --data-urlencode "q=SELECT * from Cpu"
 --------------------------------------------------------------------------------
 

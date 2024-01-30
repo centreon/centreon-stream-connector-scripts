@@ -4,7 +4,7 @@
 -- Tested with versions
 -- 7.1.1
 --
--- References: 
+-- References:
 -- https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 --------------------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ function EventQueue:flush()
     local http_result_body = {}
     local url = self.http_server_protocol .. "://" .. self.http_server_address .. ":" .. self.http_server_port ..
         "/_bulk"
-    local http_post_data = ""    
+    local http_post_data = ""
     for _, raw_event in ipairs(self.events) do
         if raw_event.status then
             http_post_data = http_post_data .. '{"index":{"_index":"' .. self.elastic_index_status .. '"}}\n' ..
@@ -70,7 +70,7 @@ function EventQueue:flush()
     for s in http_post_data:gmatch("[^\r\n]+") do
         broker_log:info(3, "EventQueue:flush: HTTP POST data:   " .. s .. "")
     end
-    
+
     http.TIMEOUT = self.http_timeout
     local req
     if self.http_server_protocol == "http" then
@@ -147,9 +147,9 @@ function EventQueue:add(e)
         return false
     end
     previous_event = current_event
-    
+
     broker_log:info(3, "EventQueue:add: " .. current_event)
-    
+
     local type = "host"
     local hostname = get_hostname(e.host_id)
     if hostname == e.host_id then
@@ -164,7 +164,7 @@ function EventQueue:add(e)
             if self.skip_anon_events == 1 then return false end
         end
     end
-    
+
     if string.match(self.filter_type, "status") then
         self.events[#self.events + 1] = {
             timestamp = e.last_check,
@@ -194,7 +194,7 @@ function EventQueue:add(e)
             broker_log:info(3, "EventQueue:add: No metric: " .. perfdata_err)
             return false
         end
-        
+
         for m,v in pairs(perfdata) do
             local instance = string.match(m, "(.*)#.*")
             if not instance then
@@ -311,7 +311,7 @@ end
 local queue
 
 -- Fonction init()
-function init(conf)  
+function init(conf)
     local log_level = 3
     local log_path = "/var/log/centreon-broker/stream-connector-elastic-neb.log"
     for i,v in pairs(conf) do

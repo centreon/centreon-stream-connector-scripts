@@ -69,7 +69,7 @@ function init(conf)
   end
   broker_log:set_parameters(my_data.loglevel, my_data.logfile)
   broker_log:info(2, "init values :" ..
-                     " logfile = " .. my_data.logfile .. 
+                     " logfile = " .. my_data.logfile ..
                      " loglevel = " .. my_data.loglevel ..
                      " ipaddr = " .. my_data.ipaddr ..
                      " url = " .. my_data.url ..
@@ -126,15 +126,15 @@ function write(d)
           if math.abs(d.last_check - d.last_hard_state_change) < 10 then --we keep only events with a state that changed from the previous check
             if d.state == d.last_hard_state then
             broker_log:info(3, "STATE CHANGE")
-            local reqbody = "<event_data>\t" .. 
-                "<title>" .. service_desc .. "</title>\t" .. 
-                "<description>" .. d.output .. "</description>\t" .. 
-                "<severity>" .. d.state .. "</severity>\t" .. 
-                "<time_created>" .. d.last_update .. "</time_created>\t" .. 
-                "<node>" .. hostname .. "</node>\t" .. 
-                "<related_ci>" .. hostname .. "</related_ci>\t" .. 
-                "<source_ci>" .. my_data.source_ci .. "</source_ci>\t" .. 
-                "<source_event_id>" .. d.service_id .. "</source_event_id>\t" .. 
+            local reqbody = "<event_data>\t" ..
+                "<title>" .. service_desc .. "</title>\t" ..
+                "<description>" .. d.output .. "</description>\t" ..
+                "<severity>" .. d.state .. "</severity>\t" ..
+                "<time_created>" .. d.last_update .. "</time_created>\t" ..
+                "<node>" .. hostname .. "</node>\t" ..
+                "<related_ci>" .. hostname .. "</related_ci>\t" ..
+                "<source_ci>" .. my_data.source_ci .. "</source_ci>\t" ..
+                "<source_event_id>" .. d.service_id .. "</source_event_id>\t" ..
                 "</event_data>"
             table.insert(my_data.data, reqbody)
             end

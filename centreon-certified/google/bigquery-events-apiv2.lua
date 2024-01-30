@@ -22,19 +22,19 @@ function EventQueue.new(params)
     [4] = "scope_list"
   }
 
-  
+
   self.fail = false
-  
+
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
   local log_level = params.log_level or 2
-  
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
@@ -47,68 +47,68 @@ function EventQueue.new(params)
   self.sc_params.params.proxy_port = params.proxy_port
   self.sc_params.params.proxy_username = params.proxy_username
   self.sc_params.params.proxy_password = params.proxy_password
-  
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-  
+
   self.sc_params.params.__internal_ts_host_last_flush = os.time()
   self.sc_params.params.__internal_ts_service_last_flush = os.time()
   self.sc_params.params.__internal_ts_ack_last_flush = os.time()
   self.sc_params.params.__internal_ts_dt_last_flush = os.time()
   self.sc_params.params.__internal_ts_ba_last_flush = os.time()
-  
+
   self.sc_params.params.host_table = params.host_table or "hosts"
   self.sc_params.params.service_table = params.service_table or "services"
   self.sc_params.params.ack_table = params.ack_table or "acknowledgements"
   self.sc_params.params.downtime_table = params.downtime_table or "downtimes"
   self.sc_params.params.ba_table = params.ba_table or "bas"
   self.sc_params.params._sc_gbq_use_default_schemas = 1
-  
+
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
-  
+
   -- initiate EventQueue variables
   self.events = {
     [categories.neb.id] = {},
     [categories.bam.id] = {}
   }
-  
+
   self.events[categories.neb.id] = {
     [elements.acknowledgement.id] = {},
     [elements.downtime.id] = {},
     [elements.host_status.id] = {},
     [elements.service_status.id] = {}
   }
-  
+
   self.events[categories.bam.id] = {
     [elements.ba_status.id] = {}
   }
-  
+
   self.flush = {
     [categories.neb.id] = {},
     [categories.bam.id] = {}
   }
-  
+
   self.flush[categories.neb.id] = {
     [elements.acknowledgement.id] = function () return self:flush_ack() end,
     [elements.downtime.id] = function () return self:flush_dt() end,
     [elements.host_status.id] = function () return self:flush_host() end,
     [elements.service_status.id] = function () return self:flush_service() end
   }
-  
+
   self.flush[categories.bam.id] = {
     [elements.ba_status.id] = function () return self:flush_ba() end
   }
-  
+
   self.sc_params.params.google_bq_api_url = params.google_bq_api_url or "https://content-bigquery.googleapis.com/bigquery/v2"
-  
+
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
-  
-  
+
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -119,16 +119,16 @@ end
 -- @return true (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
-  
+
   self.sc_event.event.formated_event = {}
   self.sc_event.event.formated_event.json = {}
-  
+
   for column, value in pairs(self.sc_bq.schemas[self.sc_event.event.category][self.sc_event.event.element]) do
     self.sc_event.event.formated_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
   end
-  
+
   self:add()
-  
+
   return true
 end
 
@@ -158,7 +158,7 @@ function EventQueue:flush_host ()
 
   -- reset stored events list
   self.events[categories.neb.id][elements.host_status.id] = {}
-  
+
   -- and update the timestamp
   self.sc_params.params.__internal_ts_host_last_flush = os.time()
 
@@ -181,7 +181,7 @@ function EventQueue:flush_service ()
 
   -- reset stored events list
   self.events[categories.neb.id][elements.service_status.id] = {}
-  
+
   -- and update the timestamp
   self.sc_params.params.__internal_ts_service_last_flush = os.time()
 
@@ -204,7 +204,7 @@ function EventQueue:flush_ack ()
 
   -- reset stored events list
   self.events[categories.neb.id][elements.acknowledgement.id] = {}
-  
+
   -- and update the timestamp
   self.sc_params.params.__internal_ts_ack_last_flush = os.time()
 
@@ -227,7 +227,7 @@ function EventQueue:flush_dt ()
 
   -- reset stored events list
   self.events[categories.neb.id][elements.downtime.id] = {}
-  
+
   -- and update the timestamp
   self.sc_params.params.__internal_ts_dt_last_flush = os.time()
 
@@ -250,7 +250,7 @@ function EventQueue:flush_ba ()
 
   -- reset stored events list
   self.events[categories.bam.id][elements.ba_status.id] = {}
-  
+
   -- and update the timestamp
   self.sc_params.params.__internal_ts_ba_last_flush = os.time()
 
@@ -261,7 +261,7 @@ function EventQueue:flush_old_queues()
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
   local current_time = os.time()
-  
+
   -- flush old ack events
   if #self.events[categories.neb.id][elements.acknowledgement.id] > 0 and os.time() - self.sc_params.params.__internal_ts_ack_last_flush > self.sc_params.params.max_buffer_age then
     self:flush_ack()
@@ -334,22 +334,22 @@ function EventQueue:call (data, table_name)
     -- initiate curl
   local request = curl.easy()
     :setopt_url(url)
-    :setopt_writefunction(function (response) 
+    :setopt_writefunction(function (response)
       res = res .. response
     end)
-  
+
   -- add  postfields url params
   if data then
     request:setopt_postfields(data)
   end
 
   self.sc_logger:info("[EventQueue:call]: URL: " .. tostring(url))
-  
+
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= "" and self.sc_params.params.proxy_address) then
     if (self.sc_params.params.proxy_port ~= "" and self.sc_params.params.proxy_port) then
       request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:call]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -391,7 +391,7 @@ function write(event)
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
     return true
   end
-  
+
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 

@@ -86,7 +86,7 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  
+
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
@@ -264,7 +264,7 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))

@@ -44,18 +44,18 @@ function EventQueue.new(params)
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/canopsis4-events.log"
   local log_level = params.log_level or 1
-  
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
-  
+
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.canopsis_authkey = params.canopsis_authkey
   self.sc_params.params.connector = params.connector or "centreon-stream"
@@ -71,7 +71,7 @@ function EventQueue.new(params)
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
   self.sc_params.params.use_severity_as_state = params.use_severity_as_state or 0
-  
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -80,13 +80,13 @@ function EventQueue.new(params)
   if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
     self.sc_params.params.connector_name_type = "poller"
   end
-  
+
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
   -- only load the custom code file, not executed yet
-  if self.sc_params.load_custom_code_file 
-    and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) 
+  if self.sc_params.load_custom_code_file
+    and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file)
   then
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: "
       .. tostring(self.sc_params.params.custom_code_file))
@@ -94,10 +94,10 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  
+
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
-  
+
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, {event_route = self.sc_params.params.canopsis_event_route})
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
@@ -196,7 +196,7 @@ function EventQueue:get_state(event, severity)
   if severity and self.sc_params.params.use_severity_as_state == 1 then
     return severity
   end
-  
+
   return self.centreon_to_canopsis_state[event.category][event.element][event.state]
 end
 
@@ -231,7 +231,7 @@ end
 
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-  
+
   self.sc_event.event.formated_event = {
     event_type = "check",
     source_type = "resource",
@@ -361,8 +361,8 @@ function EventQueue:add()
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
     self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
-    
-    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+
+    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
   end
 end
@@ -379,7 +379,7 @@ function EventQueue:build_payload(payload, event)
   else
     table.insert(payload, event)
   end
-  
+
   return payload
 end
 
@@ -394,9 +394,9 @@ function EventQueue:send_data(payload, queue_metadata)
     "content-type: application/json",
     "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
   }
-  
+
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
-  
+
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(payload))
@@ -422,7 +422,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -446,15 +446,15 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- performing the HTTP request
   http_request:perform()
-  
+
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
   http_request:close()
-  
+
   -- Handling the return code
   local retval = false
-  
+
   if http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is "
       .. tostring(http_response_code))
@@ -468,7 +468,7 @@ function EventQueue:send_data(payload, queue_metadata)
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
-  
+
   return retval
 end
 
@@ -504,16 +504,16 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -521,7 +521,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true
