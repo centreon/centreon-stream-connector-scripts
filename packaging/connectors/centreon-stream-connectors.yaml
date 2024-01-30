@@ -2,7 +2,7 @@ name: "@PACKAGE_NAME@"
 arch: "${ARCH}"
 platform: "linux"
 version_schema: "none"
-version: "@VERSION@"
+version: "${VERSION}"
 release: "1${DIST}"
 section: "default"
 priority: "optional"
@@ -21,12 +21,12 @@ contents:
 overrides:
   rpm:
     depends: [
-      centreon-stream-connectors-lib >= @MIN_LIB_VERSION@,
+      centreon-stream-connectors-lib >= 3.0.0,
       @RPM_DEPENDENCIES@
     ]
   deb:
     depends: [
-      "centreon-stream-connectors-lib (>= ${MIN_LIB_VERSION}~)",
+      "centreon-stream-connectors-lib (>= 3.0.0~)",
       @DEB_DEPENDENCIES@
     ]
 rpm:

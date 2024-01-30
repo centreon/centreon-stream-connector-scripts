@@ -50,6 +50,7 @@ runs:
         RPM_GPG_SIGNING_KEY_ID: ${{ inputs.rpm_gpg_signing_key_id }}
         RPM_GPG_SIGNING_PASSPHRASE: ${{ inputs.rpm_gpg_signing_passphrase }}
       run: |
+        export VERSION="${{ inputs.version }}"
         export ARCH="${{ inputs.arch }}"
 
         if  [ "${{ inputs.package_extension }}" = "rpm" ]; then
@@ -68,17 +69,12 @@ runs:
         export RPM_SIGNING_KEY_FILE="$(pwd)/key.gpg"
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
-        export MIN_LIB_VERSION="3.0.0"
-
-        min_lib_version="3.0.0"
-        sed -i 's/@MIN_LIB_VERSION@/$min_lib_version/g' ./${{ inputs.nfpm_file_pattern }}
 
         for FILE in ${{ inputs.nfpm_file_pattern }}; do
           DIRNAME=$(dirname $FILE)
           BASENAME=$(basename $FILE)
           cd $DIRNAME
           sed -i "s/@luaver@/$luaver/g" $BASENAME
-          sed -i "s/@VERSION@/${{ inputs.version }}/g" $BASENAME
           sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" $BASENAME
           nfpm package --config $BASENAME --packager ${{ inputs.package_extension }}
           cd -
@@ -95,7 +91,7 @@ runs:
     # Update if condition to true to get packages as artifacts
     - if: ${{ true }}
       name: Upload package artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
         name: packages-${{ inputs.distrib }}
         path: ./*.${{ inputs.package_extension}}
