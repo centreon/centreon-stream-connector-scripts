@@ -16,6 +16,7 @@ inputs:
   release:
     description: The package release number
     required: false
+    default: "1"
   arch:
     description: The package architecture
     required: false

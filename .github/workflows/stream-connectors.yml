@@ -118,9 +118,10 @@ jobs:
         with:
           nfpm_file_pattern: "packaging/connectors/centreon-stream-connectors.yaml"
           distrib: ${{ matrix.distrib }}
+          version: ${{ steps.package-version.outputs.package_version }}
+          release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
-          version: ${{ steps.package-version.outputs.package_version }}
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
