@@ -163,3 +163,25 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-curl-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+
+  deliver-deb:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [bullseye]
+    name: deliver ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Publish DEB packages
+        uses: ./.github/actions/deb-delivery
+        with:
+          module_name: lua-curl
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-curl-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
