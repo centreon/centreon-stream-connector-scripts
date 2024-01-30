@@ -93,6 +93,6 @@ runs:
       name: Upload package artifacts
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
-        name: packages-${{ inputs.distrib }}
+        name: packages-${{ inputs.nfpm_file_pattern }}-${{ inputs.distrib }}
         path: ./*.${{ inputs.package_extension}}
         retention-days: 1
