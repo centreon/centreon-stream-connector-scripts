@@ -66,10 +66,10 @@ jobs:
       - name: Compile lua-curl and prepare packaging
         run: |
           if [ "${{ matrix.package_extension }}" == "rpm" ]; then
-            dnf install -y make cmake gcc openssl openssl-devel python3-pip cpanminus
+            dnf install -y make cmake gcc openssl openssl-devel libcurl-devel python3-pip cpanminus
           else
             apt-get update
-            apt-get install -y make cmake gcc openssl libssl-dev python3-pip cpanminus
+            apt-get install -y make cmake gcc openssl libssl-dev libcurl4-openssl-dev python3-pip cpanminus
           fi
 
           cpanm -v \
