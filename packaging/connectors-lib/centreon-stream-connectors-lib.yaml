@@ -37,7 +37,7 @@ overrides:
     depends:
       - "centreon-broker-core (>= 22.04.0)"
       - "lua-socket (>= 3.0~)"
-      - "lua-curl"
+      - "lua5.3-curl"
       - "lua5.3"
 
 rpm:

@@ -15,20 +15,31 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "../lua-curl"
-    dst: "/usr/lib64/lua/@luaver@"
+  - src: "../lua-curl/{lcurl.so,cURL.lua}"
+    dst: "/usr/lib64/lua/@luaver@/"
     file_info:
-      mode: 0755
+      mode: 0644
+    packager: rpm
+  - src: "../lua-curl/{lcurl.so,cURL.lua}"
+    dst: "/usr/lib/x86_64-linux-gnu/lua/5.3/"
+    file_info:
+      mode: 0644
+    packager: deb
 
-  - src: "../lua-curl"
-    dst: "/usr/share/lua/@luaver@"
-    file_info:
-      mode: 0755
+  - src: "../lua-curl/{safe.lua,utils.lua,impl}"
+    dst: "/usr/share/lua/@luaver@/cURL/"
+    packager: rpm
+  - src: "../lua-curl/{safe.lua,utils.lua,impl}"
+    dst: "/usr/share/lua/5.3/cURL/"
+    packager: deb
 
 overrides:
   rpm:
     depends:
       - lua
+  deb:
+    depends:
+      - lua5.3
 
 rpm:
   summary: lua curl
