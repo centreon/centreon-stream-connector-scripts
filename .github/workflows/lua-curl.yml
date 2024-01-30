@@ -105,13 +105,11 @@ jobs:
           cp -p lua-curl-src/src/lua/cURL.lua dependencies/lua-curl/lua-curl/
 
           cd dependencies/lua-curl
-
-          echo "0.3.13" >> version.txt
         shell: bash
 
       - name: Export package version
         id: package-version
-        run: echo "package_version=`cat version.txt`" >> $GITHUB_OUTPUT
+        run: echo "package_version=0.3.13" >> $GITHUB_OUTPUT
         shell: bash
         working-directory: dependencies/lua-curl
 
