@@ -15,15 +15,22 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "../lua-curl/{lcurl.so,cURL.lua}"
-    dst: "/usr/lib64/lua/@luaver@/"
+  - src: "../lua-curl/lcurl.so"
+    dst: "/usr/lib64/lua/@luaver@/lcurl.so"
     file_info:
       mode: 0644
     packager: rpm
-  - src: "../lua-curl/{lcurl.so,cURL.lua}"
-    dst: "/usr/lib/x86_64-linux-gnu/lua/5.3/"
+  - src: "../lua-curl/lcurl.so"
+    dst: "/usr/lib/x86_64-linux-gnu/lua/5.3/lcurl.so"
     file_info:
       mode: 0644
+    packager: deb
+
+  - src: "../lua-curl/cURL.lua"
+    dst: "/usr/share/lua/@luaver@/cURL.lua"
+    packager: rpm
+  - src: "../lua-curl/cURL.lua"
+    dst: "/usr/share/lua/5.3/cURL.lua"
     packager: deb
 
   - src: "../lua-curl/cURL"
