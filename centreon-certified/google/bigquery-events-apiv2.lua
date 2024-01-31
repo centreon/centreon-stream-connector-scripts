@@ -108,7 +108,6 @@ function EventQueue.new(params)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
 
-
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -430,4 +429,3 @@ function write(event)
 
   return true
 end
-
