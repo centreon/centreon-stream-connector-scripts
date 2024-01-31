@@ -84,7 +84,11 @@ jobs:
 
           cd lua-curl-src
 
-          pip3 install conan --break-system-packages
+          if [ "${{ matrix.distrib }}" == "bookworm" ]; then
+            pip3 install conan --break-system-packages
+          else
+            pip3 install conan
+          fi
           conan profile detect
 
           cat <<'EOF' >> conanfile.txt
@@ -174,7 +178,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [bullseye]
+        distrib: [bullseye, bookworm]
     name: deliver ${{ matrix.distrib }}
 
     steps:
