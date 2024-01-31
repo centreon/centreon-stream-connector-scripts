@@ -53,7 +53,6 @@ jobs:
           echo "!!!!"
           echo $(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
-          exit 1
         shell: bash
 
   package:
