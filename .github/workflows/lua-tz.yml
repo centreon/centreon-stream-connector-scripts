@@ -7,8 +7,8 @@ concurrency:
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - dependencies/lua-tz/**
+    # paths:
+    #   - dependencies/lua-tz/**
   push:
     branches:
       - develop
