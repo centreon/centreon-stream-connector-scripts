@@ -34,6 +34,9 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bullseye
+            distrib: bullseye
 
     runs-on: ubuntu-22.04
 
@@ -49,10 +52,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Install dependencies
-        run: dnf install -y make gcc meson gcc-c++ cmake libcurl-devel
-        shell: bash
-
       - name: Checkout sources of lua-curl
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
@@ -62,9 +61,14 @@ jobs:
 
       - name: Compile lua-curl and prepare packaging
         run: |
-          dnf install -y openssl-devel openssl libcurl-devel python3-pip cpanminus
+          if [ "${{ matrix.package_extension }}" == "rpm" ]; then
+            dnf install -y make cmake gcc openssl openssl-devel libcurl-devel python3-pip cpanminus
+          else
+            apt-get update
+            apt-get install -y make cmake gcc openssl libssl-dev libcurl4-openssl-dev python3-pip cpanminus liblua5.3-dev
+          fi
 
-          cpanm \
+          cpanm -v \
             IPC::Cmd \
             Digest::SHA \
             Thread::Queue \
@@ -94,7 +98,12 @@ jobs:
 
           conan install . --build=missing --deployer=full_deploy
 
-          sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
+          if [ "${{ matrix.package_extension }}" == "rpm" ]; then
+            sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread#" Makefile
+          else
+            sed -i "s#^CURL_LIBS.*#CURL_LIBS=-Lfull_deploy/host/libcurl/8.0.1/Release/x86_64/lib -l:libcurl.a -Lfull_deploy/host/openssl/1.1.1t/Release/x86_64/lib -l:libssl.a -l:libcrypto.a -Lfull_deploy/host/zlib/1.2.13/Release/x86_64/lib -l:libz.a -lpthread -I/usr/include/lua5.3#" Makefile
+          fi
+
           make
 
           cd ..
@@ -105,19 +114,31 @@ jobs:
           cp -p lua-curl-src/src/lua/cURL.lua dependencies/lua-curl/lua-curl/
         shell: bash
 
+      - name: Update package name
+        run: |
+          if [ "${{ matrix.package_extension }}" == "rpm" ]; then
+            NAME="lua-curl"
+          else
+            NAME="lua5.3-curl"
+          fi
+          sed -i "s/@NAME@/$NAME/g" ./dependencies/lua-curl/packaging/lua-curl.yaml
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "dependencies/lua-curl/packaging/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-curl/packaging/lua-curl.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: amd64
           version: "0.3.13"
+          release: "7"
           commit_hash: ${{ github.sha }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-curl-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
+          stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
@@ -139,4 +160,26 @@ jobs:
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-curl-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+
+  deliver-deb:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        distrib: [bullseye]
+    name: deliver ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Publish DEB packages
+        uses: ./.github/actions/deb-delivery
+        with:
+          module_name: lua-curl
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-curl-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}

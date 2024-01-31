@@ -16,6 +16,7 @@ inputs:
   release:
     description: The package release number
     required: false
+    default: "1"
   arch:
     description: The package architecture
     required: false
@@ -34,6 +35,9 @@ inputs:
   rpm_gpg_signing_passphrase:
     description: The rpm gpg signing passphrase
     required: true
+  stability:
+    description: "Branch stability (stable, testing, unstable, canary)"
+    required: true
 
 runs:
   using: composite
@@ -51,12 +55,18 @@ runs:
         RPM_GPG_SIGNING_PASSPHRASE: ${{ inputs.rpm_gpg_signing_passphrase }}
       run: |
         export VERSION="${{ inputs.version }}"
+        export RELEASE="${{ inputs.release }}"
         export ARCH="${{ inputs.arch }}"
 
         if  [ "${{ inputs.package_extension }}" = "rpm" ]; then
           export DIST=".${{ inputs.distrib }}"
         else
           export DIST=""
+          if [ "${{ inputs.stability }}" = "unstable" ] || [ "${{ inputs.stability }}" = "canary" ]; then
+            export RELEASE="$RELEASE~${{ inputs.distrib }}"
+          elif [ "${{ inputs.stability }}" = "testing" ]; then
+            export RELEASE="1~${{ inputs.distrib }}"
+          fi
         fi
 
         luaver=$(lua -e "print(string.sub(_VERSION, 5))" 2>/dev/null || echo 0)
@@ -93,6 +103,6 @@ runs:
       name: Upload package artifacts
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
-        name: packages-${{ inputs.distrib }}
+        name: packages-${{ inputs.nfpm_file_pattern }}-${{ inputs.distrib }}
         path: ./*.${{ inputs.package_extension}}
         retention-days: 1

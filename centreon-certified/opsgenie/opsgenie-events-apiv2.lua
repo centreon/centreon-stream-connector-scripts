@@ -43,20 +43,20 @@ function EventQueue.new(params)
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/opsgenie-events.log"
   local log_level = params.log_level or 1
-  
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
-  
+
   --params.max_buffer_size = 1
-  
+
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.app_api_token = params.app_api_token
   self.sc_params.params.integration_api_token = params.integration_api_token
@@ -73,15 +73,15 @@ function EventQueue.new(params)
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.timestamp_conversion_format = params.timestamp_conversion_format or "%Y-%m-%d %H:%M:%S"
-  
-  
+
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-  
+
   -- need a queue for each type of event because ba status aren't sent on the same endpoint
   self.sc_params.params.send_mixed_events = 0
-  
+
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
@@ -132,16 +132,16 @@ function EventQueue.new(params)
 
   -- handle metadatas for queues
   self.sc_flush:add_queue_metadata(
-    categories.neb.id, 
-    elements.host_status.id, 
+    categories.neb.id,
+    elements.host_status.id,
     {
       api_endpoint = self.sc_params.params.alerts_api_endpoint,
       token = self.sc_params.params.app_api_token
     }
   )
   self.sc_flush:add_queue_metadata(
-    categories.neb.id, 
-    elements.service_status.id, 
+    categories.neb.id,
+    elements.service_status.id,
     {
       api_endpoint = self.sc_params.params.alerts_api_endpoint,
       token = self.sc_params.params.app_api_token
@@ -151,23 +151,23 @@ function EventQueue.new(params)
   -- handle opsgenie priority mapping
   local severity_to_priority = {}
   self.priority_mapping = {}
-  
+
   if self.sc_params.params.enable_severity == 1 then
     self.priority_matching_list = self.sc_common:split(self.sc_params.params.priority_matching, ',')
 
     for _, priority_group in ipairs(self.priority_matching_list) do
       severity_to_priority = self.sc_common:split(priority_group, '=')
 
-      -- 
+      --
       if string.match(self.sc_params.params.opsgenie_priorities, severity_to_priority[1]) == nil then
-        self.sc_logger:error("[EvenQueue.new]: severity is enabled but the priority configuration is wrong. configured matching: " 
+        self.sc_logger:error("[EvenQueue.new]: severity is enabled but the priority configuration is wrong. configured matching: "
           .. self.sc_params.params.priority_matching_list .. ", invalid parsed priority: " .. severity_to_priority[1]
           .. ", known Opsgenie priorities: " .. self.sc_params.params.opsgenie_priorities
           .. ". Considere adding your priority to the opsgenie_priorities list if the parsed priority is valid")
         break
       end
 
-      self.priority_mapping[severity_to_priority[2]] = severity_to_priority[1]  
+      self.priority_mapping[severity_to_priority[2]] = severity_to_priority[1]
     end
   end
 
@@ -251,7 +251,7 @@ end
 function EventQueue:format_event_service()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
-  
+
   self.sc_event.event.formated_event = {
     message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
       .. " " .. event.cache.host.name .. " // " .. event.cache.service.description .. " is " .. state, 1, 130),
@@ -269,14 +269,14 @@ end
 function EventQueue:format_event_ba()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
-  
+
   self.sc_event.event.formated_event = {
     message = string.sub(event.cache.ba.ba_name  .. " is " .. state .. ", health level reached " .. event.level_nominal, 1, 130)
   }
 
   if self.sc_params.params.enable_incident_tags == 1 then
     local tags = {}
-    
+
     for _, bv_info in ipairs(event.cache.bvs) do
       -- can't have more than 20 tags
       if #tags < 50 then
@@ -286,7 +286,7 @@ function EventQueue:format_event_ba()
     end
 
     local custom_tags = self.sc_common:split(self.sc_params.params.ba_incident_tags, ",")
-    for _, tag_name in ipairs(custom_tags) do  
+    for _, tag_name in ipairs(custom_tags) do
       -- can't have more than 20 tags
       if #tags < 20 then
         self.sc_logger:info("[EventQueue:format_event_ba]: add custom tag: " .. tostring(tag_name) .. " to list of tags")
@@ -329,7 +329,7 @@ function EventQueue:build_payload(payload, event)
   else
     payload = payload .. "," .. broker.json_encode(event)
   end
-  
+
   return payload
 end
 
@@ -340,7 +340,7 @@ function EventQueue:send_data(payload, queue_metadata)
   queue_metadata.headers = {
     "content-type: application/json",
     "accept: application/json",
-    "Authorization: GenieKey " .. queue_metadata.token 
+    "Authorization: GenieKey " .. queue_metadata.token
   }
 
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
@@ -369,7 +369,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -388,12 +388,12 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- performing the HTTP request
   http_request:perform()
-  
+
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
   http_request:close()
-  
+
   -- Handling the return code
   local retval = false
 
@@ -405,7 +405,7 @@ function EventQueue:send_data(payload, queue_metadata)
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
-  
+
   return retval
 end
 
@@ -441,16 +441,16 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -458,7 +458,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true

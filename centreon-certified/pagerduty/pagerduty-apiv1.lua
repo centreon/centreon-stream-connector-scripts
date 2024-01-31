@@ -147,8 +147,8 @@ function EventQueue:add(e)
       end
     end
   end
-  
-  local pdy_dedup_key 
+
+  local pdy_dedup_key
   if e.service_id then --to remain consistent in the alert handling even in the event of the loss of the broker cache, we should use the ids to link the events
     pdy_dedup_key = e.host_id .. "_" .. e.service_id
   else
@@ -169,7 +169,7 @@ function EventQueue:add(e)
 
   -- basic management of "class" attribute
   local pdy_class
-  if e.service_id then 
+  if e.service_id then
     pdy_class = "service"
   else
     pdy_class = "host"
@@ -300,7 +300,7 @@ function EventQueue:flush()
   for s in http_post_data:gmatch("[^\r\n]+") do
     broker_log:info(3, "EventQueue:flush: HTTP POST data:   " .. s .. "")
   end
-  
+
   broker_log:info(3, "EventQueue:flush: HTTP POST url: \"" .. self.http_server_url .. "\"")
 
   local http_response_body = ""
@@ -336,7 +336,7 @@ function EventQueue:flush()
   http_request:perform()
 
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
   http_request:close()
 
@@ -361,7 +361,7 @@ end
 local queue
 
 -- Fonction init()
-function init(conf)  
+function init(conf)
   local log_level = 2
   local log_path = "/var/log/centreon-broker/stream-connector-pagerduty.log"
   for i,v in pairs(conf) do

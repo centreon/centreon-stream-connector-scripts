@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+      - uses: dorny/paths-filter@0bc4621a3135347011ad047f9ecf449bf72ce2bd # v3.0.0
         id: filter
         with:
           base: ${{ github.ref }}
@@ -53,7 +53,7 @@ jobs:
 
   package:
     if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
-    needs: [detect-changes]
+    needs: [get-environment, detect-changes]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -61,13 +61,13 @@ jobs:
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
-            image: packaging-stream-connectors-alma8
+            image: packaging-stream-connectors-nfpm-alma8
             package_extension: rpm
           - distrib: el9
-            image: packaging-stream-connectors-alma9
+            image: packaging-stream-connectors-nfpm-alma9
             package_extension: rpm
           - distrib: bullseye
-            image: packaging-stream-connectors-bullseye
+            image: packaging-stream-connectors-nfpm-bullseye
             package_extension: deb
 
     name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
@@ -78,12 +78,20 @@ jobs:
         password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
 
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Checkout sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Replace package and connector name variables
+        run: |
+          package_name="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
+          sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          connector_name="`basename ${{ matrix.connector_path }}`"
+          sed -i "s/@CONNECTOR_NAME@/$connector_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+        shell: bash
 
       - name: Add specific dependencies
-        id: list-dependencies
         run: |
-          MIN_LIB_VERSION="3.0.0"
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
           if [ "${{ matrix.connector_path }}" = "kafka" ]; then
@@ -96,128 +104,34 @@ jobs:
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
           fi
-          echo "min_lib_version=$MIN_LIB_VERSION" >> $GITHUB_OUTPUT
-          echo "deb_dependencies=$DEB_DEPENDENCIES" >> $GITHUB_OUTPUT
-          echo "rpm_dependencies=$RPM_DEPENDENCIES" >> $GITHUB_OUTPUT
+          sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
-      - if: ${{ matrix.package_extension == 'rpm' }}
-        run: |
-          mkdir -p ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
-
-          PACKAGE_NAME="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
-          PACKAGE_VERSION=`date '+%Y%m%d'`
-
-          mkdir $PACKAGE_NAME
-          cp centreon-certified/${{ matrix.connector_path }}/*.lua $PACKAGE_NAME/
-
-          tar czf ~/rpmbuild/SOURCES/$PACKAGE_NAME.tar.gz $PACKAGE_NAME
-
-          touch dependencies.txt
-          if [ ! -z "${{ steps.list-dependencies.outputs.rpm_dependencies }}" ]; then
-            for dependency in "${{ steps.list-dependencies.outputs.rpm_dependencies }}"; do
-              echo "Requires: $dependency" >> dependencies.txt
-            done
-          fi
-          sed -i '/Requires:/r dependencies.txt' packaging/connectors/rpm/connector.spec
-
-          touch files.txt
-          for file in $PACKAGE_NAME/*.lua; do
-            echo "%{_datadir}/centreon-broker/lua/`basename $file`" >> files.txt
-          done
-          sed -i '/%files/r files.txt' packaging/connectors/rpm/connector.spec
-
-          rpmbuild -ba packaging/connectors/rpm/connector.spec -D "PACKAGE_NAME $PACKAGE_NAME" -D "VERSION $PACKAGE_VERSION" -D "MIN_LIB_VERSION ${{ steps.list-dependencies.outputs.min_lib_version }}"
-
-          mv ~/rpmbuild/RPMS/**/*.rpm ./
+      - name: Export package version
+        id: package-version
+        run: echo "package_version=`date '+%Y%m%d'`" >> $GITHUB_OUTPUT
         shell: bash
 
-      - if: ${{ matrix.package_extension == 'deb' }}
-        run: |
-          PACKAGE_NAME="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
-          PACKAGE_VERSION=`date '+%Y%m%d'`
-
-          mkdir -p $PACKAGE_NAME-$PACKAGE_VERSION/debian
-
-          cp centreon-certified/${{ matrix.connector_path }}/*.lua $PACKAGE_NAME-$PACKAGE_VERSION/
-
-          sed -i "s#@PACKAGE_NAME@#$PACKAGE_NAME#g" packaging/connectors/deb/control
-          sed -i "s#@MIN_LIB_VERSION@#${{ steps.list-dependencies.outputs.min_lib_version }}#g" packaging/connectors/deb/control
-
-          touch dependencies.txt
-          if [ ! -z "${{ steps.list-dependencies.outputs.deb_dependencies }}" ]; then
-            for dependency in "${{ steps.list-dependencies.outputs.deb_dependencies }}"; do
-              echo "  $dependency," >> dependencies.txt
-            done
-          fi
-          sed -i '/^Depends:/r dependencies.txt' packaging/connectors/deb/control
-
-          for file in $PACKAGE_NAME-$PACKAGE_VERSION/*.lua; do
-            echo "`basename $file`    /usr/share/centreon-broker/lua/`basename $file`" >> packaging/connectors/deb/install
-          done
-
-          cp -rp packaging/connectors/deb/* $PACKAGE_NAME-$PACKAGE_VERSION/debian/
-
-          tar czf $PACKAGE_NAME-$PACKAGE_VERSION.tar.gz $PACKAGE_NAME-$PACKAGE_VERSION
-
-          cd $PACKAGE_NAME-$PACKAGE_VERSION
-
-          debmake -f "centreon" -e "contact@centreon.com" -y -r ${{ matrix.distrib }}
-          debuild-pbuilder --no-lintian
-        shell: bash
-
-      - if: ${{ matrix.package_extension == 'deb' }}
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
+      - name: Package
+        uses: ./.github/actions/package-nfpm
         with:
-          path: ./*.${{ matrix.package_extension }}
-          key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
-
-      - if: ${{ matrix.package_extension == 'rpm' }}
-        uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.${{ matrix.package_extension }}
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
-
-  sign-rpm:
-    needs: [detect-changes, package]
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        distrib: [el8, el9]
-        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: sign rpm ${{ matrix.distrib }} ${{ matrix.connector_path }}
-    container:
-      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/rpm-signing:ubuntu
-      options: -t
-      credentials:
-        username: ${{ secrets.DOCKER_REGISTRY_ID }}
-        password: ${{ secrets.DOCKER_REGISTRY_PASSWD }}
-
-    steps:
-      - run: apt-get install -y zstd
-        shell: bash
-
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-
-      - uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.rpm
-          key: unsigned-${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
-
-      - run: echo "HOME=/root" >> $GITHUB_ENV
-        shell: bash
-
-      - run: rpmsign --addsign ./*.rpm
-        shell: bash
-
-      - uses: actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b5c # v3.3.3
-        with:
-          path: ./*.rpm
-          key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          nfpm_file_pattern: "packaging/connectors/centreon-stream-connectors.yaml"
+          distrib: ${{ matrix.distrib }}
+          version: ${{ steps.package-version.outputs.package_version }}
+          release: "1"
+          package_extension: ${{ matrix.package_extension }}
+          arch: all
+          commit_hash: ${{ github.sha }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
+          rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
+          rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
+          stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, detect-changes, sign-rpm]
+    needs: [get-environment, detect-changes, package]
     runs-on: ubuntu-22.04
     strategy:
       matrix:

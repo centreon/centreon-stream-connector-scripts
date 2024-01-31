@@ -30,7 +30,7 @@ function EventQueue.new(params)
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/kafka-stream-connector.log"
   local log_level = params.log_level or 1
-  
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
@@ -44,9 +44,9 @@ function EventQueue.new(params)
   self.sc_params.params.topic = params.topic
   self.sc_params.params.brokers = params.brokers
   self.sc_params.params.centreon_name = params.centreon_name
-  
+
   -- overriding default parameters for this stream connector
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
@@ -54,15 +54,15 @@ function EventQueue.new(params)
 
   -- handle kafka params
   self.sc_params:get_kafka_params(self.sc_kafka_config, params)
-  
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-  
+
   -- SEGFAULT ON EL8 (only usefull for debugging)
   -- self.sc_kafka_config:set_delivery_cb(function (payload, err) print("Delivery Callback '"..payload.."'") end)
   -- self.sc_kafka_config:set_stat_cb(function (payload) print("Stat Callback '"..payload.."'") end)
-  
+
   -- initiate a kafka producer
   self.sc_kafka_producer = kafka_producer.new(self.sc_kafka_config)
 
@@ -86,7 +86,7 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  
+
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
@@ -200,7 +200,7 @@ function EventQueue:build_payload(payload, event)
   else
     payload = payload .. ',' .. broker.json_encode(event)
   end
-  
+
   return payload
 end
 
@@ -264,16 +264,16 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -281,7 +281,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true

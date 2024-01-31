@@ -43,20 +43,20 @@ function EventQueue.new(params)
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/datadog-events.log"
   local log_level = params.log_level or 1
-  
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
-  
+
   --params.max_buffer_size = 1
-  
+
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.api_key = params.api_key
   self.sc_params.params.datadog_centreon_url = params.datadog_centreon_url or "http://yourcentreonaddress.local"
@@ -64,11 +64,11 @@ function EventQueue.new(params)
   self.sc_params.params.http_server_url = params.http_server_url or "https://api.datadoghq.com"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-  
+
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
@@ -164,7 +164,7 @@ end
 
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-  
+
   self.sc_event.event.formated_event = {
     title = tostring(self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. event.cache.host.name .. ": " .. event.cache.service.description),
     text = event.output,
@@ -205,7 +205,7 @@ function EventQueue:build_payload(payload, event)
   else
     payload = payload .. broker.json_encode(event)
   end
-  
+
   return payload
 end
 
@@ -244,7 +244,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -263,12 +263,12 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- performing the HTTP request
   http_request:perform()
-  
+
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
   http_request:close()
-  
+
   -- Handling the return code
   local retval = false
   -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
@@ -278,7 +278,7 @@ function EventQueue:send_data(payload, queue_metadata)
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
-  
+
   return retval
 end
 
@@ -314,16 +314,16 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -331,7 +331,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true
@@ -358,4 +358,3 @@ function flush()
   -- there are events in the queue but they were not ready to be send
   return false
 end
-

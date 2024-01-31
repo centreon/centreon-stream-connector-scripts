@@ -2,8 +2,8 @@ name: "centreon-stream-connectors-lib"
 arch: "${ARCH}"
 platform: "linux"
 version_schema: "none"
-version: "3.6.0"
-release: "2${DIST}"
+version: "${VERSION}"
+release: "${RELEASE}${DIST}"
 section: "default"
 priority: "optional"
 maintainer: "Centreon <contact@centreon.com>"
@@ -15,8 +15,16 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "./modules/centreon-stream-connectors-lib"
+  - src: "../../modules/centreon-stream-connectors-lib"
     dst: "/usr/share/lua/@luaver@/centreon-stream-connectors-lib"
+    packager: rpm
+
+  - src: "../../modules/centreon-stream-connectors-lib"
+    dst: "/usr/share/lua/5.3/centreon-stream-connectors-lib"
+    packager: deb
+  - src: "../../modules/centreon-stream-connectors-lib"
+    dst: "/usr/share/lua/5.4/centreon-stream-connectors-lib"
+    packager: deb
 
 overrides:
   rpm:
@@ -24,12 +32,13 @@ overrides:
       - lua-socket >= 3.0
       - centreon-broker-core >= 22.04.0
       - lua-curl
+      - lua
   deb:
     depends:
       - "centreon-broker-core (>= 22.04.0)"
       - "lua-socket (>= 3.0~)"
-      - "lua-curl"
-      - "lua5.4"
+      - "lua5.3-curl"
+      - "lua5.3"
 
 rpm:
   summary: Centreon stream connectors lua modules

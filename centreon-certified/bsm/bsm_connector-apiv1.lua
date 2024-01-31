@@ -166,7 +166,7 @@ function EventQueue:add(e)
     if e.service_id then
       xml_url = ifnil(broker_cache:get_notes_url(e.host_id, e.service_id), 'no notes url for this service') 
       xml_service_severity = "<service_severity>" ..ifnil(broker_cache:get_severity(e.host_id, e.service_id), '0') .. "</service_severity>"
-    else 
+    else
       xml_url = ifnil(broker_cache:get_action_url(e.host_id), 'no action url for this host') 
       xml_notes = "<host_notes>" .. ifnil(broker_cache:get_notes(e.host_id), 'OS not set') .. "</host_notes>"
     end
@@ -332,7 +332,7 @@ function write(e)
       return true
     end
 
-    -- Ignore SOFT 
+    -- Ignore SOFT
     if e.state_type and e.state_type ~= 1 then
       broker_log:info(3, "write: " .. e.host_id .. "_" .. ifnil_or_empty(e.service_id, "H") .. " Not HARD state type. Dropping.")
       return true

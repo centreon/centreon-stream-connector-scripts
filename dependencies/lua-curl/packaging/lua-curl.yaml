@@ -1,9 +1,9 @@
-name: "lua-curl"
+name: "@NAME@"
 arch: "${ARCH}"
 platform: "linux"
 version_schema: "none"
 version: "${VERSION}"
-release: "6${DIST}"
+release: "${RELEASE}${DIST}"
 section: "default"
 priority: "optional"
 maintainer: "Centreon <contact@centreon.com>"
@@ -15,20 +15,38 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "../lua-curl"
-    dst: "/usr/lib64/lua/@luaver@"
+  - src: "../lua-curl/lcurl.so"
+    dst: "/usr/lib64/lua/@luaver@/lcurl.so"
     file_info:
-      mode: 0755
+      mode: 0644
+    packager: rpm
+  - src: "../lua-curl/lcurl.so"
+    dst: "/usr/lib/x86_64-linux-gnu/lua/5.3/lcurl.so"
+    file_info:
+      mode: 0644
+    packager: deb
 
-  - src: "../lua-curl"
-    dst: "/usr/share/lua/@luaver@"
-    file_info:
-      mode: 0755
+  - src: "../lua-curl/cURL.lua"
+    dst: "/usr/share/lua/@luaver@/cURL.lua"
+    packager: rpm
+  - src: "../lua-curl/cURL.lua"
+    dst: "/usr/share/lua/5.3/cURL.lua"
+    packager: deb
+
+  - src: "../lua-curl/cURL"
+    dst: "/usr/share/lua/@luaver@/cURL"
+    packager: rpm
+  - src: "../lua-curl/cURL"
+    dst: "/usr/share/lua/5.3/cURL"
+    packager: deb
 
 overrides:
   rpm:
     depends:
       - lua
+  deb:
+    depends:
+      - lua5.3
 
 rpm:
   summary: lua curl

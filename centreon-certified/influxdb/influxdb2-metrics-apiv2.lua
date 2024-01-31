@@ -47,18 +47,18 @@ function EventQueue.new(params)
   -- set up log configuration
   local logfile = params.logfile or "/var/log/centreon-broker/infuxdb2-metrics.log"
   local log_level = params.log_level or 1
-  
+
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-  
+
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
-  
+
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.bucket_api_key = params.bucket_api_key
   self.sc_params.params.bucket_id = params.bucket_id
@@ -75,8 +75,8 @@ function EventQueue.new(params)
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
   -- https://docs.influxdata.com/influxdb/cloud/reference/syntax/line-protocol/#special-characters
   self.sc_params.params.metric_name_regex = params.metric_name_regex or "([, =])"
-  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "\\%1" 
-  
+  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "\\%1"
+
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -187,7 +187,7 @@ function EventQueue:format_metric_service(metric)
   local params = self.sc_params.params
   self.sc_logger:debug("[EventQueue:format_metric_service]: start format_metric service")
   self.sc_event.event.formated_event = metric.metric_name .. ",type=service,service.name="
-    .. self:escape_special_characters(self.sc_event.event.cache.service.description) 
+    .. self:escape_special_characters(self.sc_event.event.cache.service.description)
     .. "," .. self:build_generic_tags(metric) .. " value=" .. metric.value .. " " .. self.sc_event.event.last_check
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric service")
@@ -196,7 +196,7 @@ end
 --------------------------------------------------------------------------------
 ---- EventQueue:build_tags method
 -- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata 
+-- @return tags {table} a table with formated metadata
 --------------------------------------------------------------------------------
 function EventQueue:build_generic_tags(metric)
   local event = self.sc_event.event
@@ -251,7 +251,7 @@ function EventQueue:build_payload(payload, event)
   else
     payload = payload .. "\n" .. event
   end
-  
+
   return payload
 end
 
@@ -259,8 +259,8 @@ function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
   local params = self.sc_params.params
 
-  local url = params.http_server_url .. tostring(params.influxdb2_api_endpoint) 
-    .. "?bucket=" .. tostring(params.bucket_id) .. "&org=" .. tostring(params.org_name) 
+  local url = params.http_server_url .. tostring(params.influxdb2_api_endpoint)
+    .. "?bucket=" .. tostring(params.bucket_id) .. "&org=" .. tostring(params.org_name)
     .. "&precision=" .. tostring(params.influxdb2_precision)
 
   queue_metadata.headers = {
@@ -296,7 +296,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -315,12 +315,12 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- performing the HTTP request
   http_request:perform()
-  
+
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
   http_request:close()
-  
+
   -- Handling the return code
   local retval = false
   -- https://docs.influxdata.com/influxdb/cloud/api/#operation/PostWrite other than 204 is not good
@@ -330,7 +330,7 @@ function EventQueue:send_data(payload, queue_metadata)
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
-  
+
   return retval
 end
 
@@ -367,16 +367,16 @@ function write (event)
       if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -384,7 +384,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true

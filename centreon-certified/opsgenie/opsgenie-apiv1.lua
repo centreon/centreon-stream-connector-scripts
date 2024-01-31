@@ -96,10 +96,10 @@ end
 --------------------------------------------------------------------------------
 -- get_hostgroups: retrieve hostgroups from host_id
 -- @param {number} host_id,
--- @return {array} hostgroups, 
+-- @return {array} hostgroups,
 --------------------------------------------------------------------------------
 local function get_hostgroups (host_id)
-  if host_id == nil then 
+  if host_id == nil then
     broker_log:warning(1, "get_hostgroup: host id is nil")
     return false
   end
@@ -109,7 +109,7 @@ local function get_hostgroups (host_id)
   if not hostgroups then
     return false
   end
-  
+
   return hostgroups
 end
 
@@ -117,13 +117,13 @@ end
 -- get_severity: retrieve severity from host or service
 -- @param {number} host_id,
 -- @param {number} [optional] service_id
--- @return {array} severity, 
+-- @return {array} severity,
 --------------------------------------------------------------------------------
 local function get_severity (host_id, service_id)
   local service_id = service_id or nil
   local severity = nil
 
-  if host_id == nil then 
+  if host_id == nil then
     broker_log:warning(1, "get_severity: host id is nil")
     return false
   end
@@ -141,10 +141,10 @@ end
 -- get_ba_name: retrieve ba name from ba id
 -- @param {number} ba_id,
 -- @return {string} ba_name, the name of the ba
--- @return {string} ba_description, the description of the ba 
+-- @return {string} ba_description, the description of the ba
 --------------------------------------------------------------------------------
 local function get_ba_name (ba_id)
-  if ba_id == nil then 
+  if ba_id == nil then
     broker_log:warning(1, "get_ba_name: ba id is nil")
     return false
   end
@@ -165,7 +165,7 @@ end
 -- @return {array} bv_names, the bvs' description
 --------------------------------------------------------------------------------
 local function get_bvs (ba_id)
-  if ba_id == nil then 
+  if ba_id == nil then
     broker_log:warning(1, "get_bvs: ba id is nil")
     return false
   end
@@ -205,13 +205,13 @@ end
 --------------------------------------------------------------------------------
 local function split (text, separator)
   local hash = {}
-  
+
   -- return empty string if text is nil
   if text == nil then
     broker_log:error(1, 'split: could not split text because it is nil')
     return ''
   end
-  
+
   -- set default separator
   seperator = ifnil_or_empty(separator, ',')
 
@@ -243,7 +243,7 @@ end
 
 --------------------------------------------------------------------------------
 -- find_hostgroup_in_list: check if hostgroups from hosts are in an accepted list from the stream connector configuration
--- @param {table} acceptedHostgroups, the table with the name of accepted hostgroups 
+-- @param {table} acceptedHostgroups, the table with the name of accepted hostgroups
 -- @param {table} hostHostgroups, the hostgroups associated to an host
 -- @return {boolean}
 -- @return {string} [optional] acceptedHostgroupsName, the hostgroup name that matched
@@ -256,7 +256,7 @@ local function find_hostgroup_in_list (acceptedHostgroups, hostHostgroups)
       end
     end
   end
-  
+
   return false
 end
 
@@ -321,7 +321,7 @@ function EventQueue:new (conf)
     in_downtime = 0,
     max_buffer_size = 1,
     max_buffer_age = 5,
-    max_stored_events = 10, -- do not use values above 100 
+    max_stored_events = 10, -- do not use values above 100
     skip_anon_events = 1,
     skip_nil_id = 1,
     element_mapping = {},
@@ -490,7 +490,7 @@ function EventQueue:new (conf)
   retval.get_bv = check_boolean_number_option_syntax(retval.get_bv, 1)
 
   local severity_to_priority = {}
-  
+
   if retval.enable_severity == 1 then
     retval.priority_matching_list = split(retval.priority_matching, ',')
 
@@ -499,12 +499,12 @@ function EventQueue:new (conf)
 
       if string.match(retval.opsgenie_priorities, severity_to_priority[1]) == nil then
         broker_log:warning(1, "EventQueue.new: severity is enabled but the priority configuration is wrong. configured matching: " .. retval.priority_matching_list .. 
-          ", invalid parsed priority: " .. severity_to_priority[1] .. ", known Opsgenie priorities: " .. opsgenie_priorities .. 
+          ", invalid parsed priority: " .. severity_to_priority[1] .. ", known Opsgenie priorities: " .. opsgenie_priorities ..
           ". Considere adding your priority to the opsgenie_priorities list if the parsed priority is valid")
         break
       end
 
-      retval.priority_mapping[severity_to_priority[2]] = severity_to_priority[1]  
+      retval.priority_mapping[severity_to_priority[2]] = severity_to_priority[1]
     end
   end
 
@@ -543,7 +543,7 @@ function EventQueue:call (data, url_path, token)
   if (self.proxy_address ~= '') then
     if (self.proxy_port ~= '') then
       request:setopt(curl.OPT_PROXY, self.proxy_address .. ':' .. self.proxy_port)
-    else 
+    else
       broker_log:error(1, "EventQueue:call: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -618,18 +618,18 @@ end
 -- is_valid_neb_event: check if the neb event is valid
 -- @return {table} validNebEvent, a table of boolean indexes validating the event
 --------------------------------------------------------------------------------
-function EventQueue:is_valid_neb_event ()   
+function EventQueue:is_valid_neb_event ()
   if self.currentEvent.element == 14 or self.currentEvent.element == 24 then
     -- prepare api info
     self.currentEvent.endpoint = '/v2/alerts'
     self.currentEvent.token = self.integration_api_token
 
-    self.currentEvent.hostname = get_hostname(self.currentEvent.host_id)  
+    self.currentEvent.hostname = get_hostname(self.currentEvent.host_id)
     -- can't find hostname in cache
     if self.currentEvent.hostname == self.currentEvent.host_id and self.skip_anon_events == 1 then
       return false
     end
-  
+
     -- can't find host_id in the event
     if self.currentEvent.hostname == 0 and self.skip_nil_id == 1 then
       return false
@@ -657,8 +657,8 @@ function EventQueue:is_valid_neb_event ()
     if not self:is_valid_hostgroup() then
       return false
     end
-  
-    if self.enable_severity == 1 then   
+
+    if self.enable_severity == 1 then
       if not self:set_priority() then
         return false
       end
@@ -678,14 +678,14 @@ function EventQueue:is_valid_neb_event ()
     self.sendData.alias = self:buildMessage(self.host_alert_alias, nil)
 
   elseif self.currentEvent.element == 24 then
-  
+
     self.currentEvent.serviceDescription = get_service_description(self.currentEvent.host_id, self.currentEvent.service_id)
 
     -- can't find service description in cache
     if self.currentEvent.serviceDescription == self.currentEvent.service_id and self.skip_anon_events == 1 then
       return false
     end
-  
+
     if not check_event_status(self.currentEvent.state, self.service_status) then
       return false
     end
@@ -699,7 +699,7 @@ function EventQueue:is_valid_neb_event ()
     self.sendData.description = self:buildMessage(self.service_alert_description, self.currentEvent.output) 
     self.sendData.alias = self:buildMessage(self.service_alert_alias, nil)
   end
-  
+
   return true
 end
 
@@ -717,10 +717,10 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:is_valid_bam_event ()
   if self.currentEvent.element == 1 then
-    broker_log:info(3, 'EventQueue:is_valid_bam_event: starting BA treatment 1')   
+    broker_log:info(3, 'EventQueue:is_valid_bam_event: starting BA treatment 1')
     -- prepare api info
     self.currentEvent.endpoint = '/v1/incidents/create'
-    self.currentEvent.token = self.app_api_token 
+    self.currentEvent.token = self.app_api_token
 
     -- check if ba event status is valid
     broker_log:info(3, 'EventQueue:is_valid_bam_event: starting BA treatment 2')
@@ -747,7 +747,7 @@ function EventQueue:is_valid_bam_event ()
       self.sendData.message = self:buildMessage(self.ba_incident_message, nil)
       return true
     end
-  end 
+  end
   return false
 end
 
@@ -828,7 +828,7 @@ end
 
 --------------------------------------------------------------------------------
 -- EventQueue:add, add an event to the queue
--- @param {table} eventData, the data related to the event 
+-- @param {table} eventData, the data related to the event
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function EventQueue:add ()
@@ -847,7 +847,7 @@ function EventQueue:flush ()
   retval = self:send_data()
 
   self.events = {}
-  
+
   -- and update the timestamp
   self.__internal_ts_last_flush = os.time()
   return retval
@@ -863,7 +863,7 @@ function EventQueue:send_data ()
 
   for _, raw_event in ipairs(self.events) do
     if counter == 0 then
-      data = broker.json_encode(raw_event) 
+      data = broker.json_encode(raw_event)
       counter = counter + 1
     else
       data = data .. ',' .. broker.json_encode(raw_event)
@@ -915,7 +915,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:set_priority ()
   local severity = nil
-  
+
   -- get host severity
   if self.currentEvent.service_id == nil then
     broker_log:info(3, "EventQueue:set_priority: getting severity for host: " .. self.currentEvent.host_id)
@@ -929,7 +929,7 @@ function EventQueue:set_priority ()
   -- find the opsgenie priority depending on the found severity
   local matching_priority = self.priority_mapping[tostring(severity)]
 
-  -- drop event if no severity is found and opsgenie priority must be set  
+  -- drop event if no severity is found and opsgenie priority must be set
   if matching_priority == nil and self.priority_must_be_set == 1 then
     broker_log:info(3, "EventQueue:set_priority: couldn't find a matching priority for severity: " .. tostring(severity) .. " and priority is mandatory. Dropping event")
     return false
@@ -969,7 +969,7 @@ function write (event)
     return true
   end
   -- END OF FIX
-  
+
   -- First, are there some old events waiting in the flush queue ?
   if (#queue.events > 0 and os.time() - queue.__internal_ts_last_flush > queue.max_buffer_age) then
     broker_log:info(2, "write: Queue max age (" .. os.time() - queue.__internal_ts_last_flush .. "/" .. queue.max_buffer_age .. ") is reached, flushing data")
@@ -1020,11 +1020,11 @@ end
 -- EventQueue:is_event_duplicated, create an id from the neb event and check if id is in an already sent events list
 -- @return {boolean}
 --------------------------------------------------------------------------------
-function EventQueue:is_event_duplicated() 
+function EventQueue:is_event_duplicated()
   local eventId = ''
   if self.currentEvent.element == 14 then
     eventId = tostring(self.currentEvent.host_id) .. '_' .. tostring(self.currentEvent.last_check)
-  else 
+  else
     eventId = tostring(self.currentEvent.host_id) .. '_' .. tostring(self.currentEvent.service_id) .. '_' .. tostring(self.currentEvent.last_check)
   end
 
@@ -1033,7 +1033,7 @@ function EventQueue:is_event_duplicated()
       return true
     end
   end
-  
+
   return false
 end
 

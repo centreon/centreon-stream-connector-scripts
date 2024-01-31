@@ -147,7 +147,7 @@ function EventQueue:build_index_template(params)
     description = "Timeseries index template for Centreon metrics",
     created_by_centreon = true
   }
-  
+
   self.index_routing_path = {
     "host_name",
     "service_description",
@@ -368,7 +368,7 @@ function EventQueue:validate_index_template(params)
     "metric_instance",
     "metric_subinstances"
   }
-  
+
   if params.add_hostgroups_dimension == 1 then
     table.insert(required_index_mapping_properties, "host_groups")
   end
@@ -522,7 +522,7 @@ function EventQueue:add_generic_optional_information(metric)
     for _, hg_info in ipairs(event.cache.hostgroups) do
       table.insert(hostgroups, hg_info.group_name)
     end
-    
+
     self.sc_event.event.formated_event["host_groups"] = hostgroups
   end
 
@@ -554,15 +554,15 @@ function EventQueue:handle_NaN(value)
   return nil
 end
 
-function EventQueue:add_service_optional_information() 
-  -- add servicegroups 
+function EventQueue:add_service_optional_information()
+  -- add servicegroups
   if self.sc_params.params.add_servicegroups_dimension == 1 then
     local servicegroups = {}
 
     for _, sg_info in ipairs(self.sc_event.event.cache.servicegroups) do
       table.insert(servicegroups, sg_info.group_name)
     end
-    
+
     self.sc_event.event.formated_event["service_groups"] = servicegroups
   end
 end
@@ -596,7 +596,7 @@ function EventQueue:build_payload(payload, event)
   else
     payload = payload .. '{"index":{}}\n' .. broker.json_encode(event) .. "\n"
   end
-  
+
   return payload
 end
 
@@ -620,7 +620,7 @@ function EventQueue:send_data(payload, queue_metadata)
       return true
     end
   end
-  
+
   self.sc_logger:info("[EventQueue:send_data]: Elastic address is: " .. tostring(url))
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload, basic_auth)
 
@@ -641,7 +641,7 @@ function EventQueue:send_data(payload, queue_metadata)
   if (params.proxy_address ~= '') then
     if (params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, params.proxy_address .. ':' .. params.proxy_port)
-    else 
+    else
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
@@ -667,22 +667,22 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- performing the HTTP request
   http_request:perform()
-  
+
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
   http_request:close()
-  
+
   -- the gsub function is here to fix a bug with the broker method json_decode that crashes when a value is null. Internal issue: MON-20481
   self.elastic_result = string.gsub(http_response_body, "null", "false")
   local decoded_elastic_result, error_json = broker.json_decode(self.elastic_result)
-  
+
   if error_json then
     self.sc_logger:error("[EventQueue:send_data]: Couldn't decode json from elasticsearch. Error is: " .. tostring(error_json)
       .. ". Received json is: " .. tostring(http_response_body) .. ". Sent data is: " .. tostring(payload))
     return false
   end
-  
+
   if (http_response_code == 200 and not decoded_elastic_result.errors) then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     return true
@@ -734,16 +734,16 @@ function write (event)
       if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -751,7 +751,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true
