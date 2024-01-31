@@ -64,7 +64,12 @@ jobs:
             dnf install -y make gcc gcc-c++ meson cmake libffi libffi-devel
           else
             apt-get update
-            apt-get install -y make gcc g++ meson cmake libffi7 libffi-dev
+            apt-get install -y make gcc g++ meson cmake libffi-dev
+            if [ "${{ matrix.distrib }}" = "bookworm" ]; then
+              apt-get install -y libffi8
+            else
+              apt-get install -y libffi7
+            fi
           fi
         shell: bash
 

@@ -46,9 +46,14 @@ jobs:
             echo "Adding $BASE_NAME to folders"
             folders+=($BASE_NAME)
           done
+          echo $folders
+          echo "!!!!"
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
           echo $unique_folders
+          echo "!!!!"
+          echo $(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
+          exit 1
         shell: bash
 
   package:
