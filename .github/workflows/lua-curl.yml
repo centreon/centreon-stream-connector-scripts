@@ -68,10 +68,10 @@ jobs:
       - name: Compile lua-curl and prepare packaging
         run: |
           if [ "${{ matrix.package_extension }}" == "rpm" ]; then
-            dnf install -y make cmake gcc openssl openssl-devel libcurl-devel pipx cpanminus
+            dnf install -y make cmake gcc openssl openssl-devel libcurl-devel python3-pip cpanminus
           else
             apt-get update
-            apt-get install -y make cmake gcc openssl libssl-dev libcurl4-openssl-dev pipx cpanminus liblua5.3-dev
+            apt-get install -y make cmake gcc openssl libssl-dev libcurl4-openssl-dev python3-pip cpanminus liblua5.3-dev
           fi
 
           cpanm -v \
@@ -84,8 +84,7 @@ jobs:
 
           cd lua-curl-src
 
-          pipx install conan
-          export PATH="$PATH:/root/.local/bin"
+          pip3 install conan --break-system-packages
           conan profile detect
 
           cat <<'EOF' >> conanfile.txt
