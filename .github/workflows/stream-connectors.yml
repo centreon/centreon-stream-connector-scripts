@@ -47,7 +47,6 @@ jobs:
             folders+=($BASE_NAME)
           done
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
-          echo $(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
         shell: bash
 
