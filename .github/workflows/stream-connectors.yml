@@ -47,7 +47,6 @@ jobs:
             folders+=($BASE_NAME)
           done
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
-          echo $unique_folders
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
         shell: bash
 
@@ -57,7 +56,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [el8, el9, bullseye]
+        distrib: [el8, el9, bullseye, bookworm, jammy]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -68,6 +67,12 @@ jobs:
             package_extension: rpm
           - distrib: bullseye
             image: packaging-stream-connectors-nfpm-bullseye
+            package_extension: deb
+          - distrib: bookworm
+            image: packaging-stream-connectors-nfpm-bookworm
+            package_extension: deb
+          - distrib: jammy
+            image: packaging-stream-connectors-nfpm-jammy
             package_extension: deb
 
     name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
@@ -158,7 +163,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [bullseye]
+        distrib: [bullseye, bookworm]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 

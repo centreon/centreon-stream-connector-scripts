@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye]
+        distrib: [el8, el9, bullseye, bookworm, jammy]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -39,6 +39,12 @@ jobs:
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-jammy
+            distrib: jammy
 
     runs-on: ubuntu-22.04
 
@@ -98,7 +104,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [bullseye]
+        distrib: [bullseye, bookworm]
     name: deliver ${{ matrix.distrib }}
 
     steps:

@@ -37,6 +37,12 @@ jobs:
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-jammy
+            distrib: jammy
 
     runs-on: ubuntu-22.04
 
@@ -78,7 +84,11 @@ jobs:
 
           cd lua-curl-src
 
-          pip3 install conan
+          if [ "${{ matrix.distrib }}" == "bookworm" ]; then
+            pip3 install conan --break-system-packages
+          else
+            pip3 install conan
+          fi
           conan profile detect
 
           cat <<'EOF' >> conanfile.txt
@@ -168,7 +178,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [bullseye]
+        distrib: [bullseye, bookworm]
     name: deliver ${{ matrix.distrib }}
 
     steps:
