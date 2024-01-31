@@ -39,6 +39,12 @@ jobs:
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-jammy
+            distrib: jammy
 
     runs-on: ubuntu-22.04
 

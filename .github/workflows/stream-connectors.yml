@@ -69,6 +69,12 @@ jobs:
           - distrib: bullseye
             image: packaging-stream-connectors-nfpm-bullseye
             package_extension: deb
+          - distrib: bookworm
+            image: packaging-stream-connectors-nfpm-bookworm
+            package_extension: deb
+          - distrib: jammy
+            image: packaging-stream-connectors-nfpm-jammy
+            package_extension: deb
 
     name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
     container:
