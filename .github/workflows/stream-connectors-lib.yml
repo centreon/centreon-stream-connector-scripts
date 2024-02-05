@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm]
+        distrib: [bullseye, bookworm, jammy]
     name: deliver ${{ matrix.distrib }}
 
     steps:

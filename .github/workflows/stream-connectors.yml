@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm]
+        distrib: [bullseye, bookworm, jammy]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
