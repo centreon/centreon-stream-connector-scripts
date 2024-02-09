@@ -180,7 +180,7 @@ function EventQueue:format_metric_service(metric)
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_metric_service method
+---- EventQueue:format_metric_event method
 -- @param metric {table} a single metric data
 -------------------------------------------------------------------------------
 function EventQueue:format_metric_event(metric)
