@@ -893,7 +893,6 @@ function EventQueue:is_event_duplicated()
       return true
     end
   end
-  
+
   return false
 end
-
