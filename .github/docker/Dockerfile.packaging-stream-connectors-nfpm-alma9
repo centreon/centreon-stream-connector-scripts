@@ -1,0 +1,19 @@
+ARG REGISTRY_URL
+
+FROM ${REGISTRY_URL}/almalinux:9
+
+RUN bash -e <<EOF
+
+dnf install -y dnf-plugins-core epel-release
+dnf config-manager --set-enabled crb
+
+echo '[goreleaser]
+name=GoReleaser
+baseurl=https://repo.goreleaser.com/yum/
+enabled=1
+gpgcheck=0' | tee /etc/yum.repos.d/goreleaser.repo
+
+dnf install -y git zstd nfpm-2.35.2 lua lua-devel
+dnf clean all
+
+EOF

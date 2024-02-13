@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Datadog Connector Events
+-- Centreon Broker clickhouse Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -36,42 +36,44 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "api_key"
+    "user",
+    "password",
+    "http_server_url"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/datadog-metrics.log"
-  local log_level = params.log_level or 3
-
+  local logfile = params.logfile or "/var/log/centreon-broker/clickhouse-metrics.log"
+  local log_level = params.log_level or 1
+  
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
-
+  
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
-
+  
   --params.max_buffer_size = 1
-
+  
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.api_key = params.api_key
-  self.sc_params.params.datadog_centreon_url = params.datadog_centreon_url or "http://yourcentreonaddress.local"
-  self.sc_params.params.datadog_metric_endpoint = params.datadog_metric_endpoint or "/api/v1/series"
-  self.sc_params.params.http_server_url = params.http_server_url or "https://api.datadoghq.com"
+  self.sc_params.params.user = params.user
+  self.sc_params.params.password = params.password
+  self.sc_params.params.http_server_url = params.http_server_url
+  self.sc_params.params.clickhouse_database = params.clickhouse_database or "centreon_stream"
+  self.sc_params.params.clickhouse_table = params.clickhouse_table or "metrics"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.max_buffer_size = params.max_buffer_size or 30
+  self.sc_params.params.max_buffer_size = params.max_buffer_size or 1000
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
-  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[^a-zA-Z0-9_%.]"
-  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "_" 
-
+  self.sc_params.params.use_deprecated_metric_system = params.use_deprecated_metric_system or 0
+  
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -161,6 +163,8 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  local event = self.sc_event.event
+  metric.custom_id = event.host_id .. "-" .. metric.metric_name
   self:format_metric_event(metric)
 end
 
@@ -170,53 +174,95 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  local event = self.sc_event.event
+  metric.custom_id = event.host_id .. "-" .. event.service_id .. "-" .. metric.metric_name
   self:format_metric_event(metric)
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_metric_service method
+---- EventQueue:format_metric_event method
 -- @param metric {table} a single metric data
 -------------------------------------------------------------------------------
 function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   local event = self.sc_event.event
-  self.sc_event.event.formated_event = {
-    host = tostring(event.cache.host.name),
-    metric = metric.metric_name,
-    points = {{event.last_check, metric.value}},
-    tags = self:build_metadata(metric)
-  }
+  local params = self.sc_params.params
+
+  -- self.sc_event.event.formated_event = {
+  --   "'" .. tostring(event.cache.host.name) .. "',"
+  --   .. event.last_check .. ",'"
+  --   .. metric.metric_name .. "',"
+  --   .. metric.value .. ",'"
+  --   .. metric.uom .. "',"
+  --   .. self:convert_NaN(metric.min) .. ","
+  --   .. self:convert_NaN(metric.max) .. ",'"
+  --   .. self:get_service_name() .. "',"
+  --   .. self:get_hostgroups()
+  -- }
+  
+  -- concatenation order is VERY IMPORTANT. It must match the order set in the query in the build_payload() method
+  local structure = "'" .. tostring(event.cache.host.name) .. "',"
+  .. event.last_check .. ",'"
+  .. metric.metric_name .. "',"
+  .. metric.value .. ",'"
+  .. self:get_service_name() .. "',"
+  .. self:get_hostgroups()
+
+
+
+  -- concatenation order is VERY IMPORTANT. It must match the order set in the query in the build_payload() method
+  -- add metric id
+  if params.use_deprecated_metric_system == 1 then
+    structure = structure .. "," .. event.metric_id
+  else
+    -- add more info if you are using the standard system
+    structure = structure 
+      .. ",'" .. metric.custom_id
+      .. "','" .. metric.uom
+      .. "'," .. self:convert_NaN(metric.min)
+      .. "," .. self:convert_NaN(metric.max) .. ""
+  end
+
+  self.sc_event.event.formated_event = {structure}
 
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
 
---------------------------------------------------------------------------------
----- EventQueue:build_metadata method
--- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata
---------------------------------------------------------------------------------
-function EventQueue:build_metadata(metric)
-  local tags = {}
-
-  -- add service name in tags
-  if self.sc_event.event.cache.service.description then
-    table.insert(tags, "service:" .. self.sc_event.event.cache.service.description)
+function EventQueue:get_service_name(metric)
+  if self.sc_event.event.service_id and self.sc_event.event.cache.service.description then
+    return self.sc_event.event.cache.service.description
   end
 
-  -- add metric instance in tags
-  if metric.instance ~= "" then
-    table.insert(tags, "instance:" .. metric.instance)
+  return ""
+end
+
+function EventQueue:convert_NaN(value)
+  -- if value is not equal to itself it means the value type is number but the content is not a number
+  if value ~= value then
+    return ""
   end
 
-  -- add metric subinstances in tags
-  if metric.subinstance[1] then
-    for _, subinstance in ipairs(metric.subinstance) do
-      table.insert(tags, "subinstance:" .. subinstance)
+  return value
+end
+
+function EventQueue:get_hostgroups()
+  local hg = "["
+  local counter = 1
+
+  for index, hg_info in ipairs(self.sc_event.event.cache.hostgroups) do
+    if counter == 1 then
+      hg = hg .. "'" .. hg_info.group_name .. "'"
+    else
+      hg = hg .. ",'" .. hg_info.group_name .. "'"
     end
+
+    counter = counter + 1
   end
 
-  return tags
+  hg = hg .. "]"
+
+  return hg
 end
 
 --------------------------------------------------------------------------------
@@ -244,37 +290,47 @@ end
 -- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
-  if not payload then
-    payload = {
-      series = {event}
-    }
+  local params = self.sc_params.params
+  local query_insert
+  
+  if params.use_deprecated_metric_system == 1 then
+    query_insert = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table 
+      .. " (host, timestamp, metric_name, metric_value, service, hostgroups, metric_id) VALUES ("
   else
-    table.insert(payload.series, event)
+    query_insert = "INSERT INTO " .. params.clickhouse_database .. "." .. params.clickhouse_table 
+      .. " (host, timestamp, metric_name, metric_value, service, hostgroups, metric_id, metric_unit, metric_min, metric_max) VALUES ("
   end
-
+  
+  if not payload then
+    local params = self.sc_params.params
+    payload = query_insert .. event[1] .. ")"
+  else
+    payload = payload .. ",(" .. event[1] .. ")"
+  end
+  
   return payload
 end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-
-  local url = self.sc_params.params.http_server_url .. tostring(self.sc_params.params.datadog_metric_endpoint)
-  local payload_json = broker.json_encode(payload)
+  
+  local params = self.sc_params.params
+  local url = params.http_server_url
   queue_metadata.headers = {
-    "content-type: application/json",
-    "DD-API-KEY:" .. self.sc_params.params.api_key
+    "X-ClickHouse-User: " .. params.user,
+    "X-ClickHouse-Key: " .. params.password
   }
 
-  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload_json)
+  self.sc_logger:log_curl_command(url, queue_metadata, params, payload)
 
   -- write payload in the logfile for test purpose
-  if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(payload_json))
+  if params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(payload))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload_json))
-  self.sc_logger:info("[EventQueue:send_data]: Datadog address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: clickhouse address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -284,50 +340,84 @@ function EventQueue:send_data(payload, queue_metadata)
         http_response_body = http_response_body .. tostring(response)
       end
     )
-    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_TIMEOUT, params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, params.allow_insecure_connection)
     :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
 
   -- set proxy address configuration
-  if (self.sc_params.params.proxy_address ~= '') then
-    if (self.sc_params.params.proxy_port ~= '') then
-      http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else
+  if (params.proxy_address ~= '') then
+    if (params.proxy_port ~= '') then
+      http_request:setopt(curl.OPT_PROXY, params.proxy_address .. ':' .. params.proxy_port)
+    else 
       self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
     end
   end
 
   -- set proxy user configuration
-  if (self.sc_params.params.proxy_username ~= '') then
-    if (self.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+  if (params.proxy_username ~= '') then
+    if (params.proxy_password ~= '') then
+      http_request:setopt(curl.OPT_PROXYUSERPWD, params.proxy_username .. ':' .. params.proxy_password)
     else
       self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload_json)
+  http_request:setopt_postfields(payload)
 
   -- performing the HTTP request
   http_request:perform()
-
+  
   -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
 
   http_request:close()
-
+  
   -- Handling the return code
   local retval = false
-  -- https://docs.datadoghq.com/fr/api/latest/events/ other than 202 is not good
-  if http_response_code == 202 then
+  -- https://clickhouse.com/docs/en/interfaces/http#http_response_codes_caveats other than 200 is not good and even with 200 we must check returned data
+  if http_response_code ~= 200 then
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  elseif http_response_code == 200 and string.find(tostring(http_response_body), "DB:Exception:") then
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  else
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
-  else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  end
+  
+  return retval
+end
+
+function EventQueue:convert_metric_event(event)
+  local params = self.sc_params.params
+  
+  -- drop the event if it is not a metric event from the storage category
+  if event.category ~= params.bbdo.categories["storage"].id then
+    return false
   end
 
-  return retval
+  if event.element ~= params.bbdo.elements["metric"].id then
+    return false
+  end
+
+  -- hack event to make stream connector lib think it is a standard status neb event.
+  event.perfdata = event.name .. "=" .. event.value .. ";;;;"
+  event.category = params.bbdo.categories["neb"].id
+  event.last_check = event.time or event.ctime
+
+  if not event.ctime then
+    event.last_check = event.time
+  else
+    event.last_check = event.ctime
+  end
+
+  if event.service_id and event.service_id ~= 0 then
+    event.element = params.bbdo.elements["service_status"].id
+  else
+    event.element = params.bbdo.elements["host_status"].id
+  end
+
+  return event
 end
 
 --------------------------------------------------------------------------------
@@ -353,6 +443,15 @@ function write (event)
     return false
   end
 
+  -- to get the maximum compatibility between a storage metric event and a neb status event, we kind of convert the first into the later
+  if queue.sc_params.params.use_deprecated_metric_system == 1 then
+    event = queue:convert_metric_event(event)
+
+    if not event then
+      return flush()
+    end
+  end
+
   -- initiate event object
   queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
   queue.sc_event = queue.sc_metrics.sc_event
@@ -363,16 +462,16 @@ function write (event)
       if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped
+  --- log why the event has been dropped 
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end
+    end    
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-
+  
   return flush()
 end
 
@@ -380,7 +479,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-
+  
   -- nothing to flush
   if queues_size == 0 then
     return true
@@ -407,3 +506,4 @@ function flush()
   -- there are events in the queue but they were not ready to be send
   return false
 end
+

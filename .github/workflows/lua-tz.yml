@@ -1,4 +1,4 @@
-name: stream-connectors-lib
+name: lua-tz
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -8,15 +8,13 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - dependencies/lua-tz/**
   push:
     branches:
       - develop
       - master
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - dependencies/lua-tz/**
 
 jobs:
   get-environment:
@@ -60,17 +58,28 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
+      - name: Checkout luatz sources
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: "daurnimator/luatz"
+          path: "luatz-src"
+          ref: "v0.4-1"
+
+      - name: Prepare packaging of lua-tz
+        run: cp -r luatz-src/luatz dependencies/lua-tz/lua-tz
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-tz/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.6.1"
-          release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
+          version: "0.5"
+          release: "1"
           commit_hash: ${{ github.sha }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-tz-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
@@ -92,10 +101,10 @@ jobs:
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
         with:
-          module_name: stream-connectors-lib
+          module_name: lua-tz
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-tz-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-deb:
@@ -114,8 +123,8 @@ jobs:
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
-          module_name: stream-connectors-lib
+          module_name: lua-tz
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-tz-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}

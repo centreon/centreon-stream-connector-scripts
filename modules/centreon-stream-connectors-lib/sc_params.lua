@@ -26,13 +26,7 @@ function sc_params.new(common, logger)
   self.common = common
 
   -- get the version of the bbdo protocol (only the first digit, nothing else matters)
-  if broker.bbdo_version ~= nil then
-    _, _, self.bbdo_version = string.find(broker.bbdo_version(), "(%d+).%d+.%d+")
-  else
-    self.bbdo_version = 2
-  end
-
-  self.bbdo_version = tonumber(self.bbdo_version)
+  self.bbdo_version = self.common:get_bbdo_version()
   
   -- initiate params
   self.params = {
@@ -57,10 +51,22 @@ function sc_params.new(common, logger)
     
     -- objects filter
     accepted_hostgroups = "",
+    rejected_hostgroups = "",
     accepted_servicegroups = "",
+    rejected_servicegroups = "",
+    accepted_hosts = "",
+    accepted_services = "",
+    accepted_hosts_enable_split_pattern = 0,
+    accepted_services_enable_split_pattern = 0,
+    accepted_hosts_split_character = ",",
+    accepted_services_split_character = ",",
     accepted_bvs = "",
+    rejected_bvs = "",
     accepted_pollers = "",
+    rejected_pollers = "",
     accepted_authors = "",
+    rejected_authors = "",
+    accepted_metrics = ".*",
     service_severity_threshold = nil,
     service_severity_operator = ">=",
     host_severity_threshold = nil,
@@ -118,7 +124,7 @@ function sc_params.new(common, logger)
     log_curl_commands = 0,
     
     -- metric
-    metric_name_regex = "",
+    metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
 
     -- initiate mappings
@@ -168,6 +174,30 @@ function sc_params.new(common, logger)
         id = 24,
         name = "service_status"
       },
+      acknowledgement = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 1,
+        name = "acknowledgement"
+      },
+      downtime = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 5,
+        name = "downtime"
+      },
+      ba_status = {
+        category_id = categories.bam.id,
+        category_name = categories.bam.name,
+        id = 1,
+        name = "ba_status"
+      },
+      metric = {
+        category_id = categories.storage.id,
+        category_name = categories.storage.name,
+        id = 1,
+        name = "metric"
+      }
     },
     [3] = {
       host_status = {
@@ -181,17 +211,36 @@ function sc_params.new(common, logger)
         category_name = categories.neb.name,
         id = 29,
         name = "pb_service_status"
+      },
+      acknowledgement = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 45,
+        name = "pb_acknowledgement"
+      },
+      downtime = {
+        category_id = categories.neb.id,
+        category_name = categories.neb.name,
+        id = 36,
+        name = "pb_downtime"
+      },
+      ba_status = {
+        category_id = categories.bam.id,
+        category_name = categories.bam.name,
+        id = 19,
+        name = "pb_ba_status"
+      },
+      metric = {
+        category_id = categories.storage.id,
+        category_name = categories.storage.name,
+        id = 9,
+        name = "metric"
       }
     }
   }
 
   self.params.bbdo.elements = {
-    acknowledgement = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 1,
-      name = "acknowledgement"
-    },
+    acknowledgement = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["acknowledgement"],
     comment = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -210,12 +259,7 @@ function sc_params.new(common, logger)
       id = 4,
       name = "custom_variable_status"
     },
-    downtime = {
-      category_id = categories.neb.id,
-      category_name = categories.neb.name,
-      id = 5,
-      name = "downtime"
-    },
+    downtime = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["downtime"],
     event_handler = {
       category_id = categories.neb.id,
       category_name = categories.neb.name,
@@ -380,12 +424,73 @@ function sc_params.new(common, logger)
       id = 34,
       name = "pb_tag"
     },
-    metric = {
-      category_id = categories.storage.id,
-      category_name = categories.storage.name,
-      id = 1,
-      name = "metric"
+    pb_comment = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 35,
+      name = "pb_comment"
     },
+    pb_downtime = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 36,
+      name = "pb_downtime"
+    },
+    pb_custom_variable = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 37,
+      name = "pb_custom_variable"
+    },
+    pb_custom_variable_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 38,
+      name = "pb_custom_variable_status"
+    },
+    pb_host_check = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 39,
+      name = "pb_host_check"
+    },
+    pb_service_check = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 40,
+      name = "pb_host_check"
+    },
+    pb_log_entry = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 41,
+      name = "pb_log_entry"
+    },
+    pb_instance_status = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 42,
+      name = "pb_instance_status"
+    },
+    pb_instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 44,
+      name = "pb_instance"
+    },
+    pb_acknowledgement = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 45,
+      name = "pb_acknowledgement"
+    },
+    pb_responsive_instance = {
+      category_id = categories.neb.id,
+      category_name = categories.neb.name,
+      id = 46,
+      name = "pb_responsive_instance"
+    },
+    metric = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["metric"],
     rebuild = {
       category_id = categories.storage.id,
       category_name = categories.storage.name,
@@ -416,12 +521,7 @@ function sc_params.new(common, logger)
       id = 6,
       name = "metric_mapping"
     },
-    ba_status = {
-      category_id = categories.bam.id,
-      category_name = categories.bam.name,
-      id = 1,
-      name = "ba_status"
-    },
+    ba_status = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["ba_status"],
     kpi_status = {
       category_id = categories.bam.id,
       category_name = categories.bam.name,
@@ -517,6 +617,84 @@ function sc_params.new(common, logger)
       category_name = categories.bam.name,
       id = 17,
       name = "inherited_downtime"
+    },
+    pb_inherited_downtime = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 18,
+      name = "pb_inherited_downtime"
+    },
+    pb_ba_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 19,
+      name = "pb_ba_status"
+    },
+    pb_ba_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 20,
+      name = "pb_ba_event"
+    },
+    pb_kpi_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 20,
+      name = "pb_kpi_event"
+    },
+    pb_dimension_bv_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 21,
+      name = "pb_dimension_bv_event"
+    },
+    pb_dimension_ba_bv_relation_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 22,
+      name = "pb_dimension_ba_bv_relation_event"
+    },
+    pb_dimension_timeperiod = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 23,
+      name = "pb_dimension_timeperiod"
+    },
+    pb_dimension_ba_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 24,
+      name = "pb_dimension_ba_event"
+    },
+    pb_dimension_kpi_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 25,
+      name = "pb_dimension_kpi_event"
+    },
+    pb_kpi_status = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 26,
+      name = "pb_kpi_status"
+    },
+    pb_ba_duration_event = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 27,
+      name = "pb_ba_duration_event"
+    },
+    pb_dimension_ba_timeperiod_relation = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 28,
+      name = "pb_dimension_ba_timeperiod_relation"
+    },
+    pb_dimension_truncate_table_signal = {
+      category_id = categories.bam.id,
+      category_name = categories.bam.name,
+      id = 29,
+      name = "pb_dimension_truncate_table_signal"
     }
   }
 
@@ -731,10 +909,28 @@ function sc_params.new(common, logger)
   -- acknowledgement status mapping
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].host_status = self.params.status_mapping[categories.neb.id][elements.host_status.id]
   self.params.status_mapping[categories.neb.id][elements.acknowledgement.id].service_status = self.params.status_mapping[categories.neb.id][elements.service_status.id]
-  
 
   setmetatable(self, { __index = ScParams })
   return self
+end
+
+--- deprecated_params: check if param_name provides from the web configuration is deprecated or not
+-- @param param_name (string) the name of a parameter from the web interface
+-- @return if a match had been found with deprecated parameter : new_param_name (string) the right name of the parameter to avoid deprecated ones. Else, param_name is return.
+local function deprecated_params(param_name)
+  -- initiate deprecated parameters table
+  local deprecated_params = {
+    -- max_buffer_age param had been replace by max_all_queues_age
+    ["max_buffer_age"] = "max_all_queues_age"
+  }
+
+  for deprecated_param_name, new_param_name in pairs(deprecated_params) do
+    if param_name == deprecated_param_name then
+      return new_param_name
+    end
+  end
+  return param_name
+
 end
 
 --- param_override: change default param values with the one provides from the web configuration
@@ -747,10 +943,17 @@ function ScParams:param_override(user_params)
 
   for param_name, param_value in pairs(user_params) do
     if self.params[param_name] or string.find(param_name, "^_sc") ~= nil then
-      self.params[param_name] = param_value
-      self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name) .. " with value: " .. tostring(param_value))
-    else 
-      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name) .. " is not handled by this stream connector")
+
+      -- Check if the param is deprecated
+      local param_name_verified = deprecated_params(param_name)
+      if param_name_verified ~= param_name then
+        self.logger:notice("[sc_params:param_override]: following parameter: " .. tostring(param_name) .. " is deprecated and had been replace by: " .. tostring(param_name_verified))
+      end
+
+    self.params[param_name_verified] = param_value
+    self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(param_value))
+    else
+      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name_verified) .. " is not handled by this stream connector")
     end
   end
 end
@@ -764,10 +967,15 @@ function ScParams:check_params()
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
+  self.params.rejected_authors = self.common:if_wrong_type(self.params.rejected_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
+  self.params.rejected_hostgroups = self.common:if_wrong_type(self.params.rejected_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
+  self.params.rejected_servicegroups = self.common:if_wrong_type(self.params.rejected_servicegroups, "string", "")
   self.params.accepted_bvs = self.common:if_wrong_type(self.params.accepted_bvs, "string", "")
+  self.params.rejected_bvs = self.common:if_wrong_type(self.params.rejected_bvs, "string", "")
   self.params.accepted_pollers = self.common:if_wrong_type(self.params.accepted_pollers, "string", "")
+  self.params.rejected_pollers = self.common:if_wrong_type(self.params.rejected_pollers, "string", "")
   self.params.host_severity_threshold = self.common:if_wrong_type(self.params.host_severity_threshold, "number", nil)
   self.params.service_severity_threshold = self.common:if_wrong_type(self.params.service_severity_threshold, "number", nil)
   self.params.host_severity_operator = self.common:if_wrong_type(self.params.host_severity_operator, "string", ">=")
@@ -795,6 +1003,25 @@ function ScParams:check_params()
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
+  
+  if self.params.accepted_hostgroups ~= '' and self.params.rejected_hostgroups ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together. None will be used.")
+  end
+  if self.params.accepted_servicegroups ~= '' and self.params.rejected_servicegroups ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_servicegroups and rejected_servicegroups cannot be used together. None will be used.")
+  end
+  if self.params.accepted_bvs ~= '' and self.params.rejected_bvs ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_bvs and rejected_bvs cannot be used together. None will be used.")
+  end
+  if self.params.accepted_pollers ~= '' and self.params.rejected_pollers ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_pollers and rejected_pollers cannot be used together. None will be used.")
+  end
+  if self.params.accepted_authors ~= '' and self.params.rejected_authors ~= '' then
+    self.logger:error("[sc_params:check_params]: Parameters accepted_authors and rejected_authors cannot be used together. None will be used.")
+  end
+
+  -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
+  self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -928,6 +1155,61 @@ function ScParams:build_accepted_elements_info()
           element_name = accepted_element
         }
       end
+    end
+  end
+end
+
+--- validate_pattern_param: check if paramater has a valid lua pattern
+-- @param param_name (string) the name of the parameter
+-- @param param_value (string) the Lua pattern to test
+-- @return param_value (string) either the param value if pattern is valid, empty string otherwise
+function ScParams:validate_pattern_param(param_name, param_value)
+  if not self.common:validate_pattern(param_value) then
+    self.logger:error("[sc_params:validate_pattern_param]: couldn't validate Lua pattern: " .. tostring(param_value)
+      .. " for parameter: " .. tostring(param_name) .. ". The filter will be reset to an empty value.")
+    return ""
+  end
+
+  return param_value
+end
+
+--- build_and_validate_filters_pattern: make sure lua patterns are valid and build a table of pattern according to the
+-- @param param_list (table) a list of all parameters that must be checked.
+--[[
+  exemple: self.params.accepted_hosts value is "foo.*,.*bar.*"
+  this method will generate the following parameter
+  self.params.accepted_hosts_pattern_list = {
+    "foo.*",
+    ".*bar.*"
+  }
+]]--
+function ScParams:build_and_validate_filters_pattern(param_list)
+  local temp_pattern_table
+
+  -- we need to build a table containing all patterns for each filter compatible with this feature
+  for index, param_name in ipairs(param_list) do
+    self.params[param_name .. "_pattern_list"] = {}
+
+    -- we try to split the pattern in multiple sub patterns if option is enabled
+    -- this option is here to overcome the lack of alternation operator ("|" character in POSIX regex) in Lua regex
+    if self.params[param_name .. "_enable_split_pattern"] == 1 then
+      temp_pattern_table = self.common:split(self.params[param_name], self.params[param_name .. "_split_character"])
+      
+      for index, temp_pattern in ipairs(temp_pattern_table) do
+        -- each sub pattern must be a valid standalone pattern. We are not here to develop regex in Lua
+        if self.common:is_valid_pattern(temp_pattern) then
+          table.insert(self.params[param_name .. "_pattern_list"], temp_pattern)
+          self.logger:notice("[sc_params:build_accepted_filters_pattern]: adding " .. tostring(temp_pattern)
+            .. " to the list of filtering patterns for parameter: " .. param_name)
+        else
+          -- if the sub pattern is not valid, just ignore it
+          self.logger:error("[sc_params:build_accepted_filters_pattern]: ignoring pattern for param: " 
+            .. param_name .. " because after splitting the string:" .. param_name
+            .. ", we end up with the following pattern: " .. tostring(temp_pattern) .. " which is not a valid Lua pattern")
+        end
+      end
+    else
+      table.insert(self.params[param_name .. "_pattern_list"], self.params[param_name])
     end
   end
 end

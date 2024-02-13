@@ -72,7 +72,7 @@ function EventQueue.new(params)
     if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
       self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
     end
-  
+
     self.sc_params:build_accepted_elements_info()
     self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
@@ -90,7 +90,7 @@ function EventQueue.new(params)
     self.send_data_method = {
       [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
     }
-  
+
     self.build_payload_method = {
       [1] = function (payload, event) return self:build_payload(payload, event) end
     }
@@ -164,23 +164,23 @@ function EventQueue:format_accepted_event()
   --------------------------------------------------------------------------------
   -- EventQueue:add, add an event to the sending queue
   --------------------------------------------------------------------------------
-  
+
   function EventQueue:add()
     -- store event in self.events lists
     local category = self.sc_event.event.category
     local element = self.sc_event.event.element
-    
+
     self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
-    
+
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
     self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-    
-    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+
+    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
   end
-  
+
   --------------------------------------------------------------------------------
   -- EventQueue:build_payload, concatenate data so it is ready to be sent
   -- @param payload {string} json encoded string
@@ -193,7 +193,7 @@ function EventQueue:format_accepted_event()
     else
       payload = payload .. self.http_post_metadata .. '\n' .. broker.json_encode(event) .. '\n'
     end
-    
+
     return payload
   end
 
@@ -208,7 +208,7 @@ function EventQueue:format_accepted_event()
     }
 
     self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
-    
+
     -- write payload in the logfile for test purpose
     if self.sc_params.params.send_data_test == 1 then
       self.sc_logger:info("[send_data]: " .. tostring(payload))
@@ -303,16 +303,16 @@ function write (event)
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped 
+  --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+    end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
-  
+
   return flush()
 end
 
@@ -320,7 +320,7 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true

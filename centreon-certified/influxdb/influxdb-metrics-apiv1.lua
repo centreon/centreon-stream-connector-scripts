@@ -4,7 +4,7 @@
 -- Tested with versions
 -- 1.4.3
 --
--- References: 
+-- References:
 -- https://docs.influxdata.com/influxdb/v1.4/write_protocols/line_protocol_tutorial/
 -- https://docs.influxdata.com/influxdb/v1.4/guides/writing_data/
 --------------------------------------------------------------------------------
@@ -14,7 +14,7 @@
 -- You need an influxdb server
 --      You can install one with docker and these commands:
 --          docker pull influxdb
---          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d  influxdb 
+--          docker run -p 8086:8086 -p 8083:8083 -v $PWD:/var/lib/influxdb -d  influxdb
 -- You need to create a database
 -- curl  http://<influxdb-server>:8086/query --data-urlencode "q=CREATE DATABASE mydb"
 --
@@ -64,7 +64,7 @@ function event_queue:new(o, conf)
 end
 
 -- Method: event_queue:flush
--- Called when the max number of events or when the max age of buffer is reached 
+-- Called when the max number of events or when the max age of buffer is reached
 function event_queue:flush()
     broker_log:info(2, "event_queue:flush: Concatenating all the events as one string")
     --  we concatenate all the events
@@ -82,7 +82,7 @@ function event_queue:flush()
         sink = ltn12.sink.table(http_result_body),
         -- request body needs to be formatted as a LTN12 source
         source = ltn12.source.string(http_post_data),
-        headers = { 
+        headers = {
             -- mandatory for POST request with body
             ["content-length"] = string.len(http_post_data)
         }
@@ -106,7 +106,7 @@ end
 -- Méthode event_queue:add
 function event_queue:add(e)
     local metric = e.name
-    -- time is a reserved word in influxDB so I rename it 
+    -- time is a reserved word in influxDB so I rename it
     if metric == "time" then
         metric = "_"..metric
     end
@@ -166,7 +166,7 @@ end
 -- return true if you want to handle this type of event (category, element)
 -- return false if you want to ignore them
 function filter(category, element)
-    if category == 3 and element == 1 then 
+    if category == 3 and element == 1 then
         return true
     end
     return false

@@ -179,11 +179,11 @@ function EventQueue:format_event_host()
 
   -- handle severity
   local host_severity = self.sc_broker:get_severity(event.host_id)
-  
+
   if host_severity then
     pdy_custom_details['Hostseverity'] = host_severity
   end
-  
+
   pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
 
   self.sc_event.event.formated_event = {

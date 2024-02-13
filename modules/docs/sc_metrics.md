@@ -1,32 +1,32 @@
 # Documentation of the sc_flush module
 
-- [Documentation of the sc_flush module](#documentation-of-the-sc_flush-module)
+- [Documentation of the sc\_flush module](#documentation-of-the-sc_flush-module)
   - [Introduction](#introduction)
   - [Module initialization](#module-initialization)
     - [module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
-  - [is_valid_bbdo_element method](#is_valid_bbdo_element-method)
-    - [is_valid_bbdo_element: returns](#is_valid_bbdo_element-returns)
-    - [is_valid_bbdo_element: example](#is_valid_bbdo_element-example)
-  - [is_valid_metric_event method](#is_valid_metric_event-method)
-    - [is_valid_metric_event: returns](#is_valid_metric_event-returns)
-    - [is_valid_metric_event: example](#is_valid_metric_event-example)
-  - [is_valid_host_metric_event method](#is_valid_host_metric_event-method)
-    - [is_valid_host_metric_event: returns](#is_valid_host_metric_event-returns)
-    - [is_valid_host_metric_event: example](#is_valid_host_metric_event-example)
-  - [is_valid_service_metric_event method](#is_valid_service_metric_event-method)
-    - [is_valid_service_metric_event: returns](#is_valid_service_metric_event-returns)
-    - [is_valid_service_metric_event: example](#is_valid_service_metric_event-example)
-  - [is_valid_kpi_metric_event method](#is_valid_kpi_metric_event-method)
-    - [is_valid_kpi_metric_event: returns](#is_valid_kpi_metric_event-returns)
-    - [is_valid_kpi_metric_event: example](#is_valid_kpi_metric_event-example)
-  - [is_valid_perfdata method](#is_valid_perfdata-method)
-    - [is_valid_perfdata parameters](#is_valid_perfdata-parameters)
-    - [is_valid_perfdata: returns](#is_valid_perfdata-returns)
-    - [is_valid_perfdata: example](#is_valid_perfdata-example)
-  - [build_metric method](#build_metric-method)
-    - [build_metric parameters](#build_metric-parameters)
-    - [build_metric: example](#build_metric-example)
+  - [is\_valid\_bbdo\_element method](#is_valid_bbdo_element-method)
+    - [is\_valid\_bbdo\_element: returns](#is_valid_bbdo_element-returns)
+    - [is\_valid\_bbdo\_element: example](#is_valid_bbdo_element-example)
+  - [is\_valid\_metric\_event method](#is_valid_metric_event-method)
+    - [is\_valid\_metric\_event: returns](#is_valid_metric_event-returns)
+    - [is\_valid\_metric\_event: example](#is_valid_metric_event-example)
+  - [is\_valid\_host\_metric\_event method](#is_valid_host_metric_event-method)
+    - [is\_valid\_host\_metric\_event: returns](#is_valid_host_metric_event-returns)
+    - [is\_valid\_host\_metric\_event: example](#is_valid_host_metric_event-example)
+  - [is\_valid\_service\_metric\_event method](#is_valid_service_metric_event-method)
+    - [is\_valid\_service\_metric\_event: returns](#is_valid_service_metric_event-returns)
+    - [is\_valid\_service\_metric\_event: example](#is_valid_service_metric_event-example)
+  - [is\_valid\_kpi\_metric\_event method](#is_valid_kpi_metric_event-method)
+    - [is\_valid\_kpi\_metric\_event: returns](#is_valid_kpi_metric_event-returns)
+    - [is\_valid\_kpi\_metric\_event: example](#is_valid_kpi_metric_event-example)
+  - [is\_valid\_perfdata method](#is_valid_perfdata-method)
+    - [is\_valid\_perfdata parameters](#is_valid_perfdata-parameters)
+    - [is\_valid\_perfdata: returns](#is_valid_perfdata-returns)
+    - [is\_valid\_perfdata: example](#is_valid_perfdata-example)
+  - [build\_metric method](#build_metric-method)
+    - [build\_metric parameters](#build_metric-parameters)
+    - [build\_metric: example](#build_metric-example)
 
 ## Introduction
 
@@ -242,7 +242,7 @@ local result = test_metrics:is_valid_perfdata(perfdata)
 
 ## build_metric method
 
-The **build_metric** method uses the provided stream connector format method to parse every metric in the event
+The **build_metric** method uses the provided stream connector format method to parse every metric in the event. It also filter out metrics based on their name and the parameter **[accepted_metrics](sc_param.md#default-parameters)**
 
 ### build_metric parameters
 
