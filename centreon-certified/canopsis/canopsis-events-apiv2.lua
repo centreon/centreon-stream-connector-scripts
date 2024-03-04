@@ -6,6 +6,8 @@
 
 -- Libraries
 local curl = require "cURL"
+local http = require("socket.http")
+local ltn12 = require("ltn12")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -18,12 +20,57 @@ local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 -- Classe event_queue
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
--- Classe event_queue
---------------------------------------------------------------------------------
-
 local EventQueue = {}
 EventQueue.__index = EventQueue
+
+--------------------------------------------------------------------------------
+-- Send a Get Request to Canopsis API
+--------------------------------------------------------------------------------
+local function getCanopsisAPI(route, type_or_reason)
+  local http_result_body = {}
+  route = route
+
+  url_to_use = params.sending_protocol .. "://" .. params.canopsis_user .. ":" .. params.canopsis_password .. "@" .. params.canopsis_host .. ":" .. params.canopsis_port .. route
+  if(type_or_reason="type")
+    url_to_use = url_to_use .. "?search=name%3D%22Default%20maintenance%22"
+  end
+
+  self.sc_logger:debug("Getting data from Canopsis route : ".. route)
+  local hr_result, hr_code, hr_header, hr_s = http.request{
+    url = url_to_use,
+    method = "GET",
+    -- sink is where the request result's body will go
+    sink = ltn12.sink.table(http_result_body),
+    headers = {}
+  }
+
+  -- handling the return code
+  if hr_code == 200 then
+    self.sc_logger:debug("HTTP GET request successful: return code is " .. hr_code)
+    if (type_or_reason="type")
+      -- now handling response content which should be JSON
+      local json_response_string = table.concat(http_result_body)
+      local json_response_decoded = json.decode(json_response_string)
+
+      total_types = json_response_decoded["meta"]["total_count"]
+
+      if total_types == 1 then
+        return json_response_decoded["data"][1]["_id"]
+      else
+        self.sc_logger:debug("Default maintenance pbehavior type not found")
+        return 1
+      end
+    else
+      return 0
+    end
+  else
+    fatal("HTTP GET FAILED: return code is " .. hr_code)
+    for i, v in ipairs(http_result_body) do
+      fatal("HTTP GET FAILED: message line " .. i .. ' is "' .. v .. '"')
+    end
+    return 1
+  end
+end
 
 --------------------------------------------------------------------------------
 ---- Constructor
@@ -50,6 +97,7 @@ function EventQueue.new(params)
   self.sc_common = sc_common.new(self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
+  self.bbdo_version = self.sc_common:get_bbdo_version()
 
   -- checking mandatory parameters and setting a fail flag
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
@@ -62,7 +110,6 @@ function EventQueue.new(params)
   self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
   self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
   self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v4/event"
-  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/bulk/pbehavior"
   self.sc_params.params.canopsis_host = params.canopsis_host
   self.sc_params.params.canopsis_port = params.canopsis_port or 8082
   self.sc_params.params.sending_method = params.sending_method or "api"
@@ -71,11 +118,45 @@ function EventQueue.new(params)
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
   self.sc_params.params.use_severity_as_state = params.use_severity_as_state or 0
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/bulk/pbehavior"
+  self.sc_params.params.canopsis_downtime_reason_route = params.canopsis_downtime_reason_route or "/api/v4/pbehavior-reasons"
+  self.sc_params.params.canopsis_downtime_type_route = params.canopsis_downtime_type_route or "/api/v4/pbehavior-types"
+  self.sc_params.params.canopsis_downtime_reason_name =  params.canopsis_downtime_reason_name or "Downtime_Centreon"
+  self.sc_params.params.canopsis_downtime_type_id = params.canopsis_downtime_type_id or "Maintenance"
+  self.sc_params.params.canopsis_downtime_send_pbh = params.canopsis_downtime_send_pbh or 1
+  self.sc_params.params.canopsis_user = params.canopsis_user or ""
+  self.sc_params.params.canopsis_password = params.canopsis_password or ""
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_params.params.send_mixed_events = 0
+
+  -- If Canopsis credentials are set and pbh send is set to 1 :
+  -- check for reason and type check if Canopsis API already have them otherwise post them.
+  if self.sc_params.params.canopsis_user ~= "" and self.sc_params.params.canopsis_password ~= "" self.sc_params.and params.canopsis_downtime_send_pbh ~= 0
+    centreon_reason_id = "centreon_reason"
+    -- 1. Reason : Ensure reason "centreon_reason" exists, if not create it and post it
+    getCanopsisAPI(self.sc_params.params.canopsis_downtime_reason_route .. "/" .. centreon_reason_id, "") ~= 0 then
+      self.sc_logger:debug("Reason for Centreon downtimes doesn't exist in Canopsis API: Creating pbehavior-reason 'centreon_reason")
+      reason = {
+          _id = centreon_reason_id,
+          name = self.sc_params.params.canopsis_downtime_reason_name,
+          description = "Activation Maintenance Centreon",
+      }
+      self:send_data(reason, self.sc_params.params.canopsis_downtime_reason_route)
+    end
+
+    -- 2. Type : Dynamically get pbehavior type id for "Default maintenance"
+    pbh_maintenance_type_id = getCanopsisMaintenanceTypeId(self.sc_params.params.canopsis_downtime_type_route, "type")
+    -- If the type id is reachable with downtime_type_route
+    if pbh_maintenance_type_id ~= 1 then
+      self.sc_params.params.canopsis_downtime_type_id = pbh_maintenance_type_id
+    else
+      -- if unable to get type id, disable pbehavior management
+      self.sc_params.params.canopsis_downtime_send_pbh = 0
+    end
+  end
 
   if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
     self.sc_params.params.connector_name_type = "poller"
@@ -258,6 +339,8 @@ function EventQueue:format_event_acknowledgement()
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
 
+  self.sc_logger:notice("DUMPER: EVENT-ACKNOWLEDGEMENT - Formating an acknowledgement in host: " .. self.sc_common:dumper(tostring(event.cache.host.name)))
+
   self.sc_event.event.formated_event = {
     event_type = "ack",
     author = event.author,
@@ -310,21 +393,24 @@ function EventQueue:format_event_downtime()
   local downtime_name = "centreon-downtime-" .. event.internal_id .. "-" .. event.entry_time
   self.sc_logger:notice("DUMPER: downtime_name: " .. self.sc_common:dumper(downtime_name))
 
-  if event.cancelled or event.deletion_time then
+  --
+  if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
+    self.sc_logger:notice("DUMPER: DELETE event :" .. self.sc_common:dumper(downtime_name))
     local metadata = {
       method = "DELETE",
       event_route = "/api/v4/pbehaviors"
     }
     self:send_data({name = downtime_name}, metadata)
   else
+    self.sc_logger:notice("DUMPER: SET DOWNTIME :" .. self.sc_common:dumper(downtime_name))
     self.sc_event.event.formated_event = {
       -- _id = canopsis_downtime_id,
       author = event.author,
       name = downtime_name,
       tstart = event.start_time,
       tstop = event.end_time,
-      type = "Maintenance",
-      reason = "Other",
+      type = self.sc_params.params.canopsis_downtime_type_id,
+      reason = self.sc_params.params.canopsis_downtime_reason_name,
       timezone = self.sc_params.params.timezone,
       comments = {
         {
@@ -344,6 +430,9 @@ function EventQueue:format_event_downtime()
       },
       exdates = {}
     }
+    self.sc_logger:notice("DUMPER: event.formated_event['comments'] :" .. self.sc_common:dumper(event.formated_event["comments"]))
+    self.sc_logger:notice("DUMPER: event.formated_event['type'] :" .. self.sc_common:dumper(event.formated_event["type"]))
+    self.sc_logger:notice("DUMPER: event.formated_event['reason'] :" .. self.sc_common:dumper(event.formated_event["reason"]))
 
     if event.service_id then
       self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.service.description)
