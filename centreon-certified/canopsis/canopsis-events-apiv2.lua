@@ -432,6 +432,7 @@ function EventQueue:send_data(payload, queue_metadata)
     }
     downtime_comment = table.removekey(payload,"comment")
     downtime_comment = broker.json_encode(downtime_comment)
+    send_downtime_comment = true
     payload = broker.json_encode(payload)
 
     self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
