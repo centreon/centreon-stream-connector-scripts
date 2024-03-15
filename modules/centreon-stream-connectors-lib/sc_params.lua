@@ -1047,7 +1047,7 @@ function ScParams:get_kafka_params(kafka_config, params)
       kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
       
       for _, must_be_hidden_param in pairs(keywords_to_hide) do
-        if string.match(param_name_verified, must_be_hidden_param) then
+        if string.match(param_name, must_be_hidden_param) then
           logged_param_value = "******"
         end
         
