@@ -6,6 +6,7 @@
 
 -- Libraries
 local curl = require "cURL"
+local string = require "string"
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -240,7 +241,6 @@ function EventQueue:format_event_host()
     action_url = tostring(event.cache.host.action_url),
     host_id = tostring(event.cache.host.host_id)
   }
-  self.sc_logger:notice("DUMPER: EVENT-HOST - self:list_hostgroups(): " .. self.sc_common:dumper(self:list_hostgroups()))
 end
 
 function EventQueue:format_event_service()
@@ -264,14 +264,11 @@ function EventQueue:format_event_service()
     host_id = tostring(event.cache.host.host_id),
     hostgroups = self:list_hostgroups()
   }
-  self.sc_logger:notice("DUMPER: EVENT-SERVICE - self:list_hostgroups(): " .. self.sc_common:dumper(self:list_hostgroups()))
 end
 
 function EventQueue:format_event_acknowledgement()
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
-
-  self.sc_logger:notice("DUMPER: EVENT-ACKNOWLEDGEMENT - Formating an acknowledgement in host: " .. self.sc_common:dumper(tostring(event.cache.host.name)))
 
   self.sc_event.event.formated_event = {
     event_type = "ack",
@@ -318,24 +315,17 @@ end
 
 function EventQueue:format_event_downtime()
 
-  self.sc_logger:notice("DUMPER: format_event_downtime")
-
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
   local downtime_name = "centreon-downtime-" .. event.internal_id .. "-" .. event.entry_time
-  self.sc_logger:notice("DUMPER: downtime_name: " .. self.sc_common:dumper(downtime_name))
-  self.sc_logger:notice("DUMPER: event.deletion_time: " .. self.sc_common:dumper(event.deletion_time))
 
   if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
-    self.sc_logger:notice("DUMPER: DELETE event :" .. self.sc_common:dumper(downtime_name))
-    -- DUMPER : J'ai un doute si le chemin devrait vraiment être en dur ?
     local metadata = {
       method = "DELETE",
-      event_route = "/api/v4/pbehaviors"
+      event_route = self.sc_params.params.canopsis_downtime_route
     }
     self:send_data({name = downtime_name}, metadata)
   else
-    self.sc_logger:notice("DUMPER: SET DOWNTIME :" .. self.sc_common:dumper(downtime_name))
     self.sc_event.event.formated_event = {
       _id = downtime_name,
       author = event.author,
@@ -366,16 +356,6 @@ function EventQueue:format_event_downtime()
       }
       -- exdates = {}
     }
-
-    --[[self.sc_event.event.comment = {
-      message = event.comment_data,
-      pbehavior = self.sc_params.params.canopsis_downtime_type_id,
-    }]]--
-
-    --self.sc_logger:notice("DUMPER: event.comment :" .. self.sc_common:dumper(event.comment))
-
-    self.sc_logger:notice("DUMPER: event.formated_event['type'] :" .. self.sc_common:dumper(event.formated_event["type"]))
-    self.sc_logger:notice("DUMPER: event.formated_event['reason'] :" .. self.sc_common:dumper(event.formated_event["reason"]))
 
     if event.service_id then
       self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.service.description)
@@ -434,12 +414,8 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- Deletion (for downtimes)
   if queue_metadata.method ~= nil and queue_metadata.method == "DELETE" then
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: DELETE check pass")
     http_method = queue_metadata.method
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: payload.name :" .. self.sc_common:dumper(payload.name))
     url = url .. "?name=" .. payload.name
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: DELETE url :" .. self.sc_common:dumper(url))
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: DELETE url ".. tostring(url))
     queue_metadata.headers = {
       "accept: */*",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
@@ -449,25 +425,19 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- Downtime events creation
   elseif queue_metadata.event_route == self.sc_params.params.canopsis_downtime_route then
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: THIS IS DOWNTIME EVENT")
     payload = payload[1]
     queue_metadata.headers = {
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: payload ".. tostring(payload))
     downtime_comment = table.removekey(payload,"comment")
     downtime_comment = broker.json_encode(downtime_comment)
     payload = broker.json_encode(payload)
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: downtime_comment ".. tostring(downtime_comment))
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: payload after ".. tostring(payload))
-    send_downtime_comment = true
 
     self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
 
   -- Other Event than downtimes
   else
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: NOT DELETE")
     payload = broker.json_encode(payload)
     queue_metadata.headers = {
       "content-length: " .. string.len(payload),
@@ -499,7 +469,6 @@ function EventQueue:send_data(payload, queue_metadata)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
     :setopt(curl.OPT_CUSTOMREQUEST, http_method)
 
-  self.sc_logger:notice("DUMPER: [EventQueue:send_data]: CURL EASY FINISHED ")
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
@@ -519,20 +488,13 @@ function EventQueue:send_data(payload, queue_metadata)
     end
   end
 
-  self.sc_logger:notice("DUMPER: [EventQueue:send_data]: PROXY PASSED ")
-
   http_request:setopt_postfields(payload)
 
-  self.sc_logger:notice("DUMPER: [EventQueue:send_data]: setopt_postfields(payload) passed ")
   -- performing the HTTP request
   http_request:perform()
 
-  self.sc_logger:notice("DUMPER: [EventQueue:send_data]: perform() passed ")
-
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
-
-  self.sc_logger:notice("DUMPER: [EventQueue:send_data]: http_response_code ".. tostring(http_response_code))
 
   http_request:close()
 
@@ -542,8 +504,6 @@ function EventQueue:send_data(payload, queue_metadata)
   if http_response_code >= 200 and http_response_code <= 299 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP " .. http_method .. " request successful: return code is "
       .. tostring(http_response_code))
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]: HTTP " .. http_method .. " request successful: return code is "
-    .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
 
     -- in case of Downtime event post, an other post is required
     if send_downtime_comment == true then
@@ -553,10 +513,7 @@ function EventQueue:send_data(payload, queue_metadata)
         event_route = self.sc_params.params.canopsis_downtime_comment_route
       }
       downtime_comment = broker.json_decode(downtime_comment)
-      -- self:send_data(downtime_comment, metadata_comment)
-      --self:send_data({name = downtime_name}, metadata)
       postCanopsisAPI(self, metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
-      --postCanopsisAPI(queue, metadata_post, queue.sc_params.params.canopsis_downtime_reason_route, new_reason)
     end
 
     retval = true
@@ -564,7 +521,6 @@ function EventQueue:send_data(payload, queue_metadata)
     self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
       .. ". Canopsis result: " .. tostring(http_response_body))
     self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
-    self.sc_logger:notice("DUMPER: [EventQueue:send_data]:duplicated downtime event: " .. tostring(data))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP " .. http_method .. " request FAILED, return code is "
@@ -578,51 +534,42 @@ end
 -- Function to send a Post Request to Canopsis API for Reason route
 --------------------------------------------------------------------------------
 
-function postCanopsisAPI(queue, queue_metadata, route, new_reason)
+function postCanopsisAPI(queue, queue_metadata, route, data_to_send)
   queue.sc_logger:debug("[postCanopsisAPI]:Posting data to Canopsis route: ".. route)
-  queue.sc_logger:notice("DUMPER: [postCanopsisAPI]:Posting data to Canopsis route: ".. route)
-  queue.sc_logger:notice("DUMPER: [postCanopsisAPI]:Posting data to Canopsis queue.sc_params.params.canopsis_downtime_comment_route: ".. queue.sc_params.params.canopsis_downtime_comment_route)
 
   -- Handling the return code
   local retval = false
-  local new_reason = new_reason
+  local data_to_send = data_to_send
   local params = queue.sc_params.params
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
 
   if route == queue.sc_params.params.canopsis_downtime_comment_route then
-    queue.sc_logger:notice("DUMPER: [postCanopsisAPI]: This is a comment i see it!")
-    queue.sc_logger:notice("DUMPER: [postCanopsisAPI] new_reason[1]: " .. queue.sc_common:dumper(new_reason[1]))
-    new_reason = new_reason[1]
+    data_to_send = data_to_send[1]
     queue_metadata.headers = {
       "accept: application/json",
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
     }
-    new_reason = broker.json_encode(new_reason)
+    data_to_send = broker.json_encode(data_to_send)
   else
-    new_reason = broker.json_encode(new_reason)
+    data_to_send = broker.json_encode(data_to_send)
     queue_metadata.headers = {
-      "content-length: " .. string.len(new_reason),
+      "content-length: " .. string.len(data_to_send),
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
     }
   end
 
-  queue.sc_logger:notice("DUMPER: [postCanopsisAPI] route: " .. queue.sc_common:dumper(route))
-  queue.sc_logger:notice("DUMPER: [postCanopsisAPI] new_reason: " .. queue.sc_common:dumper(new_reason))
-
-  queue.sc_logger:log_curl_command(url, queue_metadata, queue.sc_params.params, new_reason)
+  queue.sc_logger:log_curl_command(url, queue_metadata, queue.sc_params.params, data_to_send)
 
   -- write payload in the logfile for test purpose
   if queue.sc_params.params.send_data_test == 1 then
-    queue.sc_logger:notice("[postCanopsisAPI]: " .. tostring(new_reason))
+    queue.sc_logger:notice("[postCanopsisAPI]: " .. tostring(data_to_send))
     return true
   end
 
-  queue.sc_logger:info("[postCanopsisAPI]: Going to send the following json: " .. new_reason)
-  queue.sc_logger:notice("DUMPER: [postCanopsisAPI]: Going to send the following json: " .. new_reason)
+  queue.sc_logger:info("[postCanopsisAPI]: Going to send the following json: " .. data_to_send)
   queue.sc_logger:info("[postCanopsisAPI]: Canopsis address is: " .. tostring(url))
-  queue.sc_logger:notice("DUMPER: [postCanopsisAPI]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -656,7 +603,7 @@ function postCanopsisAPI(queue, queue_metadata, route, new_reason)
     end
   end
 
-  http_request:setopt_postfields(new_reason)
+  http_request:setopt_postfields(data_to_send)
 
   -- performing the HTTP request
   http_request:perform()
@@ -686,18 +633,12 @@ end
 
 function getCanopsisAPI(queue, queue_metadata, route, type_name, reason_name)
   queue.sc_logger:debug("[getCanopsisAPI]:Getting data from Canopsis route : ".. route)
-  queue.sc_logger:notice("DUMPER: [getCanopsisAPI]:Getting data from Canopsis route : ".. route)
 
   -- Handling the return code
   local retval = false
   local data = nil
   local params = queue.sc_params.params
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
-
-  queue.sc_logger:notice("DUMPER: [getCanopsisAPI] route: " .. queue.sc_common:dumper(route))
-  queue.sc_logger:notice("DUMPER: [getCanopsisAPI] type_name: " .. queue.sc_common:dumper(type_name))
-  queue.sc_logger:notice("DUMPER: [getCanopsisAPI] reason_name: " .. queue.sc_common:dumper(reason_name))
-
 
   queue_metadata.headers = {
     "accept: application/json",
@@ -713,7 +654,6 @@ function getCanopsisAPI(queue, queue_metadata, route, type_name, reason_name)
   end
 
   queue.sc_logger:info("[getCanopsisAPI]: Canopsis address is: " .. tostring(url))
-  queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -758,8 +698,6 @@ function getCanopsisAPI(queue, queue_metadata, route, type_name, reason_name)
   if http_response_code == 200 then
     queue.sc_logger:info("[getCanopsisAPI]: HTTP request successful: return code is "
       .. tostring(http_response_code))
-    queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: HTTP request successful: return code is "
-      .. tostring(http_response_code))
     -- now handling response content which should be JSON
     local json_response_decoded, error = broker.json_decode(http_response_body)
     if error then
@@ -767,33 +705,23 @@ function getCanopsisAPI(queue, queue_metadata, route, type_name, reason_name)
         .. ". Error is: " .. tostring(error))
       return retval
     end
-    queue.sc_logger:debug("[getCanopsisAPI]: decoded json: " .. queue.sc_common:dumper(json_response_decoded))
     -- Handle Type
     if type_name ~= "" and reason_name == "" then
       for json_element, type_object in pairs(json_response_decoded["data"]) do
-        queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: decoded json type_object[name]: " .. queue.sc_common:dumper(type_object["name"]))
-        queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: type_name: " .. queue.sc_common:dumper(type_name))
         if type_object["name"] == type_name then
-          queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: type_object['name'] == type_name")
           retval = type_object["_id"]
         end
       end
     -- Handle Reason
     elseif type_name == "" and reason_name ~= "" then
       for json_element, reason_object in pairs(json_response_decoded["data"]) do
-        queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: decoded json reason_object[name]: " .. queue.sc_common:dumper(reason_object["name"]))
-        queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: reason_name: " .. queue.sc_common:dumper(reason_name))
         if reason_object["name"] == reason_name then
-          queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: reason_object['name'] == reason_name")
-          queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: decoded json reason_object[_id]: " .. queue.sc_common:dumper(reason_object["_id"]))
           retval = reason_object["_id"]
         end
       end
     end
   else
     queue.sc_logger:error("[getCanopsisAPI]: HTTP request FAILED, return code is "
-      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
-      queue.sc_logger:notice("DUMPER: [getCanopsisAPI]: HTTP request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
 
@@ -810,25 +738,16 @@ local queue
 function init(conf)
   queue = EventQueue.new(conf)
 
-  -- If Canopsis pbh send is set to 1 :
-  -- check for reason and type check if Canopsis API already have them otherwise post them.
-  if queue.sc_params.params.canopsis_downtime_send_pbh ~= 0 then
+  if queue.sc_params.params.canopsis_downtime_send_pbh ~= 0 and string.find(queue.sc_params.params.accepted_elements, "downtime") ~= nil then
     local metadata_reason = {
       method = "GET",
       event_route = queue.sc_params.params.canopsis_downtime_reason_route
     }
 
-    queue.sc_logger:notice("DUMPER: queue.sc_params.params.canopsis_downtime_send_pbh: " .. queue.sc_common:dumper(queue.sc_params.params.canopsis_downtime_send_pbh))
-    queue.sc_logger:notice("DUMPER: queue.sc_params.params.canopsis_downtime_reason_route: " .. queue.sc_common:dumper(queue.sc_params.params.canopsis_downtime_reason_route))
-
     pbh_maintenance_reason_id = getCanopsisAPI(queue, metadata_reason, queue.sc_params.params.canopsis_downtime_reason_route, "", queue.sc_params.params.canopsis_downtime_reason_name)
-    queue.sc_logger:notice("DUMPER: pbh_maintenance_type_id: " .. queue.sc_common:dumper(pbh_maintenance_reason_id))
 
     -- 1. Reason : Ensure reason "centreon_reason" exists, if not create it and post it
-    --if getCanopsisAPI(queue, metadata_reason, queue.sc_params.params.canopsis_downtime_reason_route, "", queue.sc_params.params.canopsis_downtime_reason_name) ~= true then
     if pbh_maintenance_reason_id == false then
-    -- if reason_or_type == "reason" then
-      queue.sc_logger:notice("DUMPER: getCanopsisAPI(queue.sc_params.params.canopsis_downtime_reason_route, reason_name) == false : TRUE ")
       queue.sc_logger:debug("Reason for Centreon downtimes doesn't exist in Canopsis API: Creating pbehavior-reason 'centreon_reason")
       new_reason = {
           name = queue.sc_params.params.canopsis_downtime_reason_name,
@@ -840,8 +759,7 @@ function init(conf)
       }
       postCanopsisAPI(queue, metadata_post, queue.sc_params.params.canopsis_downtime_reason_route, new_reason)
     else
-      queue.sc_logger:notice("DUMPER: getCanopsisAPI(queue.sc_params.params.canopsis_downtime_reason_route, reason) == false : NOT TRUE")
-      -- If the treason id is reachable with downtime_reason_route
+      -- If the reason id is reachable with downtime_reason_route
       if pbh_maintenance_reason_id ~= false and queue.sc_params.params.send_data_test ~= 1 then
         queue.sc_params.params.canopsis_downtime_reason_id = pbh_maintenance_reason_id
       elseif pbh_maintenance_reason_id ~= false and queue.sc_params.params.send_data_test == 1 then
@@ -852,14 +770,12 @@ function init(conf)
       end
     end
 
-    reason_or_type = "type"
+    -- 2. Type : Dynamically get pbehavior type id for canopsis_downtime_type_name
     local metadata_type = {
       method = "GET",
       event_route = queue.sc_params.params.canopsis_downtime_type_route
     }
-    -- 2. Type : Dynamically get pbehavior type id for "Default maintenance"
     pbh_maintenance_type_id = getCanopsisAPI(queue, metadata_type, queue.sc_params.params.canopsis_downtime_type_route, queue.sc_params.params.canopsis_downtime_type_name, "")
-    queue.sc_logger:notice("DUMPER: pbh_maintenance_type_id: " .. queue.sc_common:dumper(pbh_maintenance_type_id))
     -- If the type id is reachable with downtime_type_route
     if pbh_maintenance_type_id ~= false and queue.sc_params.params.send_data_test ~= 1 then
       queue.sc_params.params.canopsis_downtime_type_id = pbh_maintenance_type_id
