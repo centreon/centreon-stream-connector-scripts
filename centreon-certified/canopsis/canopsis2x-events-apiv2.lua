@@ -85,6 +85,7 @@ function EventQueue.new(params)
   self.sc_params.params.canopsis_downtime_reason_name =  params.canopsis_downtime_reason_name or "Centreon_downtime"
   self.sc_params.params.canopsis_downtime_type_name = params.canopsis_downtime_type_name or "Default maintenance"
   self.sc_params.params.canopsis_downtime_send_pbh = params.canopsis_downtime_send_pbh or 1
+  self.sc_params.params.canopsis_sort_list_hostgroups = params.canopsis_sort_list_hostgroups or 0
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -202,6 +203,10 @@ function EventQueue:list_hostgroups()
     table.insert(hostgroups, hg.group_name)
   end
 
+  if self.sc_params.params.canopsis_sort_list_hostgroups == 1 then
+    table.sort(hostgroups)
+  end
+
   return hostgroups
 end
 
@@ -264,6 +269,7 @@ function EventQueue:format_event_service()
     host_id = tostring(event.cache.host.host_id),
     hostgroups = self:list_hostgroups()
   }
+  self.sc_logger:notice("DUMPER: EVENT-SERVICE - self:list_hostgroups(): " .. self.sc_common:dumper(self:list_hostgroups()))
 end
 
 function EventQueue:format_event_acknowledgement()
