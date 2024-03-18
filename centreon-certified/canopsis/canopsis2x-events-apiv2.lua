@@ -86,6 +86,7 @@ function EventQueue.new(params)
   self.sc_params.params.canopsis_downtime_type_name = params.canopsis_downtime_type_name or "Default maintenance"
   self.sc_params.params.canopsis_downtime_send_pbh = params.canopsis_downtime_send_pbh or 1
   self.sc_params.params.canopsis_sort_list_hostgroups = params.canopsis_sort_list_hostgroups or 0
+  self.sc_params.params.canopsis_sort_list_servicegroups = params.canopsis_sort_list_servicegroups or 0
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -191,6 +192,10 @@ function EventQueue:list_servicegroups()
 
   for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
     table.insert(servicegroups, sg.group_name)
+  end
+
+  if self.sc_params.params.canopsis_sort_list_servicegroups == 1 then
+    table.sort(servicegroups)
   end
 
   return servicegroups
