@@ -64,29 +64,30 @@ function EventQueue.new(params)
     self.fail = true
   end
 
-  -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
+  -- mandatory parameter
   self.sc_params.params.canopsis_authkey = params.canopsis_authkey
-  self.sc_params.params.connector = params.connector or "centreon-stream"
-  self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
-  self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
-  self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v4/event"
   self.sc_params.params.canopsis_host = params.canopsis_host
-  self.sc_params.params.canopsis_port = params.canopsis_port or 443
-  self.sc_params.params.sending_method = params.sending_method or "api"
-  self.sc_params.params.sending_protocol = params.sending_protocol or "https"
-  self.sc_params.params.timezone = params.timezone or "Europe/Paris"
+  -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
-  self.sc_params.params.use_severity_as_state = params.use_severity_as_state or 0
-  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/pbehaviors"
   self.sc_params.params.canopsis_downtime_comment_route = params.canopsis_downtime_comment_route or "/api/v4/pbehavior-comments"
-  self.sc_params.params.canopsis_downtime_reason_route = params.canopsis_downtime_reason_route or "/api/v4/pbehavior-reasons"
-  self.sc_params.params.canopsis_downtime_type_route = params.canopsis_downtime_type_route or "/api/v4/pbehavior-types"
   self.sc_params.params.canopsis_downtime_reason_name =  params.canopsis_downtime_reason_name or "Centreon_downtime"
-  self.sc_params.params.canopsis_downtime_type_name = params.canopsis_downtime_type_name or "Default maintenance"
+  self.sc_params.params.canopsis_downtime_reason_route = params.canopsis_downtime_reason_route or "/api/v4/pbehavior-reasons"
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/pbehaviors"
   self.sc_params.params.canopsis_downtime_send_pbh = params.canopsis_downtime_send_pbh or 1
+  self.sc_params.params.canopsis_downtime_type_name = params.canopsis_downtime_type_name or "Default maintenance"
+  self.sc_params.params.canopsis_downtime_type_route = params.canopsis_downtime_type_route or "/api/v4/pbehavior-types"
+  self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v4/event"
+  self.sc_params.params.canopsis_port = params.canopsis_port or 443
   self.sc_params.params.canopsis_sort_list_hostgroups = params.canopsis_sort_list_hostgroups or 0
   self.sc_params.params.canopsis_sort_list_servicegroups = params.canopsis_sort_list_servicegroups or 0
+  self.sc_params.params.connector = params.connector or "centreon-stream"
+  self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
+  self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
+  self.sc_params.params.sending_method = params.sending_method or "api"
+  self.sc_params.params.sending_protocol = params.sending_protocol or "https"
+  -- self.sc_params.params.timezone = params.timezone or "Europe/Paris"
+  self.sc_params.params.use_severity_as_state = params.use_severity_as_state or 0
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
