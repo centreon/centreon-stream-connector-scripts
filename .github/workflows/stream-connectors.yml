@@ -34,7 +34,7 @@ jobs:
           list-files: shell
           filters: |
             connectors:
-              - centreon-certified/**
+              - added|modified: centreon-certified/**
 
       - name: transform to directories
         id: list-connectors
