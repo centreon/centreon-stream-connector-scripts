@@ -124,7 +124,7 @@ function sc_params.new(common, logger)
     log_curl_commands = 0,
     
     -- metric
-    metric_name_regex = "",
+    metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
 
     -- initiate mappings
@@ -191,6 +191,12 @@ function sc_params.new(common, logger)
         category_name = categories.bam.name,
         id = 1,
         name = "ba_status"
+      },
+      metric = {
+        category_id = categories.storage.id,
+        category_name = categories.storage.name,
+        id = 1,
+        name = "metric"
       }
     },
     [3] = {
@@ -223,6 +229,12 @@ function sc_params.new(common, logger)
         category_name = categories.bam.name,
         id = 19,
         name = "pb_ba_status"
+      },
+      metric = {
+        category_id = categories.storage.id,
+        category_name = categories.storage.name,
+        id = 9,
+        name = "metric"
       }
     }
   }
@@ -478,12 +490,7 @@ function sc_params.new(common, logger)
       id = 46,
       name = "pb_responsive_instance"
     },
-    metric = {
-      category_id = categories.storage.id,
-      category_name = categories.storage.name,
-      id = 1,
-      name = "metric"
-    },
+    metric = bbdo2_bbdo3_compat_mapping[self.bbdo_version]["metric"],
     rebuild = {
       category_id = categories.storage.id,
       category_name = categories.storage.name,
@@ -947,7 +954,7 @@ function ScParams:param_override(user_params)
     self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(param_value))
     else
       self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name_verified) .. " is not handled by this stream connector")
-      end
+    end
   end
 end
 
