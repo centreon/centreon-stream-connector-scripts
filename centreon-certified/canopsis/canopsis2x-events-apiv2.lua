@@ -275,7 +275,6 @@ function EventQueue:format_event_service()
     host_id = tostring(event.cache.host.host_id),
     hostgroups = self:list_hostgroups()
   }
-  self.sc_logger:notice("DUMPER: EVENT-SERVICE - self:list_hostgroups(): " .. self.sc_common:dumper(self:list_hostgroups()))
 end
 
 function EventQueue:format_event_acknowledgement()
