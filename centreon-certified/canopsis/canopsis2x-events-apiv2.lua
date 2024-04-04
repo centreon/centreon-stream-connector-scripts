@@ -478,6 +478,7 @@ function EventQueue:send_data(payload, queue_metadata)
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
     :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYHOST, self.sc_params.params.allow_insecure_connection)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
     :setopt(curl.OPT_CUSTOMREQUEST, http_method)
 
@@ -543,204 +544,6 @@ function EventQueue:send_data(payload, queue_metadata)
 end
 
 --------------------------------------------------------------------------------
--- Function to send a Post Request to Canopsis API for Reason route
---------------------------------------------------------------------------------
-
-function postCanopsisAPI(queue, queue_metadata, route, data_to_send)
-  queue.sc_logger:debug("[postCanopsisAPI]:Posting data to Canopsis route: ".. route)
-
-  -- Handling the return code
-  local retval = false
-  local data_to_send = data_to_send
-  local params = queue.sc_params.params
-  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
-
-  if route == queue.sc_params.params.canopsis_downtime_comment_route then
-    data_to_send = data_to_send[1]
-    queue_metadata.headers = {
-      "accept: application/json",
-      "content-type: application/json",
-      "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
-    }
-    data_to_send = broker.json_encode(data_to_send)
-  else
-    data_to_send = broker.json_encode(data_to_send)
-    queue_metadata.headers = {
-      "content-length: " .. string.len(data_to_send),
-      "content-type: application/json",
-      "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
-    }
-  end
-
-  queue.sc_logger:log_curl_command(url, queue_metadata, queue.sc_params.params, data_to_send)
-
-  -- write payload in the logfile for test purpose
-  if queue.sc_params.params.send_data_test == 1 then
-    queue.sc_logger:notice("[postCanopsisAPI]: " .. tostring(data_to_send))
-    return true
-  end
-
-  queue.sc_logger:info("[postCanopsisAPI]: Going to send the following json: " .. data_to_send)
-  queue.sc_logger:info("[postCanopsisAPI]: Canopsis address is: " .. tostring(url))
-
-  local http_response_body = ""
-  local http_request = curl.easy()
-    :setopt_url(url)
-    :setopt_writefunction(
-      function (response)
-        http_response_body = http_response_body .. tostring(response)
-      end
-    )
-    :setopt(curl.OPT_TIMEOUT, queue.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
-    :setopt(curl.OPT_CUSTOMREQUEST, "POST")
-
-  -- set proxy address configuration
-  if (queue.sc_params.params.proxy_address ~= '') then
-    if (queue.sc_params.params.proxy_port ~= '') then
-      http_request:setopt(curl.OPT_PROXY, queue.sc_params.params.proxy_address .. ':' .. queue.sc_params.params.proxy_port)
-    else
-      queue.sc_logger:error("[postCanopsisAPI]: proxy_port parameter is not set but proxy_address is used")
-    end
-  end
-
-  -- set proxy user configuration
-  if (queue.sc_params.params.proxy_username ~= '') then
-    if (queue.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, queue.sc_params.params.proxy_username
-        .. ':' .. queue.sc_params.params.proxy_password)
-    else
-      queue.sc_logger:error("[postCanopsisAPI]: proxy_password parameter is not set but proxy_username is used")
-    end
-  end
-
-  http_request:setopt_postfields(data_to_send)
-
-  -- performing the HTTP request
-  http_request:perform()
-
-  -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
-
-  http_request:close()
-
-  if http_response_code >= 200 and http_response_code <= 299 then
-    queue.sc_logger:info("[postCanopsisAPI]: HTTP POST request successful: return code is "
-      .. tostring(http_response_code))
-    queue.sc_logger:notice("[postCanopsisAPI]: HTTP POST request successful: return code is "
-    .. tostring(http_response_code))
-    retval = true
-  else
-    queue.sc_logger:error("[postCanopsisAPI]: HTTP POST request FAILED, return code is "
-      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
-  end
-
-  return retval
-end
-
---------------------------------------------------------------------------------
--- Function to send a Get Request to Canopsis API for Reason and Type routes
---------------------------------------------------------------------------------
-
-function getCanopsisAPI(queue, queue_metadata, route, type_name, reason_name)
-  queue.sc_logger:debug("[getCanopsisAPI]:Getting data from Canopsis route : ".. route)
-
-  -- Handling the return code
-  local retval = false
-  local data = nil
-  local params = queue.sc_params.params
-  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
-
-  queue_metadata.headers = {
-    "accept: application/json",
-    "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
-  }
-
-  queue.sc_logger:log_curl_command(url, queue_metadata, queue.sc_params.params, data)
-
-  -- write payload in the logfile for test purpose
-  if queue.sc_params.params.send_data_test == 1 then
-    queue.sc_logger:notice("[getCanopsisAPI]: ".. tostring(url) .. " | ".. tostring(type_name).. " | ".. tostring(reason_name))
-    return false
-  end
-
-  queue.sc_logger:info("[getCanopsisAPI]: Canopsis address is: " .. tostring(url))
-
-  local http_response_body = ""
-  local http_request = curl.easy()
-    :setopt_url(url)
-    :setopt_writefunction(
-      function (response)
-        http_response_body = http_response_body .. tostring(response)
-      end
-    )
-    :setopt(curl.OPT_TIMEOUT, queue.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
-    :setopt(curl.OPT_CUSTOMREQUEST, "GET")
-
-  -- set proxy address configuration
-  if (queue.sc_params.params.proxy_address ~= '') then
-    if (queue.sc_params.params.proxy_port ~= '') then
-      http_request:setopt(curl.OPT_PROXY, queue.sc_params.params.proxy_address .. ':' .. queue.sc_params.params.proxy_port)
-    else
-      queue.sc_logger:error("[getCanopsisAPI]: proxy_port parameter is not set but proxy_address is used")
-    end
-  end
-
-  -- set proxy user configuration
-  if (queue.sc_params.params.proxy_username ~= '') then
-    if (queue.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, queue.sc_params.params.proxy_username
-        .. ':' .. queue.sc_params.params.proxy_password)
-    else
-      queue.sc_logger:error("[getCanopsisAPI]: proxy_password parameter is not set but proxy_username is used")
-    end
-  end
-
-  -- performing the HTTP request
-  http_request:perform()
-
-  -- collecting results
-  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
-
-  http_request:close()
-
-  if http_response_code == 200 then
-    queue.sc_logger:info("[getCanopsisAPI]: HTTP request successful: return code is "
-      .. tostring(http_response_code))
-    -- now handling response content which should be JSON
-    local json_response_decoded, error = broker.json_decode(http_response_body)
-    if error then
-      queue.sc_logger:error("[getCanopsisAPI]: couldn't decode json string: " .. tostring(http_response_body)
-        .. ". Error is: " .. tostring(error))
-      return retval
-    end
-    -- Handle Type
-    if type_name ~= "" and reason_name == "" then
-      for json_element, type_object in pairs(json_response_decoded["data"]) do
-        if type_object["name"] == type_name then
-          retval = type_object["_id"]
-        end
-      end
-    -- Handle Reason
-    elseif type_name == "" and reason_name ~= "" then
-      for json_element, reason_object in pairs(json_response_decoded["data"]) do
-        if reason_object["name"] == reason_name then
-          retval = reason_object["_id"]
-        end
-      end
-    end
-  else
-    queue.sc_logger:error("[getCanopsisAPI]: HTTP request FAILED, return code is "
-      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
-  end
-
-  return retval
-end
-
---------------------------------------------------------------------------------
 -- Required functions for Broker StreamConnector
 --------------------------------------------------------------------------------
 
@@ -756,7 +559,7 @@ function init(conf)
       event_route = queue.sc_params.params.canopsis_downtime_reason_route
     }
 
-    pbh_maintenance_reason_id = getCanopsisAPI(queue, metadata_reason, queue.sc_params.params.canopsis_downtime_reason_route, "", queue.sc_params.params.canopsis_downtime_reason_name)
+    pbh_maintenance_reason_id = getCanopsisAPI(metadata_reason, queue.sc_params.params.canopsis_downtime_reason_route, "", queue.sc_params.params.canopsis_downtime_reason_name)
 
     -- 1. Reason : Ensure reason "centreon_reason" exists, if not create it and post it
     if pbh_maintenance_reason_id == false then
@@ -787,7 +590,7 @@ function init(conf)
       method = "GET",
       event_route = queue.sc_params.params.canopsis_downtime_type_route
     }
-    pbh_maintenance_type_id = getCanopsisAPI(queue, metadata_type, queue.sc_params.params.canopsis_downtime_type_route, queue.sc_params.params.canopsis_downtime_type_name, "")
+    pbh_maintenance_type_id = getCanopsisAPI(metadata_type, queue.sc_params.params.canopsis_downtime_type_route, queue.sc_params.params.canopsis_downtime_type_name, "")
     -- If the type id is reachable with downtime_type_route
     if pbh_maintenance_type_id ~= false and queue.sc_params.params.send_data_test ~= 1 then
       queue.sc_params.params.canopsis_downtime_type_id = pbh_maintenance_type_id
@@ -866,3 +669,202 @@ function flush()
   return false
 end
 
+--------------------------------------------------------------------------------
+-- Function to send a Post Request to Canopsis API for Reason route
+--------------------------------------------------------------------------------
+
+function postCanopsisAPI(queue, queue_metadata, route, data_to_send)
+  queue.sc_logger:debug("[postCanopsisAPI]:Posting data to Canopsis route: ".. route)
+
+  -- Handling the return code
+  local retval = false
+  local data_to_send = data_to_send
+  local params = queue.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
+
+  if route == queue.sc_params.params.canopsis_downtime_comment_route then
+    data_to_send = data_to_send[1]
+    queue_metadata.headers = {
+      "accept: application/json",
+      "content-type: application/json",
+      "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
+    }
+    data_to_send = broker.json_encode(data_to_send)
+  else
+    data_to_send = broker.json_encode(data_to_send)
+    queue_metadata.headers = {
+      "content-length: " .. string.len(data_to_send),
+      "content-type: application/json",
+      "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
+    }
+  end
+
+  queue.sc_logger:log_curl_command(url, queue_metadata, queue.sc_params.params, data_to_send)
+
+  -- write payload in the logfile for test purpose
+  if queue.sc_params.params.send_data_test == 1 then
+    queue.sc_logger:notice("[postCanopsisAPI]: " .. tostring(data_to_send))
+    return true
+  end
+
+  queue.sc_logger:info("[postCanopsisAPI]: Going to send the following json: " .. data_to_send)
+  queue.sc_logger:info("[postCanopsisAPI]: Canopsis address is: " .. tostring(url))
+
+  local http_response_body = ""
+  local http_request = curl.easy()
+    :setopt_url(url)
+    :setopt_writefunction(
+      function (response)
+        http_response_body = http_response_body .. tostring(response)
+      end
+    )
+    :setopt(curl.OPT_TIMEOUT, queue.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYHOST, queue.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
+    :setopt(curl.OPT_CUSTOMREQUEST, "POST")
+
+  -- set proxy address configuration
+  if (queue.sc_params.params.proxy_address ~= '') then
+    if (queue.sc_params.params.proxy_port ~= '') then
+      http_request:setopt(curl.OPT_PROXY, queue.sc_params.params.proxy_address .. ':' .. queue.sc_params.params.proxy_port)
+    else
+      queue.sc_logger:error("[postCanopsisAPI]: proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (queue.sc_params.params.proxy_username ~= '') then
+    if (queue.sc_params.params.proxy_password ~= '') then
+      http_request:setopt(curl.OPT_PROXYUSERPWD, queue.sc_params.params.proxy_username
+        .. ':' .. queue.sc_params.params.proxy_password)
+    else
+      queue.sc_logger:error("[postCanopsisAPI]: proxy_password parameter is not set but proxy_username is used")
+    end
+  end
+
+  http_request:setopt_postfields(data_to_send)
+
+  -- performing the HTTP request
+  http_request:perform()
+
+  -- collecting results
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+
+  http_request:close()
+
+  if http_response_code >= 200 and http_response_code <= 299 then
+    queue.sc_logger:info("[postCanopsisAPI]: HTTP POST request successful: return code is "
+      .. tostring(http_response_code))
+    queue.sc_logger:notice("[postCanopsisAPI]: HTTP POST request successful: return code is "
+    .. tostring(http_response_code))
+    retval = true
+  else
+    queue.sc_logger:error("[postCanopsisAPI]: HTTP POST request FAILED, return code is "
+      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  end
+
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- Function to send a Get Request to Canopsis API for Reason and Type routes
+--------------------------------------------------------------------------------
+
+function getCanopsisAPI(queue_metadata, route, type_name, reason_name)
+  queue.sc_logger:debug("[getCanopsisAPI]:Getting data from Canopsis route : ".. route)
+
+  -- Handling the return code
+  local retval = false
+  local data = nil
+  local params = queue.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
+
+  queue_metadata.headers = {
+    "accept: application/json",
+    "x-canopsis-authkey: " .. tostring(queue.sc_params.params.canopsis_authkey)
+  }
+
+  queue.sc_logger:log_curl_command(url, queue_metadata, queue.sc_params.params, data)
+
+  -- write payload in the logfile for test purpose
+  if queue.sc_params.params.send_data_test == 1 then
+    queue.sc_logger:notice("[getCanopsisAPI]: ".. tostring(url) .. " | ".. tostring(type_name).. " | ".. tostring(reason_name))
+    return false
+  end
+
+  queue.sc_logger:info("[getCanopsisAPI]: Canopsis address is: " .. tostring(url))
+
+  local http_response_body = ""
+  local http_request = curl.easy()
+    :setopt_url(url)
+    :setopt_writefunction(
+      function (response)
+        http_response_body = http_response_body .. tostring(response)
+      end
+    )
+    :setopt(curl.OPT_TIMEOUT, queue.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYHOST, queue.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
+    :setopt(curl.OPT_CUSTOMREQUEST, "GET")
+
+  -- set proxy address configuration
+  if (queue.sc_params.params.proxy_address ~= '') then
+    if (queue.sc_params.params.proxy_port ~= '') then
+      http_request:setopt(curl.OPT_PROXY, queue.sc_params.params.proxy_address .. ':' .. queue.sc_params.params.proxy_port)
+    else
+      queue.sc_logger:error("[getCanopsisAPI]: proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (queue.sc_params.params.proxy_username ~= '') then
+    if (queue.sc_params.params.proxy_password ~= '') then
+      http_request:setopt(curl.OPT_PROXYUSERPWD, queue.sc_params.params.proxy_username
+        .. ':' .. queue.sc_params.params.proxy_password)
+    else
+      queue.sc_logger:error("[getCanopsisAPI]: proxy_password parameter is not set but proxy_username is used")
+    end
+  end
+
+  -- performing the HTTP request
+  http_request:perform()
+
+  -- collecting results
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+
+  http_request:close()
+
+  if http_response_code == 200 then
+    queue.sc_logger:info("[getCanopsisAPI]: HTTP request successful: return code is "
+      .. tostring(http_response_code))
+    -- now handling response content which should be JSON
+    local json_response_decoded, error = broker.json_decode(http_response_body)
+    if error then
+      queue.sc_logger:error("[getCanopsisAPI]: couldn't decode json string: " .. tostring(http_response_body)
+        .. ". Error is: " .. tostring(error))
+      return retval
+    end
+    -- Handle Type
+    if type_name ~= "" and reason_name == "" then
+      for json_element, type_object in pairs(json_response_decoded["data"]) do
+        if type_object["name"] == type_name then
+          retval = type_object["_id"]
+        end
+      end
+    -- Handle Reason
+    elseif type_name == "" and reason_name ~= "" then
+      for json_element, reason_object in pairs(json_response_decoded["data"]) do
+        if reason_object["name"] == reason_name then
+          retval = reason_object["_id"]
+        end
+      end
+    end
+  else
+    queue.sc_logger:error("[getCanopsisAPI]: HTTP request FAILED, return code is "
+      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  end
+
+  return retval
+end

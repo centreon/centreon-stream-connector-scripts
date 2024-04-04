@@ -117,7 +117,7 @@ function ScLogger:log_curl_command(url, metadata, params, data, basic_auth)
     end
   
     -- handle certificate verification
-    if params.allow_insecure_connection == 1 then
+    if params.allow_insecure_connection == true then
       curl_string = curl_string .. " -k"
     end
 
