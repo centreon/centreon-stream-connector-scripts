@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        distrib: [alma8, alma9, bullseye]
+        distrib: [alma8, alma9, bullseye, bookworm, jammy]
     steps:
       - name: Checkout sources
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -37,9 +37,9 @@ jobs:
 
       - uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
         with:
-          file: .github/docker/Dockerfile.packaging-${{ matrix.distrib }}
+          file: .github/docker/Dockerfile.packaging-stream-connectors-nfpm-${{ matrix.distrib }}
           context: .
           build-args: "REGISTRY_URL=${{ vars.DOCKER_PROXY_REGISTRY_URL }}"
           pull: true
           push: true
-          tags: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/packaging-stream-connectors-${{ matrix.distrib }}:latest
+          tags: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/packaging-stream-connectors-nfpm-${{ matrix.distrib }}:latest

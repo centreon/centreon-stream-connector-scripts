@@ -1,0 +1,17 @@
+ARG REGISTRY_URL
+
+FROM ${REGISTRY_URL}/debian:bullseye
+
+RUN bash -e <<EOF
+
+apt-get update
+apt-get install -y git zstd ca-certificates lua5.3 liblua5.3-dev
+
+echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
+
+apt-get update
+apt-get install -y nfpm=2.35.2
+
+apt-get clean all
+
+EOF
