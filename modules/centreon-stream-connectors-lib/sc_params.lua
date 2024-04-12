@@ -941,17 +941,25 @@ function ScParams:param_override(user_params)
     return
   end
 
+  local keywords_to_hide =  {"pass", "key"}
+  local logged_param_value
+
   for param_name, param_value in pairs(user_params) do
     if self.params[param_name] or string.find(param_name, "^_sc") ~= nil then
-
       -- Check if the param is deprecated
       local param_name_verified = deprecated_params(param_name)
       if param_name_verified ~= param_name then
         self.logger:notice("[sc_params:param_override]: following parameter: " .. tostring(param_name) .. " is deprecated and had been replace by: " .. tostring(param_name_verified))
       end
 
-    self.params[param_name_verified] = param_value
-    self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(param_value))
+      self.params[param_name_verified] = param_value
+      logged_param_value = param_value
+      for _, must_be_hidden_param in pairs(keywords_to_hide) do
+        if string.match(param_name_verified, must_be_hidden_param) then
+          logged_param_value = "******"
+        end
+      end
+      self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(logged_param_value))
     else
       self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name_verified) .. " is not handled by this stream connector")
     end
@@ -1028,13 +1036,24 @@ end
 -- @param kafka_config (object) object instance of kafka_config
 -- @param params (table) the list of parameters from broker web configuration
 function ScParams:get_kafka_params(kafka_config, params)
+  local keywords_to_hide =  {"pass", "key"}
+  local logged_param_value
+
   for param_name, param_value in pairs(params) do
+    logged_param_value = param_value
     -- check if param starts with sc_kafka (meaning it is a parameter for kafka)
     if string.find(param_name, "^_sc_kafka_") ~= nil then
       -- remove the _sc_kafka_ prefix and store the param in a dedicated kafka table
       kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
-      self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name) 
-        .. " parameter with value " .. tostring(param_value) .. " added to kafka_config")
+      
+      for _, must_be_hidden_param in pairs(keywords_to_hide) do
+        if string.match(param_name, must_be_hidden_param) then
+          logged_param_value = "******"
+        end
+        
+        self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name) 
+          .. " parameter with value " .. tostring(logged_param_value) .. " added to kafka_config")
+      end
     end
   end
 end
