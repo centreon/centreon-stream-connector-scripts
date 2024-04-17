@@ -280,7 +280,7 @@ function ScEvent:is_valid_host()
   end
 
   -- return false if event is coming from fake bam host
-  if string.find(self.event.cache.host.name, "^_Module_BAM_*") then
+  if string.find(self.event.cache.host.name, "^_Module_BAM_*") and self.params.enable_bam_host == 0 then
     self.sc_logger:debug("[sc_event:is_valid_host]: Host is a BAM fake host: " .. tostring(self.event.cache.host.name))
     return false
   end

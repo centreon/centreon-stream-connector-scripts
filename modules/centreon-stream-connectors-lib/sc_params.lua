@@ -75,6 +75,7 @@ function sc_params.new(common, logger)
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
+    enable_bam_host = 0,
 
     -- enable or disable dedup
     enable_host_status_dedup = 1,
@@ -974,6 +975,7 @@ function ScParams:check_params()
   self.params.flapping = self.common:check_boolean_number_option_syntax(self.params.flapping, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
+  self.params.enable_bam_host = self.common:check_boolean_number_option_syntax(self.params.enable_bam_host, 0)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.rejected_authors = self.common:if_wrong_type(self.params.rejected_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
