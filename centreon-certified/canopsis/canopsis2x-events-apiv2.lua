@@ -317,7 +317,7 @@ function EventQueue:format_event_acknowledgement()
 
   -- send ackremove
   -- Acknowledgement (deletion_time) Time at which the acknowledgement was deleted. If 0, it was not deleted.
-  if (self.bbdo_version == 2 and event.deletion_time ~= 0) or (self.bbdo_version > 2 and event.deletion_time ~= 0) then
+  if event.deletion_time ~= 0 then
     self.sc_event.event.formated_event['event_type'] = "ackremove"
   end
 end
