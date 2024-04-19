@@ -1005,6 +1005,7 @@ function ScParams:check_params()
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
+  self.params.delta_host_status_change_allow = self.common:if_wrong_type(self.params.delta_host_status_change_allow, "number", 20)
   
   if self.params.accepted_hostgroups ~= '' and self.params.rejected_hostgroups ~= '' then
     self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together. None will be used.")
