@@ -372,6 +372,11 @@ function EventQueue:format_event_downtime()
     else
       self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.host.name)
     end
+
+    -- In case of Canopsis version 22.10.X a color value is add in downtime:
+    if string.find(canopsis_version, "22.10.") ~= nil then
+      self.sc_event.event.formated_event["color"] = "#73D8FF"
+    end
   end
 end
 
@@ -598,6 +603,13 @@ function init(conf)
       -- if unable to get type id, disable pbehavior management
       queue.sc_params.params.canopsis_downtime_send_pbh = 0
     end
+
+    -- 3. Type : Check Canopsis version to add or not the color value
+    local metadata_type = {
+      method = "GET",
+      event_route = "/api/v4/app-info"
+    }
+    canopsis_version = getCanopsisAPI(metadata_type, "/api/v4/app-info", "", "")
   end
 end
 
@@ -856,6 +868,13 @@ function getCanopsisAPI(queue_metadata, route, type_name, reason_name)
       for json_element, reason_object in pairs(json_response_decoded["data"]) do
         if reason_object["name"] == reason_name then
           retval = reason_object["_id"]
+        end
+      end
+    -- No type_name and no reason_name had been given => getCanopsisAPI is used to check Canopsis version
+    elseif type_name == "" and reason_name == "" then
+      for json_element, json_object in pairs(json_response_decoded) do
+        if json_element == "version" then
+          retval = json_object
         end
       end
     end
