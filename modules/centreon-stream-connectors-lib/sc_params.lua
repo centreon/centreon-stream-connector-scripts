@@ -923,7 +923,7 @@ local function deprecated_params(param_name)
   local deprecated_params = {
     -- max_buffer_age param had been replace by max_all_queues_age
     ["max_buffer_age"] = "max_all_queues_age",
-    --["allow_insecure_connection"] = "verify_certificate"
+    ["allow_insecure_connection"] = "verify_certificate"
   }
 
   for deprecated_param_name, new_param_name in pairs(deprecated_params) do
@@ -996,7 +996,7 @@ function ScParams:check_params()
   self.params.proxy_password = self.common:if_wrong_type(self.params.proxy_password, "string", "")
   self.params.connection_timeout = self.common:if_wrong_type(self.params.connection_timeout, "number", 60)
   -- Tell libcurl to not verify the peer. With libcurl you disable this with curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, FALSE); => This params need to be set at false for allow insecure connection
-  self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(not self.params.allow_insecure_connection, 0))
+  -- self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(not self.params.allow_insecure_connection, 0))
   self.params.verify_certificate = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.verify_certificate, 0))
   self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
   self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)

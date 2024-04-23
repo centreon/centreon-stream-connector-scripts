@@ -480,8 +480,8 @@ function EventQueue:send_data(payload, queue_metadata)
       end
     )
     :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_SSL_VERIFYHOST, self.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
+    :setopt(curl.OPT_SSL_VERIFYHOST, self.sc_params.params.verify_certificate)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
     :setopt(curl.OPT_CUSTOMREQUEST, http_method)
 
@@ -729,8 +729,8 @@ function postCanopsisAPI(queue, queue_metadata, route, data_to_send)
       end
     )
     :setopt(curl.OPT_TIMEOUT, queue.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_SSL_VERIFYHOST, queue.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.verify_certificate)
+    :setopt(curl.OPT_SSL_VERIFYHOST, queue.sc_params.params.verify_certificate)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
     :setopt(curl.OPT_CUSTOMREQUEST, "POST")
 
@@ -814,8 +814,8 @@ function getCanopsisAPI(queue_metadata, route, type_name, reason_name)
       end
     )
     :setopt(curl.OPT_TIMEOUT, queue.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.allow_insecure_connection)
-    :setopt(curl.OPT_SSL_VERIFYHOST, queue.sc_params.params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYPEER, queue.sc_params.params.verify_certificate)
+    :setopt(curl.OPT_SSL_VERIFYHOST, queue.sc_params.params.verify_certificate)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
     :setopt(curl.OPT_CUSTOMREQUEST, "GET")
 
