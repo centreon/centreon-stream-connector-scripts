@@ -76,7 +76,8 @@ function EventQueue.new(params)
   -- https://docs.influxdata.com/influxdb/cloud/reference/syntax/line-protocol/#special-characters
   self.sc_params.params.metric_name_regex = params.metric_name_regex or "([, =])"
   self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "\\%1"
-
+  self.sc_params.params.use_deprecated_metric_system = params.use_deprecated_metric_system or 0
+  
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -201,6 +202,11 @@ end
 function EventQueue:build_generic_tags(metric)
   local event = self.sc_event.event
   local tags = 'host.name=' .. event.cache.host.name .. ',poller=' .. self:escape_special_characters(event.cache.poller)
+
+  if self.sc_params.params.use_deprecated_metric_system == 1 then
+    tags = tags .. ',metric.id=' .. event.metric_id
+    return tags
+  end
 
   -- add metric instance in tags
   if metric.instance ~= "" then
@@ -329,9 +335,42 @@ function EventQueue:send_data(payload, queue_metadata)
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+    end
   end
 
   return retval
+end
+
+function EventQueue:convert_metric_event(event)
+  local params = self.sc_params.params
+  -- drop the event if it is not a metric event from the storage category
+  if event.category ~= params.bbdo.categories["storage"].id then
+    return false
+  end
+  if event.element ~= params.bbdo.elements["metric"].id then
+    return false
+  end
+
+  -- hack event to make stream connector lib think it is a standard status neb event.
+  event.perfdata = event.name .. "=" .. event.value .. ";;;;"
+  event.category = params.bbdo.categories["neb"].id
+
+  if not event.ctime then
+    event.last_check = event.time
+  else
+    event.last_check = event.ctime
+  end
+
+  if event.service_id and event.service_id ~= 0 then
+    event.element = params.bbdo.elements["service_status"].id
+  else
+    event.element = params.bbdo.elements["host_status"].id
+  end
+
+  return event
 end
 
 --------------------------------------------------------------------------------
@@ -355,6 +394,14 @@ function write (event)
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
     return false
+  end
+
+  -- to get the maximum compatibility between a storage metric event and a neb status event, we kind of convert the first into the later
+  if queue.sc_params.params.use_deprecated_metric_system == 1 then
+    event = queue:convert_metric_event(event)
+    if not event then
+      return flush()
+    end
   end
 
   -- initiate event object
