@@ -21,7 +21,7 @@ contents:
 overrides:
   rpm:
     depends: [
-      centreon-stream-connectors-lib >= 3.0.0,
+      centreon-stream-connectors-lib >= 3.7.0,
       @RPM_DEPENDENCIES@
     ]
   deb:
