@@ -225,7 +225,7 @@ function EventQueue:send_data(payload, queue_metadata)
     end
   )
   :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
   :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
 
   -- set proxy address configuration
