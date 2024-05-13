@@ -6,7 +6,6 @@
 
 -- Libraries
 local curl = require "cURL"
-local string = require "string"
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -19,7 +18,7 @@ local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 -- Misc function
 --------------------------------------------------------------------------------
 
-function table.removekey(table, key)
+local function table_extract_and_remove_key(table, key)
   local element = table[key]
   table[key] = nil
   return element
@@ -69,7 +68,7 @@ function EventQueue.new(params)
   self.sc_params.params.canopsis_host = params.canopsis_host
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement,downtime"
   self.sc_params.params.canopsis_downtime_comment_route = params.canopsis_downtime_comment_route or "/api/v4/pbehavior-comments"
   self.sc_params.params.canopsis_downtime_reason_name =  params.canopsis_downtime_reason_name or "Centreon_downtime"
   self.sc_params.params.canopsis_downtime_reason_route = params.canopsis_downtime_reason_route or "/api/v4/pbehavior-reasons"
@@ -158,17 +157,17 @@ function EventQueue.new(params)
   setmetatable(self, { __index = EventQueue })
 
   --Check if downtime are wanted
-  if self.sc_params.params.canopsis_downtime_send_pbh ~= 0 and string.find(self.sc_params.params.accepted_elements, "downtime") ~= nil then
+  if self.sc_params.params.canopsis_downtime_send_pbh ~= 0 and self.sc_params.params.accepted_elements_info["downtime"] then
     local metadata_reason = {
       method = "GET",
       event_route = self.sc_params.params.canopsis_downtime_reason_route
     }
 
-    pbh_maintenance_reason_id = getCanopsisAPI(metadata_reason, self, self.sc_params.params.canopsis_downtime_reason_route, "", self.sc_params.params.canopsis_downtime_reason_name)
+    pbh_maintenance_reason_id = self:getCanopsisAPI(metadata_reason, self.sc_params.params.canopsis_downtime_reason_route, "", self.sc_params.params.canopsis_downtime_reason_name)
 
     -- 1. Reason : Ensure reason "centreon_reason" exists, if not create it and post it
     if pbh_maintenance_reason_id == false then
-      self.sc_logger:debug("Reason for Centreon downtimes doesn't exist in Canopsis API: Creating pbehavior-reason 'centreon_reason")
+      self.sc_logger:notice("Reason for Centreon downtimes doesn't exist in Canopsis API: Creating pbehavior-reason 'centreon_reason")
       new_reason = {
           name = self.sc_params.params.canopsis_downtime_reason_name,
           description = "Activation Maintenance Centreon",
@@ -177,7 +176,7 @@ function EventQueue.new(params)
         method = "POST",
         event_route = self.sc_params.params.canopsis_downtime_reason_route
       }
-      postCanopsisAPI(self, metadata_post, self.sc_params.params.canopsis_downtime_reason_route, new_reason)
+      self:postCanopsisAPI(metadata_post, self.sc_params.params.canopsis_downtime_reason_route, new_reason)
     else
       -- If the reason id is reachable with downtime_reason_route
       if pbh_maintenance_reason_id ~= false and self.sc_params.params.send_data_test ~= 1 then
@@ -195,7 +194,7 @@ function EventQueue.new(params)
       method = "GET",
       event_route = self.sc_params.params.canopsis_downtime_type_route
     }
-    pbh_maintenance_type_id = getCanopsisAPI(metadata_type, self, self.sc_params.params.canopsis_downtime_type_route, self.sc_params.params.canopsis_downtime_type_name, "")
+    pbh_maintenance_type_id = self:getCanopsisAPI(metadata_type, self.sc_params.params.canopsis_downtime_type_route, self.sc_params.params.canopsis_downtime_type_name, "")
     -- If the type id is reachable with downtime_type_route
     if pbh_maintenance_type_id ~= false and self.sc_params.params.send_data_test ~= 1 then
       self.sc_params.params.canopsis_downtime_type_id = pbh_maintenance_type_id
@@ -211,7 +210,7 @@ function EventQueue.new(params)
       method = "GET",
       event_route = "/api/v4/app-info"
     }
-    canopsis_version = getCanopsisAPI(metadata_type, self, "/api/v4/app-info", "", "")
+    canopsis_version = self:getCanopsisAPI(metadata_type, "/api/v4/app-info", "", "")
   end
 
   return self
@@ -502,8 +501,7 @@ function EventQueue:send_data(payload, queue_metadata)
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
-    downtime_comment = table.removekey(payload,"comment")
-    downtime_comment = broker.json_encode(downtime_comment)
+    downtime_comment = table_extract_and_remove_key(payload,"comment")
     send_downtime_comment = true
     payload = broker.json_encode(payload)
 
@@ -586,8 +584,7 @@ function EventQueue:send_data(payload, queue_metadata)
         method = "POST",
         event_route = self.sc_params.params.canopsis_downtime_comment_route
       }
-      downtime_comment = broker.json_decode(downtime_comment)
-      postCanopsisAPI(self, metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
+      self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
     end
 
     retval = true
@@ -599,6 +596,10 @@ function EventQueue:send_data(payload, queue_metadata)
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP " .. http_method .. " request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+    end
   end
 
   return retval
@@ -685,7 +686,7 @@ end
 -- Function to send a Post Request to Canopsis API for Reason route
 --------------------------------------------------------------------------------
 
-function postCanopsisAPI(self, self_metadata, route, data_to_send)
+function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
   self.sc_logger:debug("[postCanopsisAPI]:Posting data to Canopsis route: ".. route)
 
   -- Handling the return code
@@ -774,6 +775,10 @@ function postCanopsisAPI(self, self_metadata, route, data_to_send)
   else
     self.sc_logger:error("[postCanopsisAPI]: HTTP POST request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(data_to_send))
+    end
   end
 
   return retval
@@ -783,7 +788,7 @@ end
 -- Function to send a Get Request to Canopsis API for Reason, type and version routes
 --------------------------------------------------------------------------------
 
-function getCanopsisAPI(self_metadata, self, route, type_name, reason_name)
+function EventQueue:getCanopsisAPI(self_metadata, route, type_name, reason_name)
 
   self.sc_logger:debug("[getCanopsisAPI]:Getting data from Canopsis route : ".. route)
 
