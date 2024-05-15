@@ -63,6 +63,10 @@ function EventQueue.new(params)
     self.fail = true
   end
 
+  -- force buffer size to 1 because this SC does not allows the event bulk at this moment. (can't send more than one event at once)
+  params.max_buffer_size = 1
+  self.sc_logger:notice("[EventQueue:new]: max_buffer_size = 1 (force buffer size to 1 because this SC does not allows the event bulk at this moment)")
+
   -- mandatory parameter
   self.sc_params.params.canopsis_authkey = params.canopsis_authkey
   self.sc_params.params.canopsis_host = params.canopsis_host
