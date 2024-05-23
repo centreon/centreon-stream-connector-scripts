@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Opsgenie Connector Events
+-- Centreon Broker Canopsis Connector Events
 --------------------------------------------------------------------------------
 
 
@@ -35,13 +35,14 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "app_api_token"
+    "canopsis_authkey",
+    "canopsis_host"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/opsgenie-events.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/canopsis4-events.log"
   local log_level = params.log_level or 1
 
   -- initiate mandatory objects
@@ -55,39 +56,40 @@ function EventQueue.new(params)
     self.fail = true
   end
 
-  --params.max_buffer_size = 1
-
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.app_api_token = params.app_api_token
-  self.sc_params.params.integration_api_token = params.integration_api_token
-  self.sc_params.params.api_url = params.api_url or "https://api.opsgenie.com"
-  self.sc_params.params.alerts_api_endpoint = params.alerts_api_endpoint or "/v2/alerts"
-  self.sc_params.params.incident_api_endpoint = params.incident_api_endpoint or "/v1/incidents/create"
-  self.sc_params.params.ba_incident_tags = params.ba_incident_tags or "centreon,application"
-  self.sc_params.params.enable_incident_tags = params.enable_incident_tags or 1
-  self.sc_params.params.get_bv = params.get_bv or 1
-  self.sc_params.params.enable_severity = params.enable_severity or 0
-  self.sc_params.params.default_priority = params.default_priority
-  self.sc_params.params.priority_mapping = params.priority_mapping or "P1=1,P2=2,P3=3,P4=4,P5=5"
-  self.sc_params.params.opsgenie_priorities = params.opsgenie_priorities or "P1,P2,P3,P4,P5"
+  self.sc_params.params.canopsis_authkey = params.canopsis_authkey
+  self.sc_params.params.connector = params.connector or "centreon-stream"
+  self.sc_params.params.connector_name_type =  params.connector_name_type or "poller"
+  self.sc_params.params.connector_name = params.connector_name or "centreon-stream-central"
+  self.sc_params.params.canopsis_event_route = params.canopsis_event_route or "/api/v4/event"
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/bulk/pbehavior"
+  self.sc_params.params.canopsis_host = params.canopsis_host
+  self.sc_params.params.canopsis_port = params.canopsis_port or 8082
+  self.sc_params.params.sending_method = params.sending_method or "api"
+  self.sc_params.params.sending_protocol = params.sending_protocol or "http"
+  self.sc_params.params.timezone = params.timezone or "Europe/Paris"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.timestamp_conversion_format = params.timestamp_conversion_format or "%Y-%m-%d %H:%M:%S"
-
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
+  self.sc_params.params.use_severity_as_state = params.use_severity_as_state or 0
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-
-  -- need a queue for each type of event because ba status aren't sent on the same endpoint
   self.sc_params.params.send_mixed_events = 0
+
+  if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then
+    self.sc_params.params.connector_name_type = "poller"
+  end
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
   -- only load the custom code file, not executed yet
-  if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
-    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+  if self.sc_params.load_custom_code_file
+    and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file)
+  then
+    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: "
+      .. tostring(self.sc_params.params.custom_code_file))
   end
 
   self.sc_params:build_accepted_elements_info()
@@ -96,29 +98,34 @@ function EventQueue.new(params)
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
-  self.state_to_alert_type_mapping = {
-    [categories.neb.id] = {
-        [elements.host_status.id] = {
-            [0] = "info",
-            [1] = "error",
-            [2] = "warning"
-        },
-        [elements.service_status.id] = {
-            [0] = "info",
-            [1] = "warning",
-            [2] = "error",
-            [3] = "warning"
-        }
-    }
-  }
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.downtime.id, {event_route = self.sc_params.params.canopsis_downtime_route})
 
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
-      [elements.service_status.id] = function () return self:format_event_service() end
+      [elements.service_status.id] = function () return self:format_event_service() end,
+      [elements.downtime.id] = function () return self:format_event_downtime() end,
+      [elements.acknowledgement.id] = function () return self:format_event_acknowledgement() end
     },
-    [categories.bam.id] = {
-      [elements.ba_status.id] = function () return self:format_event_ba() end
+    [categories.bam.id] = {}
+  }
+
+  self.centreon_to_canopsis_state = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = {
+        [0] = 0,
+        [1] = 3,
+        [2] = 2
+      },
+      [elements.service_status.id] = {
+        [0] = 0,
+        [1] = 1,
+        [2] = 3,
+        [3] = 2
+      }
     }
   }
 
@@ -130,74 +137,9 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
-  -- handle metadatas for queues
-  self.sc_flush:add_queue_metadata(
-    categories.neb.id,
-    elements.host_status.id,
-    {
-      api_endpoint = self.sc_params.params.alerts_api_endpoint,
-      token = self.sc_params.params.app_api_token
-    }
-  )
-  self.sc_flush:add_queue_metadata(
-    categories.neb.id,
-    elements.service_status.id,
-    {
-      api_endpoint = self.sc_params.params.alerts_api_endpoint,
-      token = self.sc_params.params.app_api_token
-    }
-  )
-
-  -- handle opsgenie priority mapping
-  local severity_to_priority = {}
-  self.priority_mapping = {}
-
-  if self.sc_params.params.enable_severity == 1 then
-    self.priority_matching_list = self.sc_common:split(self.sc_params.params.priority_matching, ',')
-
-    for _, priority_group in ipairs(self.priority_matching_list) do
-      severity_to_priority = self.sc_common:split(priority_group, '=')
-
-      --
-      if string.match(self.sc_params.params.opsgenie_priorities, severity_to_priority[1]) == nil then
-        self.sc_logger:error("[EvenQueue.new]: severity is enabled but the priority configuration is wrong. configured matching: "
-          .. self.sc_params.params.priority_matching_list .. ", invalid parsed priority: " .. severity_to_priority[1]
-          .. ", known Opsgenie priorities: " .. self.sc_params.params.opsgenie_priorities
-          .. ". Considere adding your priority to the opsgenie_priorities list if the parsed priority is valid")
-        break
-      end
-
-      self.priority_mapping[severity_to_priority[2]] = severity_to_priority[1]
-    end
-  end
-
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
-end
-
-function EventQueue:get_priority()
-  local severity = nil
-  local event = self.sc_event.event
-  local params = self.sc_params.params
-
-  -- get appropriate severity depending on event type (service|host)
-  if event.service_id == nil then
-    self.sc_logger:debug("[EventQueue:get_priority]: getting severity for host: " .. event.host_id)
-    severity = event.cache.severity.host
-  else
-    self.sc_logger:debug("[EventQueue:get_priority]: getting severity for service: " .. event.service_id)
-    severity = event.cache.severity.service
-  end
-
-  -- find the opsgenie priority depending on the found severity
-  local matching_priority = self.priority_mapping[tostring(severity)]
-
-  if not matching_priority then
-    return params.default_priority
-  end
-
-  return matching_priority
 end
 
 --------------------------------------------------------------------------------
@@ -229,74 +171,179 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
--- https://docs.opsgenie.com/docs/alert-api#create-alert
+function EventQueue:list_servicegroups()
+  local servicegroups =  {}
+
+  for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
+    table.insert(servicegroups, sg.group_name)
+  end
+
+  return servicegroups
+end
+
+function EventQueue:list_hostgroups()
+  local hostgroups =  {}
+
+  for _, hg in pairs(self.sc_event.event.cache.hostgroups) do
+    table.insert(hostgroups, hg.group_name)
+  end
+
+  return hostgroups
+end
+
+function EventQueue:get_state(event, severity)
+  -- return standard centreon state
+  if severity and self.sc_params.params.use_severity_as_state == 1 then
+    return severity
+  end
+
+  return self.centreon_to_canopsis_state[event.category][event.element][event.state]
+end
+
+function EventQueue:get_connector_name()
+  -- use poller name as a connector name
+  if self.sc_params.params.connector_name_type == "poller" then
+    return tostring(self.sc_event.event.cache.poller)
+  end
+
+  return tostring(self.sc_params.params.connector_name)
+end
+
 function EventQueue:format_event_host()
   local event = self.sc_event.event
-  local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
   self.sc_event.event.formated_event = {
-    message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
-      .. " " .. event.cache.host.name .. " is " .. state, 1, 130),
-    description = string.sub(event.output, 1, 15000),
-    alias = string.sub(event.cache.host.name .. "_" .. state, 1, 512)
+    event_type = "check",
+    source_type = "component",
+    connector = self.sc_params.params.connector,
+    connector_name = self:get_connector_name(),
+    component = tostring(event.cache.host.name),
+    resource = "",
+    output = event.short_output,
+    long_output = event.long_output,
+    state = self:get_state(event, event.cache.severity.host),
+    timestamp = event.last_check,
+    hostgroups = self:list_hostgroups(),
+    notes_url = tostring(event.cache.host.notes_url),
+    action_url = tostring(event.cache.host.action_url)
   }
-
-  local priority = self:get_priority()
-  if priority then
-    self.sc_event.event.formated_event.priority = priority
-  end
 end
 
--- https://docs.opsgenie.com/docs/alert-api#create-alert
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-  local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
   self.sc_event.event.formated_event = {
-    message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
-      .. " " .. event.cache.host.name .. " // " .. event.cache.service.description .. " is " .. state, 1, 130),
-    description = string.sub(event.output, 1, 15000),
-    alias = string.sub(event.cache.host.name .. "_" .. event.cache.service.description .. "_" .. state, 1, 512)
+    event_type = "check",
+    source_type = "resource",
+    connector = self.sc_params.params.connector,
+    connector_name = self:get_connector_name(),
+    component = tostring(event.cache.host.name),
+    resource = tostring(event.cache.service.description),
+    output = event.short_output,
+    long_output = event.long_output,
+    state = self:get_state(event, event.cache.severity.service),
+    timestamp = event.last_check,
+    servicegroups = self:list_servicegroups(),
+    notes_url = event.cache.service.notes_url,
+    action_url = event.cache.service.action_url,
+    hostgroups = self:list_hostgroups()
+  }
+end
+
+function EventQueue:format_event_acknowledgement()
+  local event = self.sc_event.event
+  local elements = self.sc_params.params.bbdo.elements
+
+  self.sc_event.event.formated_event = {
+    event_type = "ack",
+    author = event.author,
+    resource = "",
+    component = tostring(event.cache.host.name),
+    connector = self.sc_params.params.connector,
+    connector_name = self:get_connector_name(),
+    timestamp = event.entry_time,
+    output = event.comment_data,
+    long_output = event.comment_data
+    -- no available in api v4 ?
+    -- crecord_type = "ack",
+    -- origin = "centreon",
+    -- ticket = "",
+    -- state_type = 1,
+    -- ack_resources = false
   }
 
-  local priority = self:get_priority()
-  if priority then
-    self.sc_event.event.formated_event.priority = priority
+  if event.service_id then
+    self.sc_event.event.formated_event['source_type'] = "resource"
+    self.sc_event.event.formated_event['resource'] = tostring(event.cache.service.description)
+    -- only with v2 api ?
+    -- self.sc_event.event.formated_event['ref_rk'] = tostring(event.cache.service.description)
+    --   .. "/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+      [elements.service_status.id][event.state]
+  else
+    self.sc_event.event.formated_event['source_type'] = "component"
+    -- only with v2 api ?
+    -- self.sc_event.event.formated_event['ref_rk'] = "undefined/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+      [elements.host_status.id][event.state]
+  end
+
+  -- send ackremove
+  if event.deletion_time then
+    self.sc_event.event.formated_event['event_type'] = "ackremove"
+    -- only with v2 api ?
+    -- self.sc_event.event.formated_event['crecord_type'] = "ackremove"
+    -- self.sc_event.event.formated_event['timestamp'] = event.deletion_time
   end
 end
 
--- https://docs.opsgenie.com/docs/incident-api#create-incident
-function EventQueue:format_event_ba()
+function EventQueue:format_event_downtime()
   local event = self.sc_event.event
-  local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
+  local elements = self.sc_params.params.bbdo.elements
+  local downtime_name = "centreon-downtime-" .. event.internal_id .. "-" .. event.entry_time
 
-  self.sc_event.event.formated_event = {
-    message = string.sub(event.cache.ba.ba_name  .. " is " .. state .. ", health level reached " .. event.level_nominal, 1, 130)
-  }
+  if event.cancelled or event.deletion_time then
+    local metadata = {
+      method = "DELETE",
+      event_route = "/api/v4/pbehaviors"
+    }
+    self:send_data({name = downtime_name}, metadata)
+  else
+    self.sc_event.event.formated_event = {
+      -- _id = canopsis_downtime_id,
+      author = event.author,
+      name = downtime_name,
+      tstart = event.start_time,
+      tstop = event.end_time,
+      type = "Maintenance",
+      reason = "Other",
+      timezone = self.sc_params.params.timezone,
+      comments = {
+        {
+          ['author'] = event.author,
+          ['message'] = event.comment_data
+        }
+      },
+      entity_pattern = {
+        {
+          {
+            field = "name",
+            cond = {
+              type = "eq"
+            }
+          }
+        }
+      },
+      exdates = {}
+    }
 
-  if self.sc_params.params.enable_incident_tags == 1 then
-    local tags = {}
-
-    for _, bv_info in ipairs(event.cache.bvs) do
-      -- can't have more than 20 tags
-      if #tags < 50 then
-        self.sc_logger:info("[EventQueue:format_event_ba]: add bv name: " .. tostring(bv_info.bv_name) .. " to list of tags")
-        table.insert(tags, string.sub(bv_info.bv_name, 1, 50))
-      end
+    if event.service_id then
+      self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.service.description)
+        .. "/" .. tostring(event.cache.host.name)
+    else
+      self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.host.name)
     end
-
-    local custom_tags = self.sc_common:split(self.sc_params.params.ba_incident_tags, ",")
-    for _, tag_name in ipairs(custom_tags) do
-      -- can't have more than 20 tags
-      if #tags < 20 then
-        self.sc_logger:info("[EventQueue:format_event_ba]: add custom tag: " .. tostring(tag_name) .. " to list of tags")
-        table.insert(tags, string.sub(tag_name, 1, 50))
-      end
-    end
-
-    self.sc_event.formated_event.tags = tags
   end
-
 end
 
 --------------------------------------------------------------------------------
@@ -306,15 +353,18 @@ function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
+  local next = next
 
-  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
-    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+  if next(self.sc_event.event.formated_event) ~= nil then
+    self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+      .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+    self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
-  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
+  end
 end
 
 --------------------------------------------------------------------------------
@@ -325,9 +375,9 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = broker.json_encode(event)
+    payload = {event}
   else
-    payload = payload .. "," .. broker.json_encode(event)
+    table.insert(payload, event)
   end
 
   return payload
@@ -336,22 +386,25 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.api_url .. queue_metadata.api_endpoint
+  local params = self.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  payload = broker.json_encode(payload)
   queue_metadata.headers = {
+    "content-length: " .. string.len(payload),
     "content-type: application/json",
-    "accept: application/json",
-    "Authorization: GenieKey " .. queue_metadata.token
+    "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
   }
 
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
+
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(payload))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Opsgenie address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. payload)
+  self.sc_logger:info("[EventQueue:send_data]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -377,13 +430,18 @@ function EventQueue:send_data(payload, queue_metadata)
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
-      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username 
+        .. ':' .. self.sc_params.params.proxy_password)
     else
       self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
   -- adding the HTTP POST data
+  if queue_metadata.method and queue_metadata.method == "DELETE" then
+    http_request:setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+  end
+
   http_request:setopt_postfields(payload)
 
   -- performing the HTTP request
@@ -397,14 +455,19 @@ function EventQueue:send_data(payload, queue_metadata)
   -- Handling the return code
   local retval = false
 
-  -- according to opsgenie documentation "Create alert requests are processed asynchronously, therefore valid requests are responded with HTTP status 202 - Accepted"
-  -- https://docs.opsgenie.com/docs/alert-api#create-alert
-  if http_response_code == 202 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+  if http_response_code == 200 then
+    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is "
+      .. tostring(http_response_code))
+    retval = true
+  elseif http_response_code == 400 and string.match(http_response_body, "Trying to insert PBehavior with already existing _id") then
+    self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
+      .. ". Canopsis result: " .. tostring(http_response_body))
+    self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
     retval = true
   else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
-
+    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " 
+      .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    
     if payload then
       self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
     end
@@ -489,3 +552,4 @@ function flush()
   -- there are events in the queue but they were not ready to be send
   return false
 end
+

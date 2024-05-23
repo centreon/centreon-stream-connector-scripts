@@ -1,6 +1,6 @@
-**Canopsis**
+# Canopsis
 
-- https://doc.canopsis.net/guide-developpement/struct-event/
+## This stream connector is deprecated
 
 ## Description
 
