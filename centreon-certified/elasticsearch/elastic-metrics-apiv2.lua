@@ -633,8 +633,8 @@ function EventQueue:send_data(payload, queue_metadata)
       end
     )
     :setopt(curl.OPT_TIMEOUT, params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, params.allow_insecure_connection)
-    :setopt(curl.OPT_SSL_VERIFYHOST, params.allow_insecure_connection)
+    :setopt(curl.OPT_SSL_VERIFYPEER, params.verify_certificate)
+    :setopt(curl.OPT_SSL_VERIFYHOST, params.verify_certificate)
     :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
@@ -680,6 +680,10 @@ function EventQueue:send_data(payload, queue_metadata)
   if error_json then
     self.sc_logger:error("[EventQueue:send_data]: Couldn't decode json from elasticsearch. Error is: " .. tostring(error_json)
       .. ". Received json is: " .. tostring(http_response_body) .. ". Sent data is: " .. tostring(payload))
+    
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+    end
     return false
   end
 
@@ -688,6 +692,9 @@ function EventQueue:send_data(payload, queue_metadata)
     return true
   end
 
+  if payload then
+    self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+  end
 
   self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body) .. ". Sent data is: " .. tostring(payload))
   return false

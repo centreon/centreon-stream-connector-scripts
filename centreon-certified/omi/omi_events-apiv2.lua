@@ -255,7 +255,7 @@ function EventQueue:send_data(payload, queue_metadata)
     end
   )
   :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.allow_insecure_connection)
+  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
   :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
 
   -- set proxy address configuration
@@ -293,6 +293,10 @@ function EventQueue:send_data(payload, queue_metadata)
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+    end
   end
   return retval
 end

@@ -307,11 +307,19 @@ function EventQueue:call(url, method, data, authToken)
   if respCode >= 300 then
     self.sc_logger:error("EventQueue:call: HTTP Code : " .. respCode)
     self.sc_logger:error("EventQueue:call: HTTP Error : " .. res)
+
+    if data then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(data))
+    end
     return false
   end
 
   if res == "" then
     self.sc_logger:warning("EventQueue:call: HTTP Error : " .. res)
+
+    if data then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(data))
+    end
     return false
   end
 

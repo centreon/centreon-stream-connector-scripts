@@ -190,7 +190,7 @@ local metadata = {
 }
 
 local params = {
-  allow_insecure_connection = 1
+  verify_certificate = 0
 }
 
 local data = '{"host":"test-host","state":"down"}'

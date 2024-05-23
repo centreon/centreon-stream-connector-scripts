@@ -76,6 +76,11 @@ function ScEvent:is_valid_event()
     is_valid_event = self:is_valid_bam_event()
   end
 
+  -- drop the event if it was not valid. Custom code do not have to work on already invalid events
+  if not is_valid_event then
+    return is_valid_event
+  end
+
   -- run custom code
   if self.params.custom_code and type(self.params.custom_code) == "function" then
     self, is_valid_event = self.params.custom_code(self)
@@ -1232,8 +1237,8 @@ function ScEvent:is_host_status_event_duplicated()
     return false
   end
 
-  -- if last check is the same than last_hard_state_change, it means the event just change its status so it cannot be a duplicated event
-  if self.event.last_hard_state_change == self.event.last_check or self.event.last_hard_state_change == self.event.last_update then
+  -- if last check is the same than last_hard_state_change (allowing a delta timestamp), it means the event just change its status so it cannot be a duplicated event
+  if math.abs(self.event.last_hard_state_change - self.event.last_check) <= self.params.delta_host_status_change_allow or (self.event.last_update ~= nil and math.abs(self.event.last_hard_state_change - self.event.last_update) <= self.params.delta_host_status_change_allow) then
     return false
   end
 
