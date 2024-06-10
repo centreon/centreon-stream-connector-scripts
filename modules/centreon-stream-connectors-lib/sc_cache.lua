@@ -18,6 +18,11 @@ function sc_cache.new(logger, params)
     "metric_.*"
   }
 
+
+  -- TO REMOVE
+  params.cache_backend = "sqlite"
+  -- END
+
   if pcall(require, "centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend) then
     local cache_backend = require("centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend)
     self.cache_backend = cache_backend.new(logger, params)
@@ -35,7 +40,7 @@ end
 --- is_valid_cache_object: make sure that the object that needs an interraction with the cache is an object that can have cache
 -- @param object_id (string) the object that must be checked
 -- @return (boolean) true if valid, false otherwise
-function is_valid_cache_object(object_id)
+function ScCache:is_valid_cache_object(object_id)
   for _, accepted_object_format in ipairs(self.cache_objects) do
     if string.match(object_id, accepted_object_format) then
       self.sc_logger:debug("[sc_cache:is_valid_cache_object]: object_id: "  .. tostring(object_id)
@@ -55,7 +60,7 @@ end
 -- @param value (string|number|boolean) the value of the property
 -- @return (boolean) true if value properly set in cache, false otherwise
 function ScCache:set(object_id, property, value)
-  if not is_valid_cache_object(object_id) then
+  if not self:is_valid_cache_object(object_id) then
     self.sc_logger:error("[sc_cache:set]: Object is invalid")
     return false
   end
@@ -67,13 +72,21 @@ end
 -- @param object_id (string) the object with the property that must be retrieved
 -- @param property (string) the name of the property
 -- @return (boolean) true if value properly retrieved from cache, false otherwise
+-- @return (string) empty string if status false, value otherwise
 function ScCache:get(object_id, property)
-  if not is_valid_cache_object(object_id) then
+  if not self:is_valid_cache_object(object_id) then
     self.sc_logger:error("[sc_cache:get]: Object is invalid")
     return false
   end
 
-  return self.cache_backend:get(object_id, property)
+  local status, value = self.cache_backend:get(object_id, property)
+  
+  if not status then
+    self.sc_logger:error("[sc_cache:get]: couldn't get property in cache. Object id: " .. tostring(object_id)
+      .. ", property name: " .. tostring(property))
+  end
+
+  return status, value
 end
 
 --- delete: delete an object property in the cache
@@ -81,7 +94,7 @@ end
 -- @param property (string) the name of the property
 -- @return (boolean) true if value properly deleted in cache, false otherwise
 function ScCache:delete(object_id, property)
-  if not is_valid_cache_object(object_id) then
+  if not self:is_valid_cache_object(object_id) then
     self.sc_logger:error("[sc_cache:delete]: Object is invalid")
     return false
   end
@@ -93,7 +106,7 @@ end
 -- @param object_id (string) the object with the property that must be shown
 -- @return (boolean) true if object properties are retrieved, false otherwise
 function ScCache:show(object_id, property)
-  if not is_valid_cache_object(object_id) then
+  if not self:is_valid_cache_object(object_id) then
     self.sc_logger:error("[sc_cache:show]: Object is invalid")
     return false
   end
