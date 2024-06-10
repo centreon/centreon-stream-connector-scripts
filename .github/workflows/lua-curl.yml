@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, bullseye, bookworm, jammy]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
