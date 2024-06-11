@@ -6,12 +6,16 @@
 local sc_cache = {}
 local ScCache = {}
 
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
+
 --- sc_cache.new: sc_cache constructor
--- @param sc_logger (object) a sc_logger instance 
+-- @param common (object) a sc_common instance 
+-- @param logger (object) a sc_logger instance 
 -- @param params (table) the params table of the stream connector
-function sc_cache.new(logger, params)
+function sc_cache.new(common, logger, params)
   local self = {}
 
+  self.sc_common = common
   self.sc_logger = logger
   self.params = params
 
@@ -69,6 +73,26 @@ function ScCache:set(object_id, property, value)
   return self.cache_backend:set(object_id, property, value)
 end
 
+--- set_multiple: set multiple object properties in the cache
+-- @param object_id (string) the object with the property that must be set
+-- @param properties (table) a table of properties and their values
+-- @param value (string|number|boolean) the value of the property
+-- @return (boolean) true if value properly set in cache, false otherwise
+function ScCache:set_multiple(object_id, properties)
+  if not self:is_valid_cache_object(object_id) then
+    self.sc_logger:error("[sc_cache:set_multiple]: Object is invalid")
+    return false
+  end
+
+  if type(properties) ~= "table" then
+    self.sc_logger:error("[sc_cache:set_multiple]: properties parameter is not a table"
+      .. ". Received properties: " .. self.sc_common:dumper(properties))
+    return false
+  end
+
+  return self.cache_backend:set_multiple(object_id, properties)
+end
+
 --- get: get an object property that is stored in the cache
 -- @param object_id (string) the object with the property that must be retrieved
 -- @param property (string) the name of the property
@@ -85,6 +109,33 @@ function ScCache:get(object_id, property)
   if not status then
     self.sc_logger:error("[sc_cache:get]: couldn't get property in cache. Object id: " .. tostring(object_id)
       .. ", property name: " .. tostring(property))
+  end
+
+  return status, value
+end
+
+--- get_multiple:  retrieve a list of properties for an object
+-- @param object_id (string) the object with the property that must be retrieved
+-- @param properties (table) the name of the property
+-- @return (boolean) true if value properly retrieved from cache, false otherwise
+-- @return (table) empty table if status false, table of properties and their value otherwise
+function ScCache:get_multiple(object_id, properties)
+  if not self:is_valid_cache_object(object_id) then
+    self.sc_logger:error("[sc_cache:get]: Object is invalid")
+    return false
+  end
+
+  if type(properties) ~= "table" then
+    self.sc_logger:error("[sc_cache:get_multiple]: properties parameter is not a table"
+      .. ". Received properties: " .. self.sc_common:dumper(properties))
+    return false
+  end
+
+  local status, value = self.cache_backend:get(object_id, properties)
+  
+  if not status then
+    self.sc_logger:error("[sc_cache:get]: couldn't get property in cache. Object id: " .. tostring(object_id)
+      .. ", property name: " .. self.sc_common:dumper(properties))
   end
 
   return status, value

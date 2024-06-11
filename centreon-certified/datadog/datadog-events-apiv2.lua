@@ -79,7 +79,7 @@ function EventQueue.new(params)
   end
     
   self.sc_params:build_accepted_elements_info()
-  self.sc_cache = sc_cache.new(self.sc_logger, self.sc_params.params)
+  self.sc_cache = sc_cache.new(self.sc_common, self.sc_logger, self.sc_params.params)
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories

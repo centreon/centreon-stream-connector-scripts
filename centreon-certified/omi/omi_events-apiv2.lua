@@ -108,7 +108,7 @@ function EventQueue.new(params)
   end
 
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_cache = sc_cache.new(self.sc_logger, self.sc_params.params)
+  self.sc_cache = sc_cache.new(self.sc_common, self.sc_logger, self.sc_params.params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements

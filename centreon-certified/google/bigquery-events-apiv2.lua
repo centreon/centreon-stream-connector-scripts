@@ -108,7 +108,7 @@ function EventQueue.new(params)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
-  self.sc_cache = sc_cache.new(self.sc_logger, self.sc_params.params)
+  self.sc_cache = sc_cache.new(self.sc_common, self.sc_logger, self.sc_params.params)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
