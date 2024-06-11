@@ -30,7 +30,7 @@ function sc_cache.new(common, logger, params)
   -- make sure we are able to load the desired cache backend. If not, fall back to the one provided by broker
   if pcall(require, "centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend) then
     local cache_backend = require("centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend)
-    self.cache_backend = cache_backend.new(logger, params)
+    self.cache_backend = cache_backend.new(self.sc_common, logger, params)
   else
     self.sc_logger:error("[sc_cache:new]: Couldn't load cache backend: " .. tostring(params.cache_backend)
       .. ". Make sure that the file sc_cache_" .. tostring(params.cache_backend) .. ".lua exists on your server."
