@@ -114,9 +114,9 @@ function ScCache:get(object_id, property)
   return status, value
 end
 
---- get_multiple:  retrieve a list of properties for an object
+--- get_multiple: retrieve a list of properties for an object
 -- @param object_id (string) the object with the property that must be retrieved
--- @param properties (table) the name of the property
+-- @param properties (table) a list of properties
 -- @return (boolean) true if value properly retrieved from cache, false otherwise
 -- @return (table) empty table if status false, table of properties and their value otherwise
 function ScCache:get_multiple(object_id, properties)
