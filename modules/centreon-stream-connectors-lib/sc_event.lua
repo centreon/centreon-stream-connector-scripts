@@ -15,7 +15,7 @@ local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
 
 local ScEvent = {}
 
-function sc_event.new(event, params, common, logger, broker)
+function sc_event.new(event, params, common, logger, broker, cache)
   local self = {}
 
   self.sc_logger = logger
@@ -23,11 +23,11 @@ function sc_event.new(event, params, common, logger, broker)
     self.sc_logger = sc_logger.new()
   end
 
-  self.sc_cache = sc_cache.new(self.sc_logger, params)
   self.sc_common = common
   self.params = params
   self.event = event
   self.sc_broker = broker
+  self.sc_cache = cache
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
   self.event.cache = {}

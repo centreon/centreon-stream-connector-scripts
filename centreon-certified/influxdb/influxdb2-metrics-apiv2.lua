@@ -14,6 +14,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
+local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -90,6 +91,7 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+  self.sc_cache = sc_cache.new(self.sc_logger, self.sc_params.params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -405,7 +407,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
+  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_cache, queue.sc_logger)
   queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then
