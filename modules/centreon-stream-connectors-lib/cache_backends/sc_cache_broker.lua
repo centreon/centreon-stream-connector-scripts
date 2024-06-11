@@ -14,9 +14,10 @@
 local sc_cache_broker = {}
 local ScCacheBroker = {}
 
-function sc_cache_broker.new(logger, params)
+function sc_cache_broker.new(common, logger, params)
   local self = {}
 
+  self.sc_common = common
   self.sc_logger = logger
   self.params = params
 
@@ -29,8 +30,16 @@ function ScCacheBroker:set(object_id, property, value)
   return true
 end
 
+function ScCacheBroker:set_multiple(object_id, properties)
+  return true
+end
+
 function ScCacheBroker:get(object_id, property)
   return true, ""
+end
+
+function ScCacheBroker:get_multiple(object_id, properties)
+  return true, {}
 end
 
 function ScCacheBroker:delete(object_id, property)
