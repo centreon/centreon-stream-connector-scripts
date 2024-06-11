@@ -8,6 +8,9 @@ local ScCacheSqlite = {}
 
 local sqlite = require("lsqlite3")
 
+--- sc_cache_sqlite.new: sc_cache_sqlite constructor
+-- @param sc_logger (object) a sc_logger instance 
+-- @param params (table) the params table of the stream connector
 function sc_cache_sqlite.new(logger, params)
   local self = {}
 
@@ -35,18 +38,26 @@ function sc_cache_sqlite.new(logger, params)
   return self
 end
 
-function ScCacheSqlite:get_query_result(data, column_count, column_value, column_name)
+--- sc_cache_sqlite:get_query_result: this is a callback function. It is called for each row found by a sql query
+-- @param udata (string) I'm sorry, I have no explanation apart from http://lua.sqlite.org/index.cgi/doc/tip/doc/lsqlite3.wiki#db_exec
+-- @param column_count (number) the number of columns from the sql query
+-- @param column_value (string) the value of a column
+-- @param column_name (string) the name of the column
+-- @return 0 (number) this is the required return code otherwise the sqlite:exec function will stop calling this callback function
+function ScCacheSqlite:get_query_result(udata, column_count, column_value, column_name)
   local row = {}
 
   for i = 1, column_count do
     row[column_name[i]] = column_value[i]
   end
 
+  -- store results in a "global" variable 
   self.last_query_result[#self.last_query_result + 1] = row
   return 0
 end
 
 
+--- sc_cache_sqlite:check_cache_table: check if the sc_cache table exists and, if not, create it.
 function ScCacheSqlite:check_cache_table()
   local query = "SELECT name FROM sqlite_master WHERE type='table' AND name='sc_cache';"
   
@@ -60,6 +71,7 @@ function ScCacheSqlite:check_cache_table()
   end
 end
 
+--- sc_cache_sqlite:create_cache_table: create the sc_cache table.
 function ScCacheSqlite:create_cache_table()
   local query = [[
     CREATE TABLE sc_cache (
@@ -73,6 +85,10 @@ function ScCacheSqlite:create_cache_table()
   self.sqlite:exec(query)
 end
 
+--- sc_cache_sqlite:run_query: execute the given query
+-- @param query (string) the query that must be run
+-- @param get_result (boolean) default value is false. When set to true, the query results will be stored in the self.last_query_result table
+-- @return (boolean) false if query failed, true otherwise
 function ScCacheSqlite:run_query(query, get_result)
   -- flush old stored query results
   self.last_query_result = {}
@@ -94,7 +110,11 @@ function ScCacheSqlite:run_query(query, get_result)
   return true
 end
 
-
+--- sc_cache_sqlite:set: insert or update an object property value in the sc_cache table
+-- @param object_id (string) the object identifier.
+-- @param property (string) the name of the property
+-- @param value (string) the value of the property (will be converted to string anyway)
+-- @return (boolean) false if we couldn't store the information in the cache, true otherwise
 function ScCacheSqlite:set(object_id, property, value)
   value = string.gsub(tostring(value), "'", " ")
   local query = "INSERT OR REPLACE INTO sc_cache VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "');"
@@ -108,6 +128,11 @@ function ScCacheSqlite:set(object_id, property, value)
   return true
 end
 
+--- sc_cache_sqlite:get: retrieve a single property value of an object
+-- @param object_id (string) the object identifier.
+-- @param property (string) the name of the property
+-- @return (boolean) false if we couldn't get the information from the cache, true otherwise
+-- @return value (string) the value of the property (an empty string when first return is false or if we didn't find a value for this object property)
 function ScCacheSqlite:get(object_id, property)
   local query = "SELECT value FROM sc_cache WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
 
@@ -119,6 +144,7 @@ function ScCacheSqlite:get(object_id, property)
 
   local value = ""
 
+  -- if we didn't already store information in the cache, the last_query_result could be an empty table
   if self.last_query_result[1] then
     value = self.last_query_result[1].value
   end
@@ -126,6 +152,10 @@ function ScCacheSqlite:get(object_id, property)
   return true, value
 end
 
+--- sc_cache_sqlite:delete: delete a single property of an object
+-- @param object_id (string) the object identifier.
+-- @param property (string) the name of the property
+-- @return (boolean) false if we couldn't delete the information from the cache, true otherwise
 function ScCacheSqlite:delete(object_id, property)
   local query = "DELETE FROM sc_cache WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
 
@@ -141,6 +171,9 @@ function ScCacheSqlite:delete(object_id, property)
   return true
 end
 
+--- sc_cache_sqlite:show: display all property values of a given object in the stream connector log file.
+-- @param object_id (string) the object identifier.
+-- @return (boolean) false if we couldn't display the information from the cache, true otherwise
 function ScCacheSqlite:show(object_id)
   local query = "SELECT * FROM sc_cache WHERE object_id = '" .. object_id .. "';"
 
@@ -155,11 +188,13 @@ function ScCacheSqlite:show(object_id)
   return true
 end
 
+--- sc_cache_sqlite:clear: delete everything stored in the sc_cache table.
+-- @return (boolean) false if we couldn't delete data stored in the sc_cache table, true otherwise
 function ScCacheSqlite:clear()
-  local query = "TRUNCATE sc_cache;"
+  local query = "DELETE FROM sc_cache;"
 
   if not self:run_query(query) then
-    self.sc_logger:error("[sc_cache_sqlite:CLEAR]: couldn't truncate table sc_cache")
+    self.sc_logger:error("[sc_cache_sqlite:CLEAR]: couldn't delete cache stored in the sc_cache table")
     return false
   end
 
