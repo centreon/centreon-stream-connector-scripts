@@ -11,6 +11,7 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
+local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
 
 local ScEvent = {}
 
@@ -21,6 +22,8 @@ function sc_event.new(event, params, common, logger, broker)
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
   end
+
+  self.sc_cache = sc_cache.new(self.sc_logger, params)
   self.sc_common = common
   self.params = params
   self.event = event

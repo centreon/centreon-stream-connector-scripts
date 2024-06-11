@@ -14,16 +14,12 @@ function sc_cache_sqlite.new(logger, params)
   self.sc_logger = logger
   self.params = params
 
-  -- TO REMOVE 
-  params.sqlite_cache_db_file = "/var/lib/centreon-broker/test_sqlite.sql"
-  -- END 
-
-  self.sqlite = sqlite.open(params.sqlite_cache_db_file)
+  self.sqlite = sqlite.open(params["sc_cache.sqlite.db_file"])
 
   if not self.sqlite:isopen() then
-    self.sc_logger:error("[sc_cache_sqlite:new]: couldn't open sqlite database: " .. tostring(params.sqlite_cache_db_file))
+    self.sc_logger:error("[sc_cache_sqlite:new]: couldn't open sqlite database: " .. tostring(params["sc_cache.sqlite.db_file"]))
   else
-    self.sc_logger:notice("[sc_cache_sqlite:new]: successfully loaded sqlite cache database: " .. tostring(params.sqlite_cache_db_file)
+    self.sc_logger:notice("[sc_cache_sqlite:new]: successfully loaded sqlite cache database: " .. tostring(params["sc_cache.sqlite.db_file"])
       .. ". Status is: " .. tostring(self.sqlite:isopen()))
   end
 
@@ -121,7 +117,13 @@ function ScCacheSqlite:get(object_id, property)
     return false, ""
   end
 
-  return true, self.last_query_result[1].value
+  local value = ""
+
+  if self.last_query_result[1] then
+    value = self.last_query_result[1].value
+  end
+
+  return true, value
 end
 
 function ScCacheSqlite:delete(object_id, property)

@@ -18,11 +18,6 @@ function sc_cache.new(logger, params)
     "metric_.*"
   }
 
-
-  -- TO REMOVE
-  params.cache_backend = "sqlite"
-  -- END
-
   if pcall(require, "centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend) then
     local cache_backend = require("centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend)
     self.cache_backend = cache_backend.new(logger, params)
