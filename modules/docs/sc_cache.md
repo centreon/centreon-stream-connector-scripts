@@ -13,10 +13,18 @@
     - [set: parameters](#set-parameters)
     - [set: returns](#set-returns)
     - [set: example](#set-example)
+  - [set\_multiple method](#set_multiple-method)
+    - [set\_multiple: parameters](#set_multiple-parameters)
+    - [set\_multiple: returns](#set_multiple-returns)
+    - [set\_multiple: example](#set_multiple-example)
   - [get method](#get-method)
     - [get: parameters](#get-parameters)
     - [get: returns](#get-returns)
     - [get: example](#get-example)
+  - [get\_multiple method](#get_multiple-method)
+    - [get\_multiple: parameters](#get_multiple-parameters)
+    - [get\_multiple: returns](#get_multiple-returns)
+    - [get\_multiple: example](#get_multiple-example)
   - [delete method](#delete-method)
     - [delete: parameters](#delete-parameters)
     - [delete: returns](#delete-returns)
@@ -126,6 +134,36 @@ local result = test_cache:set(object_id, property, value)
 --> result is true
 ```
 
+## set_multiple method
+
+The **set_multiple** method sets multiple object properties in the cache
+
+### set_multiple: parameters
+
+| parameter                                     | type   | optional | default value |
+| --------------------------------------------- | ------ | -------- | ------------- |
+| the object with the property that must be set | string | no       |               |
+| a table of properties and their values        | table  | no       |               |
+
+### set_multiple: returns
+
+| return        | type    | always | condition                                            |
+| ------------- | ------- | ------ | ---------------------------------------------------- |
+| true or false | boolean | yes    | true if value properly set in cache, false otherwise |
+
+### set_multiple: example
+
+```lua
+local object_id = "host_2712"
+local properties = {
+  city = "Bordeaux",
+  country = "France"
+}
+
+local result = test_cache:set_multiple(object_id, properties) 
+--> result is true
+```
+
 ## get method
 
 The **get** method gets an object property in the cache
@@ -156,6 +194,43 @@ local status, value = test_cache:get(object_id, property)
 property = "a_random_property_not_in_the_cache"
 status, value = test_cache:get(object_id, property)
 --> status is true, value is ""
+```
+
+## get_multiple method
+
+The **get_multiple** method retrieves a list of properties for an object
+
+### get_multiple: parameters
+
+| parameter                                           | type   | optional | default value |
+| --------------------------------------------------- | ------ | -------- | ------------- |
+| the object with the property that must be retrieved | string | no       |               |
+| a list of properties                                | table  | no       |               |
+
+### get_multiple: returns
+
+| return                | type    | always | condition                                                                  |
+| --------------------- | ------- | ------ | -------------------------------------------------------------------------- |
+| true or false         | boolean | yes    | true if value properly retrieved from cache, false otherwise               |
+| values from the cache | table   | yes    | empty table if status false, table of properties and their value otherwise |
+
+### get_multiple: example
+
+```lua
+local object_id = "host_2712"
+local properties = {"city", "country"}
+
+local status, values = test_cache:get_multiple(object_id, properties) 
+--> status is true
+--[[
+  values structure is:
+  {
+    {
+      city = "Bordeaux",
+      country = "France"
+    }
+  }
+]]
 ```
 
 ## delete method

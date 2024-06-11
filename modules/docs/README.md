@@ -191,7 +191,9 @@
 | --------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | is_valid_cache_object | makes sure that the object that needs an interraction with the cache is an object that can have cache. | [Documentation](sc_cache.md#is_valid_cache_object-method) |
 | set                   | sets an object property in the cache                                                                   | [Documentation](sc_cache.md#set-method)                   |
+| set_multiple          | sets multiple object properties in the cache                                                           | [Documentation](sc_cache.md#set_multiple-method)          |
 | get                   | gets an object property in the cache                                                                   | [Documentation](sc_cache.md#get-method)                   |
+| get_multiple          | retrieves a list of properties for an object                                                           | [Documentation](sc_cache.md#get_multiple-method)          |
 | delete                | deletes an object property in the cache                                                                | [Documentation](sc_cache.md#delete-method)                |
 | show                  | shows (in the log file) all stored properties of an object                                             | [Documentation](sc_cache.md#show-method)                  |
 | deletes               | deletes all stored information in cache                                                                | [Documentation](sc_cache.md#is_valid_perfdata-method)     |
@@ -205,7 +207,9 @@
 | create_cache_table | creates the sc_cache table.                                         | [Documentation](cache_backends/sc_cache_sqlite.md#create_cache_table-method) |
 | run_query          | executes the given query                                            | [Documentation](cache_backends/sc_cache_sqlite.md#run_query-method)          |
 | set                | inserts or updates an object property value in the sc_cache table   | [Documentation](cache_backends/sc_cache_sqlite.md#set-method)                |
+| set_multiple       | sets multiple object properties in the cache                        | [Documentation](cache_backends/sc_cache_sqlite.md#set_multiple-method)       |
 | get                | retrieves a single property value of an object                      | [Documentation](cache_backends/sc_cache_sqlite.md#get-method)                |
+| get_multiple       | retrieves a list of properties for an object                        | [Documentation](cache_backends/sc_cache_sqlite.md#get_multiple-method)       |
 | delete             | deletes an object property in the cache                             | [Documentation](cache_backends/sc_cache_sqlite.md#delete-method)             |
 | show               | shows (in the log file) all stored properties of an object          | [Documentation](cache_backends/sc_cache_sqlite.md#show-method)               |
 | deletes            | deletes all stored information in cache                             | [Documentation](cache_backends/sc_cache_sqlite.md#is_valid_perfdata-method)  |
