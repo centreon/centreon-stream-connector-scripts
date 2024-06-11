@@ -6,6 +6,7 @@ local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
+local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
 local sc_oauth = require("centreon-stream-connectors-lib.google.auth.oauth")
 local sc_bq = require("centreon-stream-connectors-lib.google.bigquery.bigquery")
 local curl = require("cURL")
@@ -107,6 +108,7 @@ function EventQueue.new(params)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
+  self.sc_cache = sc_cache.new(self.sc_logger, self.sc_params.params)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -392,7 +394,7 @@ function write(event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_cache)
 
   -- drop event if wrong category
   if not queue.sc_event:is_valid_category() then
