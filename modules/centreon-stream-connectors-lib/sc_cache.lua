@@ -6,11 +6,16 @@
 local sc_cache = {}
 local ScCache = {}
 
+--- sc_cache.new: sc_cache constructor
+-- @param sc_logger (object) a sc_logger instance 
+-- @param params (table) the params table of the stream connector
 function sc_cache.new(logger, params)
   local self = {}
 
   self.sc_logger = logger
   self.params = params
+
+  -- list of lua patterns used to check if an object is a valid one
   self.cache_objects = {
     "host_%d+",
     "service_%d+_%d+",
@@ -18,6 +23,7 @@ function sc_cache.new(logger, params)
     "metric_.*"
   }
 
+  -- make sure we are able to load the desired cache backend. If not, fall back to the one provided by broker
   if pcall(require, "centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend) then
     local cache_backend = require("centreon-stream-connectors-lib.cache_backends.sc_cache_" .. params.cache_backend)
     self.cache_backend = cache_backend.new(logger, params)
