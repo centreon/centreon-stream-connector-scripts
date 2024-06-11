@@ -131,7 +131,7 @@ function ScCache:get_multiple(object_id, properties)
     return false
   end
 
-  local status, value = self.cache_backend:get(object_id, properties)
+  local status, value = self.cache_backend:get_multiple(object_id, properties)
   
   if not status then
     self.sc_logger:error("[sc_cache:get]: couldn't get property in cache. Object id: " .. tostring(object_id)
