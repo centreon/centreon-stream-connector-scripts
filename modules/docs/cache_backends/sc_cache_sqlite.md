@@ -2,6 +2,7 @@
 
 - [Documentation of the sc\_cache\_sqlite module](#documentation-of-the-sc_cache_sqlite-module)
   - [Introduction](#introduction)
+  - [Prerequisites](#prerequisites)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
@@ -40,6 +41,18 @@
 ## Introduction
 
 The sc_cache_sqlite module provides methods to use sqlite as a cache backend. It has been made in OOP (object oriented programming)
+
+## Prerequisites
+
+To be able to use this backend, you need to install luasqlite. Since this backend is not the standard one, the installation part will not explain every step nor cover every operating system.
+
+Example for enterprise linux
+
+```bash
+dnf install lua-devel make gcc sqlite-devel epel-release
+dnf install luarocks
+luarocks install lsqlite3
+```
 
 ## Module initialization
 
