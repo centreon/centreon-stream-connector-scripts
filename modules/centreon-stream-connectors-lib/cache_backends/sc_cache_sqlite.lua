@@ -96,7 +96,7 @@ end
 
 
 function ScCacheSqlite:set(object_id, property, value)
-  value = value:gsub("'", " ")
+  value = string.gsub(tostring(value), "'", " ")
   local query = "INSERT OR REPLACE INTO sc_cache VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "');"
   
   if not self:run_query(query) then
