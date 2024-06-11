@@ -7,13 +7,16 @@ local sc_cache_sqlite = {}
 local ScCacheSqlite = {}
 
 local sqlite = require("lsqlite3")
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 --- sc_cache_sqlite.new: sc_cache_sqlite constructor
--- @param sc_logger (object) a sc_logger instance 
+-- @param common (object) a sc_common instance
+-- @param logger (object) a sc_logger instance 
 -- @param params (table) the params table of the stream connector
-function sc_cache_sqlite.new(logger, params)
+function sc_cache_sqlite.new(common, logger, params)
   local self = {}
 
+  self.sc_common = common
   self.sc_logger = logger
   self.params = params
 
@@ -128,6 +131,36 @@ function ScCacheSqlite:set(object_id, property, value)
   return true
 end
 
+--- sc_cache_sqlite:set_multiple: insert or update multiple object properties value in the sc_cache table
+-- @param object_id (string) the object identifier.
+-- @param properties (table) a table of properties and their values
+-- @return (boolean) false if we couldn't store the information in the cache, true otherwise
+function ScCacheSqlite:set_multiple(object_id, properties)
+  local counter = 0
+  local sql_values = ""
+
+  for property, value in pairs(properties) do
+    value = string.gsub(tostring(value), "'", " ")
+
+    if counter == 0 then
+      sql_values = "('" .. object_id .. "', '" .. property .. "', '" .. value .. "')"
+      counter = counter + 1
+    else
+      sql_values = sql_values .. ", " .. "('" .. object_id .. "', '" .. property .. "', '" .. value .. "')"
+    end
+  end
+
+  local query = "INSERT OR REPLACE INTO sc_cache VALUES " .. sql_values .. ";"
+  
+  if not self:run_query(query) then
+    self.sc_logger:error("[sc_cache_sqlite:set_multiple]: couldn't insert properties in cache. Object id: " ..tostring(object_id)
+      .. ", properties: " .. self.sc_common:dumper(properties))
+    return false
+  end
+
+  return true
+end
+
 --- sc_cache_sqlite:get: retrieve a single property value of an object
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
@@ -150,6 +183,42 @@ function ScCacheSqlite:get(object_id, property)
   end
 
   return true, value
+end
+
+--- sc_cache_sqlite:get_multiple: retrieve a list of properties for an object
+-- @param object_id (string) the object identifier.
+-- @param properties (table) a table of properties to retreive
+-- @return (boolean) false if we couldn't get the information from the cache, true otherwise
+-- @return values (table) a table of properties and their value if true, empty table otherwise
+function ScCacheSqlite:get_multiple(object_id, properties)
+  local counter = 0
+  local sql_properties_value = ""
+  
+  for _, property in ipairs(properties) do
+    if counter == 0 then
+      sql_properties_value = "'" .. property .. "'"
+      counter = counter + 1
+    else
+      sql_properties_value = sql_properties_value .. ", '" .. property .. "'"
+    end
+  end
+
+  local query = "SELECT property, value FROM sc_cache WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
+
+  if not self:run_query(query, true) then
+    self.sc_logger:error("[sc_cache_sqlite:get_multiple]: couldn't get properties in cache. Object id: " .. tostring(object_id)
+      .. ", properties: " .. self.sc_common:dumper(properties))
+    return false, {}
+  end
+
+  local values = {}
+
+  -- if we didn't already store information in the cache, the last_query_result could be an empty table
+  if self.last_query_result[1] then
+    values = self.last_query_result[1]
+  end
+
+  return true, values
 end
 
 --- sc_cache_sqlite:delete: delete a single property of an object
