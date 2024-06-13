@@ -46,7 +46,8 @@ function sc_cache_sqlite.new(common, logger, params)
       end 
       
       return false  
-    end
+    end,
+    table = function (data) return broker.json_decode(data) end
   }
 
   -- when you want to convert a data stored in the sdb, you need a column with the value to convert and another telling the expected data type
@@ -146,10 +147,15 @@ end
 --- sc_cache_sqlite:set: insert or update an object property value in the sc_cache table
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
--- @param value (string, number, boolean) the value of the property
+-- @param value (string, number, boolean, table) the value of the property
 -- @return (boolean) false if we couldn't store the information in the cache, true otherwise
 function ScCacheSqlite:set(object_id, property, value)
   local data_type = type(value)
+
+  if data_type == "table" then
+    value = broker.json_encode(value)
+  end
+
   value = string.gsub(tostring(value), "'", " ")
   local query = "INSERT OR REPLACE INTO sc_cache VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "', '" .. data_type .. "');"
   
@@ -173,6 +179,11 @@ function ScCacheSqlite:set_multiple(object_id, properties)
 
   for property, value in pairs(properties) do
     data_type = type(value)
+
+    if data_type == "table" then
+      value = broker.json_encode(value)
+    end
+    
     value = string.gsub(tostring(value), "'", " ")
     
     if counter == 0 then
