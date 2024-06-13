@@ -32,8 +32,27 @@ function sc_cache_sqlite.new(common, logger, params)
   self.last_query_result = {}
 
   self.callback_functions = {
-    get_query_result = function (udata, column_count, column_value, column_name) 
-      return self:get_query_result(udata, column_count, column_value, column_name) end
+    get_query_result = function (convert_data, column_count, column_value, column_name) 
+      return self:get_query_result(convert_data, column_count, column_value, column_name) end
+  }
+
+  -- every functions that can be used to convert data retrieved from sc_cache table
+  self.convert_data_type  = {
+    string = function (data) return tostring(data) end,
+    number = function (data) return tonumber(data) end,
+    boolean = function (data) 
+      if data == "true" then 
+        return true 
+      end 
+      
+      return false  
+    end
+  }
+
+  -- when you want to convert a data stored in the sdb, you need a column with the value to convert and another telling the expected data type
+  self.required_columns_for_data_type_conversion = {
+    value_column = "value",
+    type_column = "data_type"
   }
 
   setmetatable(self, { __index = ScCacheSqlite})
@@ -42,16 +61,25 @@ function sc_cache_sqlite.new(common, logger, params)
 end
 
 --- sc_cache_sqlite:get_query_result: this is a callback function. It is called for each row found by a sql query
--- @param udata (string) I'm sorry, I have no explanation apart from http://lua.sqlite.org/index.cgi/doc/tip/doc/lsqlite3.wiki#db_exec
+-- @param convert_data (boolean) When set to true, values from the column "value" will have their type converted according to the "data_type" column. Query must be compatible with that.
 -- @param column_count (number) the number of columns from the sql query
 -- @param column_value (string) the value of a column
 -- @param column_name (string) the name of the column
 -- @return 0 (number) this is the required return code otherwise the sqlite:exec function will stop calling this callback function
-function ScCacheSqlite:get_query_result(udata, column_count, column_value, column_name)
+function ScCacheSqlite:get_query_result(convert_data, column_count, column_value, column_name)
   local row = {}
 
   for i = 1, column_count do
     row[column_name[i]] = column_value[i]
+  end
+
+  -- only convert data when possible
+  if convert_data 
+    and self.convert_data_type[row.data_type]
+    and row[self.required_columns_for_data_type_conversion.value_column]
+    and row[self.required_columns_for_data_type_conversion.type_column]
+  then
+    row.value = self.convert_data_type[row.data_type](row.value)
   end
 
   -- store results in a "global" variable 
@@ -64,7 +92,7 @@ end
 function ScCacheSqlite:check_cache_table()
   local query = "SELECT name FROM sqlite_master WHERE type='table' AND name='sc_cache';"
   
-  self:run_query(query, true)
+  self:run_query(query, true, false)
 
   if #self.last_query_result == 1 then
     self.sc_logger:debug("[sc_cache_sqlite:check_cache_table]: sqlite table sc_cache exists")
@@ -81,6 +109,7 @@ function ScCacheSqlite:create_cache_table()
       object_id TEXT,
       property TEXT,
       value TEXT,
+      data_type TEXT,
       PRIMARY KEY (object_id, property)
     )
   ]]
@@ -90,16 +119,17 @@ end
 
 --- sc_cache_sqlite:run_query: execute the given query
 -- @param query (string) the query that must be run
--- @param get_result (boolean) default value is false. When set to true, the query results will be stored in the self.last_query_result table
+-- @param get_result (boolean) When set to true, the query results will be stored in the self.last_query_result table
+-- @param convert_data (boolean) When set to true, values from the column "value" will have their type converted according to the "data_type" column. Query must be compatible with that.
 -- @return (boolean) false if query failed, true otherwise
-function ScCacheSqlite:run_query(query, get_result)
+function ScCacheSqlite:run_query(query, get_result, convert_data)
   -- flush old stored query results
   self.last_query_result = {}
 
   if not get_result then
     self.sqlite:exec(query)
   else
-    self.sqlite:exec(query, self.callback_functions.get_query_result, 'udata')
+    self.sqlite:exec(query, self.callback_functions.get_query_result, convert_data)
   end
 
   if self.sqlite:errcode() ~= 0 then
@@ -116,11 +146,12 @@ end
 --- sc_cache_sqlite:set: insert or update an object property value in the sc_cache table
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
--- @param value (string) the value of the property (will be converted to string anyway)
+-- @param value (string, number, boolean) the value of the property
 -- @return (boolean) false if we couldn't store the information in the cache, true otherwise
 function ScCacheSqlite:set(object_id, property, value)
+  local data_type = type(value)
   value = string.gsub(tostring(value), "'", " ")
-  local query = "INSERT OR REPLACE INTO sc_cache VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "');"
+  local query = "INSERT OR REPLACE INTO sc_cache VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "', '" .. data_type .. "');"
   
   if not self:run_query(query) then
     self.sc_logger:error("[sc_cache_sqlite:set]: couldn't insert property in cache. Object id: " ..tostring(object_id)
@@ -138,15 +169,17 @@ end
 function ScCacheSqlite:set_multiple(object_id, properties)
   local counter = 0
   local sql_values = ""
+  local data_type
 
   for property, value in pairs(properties) do
+    data_type = type(value)
     value = string.gsub(tostring(value), "'", " ")
-
+    
     if counter == 0 then
-      sql_values = "('" .. object_id .. "', '" .. property .. "', '" .. value .. "')"
+      sql_values = "('" .. object_id .. "', '" .. property .. "', '" .. value .. "', '" .. data_type .. "')"
       counter = counter + 1
     else
-      sql_values = sql_values .. ", " .. "('" .. object_id .. "', '" .. property .. "', '" .. value .. "')"
+      sql_values = sql_values .. ", " .. "('" .. object_id .. "', '" .. property .. "', '" .. value .. "', '" .. data_type .. "')"
     end
   end
 
@@ -165,11 +198,11 @@ end
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
 -- @return (boolean) false if we couldn't get the information from the cache, true otherwise
--- @return value (string) the value of the property (an empty string when first return is false or if we didn't find a value for this object property)
+-- @return value (string, number, boolean) the value of the property (an empty string when first return is false or if we didn't find a value for this object property)
 function ScCacheSqlite:get(object_id, property)
-  local query = "SELECT value FROM sc_cache WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
+  local query = "SELECT value, data_type FROM sc_cache WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
 
-  if not self:run_query(query, true) then
+  if not self:run_query(query, true, true) then
     self.sc_logger:error("[sc_cache_sqlite:get]: couldn't get property in cache. Object id: " .. tostring(object_id)
       .. ", property name: " .. tostring(property))
     return false, ""
@@ -203,9 +236,9 @@ function ScCacheSqlite:get_multiple(object_id, properties)
     end
   end
 
-  local query = "SELECT property, value FROM sc_cache WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
+  local query = "SELECT property, value, data_type FROM sc_cache WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
 
-  if not self:run_query(query, true) then
+  if not self:run_query(query, true, true) then
     self.sc_logger:error("[sc_cache_sqlite:get_multiple]: couldn't get properties in cache. Object id: " .. tostring(object_id)
       .. ", properties: " .. self.sc_common:dumper(properties))
     return false, {}
