@@ -154,6 +154,26 @@ function ScCache:delete(object_id, property)
   return self.cache_backend:delete(object_id, property)
 end
 
+--- delete_multiple: delete an object properties in the cache
+-- @param object_id (string) the object with the property that must be deleted
+-- @param properties (table) a list of properties
+-- @return (boolean) true if values properly deleted in cache, false otherwise
+function ScCache:delete_multiple(object_id, properties)
+  if not self:is_valid_cache_object(object_id) then
+    self.sc_logger:error("[sc_cache:delete]: Object is invalid")
+    return false
+  end
+
+  if type(properties) ~= "table" then
+    self.sc_logger:error("[sc_cache:delete_multiple]: properties parameter is not a table"
+      .. ". Received properties: " .. self.sc_common:dumper(properties))
+    return false
+  end
+
+
+  return self.cache_backend:delete_multiple(object_id, property)
+end
+
 --- show: show (in the log file) all stored properties of an object
 -- @param object_id (string) the object with the property that must be shown
 -- @return (boolean) true if object properties are retrieved, false otherwise

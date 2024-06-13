@@ -29,6 +29,10 @@
     - [delete: parameters](#delete-parameters)
     - [delete: returns](#delete-returns)
     - [delete: example](#delete-example)
+  - [delete\_multiple method](#delete_multiple-method)
+    - [delete\_multiple: parameters](#delete_multiple-parameters)
+    - [delete\_multiple: returns](#delete_multiple-returns)
+    - [delete\_multiple: example](#delete_multiple-example)
   - [show method](#show-method)
     - [show: parameters](#show-parameters)
     - [show: returns](#show-returns)
@@ -256,7 +260,34 @@ The **delete** method deletes an object property in the cache
 local object_id = "host_2712"
 local property = "city"
 
-local status, value = test_cache:delete(object_id, property) 
+local status = test_cache:delete(object_id, property) 
+--> status is true
+```
+
+## delete_multiple method
+
+The **delete_multiple** method deletes an object properties in the cache
+
+### delete_multiple: parameters
+
+| parameter                                         | type   | optional | default value |
+| ------------------------------------------------- | ------ | -------- | ------------- |
+| the object with the property that must be deleted | string | no       |               |
+| a list of properties                              | table  | no       |               |
+
+### delete_multiple: returns
+
+| return        | type    | always | condition                                                 |
+| ------------- | ------- | ------ | --------------------------------------------------------- |
+| true or false | boolean | yes    | true if values properly deleted in cache, false otherwise |
+
+### delete_multiple: example
+
+```lua
+local object_id = "host_2712"
+local properties = {"city", "country"}
+
+local status = test_cache:delete_multiple(object_id, properties) 
 --> status is true
 ```
 

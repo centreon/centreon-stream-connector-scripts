@@ -273,6 +273,36 @@ function ScCacheSqlite:delete(object_id, property)
   return true
 end
 
+--- sc_cache_sqlite:delete_multiple: delete a multiple properties of an object
+-- @param object_id (string) the object identifier.
+-- @param properties (table) a table of properties to retreive
+-- @return (boolean) false if we couldn't delete the information from the cache, true otherwise
+function ScCacheSqlite:delete_multiple(object_id, properties)
+  local sql_properties_value = ""
+  
+  for _, property in ipairs(properties) do
+    if counter == 0 then
+      sql_properties_value = "'" .. property .. "'"
+      counter = counter + 1
+    else
+      sql_properties_value = sql_properties_value .. ", '" .. property .. "'"
+    end
+  end
+
+  local query = "DELETE FROM sc_cache WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
+
+  if not self:run_query(query) then
+    self.sc_logger:error("[sc_cache_sqlite:delete_multiple]: couldn't delete property in cache. Object id: " .. tostring(object_id)
+      .. ", properties: " .. self.sc_common:dumper(properties))
+    return false
+  end
+
+  self.sc_logger:debug("[sc_cache_sqlite:delete_multiple]: successfully deleted property in cache for object id: " .. tostring(object_id)
+      .. ", properties: " .. self.sc_common:dumper(properties))
+
+  return true
+end
+
 --- sc_cache_sqlite:show: display all property values of a given object in the stream connector log file.
 -- @param object_id (string) the object identifier.
 -- @return (boolean) false if we couldn't display the information from the cache, true otherwise

@@ -195,8 +195,9 @@
 | get                   | gets an object property in the cache                                                                   | [Documentation](sc_cache.md#get-method)                   |
 | get_multiple          | retrieves a list of properties for an object                                                           | [Documentation](sc_cache.md#get_multiple-method)          |
 | delete                | deletes an object property in the cache                                                                | [Documentation](sc_cache.md#delete-method)                |
+| delete_multiple       | deletes an object properties in the cache                                                              | [Documentation](sc_cache.md#delete_multiple-method)       |
 | show                  | shows (in the log file) all stored properties of an object                                             | [Documentation](sc_cache.md#show-method)                  |
-| deletes               | deletes all stored information in cache                                                                | [Documentation](sc_cache.md#is_valid_perfdata-method)     |
+| clear                 | deletes all stored information in cache                                                                | [Documentation](sc_cache.md#is_valid_perfdata-method)     |
 
 ## sc_cache_sqlite methods
 
@@ -211,8 +212,9 @@
 | get                | retrieves a single property value of an object                      | [Documentation](cache_backends/sc_cache_sqlite.md#get-method)                |
 | get_multiple       | retrieves a list of properties for an object                        | [Documentation](cache_backends/sc_cache_sqlite.md#get_multiple-method)       |
 | delete             | deletes an object property in the cache                             | [Documentation](cache_backends/sc_cache_sqlite.md#delete-method)             |
+| delete_multiple    | deletes an object properties in the cache                           | [Documentation](cache_backends/sc_cache_sqlite.md#delete_multiple-method)    |
 | show               | shows (in the log file) all stored properties of an object          | [Documentation](cache_backends/sc_cache_sqlite.md#show-method)               |
-| deletes            | deletes all stored information in cache                             | [Documentation](cache_backends/sc_cache_sqlite.md#is_valid_perfdata-method)  |
+| clear              | deletes all stored information in cache                             | [Documentation](cache_backends/sc_cache_sqlite.md#is_valid_perfdata-method)  |
 
 ## google.bigquery.bigquery methods
 
