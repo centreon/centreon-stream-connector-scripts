@@ -46,6 +46,10 @@ function ScCacheBroker:delete(object_id, property)
   return true
 end
 
+function ScCacheBroker:delete_multiple(object_id, properties)
+  return true
+end
+
 function ScCacheBroker:show(object_id)
   return true
 end
