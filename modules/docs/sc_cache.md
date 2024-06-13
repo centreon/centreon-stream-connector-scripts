@@ -180,7 +180,7 @@ The **get** method gets an object property in the cache
 | return               | type                           | always | condition                                                    |
 | -------------------- | ------------------------------ | ------ | ------------------------------------------------------------ |
 | true or false        | boolean                        | yes    | true if value properly retrieved from cache, false otherwise |
-| value from the cache | string, boolean, number, table | yes    | empty string if status false, value otherwise                |
+| value from the cache | string, boolean, number, table | yes    | empty string if first return is false, value otherwise       |
 
 ### get: example
 
@@ -209,10 +209,10 @@ The **get_multiple** method retrieves a list of properties for an object
 
 ### get_multiple: returns
 
-| return                | type    | always | condition                                                                  |
-| --------------------- | ------- | ------ | -------------------------------------------------------------------------- |
-| true or false         | boolean | yes    | true if value properly retrieved from cache, false otherwise               |
-| values from the cache | table   | yes    | empty table if status false, table of properties and their value otherwise |
+| return                | type    | always | condition                                                                           |
+| --------------------- | ------- | ------ | ----------------------------------------------------------------------------------- |
+| true or false         | boolean | yes    | true if value properly retrieved from cache, false otherwise                        |
+| values from the cache | table   | yes    | empty table if first return is false, table of properties and their value otherwise |
 
 ### get_multiple: example
 
