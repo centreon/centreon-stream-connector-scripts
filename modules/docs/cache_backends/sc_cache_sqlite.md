@@ -196,11 +196,11 @@ The **set** method inserts or updates an object property value in the sc_cache t
 
 ### set: parameters
 
-| parameter                                     | type                    | optional | default value |
-| --------------------------------------------- | ----------------------- | -------- | ------------- |
-| the object with the property that must be set | string                  | no       |               |
-| the name of the property                      | string                  | no       |               |
-| the value of the property                     | string, number, boolean | no       |               |
+| parameter                                     | type                           | optional | default value |
+| --------------------------------------------- | ------------------------------ | -------- | ------------- |
+| the object with the property that must be set | string                         | no       |               |
+| the name of the property                      | string                         | no       |               |
+| the value of the property                     | string, number, boolean, table | no       |               |
 
 ### set: returns
 
@@ -262,10 +262,10 @@ The **get** method retrieves a single property value of an object
 
 ### get: returns
 
-| return               | type                    | always | condition                                                    |
-| -------------------- | ----------------------- | ------ | ------------------------------------------------------------ |
-| true or false        | boolean                 | yes    | true if value properly retrieved from cache, false otherwise |
-| value from the cache | string, number, boolean | yes    | empty string if status false, value otherwise                |
+| return               | type                           | always | condition                                                    |
+| -------------------- | ------------------------------ | ------ | ------------------------------------------------------------ |
+| true or false        | boolean                        | yes    | true if value properly retrieved from cache, false otherwise |
+| value from the cache | string, number, boolean, table | yes    | empty string if status false, value otherwise                |
 
 ### get: example
 
