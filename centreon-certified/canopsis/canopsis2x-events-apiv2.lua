@@ -417,7 +417,7 @@ function EventQueue:format_event_downtime()
       entity_pattern = {
         {
           {
-            field = "name",
+            field = "_id",
             cond = {
               type = "eq"
             }
