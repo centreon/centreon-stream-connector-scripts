@@ -13,6 +13,7 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
+local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -71,13 +72,14 @@ function EventQueue.new(params)
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
-
+  
   -- only load the custom code file, not executed yet
   if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
-
+    
   self.sc_params:build_accepted_elements_info()
+  self.sc_cache = sc_cache.new(self.sc_common, self.sc_logger, self.sc_params.params)
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories
@@ -310,7 +312,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_cache)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
