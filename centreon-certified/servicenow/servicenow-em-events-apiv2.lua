@@ -57,10 +57,10 @@ function EventQueue.new (params)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
 
   self.sc_params.params.instance = params.instance
-  self.sc_params.params.client_id = broker.url_encode(params.client_id)
-  self.sc_params.params.client_secret = broker.url_encode(params.client_secret)
-  self.sc_params.params.username = broker.url_encode(params.username)
-  self.sc_params.params.password = broker.url_encode(params.password)
+  self.sc_params.params.client_id = params.client_id
+  self.sc_params.params.client_secret = params.client_secret
+  self.sc_params.params.username = params.username
+  self.sc_params.params.password = params.password
   self.sc_params.params.http_server_url = params.http_server_url or "service-now.com"
 
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
@@ -130,7 +130,7 @@ end
 -- authToken: obtain auth token
 --------------------------------------------------------------------------------
 function EventQueue:authToken ()
-  local data = "grant_type=password&client_id=" .. self.sc_params.params.client_id .. "&client_secret=" .. self.sc_params.params.client_secret .. "&username=" .. self.sc_params.params.username .. "&password=" .. self.sc_params.params.password
+  local data = "grant_type=password&client_id=" .. broker.url_encode(self.sc_params.params.client_id) .. "&client_secret=" .. broker.url_encode(self.sc_params.params.client_secret) .. "&username=" .. broker.url_encode(self.sc_params.params.username) .. "&password=" .. broker.url_encode(self.sc_params.params.password)
 
   local res = self:call(
     "oauth_token.do",
@@ -158,7 +158,7 @@ end
 -- refreshToken: refresh auth token
 --------------------------------------------------------------------------------
 function EventQueue:refreshToken (token)
-  local data = "grant_type=refresh_token&client_id=" .. self.sc_params.params.client_id .. "&client_secret=" .. self.sc_params.params.client_secret .. "&username=" .. self.sc_params.params.username .. "&password=" .. self.sc_params.params.password .. "&refresh_token=" .. token
+  local data = "grant_type=refresh_token&client_id=" .. broker.url_encode(self.sc_params.params.client_id) .. "&client_secret=" .. broker.url_encode(self.sc_params.params.client_secret) .. "&username=" .. broker.url_encode(self.sc_params.params.username) .. "&password=" .. broker.url_encode(self.sc_params.params.password)
   
   local res = self:call(
     "oauth_token.do",
