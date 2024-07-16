@@ -57,10 +57,10 @@ function EventQueue.new (params)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
 
   self.sc_params.params.instance = params.instance
-  self.sc_params.params.client_id = params.client_id
-  self.sc_params.params.client_secret = params.client_secret
-  self.sc_params.params.username = params.username
-  self.sc_params.params.password = params.password
+  self.sc_params.params.client_id = broker.url_encode(params.client_id)
+  self.sc_params.params.client_secret = broker.url_encode(params.client_secret)
+  self.sc_params.params.username = broker.url_encode(params.username)
+  self.sc_params.params.password = broker.url_encode(params.password)
   self.sc_params.params.http_server_url = params.http_server_url or "service-now.com"
 
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
