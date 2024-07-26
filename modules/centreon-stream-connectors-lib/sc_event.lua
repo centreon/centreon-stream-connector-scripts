@@ -11,20 +11,23 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
+local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
 
 local ScEvent = {}
 
-function sc_event.new(event, params, common, logger, broker)
+function sc_event.new(event, params, common, logger, broker, cache)
   local self = {}
 
   self.sc_logger = logger
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
   end
+
   self.sc_common = common
   self.params = params
   self.event = event
   self.sc_broker = broker
+  self.sc_cache = cache
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
   self.event.cache = {}
@@ -66,6 +69,7 @@ end
 -- @return true|false (boolean) 
 function ScEvent:is_valid_event()
   local is_valid_event = false
+  local is_validated_by_custom_code = false
   
   -- run validation tests depending on the category of the event
   if self.event.category == self.params.bbdo.categories.neb.id then
@@ -76,17 +80,22 @@ function ScEvent:is_valid_event()
     is_valid_event = self:is_valid_bam_event()
   end
 
-  -- drop the event if it was not valid. Custom code do not have to work on already invalid events
-  if not is_valid_event then
-    return is_valid_event
-  end
-
   -- run custom code
   if self.params.custom_code and type(self.params.custom_code) == "function" then
-    self, is_valid_event = self.params.custom_code(self)
-  end    
+    self, is_validated_by_custom_code = self.params.custom_code(self)
+  end
 
-  return is_valid_event
+  -- this value is only set to true by custom code or never set (nil).
+  -- its purpose is to allow some specific events that have been discarded because they were deemed invalid by standard filters. 
+  if self.is_event_validated_by_force then
+    return true
+  end
+  
+  if not is_valid_event or not is_validated_by_custom_code then
+    return false
+  end
+
+  return true
 end
 
 --- is_valid_neb_event: check if the event is an accepted neb type event

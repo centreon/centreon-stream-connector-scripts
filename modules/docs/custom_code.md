@@ -8,6 +8,8 @@
   - [Available data for your custom code](#available-data-for-your-custom-code)
   - [Macros, templating and custom code](#macros-templating-and-custom-code)
   - [Filter events](#filter-events)
+  - [Use data caching](#use-data-caching)
+    - [Example: different downtime handling](#example-different-downtime-handling)
   - [Use all the above chapters](#use-all-the-above-chapters)
     - [Add methods from other modules](#add-methods-from-other-modules)
     - [Add custom macros](#add-custom-macros)
@@ -70,7 +72,7 @@ Everything has been made to grant you access to all the useful information. It m
 
 - access the [params table](sc_param.md#default-parameters) and the parameters that are dedicated to the stream connector that you are using
 - access the [event table](broker_data_structure.md) (you can also take a look at our [broker documentation](https://docs.centreon.com/docs/developer/developer-broker-mapping/))
-- access all the methods from: [event module](sc_event.md), [params module](sc_param.md), [logger module](sc_logger.md), [common module](sc_common.md), [broker module](sc_broker.md) and if you are using a metric stream connector [metrics module](sc_metrics.md)
+- access all the methods from: [event module](sc_event.md), [params module](sc_param.md), [logger module](sc_logger.md), [common module](sc_common.md), [broker module](sc_broker.md), [cache module](sc_cache.md) and if you are using a metric stream connector [metrics module](sc_metrics.md)
 - access all the broker daemon methods that are listed [here](https://docs.centreon.com/docs/developer/developer-broker-stream-connector/#the-broker-table)
 
 ## Macros, templating and custom code
@@ -115,6 +117,74 @@ if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
 end
 
 -- if the host has a note then we let the stream connector continue his work on this event
+return self, true
+-- new line after true
+```
+
+If your custom filters allow an event that is supposed to be dropped because of the standard filter, the event will be dropped. This behavior can be changed by setting up the **self.is_event_validated_by_force** variable to **true**.
+
+Let say we want to send events from hosts with notes even if they are in downtime. By default, we don't send such events because the parameter in_downtime is set to 0.
+
+```lua
+local self = ...
+
+if not self.event.cache.host.notes or self.event.cache.host.notes == "" then
+  -- the boolean part of the return is here to tell the stream connector to ignore the event
+  return self, false
+end
+
+-- if we reach this step, it means that the host is linked to a note. If the event happens during a downtime, we overrule all filters.
+if self.event.scheduled_downtime_depth == 1 then
+  self.is_event_validated_by_force = true
+end
+
+-- if the host has a note then we let the stream connector continue his work on this event
+return self, true
+-- new line after true
+```
+
+## Use data caching
+
+> This chapter is a very advanced one. It will talk about a very specific example that is not the easiest one.
+
+For some reason, you may want to store data from an event to use it in another one later on. That is where the caching feature may come in handy.
+
+### Example: different downtime handling
+
+> This example is a quite complete one and talks about something that might be integrated directly in our stream connector libraries.
+
+At the time of writing, when a downtime is set on a service, we will always send an event when the downtime ends. This is useful when the service went critical during the downtime and still is critical after the end of the downtime. But it can also send unsollicited events. If a service was OK before the downtime and is still OK after the end, it will still send an event.
+
+Let say we only want to send events if their status has changed during the downtime and didn't came back to its previous state before the end of the downtime.
+
+We will need to overrule the internal behavior of the stream connectors libraries and data caching will be mandatory.
+
+```lua
+local self = ...
+
+-- this condition is quite simple because our example is using the parameter accepted_elements = host_status,service_status
+-- therefore, if there is a service_id and that it is not in downtime, we want to work on said event
+if self.event.service_id and self.event.scheduled_downtime_depth == 0 then
+  -- every data stored in cache is linked to an object id
+  local object_id = "service_" .. self.event.host_id .. "_" .. self.event.service_id
+
+  -- we use the cache to know what is its state before going in downtime
+  local success, state_before_downtime = self.sc_cache:get(object_id, "state_before_downtime")
+
+  -- this condition is here to avoid sending an event because this is the end of the downtime. This is what we wanted to achieve.
+  -- the first part of the condition is something that happens everytime a downtime ends. It makes us think that the status has changed during the downtime.
+  -- thanks to the cache, we can check if that is really the case or not
+  if self.event.last_hard_state_change == self.event.last_check and self.event.state == state_before_downtime then
+    -- normally, this event would have been sent. We don't want it, so we return false
+    return self, false
+  end
+
+  -- we make sure to fill the cache with the current service status in order to have the most up to date data in the cache
+  self.sc_cache:set(object_id, "state_before_downtime", self.event.state)
+  return self, true
+end
+
+-- we let default filters handle this event by returning true
 return self, true
 -- new line after true
 ```

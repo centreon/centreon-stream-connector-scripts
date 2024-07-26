@@ -19,8 +19,9 @@ local ScMetrics = {}
 -- @param params (table) the params table of the stream connector
 -- @param common (object) a sc_common instance
 -- @param broker (object) a sc_broker instance
+-- @param cache (object) a sc_cache instance
 -- @param [opt] sc_logger (object) a sc_logger instance 
-function sc_metrics.new(event, params, common, broker, logger)
+function sc_metrics.new(event, params, common, broker, cache, logger)
   self = {}
 
   -- create a default logger if it is not provided
@@ -66,7 +67,7 @@ function sc_metrics.new(event, params, common, broker, logger)
   -- initiate metrics table 
   self.metrics = {}
   -- initiate sc_event object
-  self.sc_event = sc_event.new(event, self.params, self.sc_common, self.sc_logger, self.sc_broker)
+  self.sc_event = sc_event.new(event, self.params, self.sc_common, self.sc_logger, self.sc_broker, self.sc_cache)
 
   setmetatable(self, { __index = ScMetrics })
   return self
