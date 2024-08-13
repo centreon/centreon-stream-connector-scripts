@@ -68,6 +68,13 @@
     - [is\_valid\_pattern: parameters](#is_valid_pattern-parameters)
     - [is\_valid\_pattern: returns](#is_valid_pattern-returns)
     - [is\_valid\_pattern: example](#is_valid_pattern-example)
+  - [sleep method](#sleep-method)
+    - [sleep: parameters](#sleep-parameters)
+    - [sleep: example](#sleep-example)
+  - [create\_sleep\_counter\_table method](#create_sleep_counter_table-method)
+    - [create\_sleep\_counter\_table: parameters](#create_sleep_counter_table-parameters)
+    - [create\_sleep\_counter\_table: returns](#create_sleep_counter_table-returns)
+    - [create\_sleep\_counter\_table: example](#create_sleep_counter_table-example)
 
 ## Introduction
 
@@ -570,14 +577,14 @@ The **is_valid_pattern** method checks if a Lua pattern is valid or not.
 
 ### is_valid_pattern: parameters
 
-| parameter                                                                         | type   | optional | default value |
-| --------------------------------------------------------------------------------- | ------ | -------- | ------------- |
-| the pattern that must be checked                                                  | string | no       |               |
+| parameter                        | type   | optional | default value |
+| -------------------------------- | ------ | -------- | ------------- |
+| the pattern that must be checked | string | no       |               |
 
 ### is_valid_pattern: returns
 
-| return              | type   | always | condition |
-| ------------------- | ------ | ------ | --------- |
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
 | true or false | boolean | yes    |           |
 
 ### is_valid_pattern: example
@@ -592,4 +599,104 @@ local wrong_pattern = "a random pattern %2"
 
 local result = test_common:is_valid_pattern(wrong_pattern)
 --> result is: false
+```
+
+## sleep method
+
+The **sleep** method make the script pause for the given amount of seconds.
+
+### sleep: parameters
+
+| parameter                              | type   | optional | default value |
+| -------------------------------------- | ------ | -------- | ------------- |
+| the number of seconds you need to wait | number | no       |               |
+
+### sleep: example
+
+```lua
+local seconds_to_wait = 10
+
+test_common:sleep(seconds_to_wait)
+```
+
+## create_sleep_counter_table method
+
+The **create_sleep_counter_table** method creates a table to handle sleep counters. Useful when you want to log something less often after a few times.
+
+This table will contain a min, a max, a value and a step number that will be used to increment the value. The table is also shipped with three methods
+
+| method name      | purpose                                                                                                                          | params | returns                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------- |
+| reset()          | set the counter value to the minimum value                                                                                       |        |                                                           |
+| is_max_reached() | checks if the counter is equal or above the max                                                                                  |        | true or false if the counter is equal or above to the max |
+| increment()      | increase the counter by adding to it the step number                                                                             |        |                                                           |
+| sleep()          | will use the sc_common:sleep() function using the counter value as an argument and it will automatically increment() the counter |        |                                                           |
+
+### create_sleep_counter_table: parameters
+
+| parameter                                                                | type   | optional | default value |
+| ------------------------------------------------------------------------ | ------ | -------- | ------------- |
+| an empty table that will be returned with all the desired data structure | table  | no       |               |
+| the minimum value of the counter                                         | number | no       | 0             |
+| the maximum value of the counter                                         | number | no       | 300           |
+| the step that is going to be used when the counter is incremented        | number | no       | 10            |
+| the starting value of the counter                                        | number | yes      | 0             |
+
+### create_sleep_counter_table: returns
+
+| return                               | type  | always | condition |
+| ------------------------------------ | ----- | ------ | --------- |
+| a table with the appropriate counter | table | yes    |           |
+
+### create_sleep_counter_table: example
+
+```lua
+local min = 0
+local max = 1000
+local step = 100
+
+local sleep_table = test_common:create_sleep_counter_table({}, min, max, step)
+--> sleep_table structure is:
+--[[
+  sleep_table = {
+    min = 0,
+    max = 1000,
+    step = 100,
+    value = 0
+  }
+]]--
+
+sleep_table:increment()
+--> sleep_table structure is:
+--[[
+  sleep_table = {
+    min = 0,
+    max = 1000,
+    step = 100,
+    value = 100
+  }
+]]--
+
+local max_reached = sleep_table:is_max_reached()
+--> max_reached is false
+
+sleep_table:sleep()
+--> it will sleep for 100 seconds and increment the value by 100
+--> sleep_table.value is now 200 
+
+
+sleep_table.value=2712
+max_reached = sleep_table:is_max_reached()
+--> max_reached is true
+
+sleep_table:reset()
+--> sleep_table structure is:
+--[[
+  sleep_table = {
+    min = 0,
+    max = 1000,
+    step = 100,
+    value = 0
+  }
+]]--
 ```

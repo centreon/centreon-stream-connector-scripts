@@ -367,7 +367,7 @@ function ScCommon:is_valid_pattern(pattern)
 end
 
 --- sleep: wait a given number of seconds
--- @param seconds (number) the number of second you need to wait
+-- @param seconds (number) the number of seconds you need to wait
 function ScCommon:sleep(seconds)
   local default_value = 1
 
@@ -380,7 +380,7 @@ function ScCommon:sleep(seconds)
   end
 end
 
---- create_sleep_counter: create a table to handle sleep counters. Useful when you want to log something less often after some repetition
+--- create_sleep_counter: create a table to handle sleep counters. Useful when you want to log something less often after some repetitions
 -- @param sleep_table (table) an empty table that will be returned with all the desired data structure
 -- @param min (number) the minimum value of the counter
 -- @param max (number) the maximum value of the counter
@@ -403,8 +403,8 @@ function ScCommon:create_sleep_counter_table(sleep_table, min, max, step, init_v
     step = default_step
   end
 
-  if max > min then
-    self.sc_logger:error("[sc_common:create_sleep_counter_table]: max is above min." .. tostring(max) .. " > " .. tostring(min)
+  if max < min then
+    self.sc_logger:error("[sc_common:create_sleep_counter_table]: max is below min." .. tostring(max) .. " < " .. tostring(min)
       .. ". We will default values instead")
     min = default_min
     max = default_max
