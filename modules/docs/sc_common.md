@@ -632,6 +632,22 @@ This table will contain a min, a max, a value and a step number that will be use
 | increment()      | increase the counter by adding to it the step number                                                                             |        |                                                           |
 | sleep()          | will use the sc_common:sleep() function using the counter value as an argument and it will automatically increment() the counter |        |                                                           |
 
+here is an example of a log that is written less and less often thanks to this function (min was 0, max: 300, step: 10)
+
+```txt
+Tue Aug 13 16:17:04 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:17:14 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:17:34 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:18:04 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:18:44 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:19:34 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:20:34 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:21:44 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:23:04 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:24:34 2024: ERROR: Skipping event because a mandatory parameter is not set
+Tue Aug 13 16:26:14 2024: ERROR: Skipping event because a mandatory parameter is not set
+```
+
 ### create_sleep_counter_table: parameters
 
 | parameter                                                                | type   | optional | default value |
