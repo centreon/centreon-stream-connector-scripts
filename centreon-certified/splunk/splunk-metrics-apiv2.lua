@@ -68,6 +68,9 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
 
+  -- in order to have the proper use of that max_buffer_size param, we need to separate queues for hosts and services
+  self.sc_params.params.send_mixed_events = 0
+
   -- only load the custom code file, not executed yet
   if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
@@ -79,6 +82,21 @@ function EventQueue.new(params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
+
+  -- it is not possible to have a payload containing metrics from different hosts or services.
+  -- therefore, we need to check if the metric that we are working on belongs to the same host/service than the previous metric
+  -- that's why we initiate a structure to store this info
+  self.previous_info = {
+    [categories.neb.id] = {
+      [elements.host_status.id] = {
+        host_id = ""
+      },
+      [elements.service_status.id] = {
+        host_id = "",
+        service_id = ""
+      }
+    }
+  }
 
   self.format_event = {
     [categories.neb.id] = {
@@ -136,13 +154,14 @@ end
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
-    event_type = "host",
-    state = event.state,
-    state_type = event.state_type,
-    hostname = event.cache.host.name,
-    ctime = event.last_check
-  }
+  if self.previous_info[event.category][event.element].host_id == "" then 
+    self.previous_info[event.category][event.element].host_id = event.host_id
+  else
+    if self.previous_info[event.category][event.element].host_id ~= event.host_id then
+      self.sc_flush:flush_all_queues(self.build_payload_method[1], self.send_data_method[1])
+      self.previous_info[event.category][event.element].host_id = event.host_id
+    end
+  end
 
   self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
@@ -153,15 +172,17 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-  
-  self.sc_event.event.formated_event = {
-    event_type = "service",
-    state = event.state,
-    state_type = event.state_type,
-    hostname = event.cache.host.name,
-    service_description = event.cache.service.description,
-    ctime = event.last_check
-  }
+
+  if self.previous_info[event.category][event.element].host_id == "" or self.previous_info[event.category][event.element].service_id == "" then 
+    self.previous_info[event.category][event.element].host_id = event.host_id
+    self.previous_info[event.category][event.element].service_id = event.service_id
+  else
+    if self.previous_info[event.category][event.element].host_id ~= event.host_id or self.previous_info[event.category][event.element].service_id ~= event.service_id then
+      self.sc_flush:flush_all_queues(self.build_payload_method[1], self.send_data_method[1])
+      self.previous_info[event.category][event.element].host_id = event.host_id
+      self.previous_info[event.category][event.element].service_id = event.service_id
+    end
+  end
   
   self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
@@ -173,6 +194,16 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  local event = self.sc_event.event
+
+  self.sc_event.event.formated_event = {
+    event_type = "host",
+    state = event.state,
+    state_type = event.state_type,
+    hostname = event.cache.host.name,
+    ctime = event.last_check
+  }
+
   self:format_metric_event(metric)
 end
 
@@ -182,6 +213,17 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  local event = self.sc_event.event
+
+  self.sc_event.event.formated_event = {
+    event_type = "service",
+    state = event.state,
+    state_type = event.state_type,
+    hostname = event.cache.host.name,
+    service_description = event.cache.service.description,
+    ctime = event.last_check
+  }
+
   self:format_metric_event(metric)
 end
 
@@ -193,16 +235,16 @@ end
 function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   self.sc_event.event.formated_event["metric_name:" .. tostring(metric.metric_name)] = metric.value
-
+  
   -- add metric instance in tags
   if metric.instance ~= "" then
     self.sc_event.event.formated_event["instance"] = metric.instance
   end
-
+  
   if metric.subinstance[1] then
     self.sc_event.event.formated_event["subinstances"] = metric.subinstance
   end
-
+  
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
@@ -219,14 +261,7 @@ function EventQueue:add()
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = {
-    sourcetype = self.sc_params.params.splunk_sourcetype,
-    source = self.sc_params.params.splunk_source,
-    index = self.sc_params.params.splunk_index,
-    host = self.sc_params.params.splunk_host,
-    time = self.sc_event.event.last_check,
-    fields = self.sc_event.event.formated_event
-  }
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -240,9 +275,11 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = broker.json_encode(event)
+    payload = event
   else
-    payload = payload .. broker.json_encode(event)
+    for index, value in pairs(event) do
+      payload[index] = value
+    end
   end
   
   return payload
@@ -250,6 +287,16 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
+  
+  payload = broker.json_encode({
+    sourcetype = self.sc_params.params.splunk_sourcetype,
+    source = self.sc_params.params.splunk_source,
+    index = self.sc_params.params.splunk_index,
+    host = self.sc_params.params.splunk_host,
+    time = self.sc_event.event.last_check,
+    fields = payload
+  })
+
   queue_metadata.headers = {
     "content-type: application/json",
     "content-length:" .. string.len(payload),
