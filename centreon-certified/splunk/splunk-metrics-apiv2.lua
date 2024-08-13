@@ -89,11 +89,13 @@ function EventQueue.new(params)
   self.previous_info = {
     [categories.neb.id] = {
       [elements.host_status.id] = {
-        host_id = ""
+        host_id = "",
+        flush_success = false
       },
       [elements.service_status.id] = {
         host_id = "",
-        service_id = ""
+        service_id = "",
+        flush_success = false
       }
     }
   }
@@ -119,6 +121,10 @@ function EventQueue.new(params)
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
+
+  -- those sleep counters will avoid log spam and connection spam
+  self.send_data_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
+  self.init_fail_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -153,12 +159,24 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event_host()
   local event = self.sc_event.event
+  self.previous_info[event.category][event.element].flush_success = false
 
+  -- this is the first time we receive a metric from a host, we store host id in the table
   if self.previous_info[event.category][event.element].host_id == "" then 
     self.previous_info[event.category][event.element].host_id = event.host_id
   else
+    -- the event is linked to a new host, we can't send payload with data from different hosts so we force a data flush
+    -- we store the new host id and then we continue working on metrics from said host
     if self.previous_info[event.category][event.element].host_id ~= event.host_id then
-      self.sc_flush:flush_all_queues(self.build_payload_method[1], self.send_data_method[1])
+      while not self.previous_info[event.category][event.element].flush_success do
+        if self.sc_flush:flush_all_queues(self.build_payload_method[1], self.send_data_method[1]) then
+          self.previous_info[event.category][event.element].flush_success = true
+          self.send_data_sleep_counter:reset()
+        else
+          self.send_data_sleep_counter:sleep()
+        end
+      end
+
       self.previous_info[event.category][event.element].host_id = event.host_id
     end
   end
@@ -172,13 +190,29 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event_service()
   local event = self.sc_event.event
+  self.previous_info[event.category][event.element].flush_success = false
 
-  if self.previous_info[event.category][event.element].host_id == "" or self.previous_info[event.category][event.element].service_id == "" then 
+  -- this is the first time we receive a metric from a servuce, we store host id and service id in the table
+  if self.previous_info[event.category][event.element].host_id == "" 
+    or self.previous_info[event.category][event.element].service_id == "" 
+  then 
     self.previous_info[event.category][event.element].host_id = event.host_id
     self.previous_info[event.category][event.element].service_id = event.service_id
   else
-    if self.previous_info[event.category][event.element].host_id ~= event.host_id or self.previous_info[event.category][event.element].service_id ~= event.service_id then
-      self.sc_flush:flush_all_queues(self.build_payload_method[1], self.send_data_method[1])
+    if self.previous_info[event.category][event.element].host_id ~= event.host_id 
+      or self.previous_info[event.category][event.element].service_id ~= event.service_id 
+    then
+      -- the event is linked to a new service, we can't send payload with data from different services so we force a data flush
+      -- we store the new host and service id and then we continue working on metrics from said service
+      while not self.previous_info[event.category][event.element].flush_success do
+        if self.sc_flush:flush_all_queues(self.build_payload_method[1], self.send_data_method[1]) then
+          self.previous_info[event.category][event.element].flush_success = true
+          self.send_data_sleep_counter:reset()
+        else
+          self.send_data_sleep_counter:sleep()
+        end
+      end
+
       self.previous_info[event.category][event.element].host_id = event.host_id
       self.previous_info[event.category][event.element].service_id = event.service_id
     end
@@ -391,9 +425,13 @@ end
 function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
+    queue.init_fail_sleep_counter:sleep()
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
+    
     return false
   end
+
+  queue.init_fail_sleep_counter:reset()
 
   -- initiate event object
   queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)

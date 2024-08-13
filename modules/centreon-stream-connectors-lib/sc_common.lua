@@ -366,4 +366,81 @@ function ScCommon:is_valid_pattern(pattern)
   return status
 end
 
+--- sleep: wait a given number of seconds
+-- @param seconds (number) the number of second you need to wait
+function ScCommon:sleep(seconds)
+  local default_value = 1
+
+  if type(seconds) == "number" then
+    os.execute("sleep " .. seconds)
+  else
+    self.sc_logger:error("[sc_common:sleep]: given parameter is not a valid second value. Parameter value: " .. tostrin(seconds)
+      .. ". This will default to: " .. tostring(default_value))
+    os.execute("sleep " .. default_value)
+  end
+end
+
+--- create_sleep_counter: create a table to handle sleep counters. Useful when you want to log something less often after some repetition
+-- @param sleep_table (table) an empty table that will be returned with all the desired data structure
+-- @param min (number) the minimum value of the counter
+-- @param max (number) the maximum value of the counter
+-- @param step (number) the value by whitch the counter will be incremented
+-- @param init_value (number) [optional] the value of the counter when you create the table. When not provided, it will use the min
+-- @return sleep_table (table) a table with all values set and some functions in order to interact with the table more easily
+function ScCommon:create_sleep_counter_table(sleep_table, min, max, step, init_value)
+  local default_min = 0
+  local default_max = 300
+  local default_step = 10
+
+  if type(min) ~= "number" 
+    or type(max) ~= "number" 
+    or type(step) ~= "number"
+  then
+    self.sc_logger:error("[sc_common:create_sleep_counter_table]: min, max or step are not numbers: " .. tostring(min) 
+      .. ", " .. tostring(max) .. ", " .. tostring(step) .. ". We will use default values instead")
+    min = default_min
+    max = default_max
+    step = default_step
+  end
+
+  if max > min then
+    self.sc_logger:error("[sc_common:create_sleep_counter_table]: max is above min." .. tostring(max) .. " > " .. tostring(min)
+      .. ". We will default values instead")
+    min = default_min
+    max = default_max
+  end
+
+  if not init_value or type(init_value) ~= "number" then
+    init_value = min
+  end
+
+  sleep_table.min = min
+  sleep_table.max = max
+  sleep_table.value = init_value
+  sleep_table.step = step
+  sleep_table.reset = function () sleep_table.value = sleep_table.min end
+  sleep_table.increment = function ()
+    if sleep_table.value < sleep_table.max then
+      sleep_table.value = sleep_table.value + sleep_table.step
+    end
+  end
+  sleep_table.is_max_reached = function () 
+    if sleep_table.value < sleep_table.max then 
+      return false 
+    else 
+      return true 
+    end 
+  end
+  sleep_table.sleep = function () 
+    if not sleep_table:is_max_reached() then
+      self:sleep(sleep_table.value)
+      sleep_table:increment()
+    else
+      self:sleep(sleep_table.value)
+    end
+  end
+
+  return sleep_table
+end
+
 return sc_common
