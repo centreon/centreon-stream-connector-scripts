@@ -628,7 +628,7 @@ This table will contain a min, a max, a value and a step number that will be use
 | method name      | purpose                                                                                                                          | params | returns                                                   |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------- |
 | reset()          | set the counter value to the minimum value                                                                                       |        |                                                           |
-| is_max_reached() | checks if the counter is equal or above the max                                                                                  |        | true or false if the counter is equal or above to the max |
+| is_max_reached() | checks if the counter is equal to or above the max                                                                                  |        | true or false if the counter is equal to or above the max |
 | increment()      | increase the counter by adding to it the step number                                                                             |        |                                                           |
 | sleep()          | will use the sc_common:sleep() function using the counter value as an argument and it will automatically increment() the counter |        |                                                           |
 
