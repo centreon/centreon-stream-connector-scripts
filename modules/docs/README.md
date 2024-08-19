@@ -50,7 +50,7 @@
 | get_bbdo_version                   | returns the first digit of the bbdo protocol version                                                            | [Documentation](sc_common.md#get_bbdo_version-method)                   |
 | is_valid_pattern                   | check if a Lua pattern is valid                                                                                 | [Documentation](sc_common.md#is_valid_pattern-method)                   |
 | sleep                              | wait a given number of seconds                                                                                  | [Documentation](sc_common.md#sleep-method)                              |
-| create_sleep_counter_table         | create a table to handle sleep counters. Useful when you want to log something less often after some repetition | [Documentation](sc_common.md#create_sleep_counter_table-method)         |
+| create_sleep_counter_table         | create a table to handle sleep counters. Useful when you want to log something less often after some repetitions | [Documentation](sc_common.md#create_sleep_counter_table-method)         |
 
 ## sc_logger methods
 
