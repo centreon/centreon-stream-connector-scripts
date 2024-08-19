@@ -632,7 +632,7 @@ This table will contain a min, a max, a value and a step number that will be use
 | increment()      | increase the counter by adding to it the step number                                                                             |        |                                                           |
 | sleep()          | will use the sc_common:sleep() function using the counter value as an argument, it will automatically increment() the counter |        |                                                           |
 
-here is an example of a log that is written less and less often thanks to this function (min was 0, max: 300, step: 10)
+Here is an example of a log that is written less and less often thanks to this function (min was 0, max: 300, step: 10).
 
 ```txt
 Tue Aug 13 16:17:04 2024: ERROR: Skipping event because a mandatory parameter is not set
