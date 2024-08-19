@@ -405,7 +405,7 @@ function ScCommon:create_sleep_counter_table(sleep_table, min, max, step, init_v
 
   if max < min then
     self.sc_logger:error("[sc_common:create_sleep_counter_table]: max is below min." .. tostring(max) .. " < " .. tostring(min)
-      .. ". We will default values instead")
+      .. ". We will use default values instead")
     min = default_min
     max = default_max
   end
