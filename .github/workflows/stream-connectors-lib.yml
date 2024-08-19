@@ -58,15 +58,15 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.6.1"
-          release: "1"
+          version: "3.7.0" # previous version:"3.6.1"
+          release: "2"
           package_extension: ${{ matrix.package_extension }}
           arch: all
           commit_hash: ${{ github.sha }}
@@ -87,7 +87,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -109,7 +109,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery

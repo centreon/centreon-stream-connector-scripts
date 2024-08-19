@@ -31,13 +31,13 @@ overrides:
     depends:
       - lua-socket >= 3.0
       - centreon-broker-core >= 22.04.0
-      - lua-curl
+      - lua-curl >= 0.3.13-10
       - lua
   deb:
     depends:
       - "centreon-broker-core (>= 22.04.0)"
       - "lua-socket (>= 3.0~)"
-      - "lua5.3-curl"
+      - "lua-curl (>= 0.3.13-10)"
       - "lua5.3"
 
 rpm:
