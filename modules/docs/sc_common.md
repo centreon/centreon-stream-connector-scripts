@@ -629,7 +629,7 @@ This table will contain a min, a max, a value and a step number that will be use
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------- |
 | reset()          | set the counter value to the minimum value                                                                                       |        |                                                           |
 | is_max_reached() | checks if the counter is equal to or above the max                                                                                  |        | true or false if the counter is equal to or above the max |
-| increment()      | increase the counter by adding to it the step number                                                                             |        |                                                           |
+| increment()      | increase the counter by adding the step number to it                                                                           |        |                                                           |
 | sleep()          | will use the sc_common:sleep() function using the counter value as an argument, it will automatically increment() the counter |        |                                                           |
 
 Here is an example of a log that is written less and less often thanks to this function (min was 0, max: 300, step: 10).
