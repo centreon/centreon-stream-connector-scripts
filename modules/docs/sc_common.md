@@ -652,7 +652,7 @@ Tue Aug 13 16:26:14 2024: ERROR: Skipping event because a mandatory parameter is
 
 | parameter                                                                | type   | optional | default value |
 | ------------------------------------------------------------------------ | ------ | -------- | ------------- |
-| an empty table that will be returned with all the desired data structure | table  | no       |               |
+| an empty table that will be returned with the desired data structure | table  | no       |               |
 | the minimum value of the counter                                         | number | no       | 0             |
 | the maximum value of the counter                                         | number | no       | 300           |
 | the step that is going to be used when the counter is incremented        | number | no       | 10            |
