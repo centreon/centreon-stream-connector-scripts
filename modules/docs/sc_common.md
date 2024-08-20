@@ -623,7 +623,7 @@ test_common:sleep(seconds_to_wait)
 
 The **create_sleep_counter_table** method creates a table to handle sleep counters. Useful when you want to log something less often after a few times.
 
-This table will contain a min, a max, a value and a step number that will be used to increment the value. The table is also shipped with three methods
+This table will contain a min, a max, a value and a step number that will be used to increment the value. The table is also shipped with three methods.
 
 | method name      | purpose                                                                                                                          | params | returns                                                   |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------- |
