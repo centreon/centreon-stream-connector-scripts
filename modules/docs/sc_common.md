@@ -603,7 +603,7 @@ local result = test_common:is_valid_pattern(wrong_pattern)
 
 ## sleep method
 
-The **sleep** method make the script pause for the given amount of seconds.
+The **sleep** method makes the script pause for the given number of seconds.
 
 ### sleep: parameters
 
