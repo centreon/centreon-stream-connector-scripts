@@ -360,15 +360,15 @@ function ScEvent:is_valid_service()
     return false
   end
 
-  -- if we want to send BA status using the service status mecanism, we need to use the ba_description instead of service description
+  -- if we want to send BA status using the service status mecanism, we need to use the ba_description instead of host name
   if string.find(self.event.cache.host.name, "^_Module_BAM_*") and self.params.enable_bam_host == 1 then
-    self.sc_logger:debug("[sc_event:is_valid_service]: Host is a fake BAM host. Therefore, service description: " 
-      .. tostring(self.event.cache.service.description) .. " must be replaced by name of the BA.")
-    self.event.ba_id = string.gsub(self.event.cache.service.description, "ba_", "")
+    self.sc_logger:debug("[sc_event:is_valid_service]: Host is a fake BAM host. Therefore, host name: " 
+      .. tostring(self.event.cache.host.name) .. " must be replaced by the name of the BA.")
+    self.event.ba_id = tonumber(string.gsub(self.event.cache.service.description, "ba_", ""))
     self:is_valid_ba()
-    self.sc_logger:debug("[sc_event:is_valid_service]: replacing service description: "
-      .. tostring(self.event.cache.service.description) .. " by BA descritpion: " .. tostring(self.event.cache.ba.ba_name))
-    self.event.cache.service.description = self.event.cache.ba.ba_name
+    self.sc_logger:debug("[sc_event:is_valid_service]: replacing host name: "
+      .. tostring(self.event.cache.host.name) .. " by BA name: " .. tostring(self.event.cache.ba.ba_name))
+    self.event.cache.host.name = self.event.cache.ba.ba_name
   end
 
   return true
