@@ -364,7 +364,8 @@ function ScEvent:is_valid_service()
   if string.find(self.event.cache.host.name, "^_Module_BAM_*") and self.params.enable_bam_host == 1 then
     self.sc_logger:debug("[sc_event:is_valid_service]: Host is a fake BAM host. Therefore, host name: " 
       .. tostring(self.event.cache.host.name) .. " must be replaced by the name of the BA.")
-    self.event.ba_id = tonumber(string.gsub(self.event.cache.service.description, "ba_", ""))
+    self.event.ba_id = string.gsub(self.event.cache.service.description, "ba_", "")
+    self.event.ba_id = tonumber(self.event.ba_id)
     self:is_valid_ba()
     self.sc_logger:debug("[sc_event:is_valid_service]: replacing host name: "
       .. tostring(self.event.cache.host.name) .. " by BA name: " .. tostring(self.event.cache.ba.ba_name))
