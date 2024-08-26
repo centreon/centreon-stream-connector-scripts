@@ -89,7 +89,8 @@ function sc_params.new(common, logger)
 
     -- connection parameters
     connection_timeout = 60,
-    allow_insecure_connection = 0,
+    allow_insecure_connection = 0, --deprecated (confusing naming)
+    verify_certificate = 1,
 
     -- proxy parameters
     proxy_address = "",
@@ -123,7 +124,7 @@ function sc_params.new(common, logger)
     logfile = "",
     log_level = "",
     log_curl_commands = 0,
-    
+
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
@@ -137,8 +138,8 @@ function sc_params.new(common, logger)
     },
     validatedEvents = {},
 
-    -- FIX BROKER ISSUE 
-    max_stored_events = 10 -- do not use values above 100 
+    -- FIX BROKER ISSUE
+    max_stored_events = 10 -- do not use values above 100
   }
 
   -- maps categories name and id
@@ -158,7 +159,7 @@ function sc_params.new(common, logger)
       }
     }
   }
-  
+
   local categories = self.params.bbdo.categories
 
   local bbdo2_bbdo3_compat_mapping = {
@@ -700,7 +701,7 @@ function sc_params.new(common, logger)
   }
 
   local elements = self.params.bbdo.elements
-  
+
   -- initiate category and element mapping
   self.params.element_mapping = {
     [categories.neb.id] = {},
@@ -922,7 +923,8 @@ local function deprecated_params(param_name)
   -- initiate deprecated parameters table
   local deprecated_params = {
     -- max_buffer_age param had been replace by max_all_queues_age
-    ["max_buffer_age"] = "max_all_queues_age"
+    ["max_buffer_age"] = "max_all_queues_age",
+    ["allow_insecure_connection"] = "verify_certificate"
   }
 
   for deprecated_param_name, new_param_name in pairs(deprecated_params) do
@@ -1003,7 +1005,9 @@ function ScParams:check_params()
   self.params.proxy_username = self.common:if_wrong_type(self.params.proxy_username, "string", "")
   self.params.proxy_password = self.common:if_wrong_type(self.params.proxy_password, "string", "")
   self.params.connection_timeout = self.common:if_wrong_type(self.params.connection_timeout, "number", 60)
-  self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.allow_insecure_connection, 0))
+  -- Tell libcurl to not verify the peer. With libcurl you disable this with curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, FALSE); => This params need to be set at false for allow insecure connection
+  -- self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(not self.params.allow_insecure_connection, 0))
+  self.params.verify_certificate = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.verify_certificate, 0))
   self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
   self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
   self.params.log_curl_commands = self.common:check_boolean_number_option_syntax(self.params.log_curl_commands, 0)
@@ -1013,6 +1017,7 @@ function ScParams:check_params()
   self.params.metric_name_regex = self.common:if_wrong_type(self.params.metric_name_regex, "string", "")
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
+  self.params.delta_host_status_change_allow = self.common:if_wrong_type(self.params.delta_host_status_change_allow, "number", 20)
   
   if self.params.accepted_hostgroups ~= '' and self.params.rejected_hostgroups ~= '' then
     self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together. None will be used.")
