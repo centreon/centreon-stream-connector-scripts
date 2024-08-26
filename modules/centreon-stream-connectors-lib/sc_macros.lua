@@ -499,7 +499,7 @@ end
 -- @param macro_value (string) the string that needs to be shortened
 -- @return string (string) the input string with only the first lne
 function ScMacros:transform_short(macro_value)
-  return string.match(macro_value, "^(.*)\n")
+  return string.match(macro_value, "^(.*)\n") or macro_value
 end
 
 --- transform_type: convert a 0, 1 value into SOFT or HARD
