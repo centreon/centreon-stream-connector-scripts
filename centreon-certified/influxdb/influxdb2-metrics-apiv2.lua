@@ -355,7 +355,7 @@ function EventQueue:convert_metric_event(event)
   end
 
   -- hack event to make stream connector lib think it is a standard status neb event.
-  event.perfdata = event.name .. "=" .. event.value .. ";;;;"
+  event.perfdata = "'" .. event.name .. "'=" .. event.value .. ";;;;"
   event.category = params.bbdo.categories["neb"].id
 
   if not event.ctime then

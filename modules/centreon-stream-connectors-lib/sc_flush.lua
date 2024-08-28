@@ -211,12 +211,16 @@ end
 -- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_payload(send_method, payload, metadata)
   if payload then
-    if not send_method(payload, metadata) then
+    local pcall_status, result = pcall(send_method, payload, metadata)
+    self.sc_logger:debug("[sc_flush:flush_payload]: tried to send payload protected by pcall. Status: " .. tostring(status) .. ", Message: " .. tostring(err))
+
+    if not pcall_status then
+      self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
       return false
     end
   end
 
-  return true
+  return result
 end
 
 return sc_flush
