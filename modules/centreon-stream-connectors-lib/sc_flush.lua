@@ -215,14 +215,13 @@ function ScFlush:flush_payload(send_method, payload, metadata)
     return true
   end
 
-  if payload then
-    local pcall_status, result = pcall(send_method, payload, metadata)
-    self.sc_logger:debug("[sc_flush:flush_payload]: tried to send payload protected by pcall. Status: " .. tostring(status) .. ", Message: " .. tostring(err))
+  local pcall_status, result = pcall(send_method, payload, metadata)
 
-    if not pcall_status then
-      self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
-      return false
-    end
+  self.sc_logger:debug("[sc_flush:flush_payload]: tried to send payload protected by pcall. Status: " .. tostring(pcall_status) .. ", Message: " .. tostring(result))
+
+  if not pcall_status then
+    self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
+    return false
   end
 
   return result
