@@ -84,7 +84,7 @@ function sc_params.new(common, logger)
     -- communication parameters
     max_buffer_size = 1,
     max_buffer_age = 5, --deprecated
-    max_all_queues_age = 60,
+    max_all_queues_age = 5,
     send_mixed_events = 1,
 
     -- connection parameters
