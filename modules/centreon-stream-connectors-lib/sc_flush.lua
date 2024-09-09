@@ -220,7 +220,7 @@ function ScFlush:flush_payload(send_method, payload, metadata)
     end
   end
 
-  return result
+  return true
 end
 
 return sc_flush
