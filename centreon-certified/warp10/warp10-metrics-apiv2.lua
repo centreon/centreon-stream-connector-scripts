@@ -13,6 +13,7 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
+local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -42,7 +43,7 @@ function EventQueue.new(params)
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/warp10-events.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/warp10-metrics.log"
   local log_level = params.log_level or 1
 
   -- initiate mandatory objects
@@ -61,11 +62,19 @@ function EventQueue.new(params)
     attributes = {
       hg = false,
       sg = false,
+      metric_instance = false,
+      metric_subinstances = false,
+      metric_unit = false,
       poller = false,
+      metric_boundaries = false,
+      metric_thresholds = false
     },
     labels = {
       hg = false,
       sg = false,
+      metric_instance = false,
+      metric_subinstances = false,
+      metric_unit = false,
       poller = false,
       _cmaas = false
     }
@@ -86,6 +95,8 @@ function EventQueue.new(params)
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
   -- just need to url encode the metric name  so we don't need to filter out characters
   -- https://www.warp10.io/content/03_Documentation/03_Interacting_with_Warp_10/03_Ingesting_data/02_GTS_input_format#lines
+  self.sc_params.params.metric_name_regex = params.metric_name_regex or "[.*]"
+  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "_" 
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -197,7 +208,6 @@ function EventQueue:format_accepted_event()
   end
 
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
-  self:add()
 end
 
 --------------------------------------------------------------------------------
@@ -205,32 +215,52 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event_host()
   local event = self.sc_event.event
-
-  self.sc_event.event.formated_event = {
-    data = event.last_check .. "000000// centreon:status" .. self:build_labels() .. self:build_attributes() .. " " .. event.state
-  }
+  self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
+  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
 --------------------------------------------------------------------------------
 ---- EventQueue:format_event_service method
 --------------------------------------------------------------------------------
 function EventQueue:format_event_service()
+  self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
+  local event = self.sc_event.event
+  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
+end
+
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_host method
+-- @param metric {table} a single metric data
+--------------------------------------------------------------------------------
+function EventQueue:format_metric_host(metric)
+  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  self:format_metric_event(metric)
+end
+
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_service method
+-- @param metric {table} a single metric data
+--------------------------------------------------------------------------------
+function EventQueue:format_metric_service(metric)
+  self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  self:format_metric_event(metric)
+end
+
+--------------------------------------------------------------------------------
+---- EventQueue:format_metric_service method
+-- @param metric {table} a single metric data
+-------------------------------------------------------------------------------
+function EventQueue:format_metric_event(metric)
+  self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
-    data = event.last_check .. "000000// centreon:status" .. self:build_labels() .. self:build_attributes() .. " " .. event.state
+    data = event.last_check .. "000000// " .. broker.url_encode(metric.metric_name) .. self:build_labels(metric) .. self:build_attributes(metric) .. " " .. metric.value
   }
+
+  self:add()
+  self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
-
--- makes no sense at the moment
--- function EventQueue:format_event_downtime()
---   local event = self.sc_event.event
-
---   self.sc_event.event.formated_event = {
---     data = event.last_check .. "000000// centreon:downtime" .. self:build_labels() .. self:build_attributes() .. " " .. event.state
---   }
--- end
-
 
 --------------------------------------------------------------------------------
 ---- EventQueue:build_labels method
@@ -249,7 +279,7 @@ function EventQueue:build_labels(metric)
     labels_string = labels_string .. ",service_name=" .. broker.url_encode(event.cache.service.description) .. ",service_id=" .. event.service_id
   end
 
-  labels_string = self:get_common_event_info("labels", labels_string)
+  labels_string = self:get_common_metric_info("labels", labels_string, metric)
 
   -- param that we need here at Centreon on our own Warp10
   if self.warp10_format.labels._cmaas then
@@ -270,7 +300,25 @@ function EventQueue:build_attributes(metric)
   local event = self.sc_event.event
   local attributes_string = ""
 
-  attributes_string = self:get_common_event_info("attributes", attributes_string)
+  attributes_string = self:get_common_metric_info("attributes", attributes_string, metric)
+
+  if metric.min and metric.min == metric.min and self.warp10_format.attributes.metric_boundaries then
+    attributes_string = attributes_string .. ",min=" .. metric.min
+  end
+
+  if metric.max and metric.max == metric.max and self.warp10_format.attributes.metric_boundaries then
+    attributes_string = attributes_string .. ",max=" .. metric.max
+  end
+
+  -- add warning to attributes
+  if metric.warning_high and metric.warning_high == metric.warning_high and self.warp10_format.attributes.metric_thresholds then
+      attributes_string = attributes_string .. ",warning=" .. metric.warning_high
+  end
+
+  -- add critical to attributes
+  if metric.critical_high and metric.critical_high == metric.critical_high and self.warp10_format.attributes.metric_thresholds then
+    attributes_string = attributes_string .. ",warning=" .. metric.critical_high
+  end
 
   if attributes_string ~= "" then
     -- we trim because if the string is not empty we have a string that starts with a "," character
@@ -280,11 +328,12 @@ function EventQueue:build_attributes(metric)
   return attributes_string
 end
 
---- get_common_event_info: build a string with all the required info for a event. Info that can be either used as a event label or event attribute
+--- get_common_metric_info: build a string with all the required info for a metric. Info that can be either used as a metric label or metric attribute
 -- @param dimension_type (string) can be "attributes" or "labels"
--- @param dimension_string (string) a string to which the function will concatenate common event info
--- @return dimension_string (string) the dimension_string with all the required common event info
-function EventQueue:get_common_event_info(dimension_type, dimension_string)
+-- @param dimension_string (string) a string to which the function will concatenate common metric info
+-- @param metric (table) the metric table
+-- @return dimension_string (string) the dimension_string with all the required common metric info
+function EventQueue:get_common_metric_info(dimension_type, dimension_string, metric)
   local event = self.sc_event.event
   local params = self.sc_params.params
 
@@ -296,6 +345,21 @@ function EventQueue:get_common_event_info(dimension_type, dimension_string)
   -- add servicegroups name
   if event.cache.servicegroups and event.cache.servicegroups[1] and self.warp10_format[dimension_type].sg then
     dimension_string = dimension_string .. ",servicegroups=" .. broker.url_encode(self:get_sg_string(event))
+  end
+
+  -- add metric instance
+  if metric.instance ~= "" and self.warp10_format[dimension_type].metric_instance then
+    dimension_string = dimension_string .. ",metric_instance=" .. broker.url_encode(metric.instance)
+  end
+
+  -- add metric subinstances
+  if metric.subinstance[1] and self.warp10_format[dimension_type].metric_subinstances then
+    dimension_string = dimension_string .. ",metric_subinstances=" .. broker.url_encode(get_metric_subinstances_string(metric))
+  end
+
+  -- add metric unit
+  if metric.uom and self.warp10_format[dimension_type].metric_unit then
+    dimension_string = dimension_string .. ",uom=" .. broker.url_encode(metric.uom)
   end
 
   return dimension_string
@@ -328,6 +392,20 @@ function EventQueue:get_sg_string(event)
   end
 
   return servicegroups_string
+end
+
+function EventQueue:get_metric_subinstances_string(metric)
+  local subinstances_string = ""
+
+  for _, subinstance in ipairs(metric.subinstance) do
+    if subinstances_string == "" then
+      subinstances_string = subinstance
+    else
+      subinstances_string = subinstances_string .. " " .. subinstance
+    end
+  end
+
+  return subinstances_string
 end
 
 --------------------------------------------------------------------------------
@@ -462,19 +540,20 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
+  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
+  queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then
-    if queue.sc_event:is_valid_element() then
+    if queue.sc_metrics:is_valid_bbdo_element() then
       -- format event if it is validated
-      if queue.sc_event:is_valid_event() then
+      if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped
+  --- log why the event has been dropped 
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end
+    end    
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
