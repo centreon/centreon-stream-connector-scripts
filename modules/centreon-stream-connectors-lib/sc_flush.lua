@@ -17,6 +17,48 @@ local ScFlush = {}
 function sc_flush.new(params, logger)
   local self = {}
   
+  _PERFORMANCE_ANALYSIS = {
+    received_events = 0,
+    dropped_events = 0,
+    sent_events = 0,
+    number_of_flush = 0,
+    number_of_max_buffer_size_reached = 0,
+    last_log_time = os.time(),
+    log_analysis = function ()
+      if _PERFORMANCE_ANALYSIS.last_log_time + params.analysis_frequency <= os.time() then
+        return
+      end
+
+      self.sc_logger:notice("[ScFlush:PERFORMANCE_ANALYSIS]: " .. _PERFORMANCE_ANALYSIS:get_analysis_result())
+      _PERFORMANCE_ANALYSIS:reset()
+    end,
+    get_analysis_result = function ()
+      local analysis = nil
+      local optimal_max_buffer_size, optimal_max_all_queues_age
+
+      -- max buffer size is too big and never reached
+      if _PERFORMANCE_ANALYSIS.number_of_max_buffer_size_reached == 0 then
+        -- 3 events envoyés, max 5, number of flush = 3
+        optimal_max_buffer_size = 
+
+    end,
+    increase_sent_counters = function ()
+      _PERFORMANCE_ANALYSIS.sent_events = _PERFORMANCE_ANALYSIS.sent_events + counter
+      _PERFORMANCE_ANALYSIS.number_of_flush = _PERFORMANCE_ANALYSIS.number_of_flush + 1
+      if params.max_buffer_size % _PERFORMANCE_ANALYSIS.sent_events == 0 then
+        _PERFORMANCE_ANALYSIS.number_of_max_buffer_size_reached = _PERFORMANCE_ANALYSIS.number_of_max_buffer_size_reached + 1
+      end
+    end, 
+    reset = function ()
+      _PERFORMANCE_ANALYSIS.received_events = 0
+      _PERFORMANCE_ANALYSIS.dropped_events = 0
+      _PERFORMANCE_ANALYSIS.sent_events = 0
+      _PERFORMANCE_ANALYSIS.number_of_flush = 0
+      _PERFORMANCE_ANALYSIS.number_of_max_buffer_size_reached = 0
+      _PERFORMANCE_ANALYSIS.last_log_time = os.time()
+    end
+  }
+
   -- create a default logger if it is not provided
   self.sc_logger = logger
   if not self.sc_logger then 
@@ -122,7 +164,7 @@ function ScFlush:get_queues_size()
   return queues_size
 end
 
---- flush_mixed_payload: flush a payload that contains various type of events (services mixed hosts for example)
+--- flush_mixed_payload: flush a payload that contains various type of events (services mixed with hosts for example)
 -- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_mixed_payload(build_payload_method, send_method)
   local payload = nil
@@ -138,6 +180,8 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
 
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
+        _PERFORMANCE_ANALYSIS:increase_sent_counters()
+
         if not self:flush_payload(send_method, payload, self.queues.global_queues_metadata) then
           return false
         end
@@ -148,6 +192,8 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
       end
     end
   end
+
+  _PERFORMANCE_ANALYSIS:increase_sent_counters()
 
   -- we need to empty all queues to not mess with broker retention
   if not self:flush_payload(send_method, payload, self.queues.global_queues_metadata) then
@@ -174,6 +220,8 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
       
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
+        _PERFORMANCE_ANALYSIS:increase_sent_counters()
+
         if not self:flush_payload(
           send_method, 
           payload, 
@@ -187,6 +235,8 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
         payload = nil
       end
     end
+
+    _PERFORMANCE_ANALYSIS:increase_sent_counters()
 
     -- make sure there are no events left inside a specific queue
     if not self:flush_payload(

@@ -27,6 +27,8 @@ function sc_event.new(event, params, common, logger, broker)
   self.sc_broker = broker
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
+  _PERFORMANCE_ANALYSIS.received_events = _PERFORMANCE_ANALYSIS.received_events + 1
+
   self.event.cache = {}
 
   setmetatable(self, { __index = ScEvent })
@@ -78,13 +80,18 @@ function ScEvent:is_valid_event()
 
   -- drop the event if it was not valid. Custom code do not have to work on already invalid events
   if not is_valid_event then
+    _PERFORMANCE_ANALYSIS.dropped_events = _PERFORMANCE_ANALYSIS.dropped_events + 1
     return is_valid_event
   end
 
   -- run custom code
   if self.params.custom_code and type(self.params.custom_code) == "function" then
     self, is_valid_event = self.params.custom_code(self)
-  end    
+  end
+
+  if not is_valid_event then
+    _PERFORMANCE_ANALYSIS.dropped_events = _PERFORMANCE_ANALYSIS.dropped_events + 1
+  end
 
   return is_valid_event
 end
