@@ -210,13 +210,21 @@ end
 -- @param metadata (table) all metadata for the payload
 -- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_payload(send_method, payload, metadata)
-  if payload then
-    if not send_method(payload, metadata) then
-      return false
-    end
+  -- when the payload doesn't exist or is empty, we just tell broker that everything is fine on the stream connector side
+  if not payload or payload == "" then
+    return true
   end
 
-  return true
+  local pcall_status, result = pcall(send_method, payload, metadata)
+
+  self.sc_logger:debug("[sc_flush:flush_payload]: tried to send payload protected by pcall. Status: " .. tostring(pcall_status) .. ", Message: " .. tostring(result))
+
+  if not pcall_status then
+    self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
+    return false
+  end
+
+  return result
 end
 
 return sc_flush

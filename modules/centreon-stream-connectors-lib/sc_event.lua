@@ -280,7 +280,7 @@ function ScEvent:is_valid_host()
   end
 
   -- return false if event is coming from fake bam host
-  if string.find(self.event.cache.host.name, "^_Module_BAM_*") then
+  if string.find(self.event.cache.host.name, "^_Module_BAM_*") and self.params.enable_bam_host == 0 then
     self.sc_logger:debug("[sc_event:is_valid_host]: Host is a BAM fake host: " .. tostring(self.event.cache.host.name))
     return false
   end
@@ -358,6 +358,18 @@ function ScEvent:is_valid_service()
         .. " doesn't match accepted_services pattern: " .. tostring(self.params.accepted_services)
         .. " or any of the sub-patterns if accepted_services_enable_split_pattern is enabled")
     return false
+  end
+
+  -- if we want to send BA status using the service status mecanism, we need to use the ba_description instead of host name
+  if string.find(self.event.cache.host.name, "^_Module_BAM_*") and self.params.enable_bam_host == 1 then
+    self.sc_logger:debug("[sc_event:is_valid_service]: Host is a fake BAM host. Therefore, host name: " 
+      .. tostring(self.event.cache.host.name) .. " must be replaced by the name of the BA.")
+    self.event.ba_id = string.gsub(self.event.cache.service.description, "ba_", "")
+    self.event.ba_id = tonumber(self.event.ba_id)
+    self:is_valid_ba()
+    self.sc_logger:debug("[sc_event:is_valid_service]: replacing host name: "
+      .. tostring(self.event.cache.host.name) .. " by BA name: " .. tostring(self.event.cache.ba.ba_name))
+    self.event.cache.host.name = self.event.cache.ba.ba_name
   end
 
   return true
