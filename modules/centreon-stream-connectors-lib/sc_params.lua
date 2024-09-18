@@ -125,6 +125,9 @@ function sc_params.new(common, logger)
     log_level = "",
     log_curl_commands = 0,
 
+    -- performance analysis parameters
+    analysis_frequency = 300,
+
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
