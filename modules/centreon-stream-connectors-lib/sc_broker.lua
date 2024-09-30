@@ -11,14 +11,14 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 
 local ScBroker = {}
 
-function sc_broker.new(logger)
+function sc_broker.new(params, logger)
   local self = {}
   
   broker_api_version = 2
   
-  self.logger = logger
-  if not self.logger then 
-    self.logger = sc_logger.new()
+  self.sc_logger = logger
+  if not self.sc_logger then 
+    self.sc_logger = sc_logger.new()
   end
 
   setmetatable(self, { __index = ScBroker })
@@ -34,7 +34,7 @@ end
 function ScBroker:get_host_all_infos(host_id)
   -- return because host_id isn't valid
   if host_id == nil or host_id == "" then
-    self.logger:warning("[sc_broker:get_host_all_infos]: host id is nil")
+    self.sc_logger:warning("[sc_broker:get_host_all_infos]: host id is nil")
     return false
   end
   
@@ -43,7 +43,7 @@ function ScBroker:get_host_all_infos(host_id)
 
   -- return false only if no host information were found in broker cache
   if not host_info then
-    self.logger:warning("[sc_broker:get_host_all_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
+    self.sc_logger:warning("[sc_broker:get_host_all_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
     return false
   end
 
@@ -58,7 +58,7 @@ end
 function ScBroker:get_service_all_infos(host_id, service_id)
   -- return because host_id or service_id isn't valid
   if host_id == nil or host_id == "" or service_id == nil or service_id == "" then
-    self.logger:warning("[sc_broker:get_service_all_infos]: host id or service id is nil")
+    self.sc_logger:warning("[sc_broker:get_service_all_infos]: host id or service id is nil")
     return false
   end
   
@@ -67,7 +67,7 @@ function ScBroker:get_service_all_infos(host_id, service_id)
 
   -- return false only if no service information were found in broker cache
   if not service_info then
-    self.logger:warning("[sc_broker:get_service_all_infos]: No service information found for host_id:  " .. tostring(host_id) 
+    self.sc_logger:warning("[sc_broker:get_service_all_infos]: No service information found for host_id:  " .. tostring(host_id) 
       .. " and service_id: " .. tostring(service_id) .. ". Restarting centengine should fix this.")
     return false
   end
@@ -83,7 +83,7 @@ end
 function ScBroker:get_host_infos(host_id, info)
   -- return because host_id isn't valid
   if host_id == nil or host_id == "" then
-    self.logger:warning("[sc_broker:get_host_infos]: host id is nil")
+    self.sc_logger:warning("[sc_broker:get_host_infos]: host id is nil")
     return false
   end
   
@@ -102,7 +102,7 @@ function ScBroker:get_host_infos(host_id, info)
 
   -- return host_id only if no host information were found in broker cache
   if not host_info then
-    self.logger:warning("[sc_broker:get_host_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
+    self.sc_logger:warning("[sc_broker:get_host_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
     return host
   end
 
@@ -134,7 +134,7 @@ end
 function ScBroker:get_service_infos(host_id, service_id, info)
   -- return because host_id or service_id isn't valid
   if host_id == nil or host_id == "" or service_id == nil or service_id == "" then
-    self.logger:warning("[sc_broker:get_service_infos]: host id or service id is invalid")
+    self.sc_logger:warning("[sc_broker:get_service_infos]: host id or service id is invalid")
     return false
   end
   
@@ -154,7 +154,7 @@ function ScBroker:get_service_infos(host_id, service_id, info)
 
   -- return host_id and service_id only if no host information were found in broker cache
   if not service_info then
-    self.logger:warning("[sc_broker:get_service_infos]: No service information found for host_id:  " .. tostring(host_id) .. " and service_id: " .. tostring(service_id) 
+    self.sc_logger:warning("[sc_broker:get_service_infos]: No service information found for host_id:  " .. tostring(host_id) .. " and service_id: " .. tostring(service_id) 
       .. ". Restarting centengine should fix this.")  
     return service
   end
@@ -185,7 +185,7 @@ end
 function ScBroker:get_hostgroups(host_id)
   -- return false if host id is invalid
   if host_id == nil or host_id == "" then 
-    self.logger:warning("[sc_broker:get_hostgroup]: host id is nil or empty")
+    self.sc_logger:warning("[sc_broker:get_hostgroup]: host id is nil or empty")
     return false
   end
 
@@ -208,7 +208,7 @@ end
 function ScBroker:get_servicegroups(host_id, service_id)
   -- return false if service id is invalid
   if host_id == nil or host_id == "" or service_id == nil or service_id == "" then 
-    self.logger:warning("[sc_broker:get_servicegroups]: service id is nil or empty")
+    self.sc_logger:warning("[sc_broker:get_servicegroups]: service id is nil or empty")
     return false
   end
 
@@ -231,7 +231,7 @@ end
 function ScBroker:get_severity(host_id, service_id)
   -- return false if host id is invalid
   if host_id == nil or host_id == "" then 
-    self.logger:warning("[sc_broker:get_severity]: host id is nil or empty")
+    self.sc_logger:warning("[sc_broker:get_severity]: host id is nil or empty")
     return false
   end
 
@@ -244,7 +244,7 @@ function ScBroker:get_severity(host_id, service_id)
 
     -- return false if no severity were found
     if not severity then
-      self.logger:warning("[sc_broker:get_severity]: no severity found in broker cache for host: " .. tostring(host_id))
+      self.sc_logger:warning("[sc_broker:get_severity]: no severity found in broker cache for host: " .. tostring(host_id))
       return false
     end
 
@@ -256,7 +256,7 @@ function ScBroker:get_severity(host_id, service_id)
 
   -- return false if no severity were found
   if not severity then
-    self.logger:warning("[sc_broker:get_severity]: no severity found in broker cache for host id: " .. tostring(host_id) .. " and service id: " .. tostring(service_id))
+    self.sc_logger:warning("[sc_broker:get_severity]: no severity found in broker cache for host id: " .. tostring(host_id) .. " and service id: " .. tostring(service_id))
     return false
   end
 
@@ -270,7 +270,7 @@ end
 function ScBroker:get_instance(instance_id)
   -- return false if instance_id is invalid
   if instance_id == nil or instance_id == "" then
-    self.logger:warning("[sc_broker:get_instance]: instance id is nil or empty")
+    self.sc_logger:warning("[sc_broker:get_instance]: instance id is nil or empty")
     return false
   end
 
@@ -279,7 +279,7 @@ function ScBroker:get_instance(instance_id)
 
   -- return false if no instance name is found
   if not name then
-    self.logger:warning("[sc_broker:get_instance]: couldn't get instance name from broker cache for instance id: " .. tostring(instance_id))
+    self.sc_logger:warning("[sc_broker:get_instance]: couldn't get instance name from broker cache for instance id: " .. tostring(instance_id))
     return false
   end
 
@@ -293,7 +293,7 @@ end
 function ScBroker:get_ba_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == "" then 
-    self.logger:warning("[sc_broker:get_ba_infos]: ba id is nil or empty")
+    self.sc_logger:warning("[sc_broker:get_ba_infos]: ba id is nil or empty")
     return false
   end
 
@@ -302,7 +302,7 @@ function ScBroker:get_ba_infos(ba_id)
 
   -- return false if no informations are found
   if ba_info == nil then
-    self.logger:warning("[sc_broker:get_ba_infos]: couldn't get ba informations in cache for ba_id: " .. tostring(ba_id))
+    self.sc_logger:warning("[sc_broker:get_ba_infos]: couldn't get ba informations in cache for ba_id: " .. tostring(ba_id))
     return false
   end
 
@@ -316,7 +316,7 @@ end
 function ScBroker:get_bvs_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == "" then 
-    self.logger:warning("[sc_broker:get_bvs]: ba id is nil or empty")
+    self.sc_logger:warning("[sc_broker:get_bvs]: ba id is nil or empty")
     return false
   end
 
@@ -325,7 +325,7 @@ function ScBroker:get_bvs_infos(ba_id)
 
   -- return false if no bv id are found for ba_id
   if bvs_id == nil or bvs_id == "" then
-    self.logger:warning("[sc_broker:get_bvs]: couldn't get bvs for ba id: " .. tostring(ba_id))
+    self.sc_logger:warning("[sc_broker:get_bvs]: couldn't get bvs for ba id: " .. tostring(ba_id))
     return false
   end
 
@@ -342,7 +342,7 @@ function ScBroker:get_bvs_infos(ba_id)
       table.insert(bvs,bv_infos)
       found_bv = true
     else 
-      self.logger:warning("[sc_broker:get_bvs]: couldn't get bv information for bv id: " .. tostring(bv_id))
+      self.sc_logger:warning("[sc_broker:get_bvs]: couldn't get bv information for bv id: " .. tostring(bv_id))
     end
   end
 

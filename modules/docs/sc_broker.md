@@ -1,50 +1,50 @@
 # Documentation of the sc_broker module
 
-- [Documentation of the sc_broker module](#documentation-of-the-sc_broker-module)
+- [Documentation of the sc\_broker module](#documentation-of-the-sc_broker-module)
   - [Introduction](#introduction)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
-  - [get_host_all_infos method](#get_host_all_infos-method)
-    - [get_host_all_infos: parameters](#get_host_all_infos-parameters)
-    - [get_host_all_infos: returns](#get_host_all_infos-returns)
-    - [get_host_all_infos: example](#get_host_all_infos-example)
-  - [get_service_all_infos method](#get_service_all_infos-method)
-    - [get_service_all_infos: parameters](#get_service_all_infos-parameters)
-    - [get_service_all_infos: returns](#get_service_all_infos-returns)
-    - [get_service_all_infos: example](#get_service_all_infos-example)
-  - [get_host_infos method](#get_host_infos-method)
-    - [get_host_infos: parameters](#get_host_infos-parameters)
-    - [get_host_infos: returns](#get_host_infos-returns)
-    - [get_host_infos: example](#get_host_infos-example)
-  - [get_service_infos method](#get_service_infos-method)
-    - [get_service_infos: parameters](#get_service_infos-parameters)
-    - [get_service_infos: returns](#get_service_infos-returns)
-    - [get_service_infos: example](#get_service_infos-example)
-  - [get_hostgroups method](#get_hostgroups-method)
-    - [get_hostgroups: parameters](#get_hostgroups-parameters)
-    - [get_hostgroups: returns](#get_hostgroups-returns)
-    - [get_hostgroups: example](#get_hostgroups-example)
-  - [get_servicegroups method](#get_servicegroups-method)
-    - [get_servicegroups: parameters](#get_servicegroups-parameters)
-    - [get_servicegroups: returns](#get_servicegroups-returns)
-    - [get_servicegroups: example](#get_servicegroups-example)
-  - [get_severity method](#get_severity-method)
-    - [get_severity: parameters](#get_severity-parameters)
-    - [get_severity: returns](#get_severity-returns)
-    - [get_severity: example](#get_severity-example)
-  - [get_instance method](#get_instance-method)
-    - [get_instance: parameters](#get_instance-parameters)
-    - [get_instance: returns](#get_instance-returns)
-    - [get_instance: example](#get_instance-example)
-  - [get_ba_infos method](#get_ba_infos-method)
-    - [get_ba_infos: parameters](#get_ba_infos-parameters)
-    - [get_ba_infos: returns](#get_ba_infos-returns)
-    - [get_ba_infos: example](#get_ba_infos-example)
-  - [get_bvs_infos method](#get_bvs_infos-method)
-    - [get_bvs_infos: parameters](#get_bvs_infos-parameters)
-    - [get_bvs_infos: returns](#get_bvs_infos-returns)
-    - [get_bvs_infos: example](#get_bvs_infos-example)
+  - [get\_host\_all\_infos method](#get_host_all_infos-method)
+    - [get\_host\_all\_infos: parameters](#get_host_all_infos-parameters)
+    - [get\_host\_all\_infos: returns](#get_host_all_infos-returns)
+    - [get\_host\_all\_infos: example](#get_host_all_infos-example)
+  - [get\_service\_all\_infos method](#get_service_all_infos-method)
+    - [get\_service\_all\_infos: parameters](#get_service_all_infos-parameters)
+    - [get\_service\_all\_infos: returns](#get_service_all_infos-returns)
+    - [get\_service\_all\_infos: example](#get_service_all_infos-example)
+  - [get\_host\_infos method](#get_host_infos-method)
+    - [get\_host\_infos: parameters](#get_host_infos-parameters)
+    - [get\_host\_infos: returns](#get_host_infos-returns)
+    - [get\_host\_infos: example](#get_host_infos-example)
+  - [get\_service\_infos method](#get_service_infos-method)
+    - [get\_service\_infos: parameters](#get_service_infos-parameters)
+    - [get\_service\_infos: returns](#get_service_infos-returns)
+    - [get\_service\_infos: example](#get_service_infos-example)
+  - [get\_hostgroups method](#get_hostgroups-method)
+    - [get\_hostgroups: parameters](#get_hostgroups-parameters)
+    - [get\_hostgroups: returns](#get_hostgroups-returns)
+    - [get\_hostgroups: example](#get_hostgroups-example)
+  - [get\_servicegroups method](#get_servicegroups-method)
+    - [get\_servicegroups: parameters](#get_servicegroups-parameters)
+    - [get\_servicegroups: returns](#get_servicegroups-returns)
+    - [get\_servicegroups: example](#get_servicegroups-example)
+  - [get\_severity method](#get_severity-method)
+    - [get\_severity: parameters](#get_severity-parameters)
+    - [get\_severity: returns](#get_severity-returns)
+    - [get\_severity: example](#get_severity-example)
+  - [get\_instance method](#get_instance-method)
+    - [get\_instance: parameters](#get_instance-parameters)
+    - [get\_instance: returns](#get_instance-returns)
+    - [get\_instance: example](#get_instance-example)
+  - [get\_ba\_infos method](#get_ba_infos-method)
+    - [get\_ba\_infos: parameters](#get_ba_infos-parameters)
+    - [get\_ba\_infos: returns](#get_ba_infos-returns)
+    - [get\_ba\_infos: example](#get_ba_infos-example)
+  - [get\_bvs\_infos method](#get_bvs_infos-method)
+    - [get\_bvs\_infos: parameters](#get_bvs_infos-parameters)
+    - [get\_bvs\_infos: returns](#get_bvs_infos-returns)
+    - [get\_bvs\_infos: example](#get_bvs_infos-example)
 
 ## Introduction
 
@@ -56,18 +56,18 @@ Since this is OOP, it is required to initiate your module
 
 ### Module constructor
 
-Constructor can be initialized with one parameter or it will use a default value.
+Constructor can be initialized with two parameters.
 
+- a params table.
 - sc_logger. This is an instance of the sc_logger module
 
-If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+If you don't provide the sc_logger parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
 
 ### constructor: Example
 
 ```lua
 -- load modules
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 
 -- initiate "mandatory" informations for the logger module
 local logfile = "/var/log/test_broker.log"
@@ -76,8 +76,11 @@ local severity = 1
 -- create a new instance of the sc_logger module
 local test_logger = sc_logger.new(logfile, severity)
 
--- create a new instance of the sc_common module
-local test_broker = sc_broker.new(test_logger)
+-- create a new instance of the sc_param module
+local test_param = sc_param.new(test_common, test_logger)
+
+-- create a new instance of the sc_broker module
+local test_broker = sc_broker.new(test_param.params, test_logger)
 ```
 
 ## get_host_all_infos method
