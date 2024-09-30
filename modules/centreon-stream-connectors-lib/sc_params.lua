@@ -76,6 +76,14 @@ function sc_params.new(common, logger)
     skip_anon_events = 1,
     skip_nil_id = 1,
     enable_bam_host = 0,
+    enable_broker_cache_counter_check = 0,
+
+    -- centreon database information (only used if you set enable_broker_cache_counter_check to 1
+    centreon_db_name = "centreon",
+    centreon_db_address = "127.0.0.1",
+    centreon_db_port = 3306,
+    centreon_db_user = "centreon",
+    centreon_db_password = "",
 
     -- enable or disable dedup
     enable_host_status_dedup = 1,
@@ -98,6 +106,7 @@ function sc_params.new(common, logger)
     proxy_username = "",
     proxy_password = "",
     proxy_protocol = "http",
+
 
     -- event formatting parameters
     format_file = "",

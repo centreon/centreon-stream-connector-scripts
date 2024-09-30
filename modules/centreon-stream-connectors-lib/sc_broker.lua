@@ -21,8 +21,27 @@ function sc_broker.new(params, logger)
     self.sc_logger = sc_logger.new()
   end
 
-  setmetatable(self, { __index = ScBroker })
+  self.params = params
 
+  if params.enable_broker_cache_counter_check == 1 then
+    if pcall(require, "luasql.mysql") then
+      local db = require("luasql.mysql")
+      local db_driver = db.mysql()
+      local centreon_db, error = db_driver:connect(params.centreon_db_name, params.centreon_db_user, params.centreon_db_password, params.centreon_db_address, params.centreon_db_port)
+      
+      if not centreon_db then
+        self.sc_logger:error("[sc_broker:new]: couldn't connect to " .. tostring(params.centreon_db_name) .. ". Error is: " .. tostring(error)
+          .. "make sure that your parameters are valid: centreon_db_user: " .. tostring(params.centreon_db_user) .. ", centreon_db_address: " .. tostring(params.centreon_db_address) .. ", centreon_db_port: " .. tostring(params.centreon_db_port))
+      else
+        self.centreon_db = centreon_db
+      end
+    else
+      self.sc_logger:error("[sc_broker:new]: couldn't load luasql.mysql module and you asked for it by using the enable_broker_cache_counter_check parameter."
+        .. " Make sure that you have installed this dependency. We are disabling the aformentioned parameter.")
+    end
+  end
+
+  setmetatable(self, { __index = ScBroker })
   return self
 end
 
@@ -42,9 +61,36 @@ function ScBroker:get_host_all_infos(host_id)
   local host_info = broker_cache:get_host(host_id)
 
   -- return false only if no host information were found in broker cache
-  if not host_info then
+  if not host_info and self.params.enable_broker_cache_counter_check ~= 1 then
     self.sc_logger:warning("[sc_broker:get_host_all_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
     return false
+
+  -- user is asking to also check in the database for the host. if we find it, we return a limited set of value (the most common ones)
+  elseif not host_info and self.params.enable_broker_cache_counter_check == 1 then
+    local query = [[
+      SELECT h.host_id, 
+        h.host_name AS name, 
+        h.host_alias AS alias, 
+        h.host_address AS address, 
+        h.display_name,
+        ehi.ehi_notes AS notes,
+        ehi.ehi_notes_url AS notes_url,
+        ehi.ehi_action_url AS action_url 
+      FROM host h,
+        extended_host_information ehi
+      WHERE ehi.host_host_id = h.host_id
+        AND h.host_activate <> '0'
+        AND h.host_id = ]] .. tonumber(host_id)
+
+    self.sc_logger:debug("[sc_broker:get_host_all_infos]: no information found in broker cache for host: " .. tostring(host_id) .. ", going to check in the centreon database with query: " .. tostring(query))
+
+    host_info = self:get_centreon_db_info(query)
+
+    if not host_info then
+      self.sc_logger:error("[sc_broker:get_host_all_infos]: couldn't find host: " .. tostring(host_id) 
+        .. " in your database. Maybe it has been disabled or removed. You should export your configuration.")
+      return false
+    end
   end
 
   return host_info
@@ -52,7 +98,7 @@ end
 
 --- get_service_all_infos: retrieve informations from a service
 -- @param host_id (number)
--- @params service_id (number)
+-- @param service_id (number)
 -- @return false (boolean) if host id or service id aren't valid
 -- @return service (table) all the informations from the service
 function ScBroker:get_service_all_infos(host_id, service_id)
@@ -66,10 +112,35 @@ function ScBroker:get_service_all_infos(host_id, service_id)
   local service_info = broker_cache:get_service(host_id, service_id)
 
   -- return false only if no service information were found in broker cache
-  if not service_info then
+  if not service_info and self.params.enable_broker_cache_counter_check ~= 1 then
     self.sc_logger:warning("[sc_broker:get_service_all_infos]: No service information found for host_id:  " .. tostring(host_id) 
       .. " and service_id: " .. tostring(service_id) .. ". Restarting centengine should fix this.")
     return false
+  elseif not service_info and self.params.enable_broker_cache_counter_check == 1 then
+    local query = [[
+      SELECT s.service_id, 
+        s.service_description AS description, 
+        s.service_alias AS alias, 
+        s.display_name,
+        esi.esi_notes AS notes,
+        esi.esi_notes_url AS notes_url,
+        esi.esi_action_url AS action_url 
+      FROM service s,
+        extended_service_information esi
+      WHERE esi.service_service_id = s.service_id
+        AND s.service_activate <> '0'
+        AND s.service_id = ]] .. tonumber(service_id)
+
+    self.sc_logger:debug("[sc_broker:get_host_all_infos]: no information found in broker cache for service: " .. tostring(service_id) .. ", going to check in the centreon database with query: " .. tostring(query))
+
+
+    service_info = self:get_centreon_db_info(query)
+
+    if not service_info then
+      self.sc_logger:error("[sc_broker:get_host_all_infos]: couldn't find service: " .. tostring(service_id) 
+        .. " in your database. Maybe it has been disabled or removed. You should export your configuration.")
+      return false
+    end
   end
 
   return service_info
@@ -77,7 +148,7 @@ end
 
 --- get_host_infos: retrieve the the desired host informations
 -- @param host_id (number)
--- @params info (string|table) the name of the wanted host parameter or a table of all wanted host parameters
+-- @param info (string|table) the name of the wanted host parameter or a table of all wanted host parameters
 -- @return false (boolean) if host_id is nil or empty 
 -- @return host (any) a table of all wanted host params if input param is a table. The single parameter if input param is a string 
 function ScBroker:get_host_infos(host_id, info)
@@ -128,7 +199,7 @@ end
 --- get_service_infos: retrieve the the desired service informations
 -- @param host_id (number)
 -- @param service_id (number)
--- @params info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
+-- @param info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
 -- @return false (boolean) if host_id and/or service_id are nil or empty 
 -- @return service (any) a table of all wanted service params if input param is a table. A single parameter if input param is a string 
 function ScBroker:get_service_infos(host_id, service_id, info)
@@ -352,6 +423,29 @@ function ScBroker:get_bvs_infos(ba_id)
   end
 
   return bvs
+end
+
+--- get_centreon_db_info: run a query (that must return only one row) in the centreon database to build a cache from the db when asking to. If the query return multiple rows, only the last one will be returned
+-- @param query (string) the sql query that must be executed to build the cache 
+-- @return result (table or nil) the result of the query or nil 
+function ScBroker:get_centreon_db_info(query)
+  local result, error = self.centreon_db:execute(query)
+
+  if not result then
+    self.sc_logger:error("[sc_broker:get_centreon_db_info]: query: " .. tostring(query) .. " failed\n error: " .. tostring(error))
+    return nil
+  end
+
+  local rows = result:fetch({}, "a")
+  local db_content
+
+  -- queries are about a single object, we should never have multiple rows returned so we don't care about properly indexing results
+  while rows do
+    db_content = rows
+    rows = result:fetch(rows, "a")
+  end
+
+  return db_content
 end
 
 return sc_broker
