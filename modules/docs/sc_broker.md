@@ -45,6 +45,10 @@
     - [get\_bvs\_infos: parameters](#get_bvs_infos-parameters)
     - [get\_bvs\_infos: returns](#get_bvs_infos-returns)
     - [get\_bvs\_infos: example](#get_bvs_infos-example)
+  - [get\_centreon\_db\_info method](#get_centreon_db_info-method)
+    - [get\_centreon\_db\_info: parameters](#get_centreon_db_info-parameters)
+    - [get\_centreon\_db\_info: returns](#get_centreon_db_info-returns)
+    - [get\_centreon\_db\_info: example](#get_centreon_db_info-example)
 
 ## Introduction
 
@@ -616,4 +620,59 @@ local result = test_broker:get_ba_infos(ba_id)
   
   --> result[2].bv_name is: "another-BV"
 --]]
+```
+
+## get_centreon_db_info method
+
+The **get_centreon_db_info** method runs a query (that must return only one row) in the centreon database to build a cache from the db when asked to. If the query return multiple rows, only the last one will be returned
+
+This second cache method is currently only triggered when using the following sc_cache methods:
+
+- get_host_all_infos
+- get_service_all_infos
+
+The cache that is built this way will not return the same amount of information. This feature's purpose is not to replace the broker cache. It is just a best effort mecanism in case of a faulty broker cache.
+
+### get_centreon_db_info: parameters
+
+| parameter        | type   | optional | default value |
+| ---------------- | ------ | -------- | ------------- |
+| the query to run | string | no       |               |
+
+### get_centreon_db_info: returns
+
+| return                          | type  | always | condition                                          |
+| ------------------------------- | ----- | ------ | -------------------------------------------------- |
+| a table the result of the query | table | no     | it will return nil if the query failed or is empty |
+
+### get_centreon_db_info: example
+
+```lua
+local host_id = 2712
+local query = [[
+      SELECT h.host_id, 
+        h.host_name AS name, 
+        h.host_alias AS alias, 
+        h.host_address AS address, 
+        h.display_name,
+        ehi.ehi_notes AS notes,
+        ehi.ehi_notes_url AS notes_url,
+        ehi.ehi_action_url AS action_url 
+      FROM host h,
+        extended_host_information ehi
+      WHERE ehi.host_host_id = h.host_id
+        AND h.host_activate <> '0'
+        AND h.host_id = ]] .. tonumber(host_id)
+
+local result = test_broker:get_centreon_db_info(query)
+--[[
+  --> result structure is: 
+  {
+    "address" = "127.0.0.1",
+    "host_id" = "2712",
+    "name" = "bordeaux",
+    "alias" = "what a beautiful city",
+    "notes" = "you should go there when you have time"
+  }
+]]--
 ```
