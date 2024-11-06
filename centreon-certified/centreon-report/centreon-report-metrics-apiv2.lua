@@ -86,6 +86,7 @@ function EventQueue.new(params)
   self.sc_params.params.warp10_api_endpoint = params.centreon_report_api_endpoint or "/v1"
   self.sc_params.params.warp10_accepted_labels = params.warp10_accepted_labels or ""
   self.sc_params.params.warp10_accepted_attributes = params.warp10_accepted_attributes or ""
+  self.sc_params.params.version = params.version or "1.0.0"
   self.sc_params.params.cmaas = params.cmaas or "centreon"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
@@ -435,21 +436,21 @@ end
 function EventQueue:build_payload(payload, event)
   local data_table = {
     type = "metric",
-    timestamp = os.date("!%Y-%m-%dT%TZ",t),
-    version = "3.0.0",
+    timestamp = os.date("!%Y-%m-%dT%TZ", t),
+    version = self.sc_params.params.api_version,
     contentType = "warp10/plaintext",
     content = event.data
   }
 
   if not payload then
     payload = {
-      version = "3.0.0",
+      version = self.sc_params.params.api_version,
       data = {
         data_table
       }
     }
   else
-    payload = table.insert(payload.data, data_table)
+    table.insert(payload.data, data_table)
   end
 
   return payload
