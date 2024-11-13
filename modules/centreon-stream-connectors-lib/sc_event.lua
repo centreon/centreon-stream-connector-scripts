@@ -1021,7 +1021,7 @@ function ScEvent:is_valid_acknowledgement_event()
   return true
 end
 
---- is_vaid_downtime_event: check if the event is a valid downtime event
+--- is_valid_downtime_event: check if the event is a valid downtime event
 -- return true|false (boolean)
 function ScEvent:is_valid_downtime_event()
   -- return false if the event is one of all the "fake" start or end downtime event received from broker
@@ -1329,6 +1329,7 @@ function ScEvent:is_valid_downtime_event_start()
   end
   -- end compat patch
 
+  self.event.downtime_processing_step = "start"
   return true
 end
 
@@ -1347,6 +1348,7 @@ function ScEvent:is_valid_downtime_event_end()
     end
     -- end compat patch
 
+    self.event.downtime_processing_step = "end"
     return true
   end
   

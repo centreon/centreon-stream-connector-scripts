@@ -82,8 +82,8 @@ function EventQueue.new(params)
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.api_token = params.api_token
-  self.sc_params.params.warp10_address = params.centreon_report_http_address
-  self.sc_params.params.warp10_api_endpoint = params.centreon_report_api_endpoint or "/v1"
+  self.sc_params.params.centreon_report_http_address = params.centreon_report_http_address
+  self.sc_params.params.centreon_report_api_endpoint = params.centreon_report_api_endpoint or "/v1"
   self.sc_params.params.warp10_accepted_labels = params.warp10_accepted_labels or ""
   self.sc_params.params.warp10_accepted_attributes = params.warp10_accepted_attributes or ""
   self.sc_params.params.version = params.version or "1.0.0"
@@ -460,7 +460,7 @@ function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   payload = broker.json_encode(payload)
-  local url = tostring(self.sc_params.params.warp10_address) .. tostring(self.sc_params.params.warp10_api_endpoint)
+  local url = tostring(self.sc_params.params.centreon_report_http_address) .. tostring(self.sc_params.params.centreon_report_api_endpoint)
   queue_metadata.headers = {
     "Content-Type: application/vnd.centreon+json",
     "x-api-key: " .. self.sc_params.params.api_token
