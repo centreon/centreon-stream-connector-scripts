@@ -72,6 +72,11 @@ function sc_params.new(common, logger)
     host_severity_threshold = nil,
     host_severity_operator = ">=",
 
+    --[[ Authentications parameters ]]
+    -- JWT
+    ["auth.jwt.header.alg"] = "RS256",
+    ["auth.jwt.header.typ"] = "JWT",
+
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
