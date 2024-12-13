@@ -1,10 +1,11 @@
 #!/usr/bin/lua
 --------------------------------------------------------------------------------
--- Centreon Broker Pagerduty Connector Events
+-- Centreon Broker Keep Connector -- https://github.com/keephq/keep
 --------------------------------------------------------------------------------
 
+local next_retry_time = 0
 
--- Libraries
+-- Required Libraries
 local curl = require "cURL"
 local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
@@ -36,13 +37,13 @@ function EventQueue.new(params)
   local self = {}
 
   local mandatory_parameters = {
-    "pdy_routing_key"
+    "keep_api_key"
   }
 
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/pagerduty-events.log"
+  local logfile = params.logfile or "/var/log/centreon-broker/keep-events.log"
   local log_level = params.log_level or 1
   
   -- initiate mandatory objects
@@ -56,27 +57,28 @@ function EventQueue.new(params)
     self.fail = true
   end
   
-  -- force buffer size to 1 to avoid breaking the communication with pagerduty (can't send more than one event at once)
+  -- force buffer size to 1 to avoid breaking the communication with keep (can't send more than one event at once)
   params.max_buffer_size = 1
-  
-  -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.pdy_centreon_url = params.pdy_centreon_url or "http://set.pdy_centreon_url.parameter"
-  self.sc_params.params.http_server_url = params.http_server_url or "https://events.pagerduty.com/v2/enqueue"
+
+  -- Set default parameters
+  self.sc_params.params.http_server_url = params.http_server_url or "https://api.keephq.dev/alerts/event"
   self.sc_params.params.client = params.client or "Centreon Stream Connector"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.pdy_source = params.pdy_source or nil
-  
-  -- apply users params and check syntax of standard ones
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement"
+  self.sc_params.params.keep_api_key = params.keep_api_key
+
+  self.sc_params.params.rate_limit_delay_minutes = params.rate_limit_delay_minutes or 5
+  self.sc_params.params.max_all_queues_age = self.sc_params.params.max_all_queues_age or 30
+
   self.sc_params:param_override(params)
   self.sc_params:check_params()
-  
+
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
 
-  -- only load the custom code file, not executed yet
+  -- Load custom code if available
   if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
-    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+    self.sc_logger:error("[EventQueue:new]: Failed to load custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
 
   self.sc_params:build_accepted_elements_info()
@@ -85,10 +87,12 @@ function EventQueue.new(params)
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
+  -- Define event formatting functions
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
-      [elements.service_status.id] = function () return self:format_event_service() end
+      [elements.service_status.id] = function () return self:format_event_service() end,
+      [elements.acknowledgement.id] = function () return self:format_event_acknowledgement() end
     },
     [categories.bam.id] = {}
   }
@@ -101,28 +105,49 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
-  self.state_to_severity_mapping = {
-    [0] = {
-      severity = "info",
-      action = "resolve"
-    },
-    [1] = {
-      severity = "warning",
-      action = "trigger"
-    },
-    [2] = {
-      severity = "critical",
-      action = "trigger"
-    }, 
-    [3] = {
-      severity = "error",
-      action = "trigger"
-    }
+  -- Map Centreon service states to KeepHQ statuses and severities
+  self.state_service_keep = {
+    [0] = { severity = "info", status = "resolved" },    -- OK
+    [1] = { severity = "warning", status = "firing" },   -- WARNING
+    [2] = { severity = "critical", status = "firing" },  -- CRITICAL
+    [3] = { severity = "warning", status = "pending" },  -- UNKNOWN
+    [4] = { severity = "info", status = "pending" },     -- PENDING
   }
 
-  -- return EventQueue object
+  -- Map Centreon host states to KeepHQ statuses and severities
+  self.state_host_keep = {
+    [0] = { severity = "info", status = "resolved" },    -- UP
+    [1] = { severity = "critical", status = "firing" },  -- DOWN
+    [2] = { severity = "critical", status = "firing" },  -- UNREACHABLE
+  }
+
   setmetatable(self, { __index = EventQueue })
   return self
+end
+
+--------------------------------------------------------------------------------
+-- Utility Functions
+--------------------------------------------------------------------------------
+
+-- Add groups (hostgroups or servicegroups) to labels
+local function add_groups_to_labels(groups, group_key, labels, logger)
+  if groups and #groups > 0 then
+    local group_names = {}
+    for _, group in ipairs(groups) do
+      table.insert(group_names, group.group_name)
+    end
+    labels[group_key] = group_names
+  else
+    labels[group_key] = {}
+    logger:debug(string.format("[add_groups_to_labels]: No %s found.", group_key))
+  end
+end
+
+-- Add severity to labels
+local function add_severity_to_labels(severity, severity_key, labels)
+  if severity then
+    labels[severity_key] = severity
+  end
 end
 
 --------------------------------------------------------------------------------
@@ -154,145 +179,159 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
+--------------------------------------------------------------------------------
+-- Format Acknowledgement Event
+--------------------------------------------------------------------------------
+
+function EventQueue:format_event_acknowledgement()
+  local event = self.sc_event.event
+  local fingerprint, name, hostgroups, host_severity
+  local labels = {
+    author = event.author or "unknown",
+    comment_data = event.comment_data or "no comment",
+  }
+
+  if event.service_id > 0 then
+    fingerprint = tostring(event.host_id) .. "_" .. tostring(event.service_id)
+    name = event.cache.host.name .. "/" .. event.cache.service.description
+
+    -- Add hostgroups and servicegroups
+    hostgroups = self.sc_broker:get_hostgroups(event.host_id)
+    add_groups_to_labels(hostgroups, "hostgroups", labels, self.sc_logger)
+
+    local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
+    add_groups_to_labels(servicegroups, "servicegroups", labels, self.sc_logger)
+
+    -- Add severities
+    host_severity = self.sc_broker:get_severity(event.host_id)
+    add_severity_to_labels(host_severity, "host_severity", labels)
+
+    local service_severity = self.sc_broker:get_severity(event.host_id, event.service_id)
+    add_severity_to_labels(service_severity, "service_severity", labels)
+  else
+    fingerprint = tostring(event.host_id) .. "_H"
+    name = event.cache.host.name
+
+    -- Add hostgroups
+    hostgroups = self.sc_broker:get_hostgroups(event.host_id)
+    add_groups_to_labels(hostgroups, "hostgroups", labels, self.sc_logger)
+
+    -- Add host severity
+    host_severity = self.sc_broker:get_severity(event.host_id)
+    add_severity_to_labels(host_severity, "host_severity", labels)
+  end
+
+  -- Log key values for debugging
+  self.sc_logger:debug(string.format("[format_event_acknowledgement]: Fingerprint: %s", fingerprint))
+  self.sc_logger:debug(string.format("[format_event_acknowledgement]: Name: %s", name))
+  self.sc_logger:debug(string.format("[format_event_acknowledgement]: Service ID: %d", event.service_id))
+  self.sc_logger:debug(string.format("[format_event_acknowledgement]: Host ID: %d", event.host_id))
+  self.sc_logger:debug(string.format("[format_event_acknowledgement]: Author: %s", event.author or "unknown"))
+  self.sc_logger:debug(string.format("[format_event_acknowledgement]: Comment Data: %s", event.comment_data or "no comment"))
+
+  self.sc_event.event.formated_event = {
+    id = fingerprint,
+    name = name,
+    status = "acknowledged",
+    lastReceived = new_from_timestamp(event.entry_time):rfc_3339(),
+    duplicateReason = nil,
+    source = { "centreon" },
+    severity = "info",
+    pushed = true,
+    fingerprint = fingerprint,
+    labels = labels
+  }
+
+  -- Log the formatted event
+  self.sc_logger:info(string.format("[format_event_acknowledgement]: Formatted event for sending: %s", tostring(self.sc_event.event.formated_event)))
+end
+
+--------------------------------------------------------------------------------
+-- Format Host Event
+--------------------------------------------------------------------------------
+
 function EventQueue:format_event_host()
   local event = self.sc_event.event
-  local pdy_custom_details = {}
+  local labels = {}
 
   -- handle hostgroup
   local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-  local pdy_hostgroups = ""
+  add_groups_to_labels(hostgroups, "hostgroups", labels, self.sc_logger)
 
-  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-  if not hostgroups then
-    pdy_hostgroups = "empty host group"
-  else
-    for index, hg_data in ipairs(hostgroups) do
-      if pdy_hostgroups ~= "" then
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-      else
-        pdy_hostgroups = hg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Hostgroups"] = pdy_hostgroups
-  end
-
-  -- handle severity
+  -- Add host severity
   local host_severity = self.sc_broker:get_severity(event.host_id)
+  add_severity_to_labels(host_severity, "host_severity", labels)
 
-  if host_severity then
-    pdy_custom_details['Hostseverity'] = host_severity
-  end
+  -- Add output
+  labels["output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
 
-  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
+  -- Get status and severity
+  local status_label = self.state_host_keep[event.state].status
+  local severity = self.state_host_keep[event.state].severity
+
+  local name = event.cache.host.name .. ": " .. status_label
+  local fingerprint = event.host_id .. "_H"
 
   self.sc_event.event.formated_event = {
-    payload = {
-      summary = tostring(event.cache.host.name) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
-      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
-      severity = self.state_to_severity_mapping[event.state].severity,
-      source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
-      component = tostring(event.cache.host.name),
-      group = pdy_hostgroups,
-      class = "host",
-      custom_details = pdy_custom_details,
-    },
-    routing_key = self.sc_params.params.pdy_routing_key,
-    event_action = self.state_to_severity_mapping[event.state].action,
-    dedup_key = event.host_id .. "_H",
-    client = self.sc_params.params.client,
-    client_url = self.sc_params.params.client_url,
-    links = {
-      {
-        -- should think about using the new resources page but keep it as is for compatibility reasons
-        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-        text = "Link to Centreon host summary"
-      }
-    }
+    id = fingerprint,
+    name = name,
+    status = status_label,
+    lastReceived = new_from_timestamp(event.last_update):rfc_3339(),
+    source = { "centreon" },
+    message = "The host '" .. event.cache.host.name .. "' is in state: " .. status_label,
+    description = labels["output"],
+    severity = severity,
+    pushed = true,
+    labels = labels,
+    fingerprint = fingerprint
   }
 end
 
+--------------------------------------------------------------------------------
+-- Format Service Event
+--------------------------------------------------------------------------------
+
 function EventQueue:format_event_service()
   local event = self.sc_event.event
-  local pdy_custom_details = {}
+  local labels = {}
 
-  -- handle hostgroup
+  -- Add hostgroups and servicegroups
   local hostgroups = self.sc_broker:get_hostgroups(event.host_id)
-  local pdy_hostgroups = ""
+  add_groups_to_labels(hostgroups, "hostgroups", labels, self.sc_logger)
 
-  -- retrieve hostgroups and store them in pdy_custom_details["Hostgroups"]
-  if not hostgroups then
-    pdy_hostgroups = "empty host group"
-  else
-    for index, hg_data in ipairs(hostgroups) do
-      if pdy_hostgroups ~= "" then
-        pdy_hostgroups = pdy_hostgroups .. ", " .. hg_data.group_name
-      else
-        pdy_hostgroups = hg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Hostgroups"] = pdy_hostgroups
-  end
-
-  -- handle servicegroups
   local servicegroups = self.sc_broker:get_servicegroups(event.host_id, event.service_id)
-  local pdy_servicegroups = ""
+  add_groups_to_labels(servicegroups, "servicegroups", labels, self.sc_logger)
 
-  -- retrieve servicegroups and store them in pdy_custom_details["Servicegroups"]
-  if not servicegroups then
-    pdy_servicegroups = "empty service group"
-  else
-    for index, sg_data in ipairs(servicegroups) do
-      if pdy_servicegroups ~= "" then
-        pdy_servicegroups = pdy_servicegroups .. ", " .. sg_data.group_name
-      else
-        pdy_servicegroups = sg_data.group_name
-      end
-    end
-
-    pdy_custom_details["Servicegroups"] = pdy_servicegroups
-  end
-
-  -- handle host severity
+  -- Add severities
   local host_severity = self.sc_broker:get_severity(event.host_id)
-  
-  if host_severity then
-    pdy_custom_details["Hostseverity"] = host_severity
-  end
+  add_severity_to_labels(host_severity, "host_severity", labels)
 
-  -- handle service severity
   local service_severity = self.sc_broker:get_severity(event.host_id, event.service_id)
+  add_severity_to_labels(service_severity, "service_severity", labels)
 
-  if service_severity then
-    pdy_custom_details["Serviceseverity"] = service_severity
-  end
+  -- Add output
+  labels["output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
 
-  pdy_custom_details["Output"] = self.sc_common:ifnil_or_empty(event.output, "no output")
+  -- Get status and severity
+  local status_label = self.state_service_keep[event.state].status
+  local severity = self.state_service_keep[event.state].severity
+
+  local name = event.cache.host.name .. "/" .. event.cache.service.description .. ": " .. status_label
+  local fingerprint = event.host_id .. "_" .. event.service_id
 
   self.sc_event.event.formated_event = {
-    payload = {
-      summary = tostring(event.cache.host.name) .. "/" .. tostring(event.cache.service.description) .. ": " .. self.sc_params.params.status_mapping[event.category][event.element][event.state],
-      timestamp = new_from_timestamp(event.last_update):rfc_3339(),
-      severity = self.state_to_severity_mapping[event.state].severity,
-      source = self.sc_params.params.pdy_source or tostring(event.cache.host.name),
-      component = tostring(event.cache.service.description),
-      group = pdy_hostgroups,
-      class = "service",
-      custom_details = pdy_custom_details,
-    },
-    routing_key = self.sc_params.params.pdy_routing_key,
-    event_action = self.state_to_severity_mapping[event.state].action,
-    dedup_key = event.host_id .. "_" .. event.service_id,
-    client = self.sc_params.params.client,
-    client_url = self.sc_params.params.client_url,
-    links = {
-      {
-        -- should think about using the new resources page but keep it as is for compatibility reasons
-        href = self.sc_params.params.pdy_centreon_url .. "/centreon/main.php?p=20202&o=hd&host_name=" .. tostring(event.cache.host.name),
-        text = "Link to Centreon host summary"
-      }
-    }
+    id = fingerprint,
+    name = name,
+    status = status_label,
+    lastReceived = new_from_timestamp(event.last_update):rfc_3339(),
+    duplicateReason = nil,
+    source = { "centreon" },
+    message = "The service '" .. event.cache.service.description .. "' on host '" .. event.cache.host.name .. "' is in state: " .. status_label,
+    description = labels["output"],
+    severity = severity,
+    pushed = true,
+    labels = labels,
+    fingerprint = fingerprint
   }
 end
 
@@ -329,14 +368,24 @@ function EventQueue:build_payload(payload, event)
   
   return payload
 end
-
+--------------------------------------------------------------------------------
+-- Send Data to KeepHQ
+--------------------------------------------------------------------------------
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   local url = self.sc_params.params.http_server_url
+
+  if os.time() < next_retry_time then
+    self.sc_logger:info("[EventQueue:send_data]: Rate limit delay active. Not sending now.")
+    return false
+  end
+
   queue_metadata.headers = {
-    "content-type: application/json",
-    "content-length:" .. string.len(payload),
+    "Content-Type: application/json",
+    "Accept: application/json",
+    "Content-Length: " .. string.len(payload),
+    "X-API-KEY: " .. tostring(self.sc_params.params.keep_api_key)
   }
 
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
@@ -347,8 +396,8 @@ function EventQueue:send_data(payload, queue_metadata)
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: Pagerduty address is: " .. tostring(url))
+  self.sc_logger:info("[EventQueue:send_data]: Sending JSON: " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: KeepHQ URL: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
@@ -366,8 +415,8 @@ function EventQueue:send_data(payload, queue_metadata)
   if (self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port ~= '') then
       http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
-    else 
-      self.sc_logger:error("[EventQueue:send_data]: proxy_port parameter is not set but proxy_address is used")
+    else
+      self.sc_logger:error("[EventQueue:send_data]: Proxy port not set but proxy address is used")
     end
   end
 
@@ -376,7 +425,7 @@ function EventQueue:send_data(payload, queue_metadata)
     if (self.sc_params.params.proxy_password ~= '') then
       http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
     else
-      self.sc_logger:error("[EventQueue:send_data]: proxy_password parameter is not set but proxy_username is used")
+      self.sc_logger:error("[EventQueue:send_data]: Proxy password not set but proxy username is used")
     end
   end
 
@@ -390,22 +439,28 @@ function EventQueue:send_data(payload, queue_metadata)
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE) 
 
   http_request:close()
-  
-  -- Handling the return code
-  local retval = false
-  -- pagerduty use 202 https://developer.pagerduty.com/api-reference/reference/events-v2/openapiv3.json/paths/~1enqueue/post
-  if http_response_code == 202 then
-    self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
-    retval = true
-  else
-    self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
 
+  local success = false
+  if http_response_code == 429 then
+    -- Handle rate limiting
+    self.sc_logger:info("[EventQueue:send_data]: Rate limited (429). Will retry later.")
+    next_retry_time = os.time() + (self.sc_params.params.rate_limit_delay_minutes * 60)
+  elseif http_response_code >= 200 and http_response_code < 300 then
+    -- Success
+    self.sc_logger:info("[EventQueue:send_data]: Successfully sent data. HTTP code: " .. tostring(http_response_code))
+    success = true
+  else
+    -- Other errors
+    self.sc_logger:error("[EventQueue:send_data]: Failed to send data.")
+    self.sc_logger:error("[EventQueue:send_data]: HTTP code: " .. tostring(http_response_code))
+    self.sc_logger:error("[EventQueue:send_data]: Response body: " .. tostring(http_response_body))
     if payload then
-      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+      self.sc_logger:error("[EventQueue:send_data]: Payload sent: " .. tostring(payload))
     end
+    -- success remains false
   end
-  
-  return retval
+
+  return success
 end
 
 --------------------------------------------------------------------------------
@@ -431,30 +486,43 @@ function write (event)
     return false
   end
 
-  -- initiate event object
+  -- Check event type before accessing downtime
+  if event._type == 65565 or event._type == 65538 then
+    if event.scheduled_downtime_depth ~= 0 then
+      broker_log:info(3, "write: " .. event.host_id .. "_" .. (event.service_id or "H") .. " Scheduled downtime. Dropping.")
+      return true
+    end
+  end
+
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
-      -- format event if it is validated
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
+      else
+        queue.sc_logger:debug("Dropping event: Invalid event.")
       end
-  --- log why the event has been dropped 
     else
-      queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
-        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
-    end    
+      queue.sc_logger:debug("Dropping event: Invalid element.")
+    end
   else
-    queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
-      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
+    queue.sc_logger:debug("Dropping event: Invalid category.")
   end
-  
-  return flush()
+
+  local flush_result = flush()
+  if type(flush_result) ~= "boolean" then
+    queue.sc_logger:error("flush() returned a non-boolean value: " .. tostring(flush_result))
+    return false
+  end
+
+  return flush_result
 end
 
+--------------------------------------------------------------------------------
+-- Flush Queue
+--------------------------------------------------------------------------------
 
--- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
   
