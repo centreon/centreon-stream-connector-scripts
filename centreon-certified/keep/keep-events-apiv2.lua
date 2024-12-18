@@ -7,7 +7,6 @@ local next_retry_time = 0
 
 -- Required Libraries
 local curl = require "cURL"
-local new_from_timestamp = require "luatz.timetable".new_from_timestamp
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -68,7 +67,7 @@ function EventQueue.new(params)
   self.sc_params.params.keep_api_key = params.keep_api_key
 
   self.sc_params.params.rate_limit_delay_minutes = params.rate_limit_delay_minutes or 5
-  self.sc_params.params.max_all_queues_age = self.sc_params.params.max_all_queues_age or 30
+  self.sc_params.params.max_all_queues_age = params.max_all_queues_age or 30
 
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -233,7 +232,7 @@ function EventQueue:format_event_acknowledgement()
     id = fingerprint,
     name = name,
     status = "acknowledged",
-    lastReceived = new_from_timestamp(event.entry_time):rfc_3339(),
+    lastReceived = os.date("!%Y-%m-%dT%H:%M:%S.000", event.entry_time),
     duplicateReason = nil,
     source = { "centreon" },
     severity = "info",
@@ -276,7 +275,7 @@ function EventQueue:format_event_host()
     id = fingerprint,
     name = name,
     status = status_label,
-    lastReceived = new_from_timestamp(event.last_update):rfc_3339(),
+    lastReceived = os.date("!%Y-%m-%dT%H:%M:%S.000", event.last_update),
     source = { "centreon" },
     message = "The host '" .. event.cache.host.name .. "' is in state: " .. status_label,
     description = labels["output"],
@@ -323,7 +322,7 @@ function EventQueue:format_event_service()
     id = fingerprint,
     name = name,
     status = status_label,
-    lastReceived = new_from_timestamp(event.last_update):rfc_3339(),
+    lastReceived = os.date("!%Y-%m-%dT%H:%M:%S.000", event.last_update),
     duplicateReason = nil,
     source = { "centreon" },
     message = "The service '" .. event.cache.service.description .. "' on host '" .. event.cache.host.name .. "' is in state: " .. status_label,
@@ -489,7 +488,7 @@ function write (event)
   -- Check event type before accessing downtime
   if event._type == 65565 or event._type == 65538 then
     if event.scheduled_downtime_depth ~= 0 then
-      broker_log:info(3, "write: " .. event.host_id .. "_" .. (event.service_id or "H") .. " Scheduled downtime. Dropping.")
+      queue.sc_logger:debug("write: " .. event.host_id .. "_" .. (event.service_id or "H") .. " Scheduled downtime. Dropping.")
       return true
     end
   end
