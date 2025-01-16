@@ -592,7 +592,7 @@ function EventQueue:send_data(payload, queue_metadata)
     end
 
     retval = true
-  elseif http_response_code == 400 and string.match(http_response_body, "Trying to insert PBehavior with already existing _id") then
+  elseif http_response_code == 400 and (string.match(tostring(http_response_body), "Trying to insert PBehavior with already existing _id") or string.find(tostring(http_response_body), "ID already exists")) then
     self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
       .. ". Canopsis result: " .. tostring(http_response_body))
     self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
@@ -775,15 +775,6 @@ function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
       .. tostring(http_response_code))
     self.sc_logger:notice("[postCanopsisAPI]: HTTP POST request successful: return code is "
     .. tostring(http_response_code))
-    retval = true
-  elseif http_response_code == 400 and string.find(tostring(http_response_body), "ID already exists") then
-    self.sc_logger:notice("[EventQueue:send_data]: Tried to send duplicate data. It is going to be ignored. "
-      .. "return code is: " .. tostring(http_response_body) .. ". Message is: " .. tostring(http_response_body))
-    
-    if payload then
-      self.sc_logger:notice("[EventQueue:send_data]: sent payload was: " .. tostring(data_to_send))
-    end
-    
     retval = true
   else
     self.sc_logger:error("[postCanopsisAPI]: HTTP POST request FAILED, return code is "
