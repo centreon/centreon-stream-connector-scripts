@@ -780,9 +780,9 @@ function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
     self.sc_logger:notice("[EventQueue:send_data]: Tried to send duplicate data. It is going to be ignored. "
       .. "return code is: " .. tostring(http_response_body) .. ". Message is: " .. tostring(http_response_body))
     
-      if payload then
-        self.sc_logger:notice("[EventQueue:send_data]: sent payload was: " .. tostring(data_to_send))
-      end
+    if payload then
+      self.sc_logger:notice("[EventQueue:send_data]: sent payload was: " .. tostring(data_to_send))
+    end
     
     retval = true
   else
