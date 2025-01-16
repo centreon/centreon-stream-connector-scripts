@@ -776,6 +776,13 @@ function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
     self.sc_logger:notice("[postCanopsisAPI]: HTTP POST request successful: return code is "
     .. tostring(http_response_code))
     retval = true
+  elseif http_respond_code == 400 and string.find(http_response_body, "ID already exists") then
+    self.sc_logger:notice("[EventQueue:send_data]: we probably tried to send a duplicated data. We will ignore it. "
+      .. "return code is: " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    
+    if payload then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(data_to_send))
+    end
   else
     self.sc_logger:error("[postCanopsisAPI]: HTTP POST request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
