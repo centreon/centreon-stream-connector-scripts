@@ -387,7 +387,12 @@ function EventQueue:format_event_downtime()
 
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
-  local downtime_name = "centreon-downtime-" .. event.internal_id .. "-" .. event.entry_time
+
+  if not event.internal_id then
+    event.internal_id = event.id
+  end
+
+  local downtime_name = "centreon-downtime-" .. tostring(event.internal_id) .. "-" .. tostring(event.entry_time)
 
   if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
     local metadata = {
