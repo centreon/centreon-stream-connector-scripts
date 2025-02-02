@@ -78,40 +78,42 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
-
+  
   -- only load the custom code file, not executed yet
   if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
-
+  
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-
+  
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
-
+  
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
       [elements.service_status.id] = function () return self:format_event_service() end
     }
   }
-
+  
   self.format_metric = {
     [categories.neb.id] = {
       [elements.host_status.id] = function (metric) return self:format_metric_host(metric) end,
       [elements.service_status.id] = function (metric) return self:format_metric_service(metric) end
     }
   }
-
+  
   self.send_data_method = {
     [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
-
+  
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_logger:set_params(self.sc_params.params)
+  self.sc_logger:set_common_object(self.sc_common)
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -123,7 +125,7 @@ end
 function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
-
+  
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
 
   -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
@@ -133,6 +135,7 @@ function EventQueue:format_accepted_event()
       .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
       .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
   else
+    self.sc_logger:log_trace("formatting_event", self.sc_event.event.host_id)
     self.format_event[category][element]()
   end
 
@@ -166,6 +169,7 @@ function EventQueue:format_metric_host(metric)
   local event = self.sc_event.event
   metric.custom_id = event.host_id .. "-" .. metric.metric_name
   self:format_metric_event(metric)
+  self.sc_logger:log_trace("is_host_metric_formated", self.sc_event.event.host_id)
 end
 
 --------------------------------------------------------------------------------
@@ -177,6 +181,7 @@ function EventQueue:format_metric_service(metric)
   local event = self.sc_event.event
   metric.custom_id = event.host_id .. "-" .. event.service_id .. "-" .. metric.metric_name
   self:format_metric_event(metric)
+  self.sc_logger:log_trace("is_service_metric_formated", self.sc_event.event.host_id)
 end
 
 --------------------------------------------------------------------------------
@@ -278,7 +283,7 @@ function EventQueue:add()
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
-
+  self.sc_logger:log_trace("add_event", self.sc_event.event.host_id)
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
@@ -326,6 +331,7 @@ function EventQueue:send_data(payload, queue_metadata)
   -- write payload in the logfile for test purpose
   if params.send_data_test == 1 then
     self.sc_logger:notice("[send_data]: " .. tostring(payload))
+    self.sc_logger:log_trace("event_not_sent", nil, {payload = payload, result = "send data test"})
     return true
   end
 
@@ -378,10 +384,13 @@ function EventQueue:send_data(payload, queue_metadata)
   -- https://clickhouse.com/docs/en/interfaces/http#http_response_codes_caveats other than 200 is not good and even with 200 we must check returned data
   if http_response_code ~= 200 then
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    self.sc_logger:log_trace("event_not_sent", nil, {payload = payload, result = http_response_body})
   elseif http_response_code == 200 and string.find(tostring(http_response_body), "DB:Exception:") then
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+    self.sc_logger:log_trace("event_not_sent", nil, {payload = payload, result = http_response_body})
   else
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
+    self.sc_logger:log_trace("event_sent", nil, {payload = payload, result = http_response_body})
     retval = true
   end
   
@@ -457,17 +466,22 @@ function write (event)
   queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then
+    self.sc_logger:log_trace("valid_category", event.host_id)
     if queue.sc_metrics:is_valid_bbdo_element() then
+      self.sc_logger:log_trace("valid_element", event.host_id)
       -- format event if it is validated
       if queue.sc_metrics:is_valid_metric_event() then
+        self.sc_logger:log_trace("valid_metric_event", event.host_id)
         queue:format_accepted_event()
       end
   --- log why the event has been dropped 
     else
+      self.sc_logger:log_trace("write", 3, event.host_id, "DROP")
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
     end    
   else
+    self.sc_logger:log_trace("write", 4, event.host_id, "DROP")
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end

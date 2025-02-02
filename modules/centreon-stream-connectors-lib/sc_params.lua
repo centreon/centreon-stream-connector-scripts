@@ -124,6 +124,8 @@ function sc_params.new(common, logger)
     logfile = "",
     log_level = "",
     log_curl_commands = 0,
+    enable_trace = 0,
+    trace_host_id_list = "",
 
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",
@@ -1037,6 +1039,7 @@ function ScParams:check_params()
 
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
   self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
+  self:build_trace_host_list(self.params.trace_host_id_list)
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -1237,6 +1240,28 @@ function ScParams:build_and_validate_filters_pattern(param_list)
     else
       table.insert(self.params[param_name .. "_pattern_list"], self.params[param_name])
     end
+  end
+end
+
+function ScParams:build_trace_host_list(param_value)
+  if self.params.enable_trace == 1 then
+    if param_value == "" then
+      self.sc_logger:notice("[sc_params:build_trace_host_list]: enable_trace param is set to 1 but no trace_host_id_list provided. Trace is going to be disabled")
+      self.params.enable_trace = 0
+      return
+    end
+
+    local tmp_trace_list = self.common:split(param_value)
+    local trace_list = {}
+    local host_info
+    
+    for index, host_id in ipairs(tmp_trace_list) do
+      trace_list[tonumber(host_id)] = tonumber(host_id)
+    end
+
+    self.params.trace_host_id_list = trace_list
+  elseif self.params.trace_host_id_list ~= "" and self.params.enable_trace == 0 then
+    self.sc_logger:notice("[sc_params:build_trace_host_list]: trace_host_id_list is not empty but enable_trace param is set to 0. trace_host_id_list param is going to be ignored")
   end
 end
 

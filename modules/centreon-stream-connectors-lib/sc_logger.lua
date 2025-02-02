@@ -52,10 +52,21 @@ function sc_logger.new(logfile, severity)
 
   self.logfile = logfile or "/var/log/centreon-broker/stream-connector.log"
   broker_log:set_parameters(self.severity, self.logfile)
-  
+
+  self.trace_action = ""
+  self.params = params
+
   setmetatable(self, { __index = ScLogger })
 
   return self
+end
+
+function ScLogger:set_params(params)
+  self.params = params
+end
+
+function ScLogger:set_common_object(sc_common)
+  self.sc_common = sc_common
 end
 
 --- error: write an error message
@@ -153,6 +164,58 @@ function ScLogger:log_curl_command(url, metadata, params, data, basic_auth)
     self:notice("[sc_logger:log_curl_command]: " .. curl_string)
   else
     self:debug("[sc_logger:log_curl_command]: curl command not logged because log_curl_commands param is set to: " .. params.log_curl_commands)
+  end
+end
+
+function ScLogger:log_trace(step, host_id, flush)
+  if self.params.enable_trace == 0 then
+    return
+  end
+
+  if not host_id and not flush then
+    return
+  end
+
+
+
+  if not self.params.trace_host_id_list[host_id] and not flush then
+    return
+  end
+
+  if type(self.trace_action) ~= "table" then
+    self.trace_action = {}
+  end
+
+  if not self.trace_action[host_id] and host_id then
+    self.trace_action[host_id] = {}
+  end
+
+  if host_id then
+    self.trace_action[host_id][step] = true
+  end
+
+  -- local log_string = "[TRACE][" .. tostring(func_name) .. "][" .. tostring(step) .. "]: " .. tostring(self.params.trace_host_id_list[host_id]) .. " " .. tostring(action)  
+
+  -- self:notice(log_string)
+
+  if flush and type(self.trace_action) == "table" then
+    local msg = "| host id | action | data |\n| -- | -- | -- |\n"
+    local h_name
+    for host_id, trace_info in ipairs(self.trace_action) do
+      h_name = broker_cache:get_hostname(host_id)
+
+      if not h_name then
+        h_name = host_id
+      end
+
+      for step_name, value in pairs(trace_info) do
+        msg = msg   .. "| " .. tostring(h_name) .. " | " .. tostring(step_name) .. " | " .. tostring(value) .. " |\n"
+      end
+    end
+
+    msg = msg .. "\n\n| sent payload | result |\n| -- | -- |\n| " .. tostring(flush.payload) .. " | " .. tostring(flush.result) .. " |\n"
+    self.trace_action = ""
+    self:notice(msg)
   end
 end
 

@@ -134,11 +134,15 @@ function ScMetrics:is_valid_host_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_host", self.sc_event.event.host_id)
+
   -- return false if host is not monitored from an accepted poller
   if not self.sc_event:is_valid_poller() then
     self.sc_logger:warning("[sc_metrics:is_valid_host_metric_event]: host_id: " .. tostring(self.sc_event.event.host_id) .. " is not monitored from an accepted poller")
     return false
   end
+
+  self.sc_logger:log_trace("valid_poller", self.sc_event.event.host_id)
 
   -- return false if host has not an accepted severity
   if not self.sc_event:is_valid_host_severity() then
@@ -146,11 +150,15 @@ function ScMetrics:is_valid_host_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_host_severity", self.sc_event.event.host_id)
+
   -- return false if host is not in an accepted hostgroup
   if not self.sc_event:is_valid_hostgroup() then
     self.sc_logger:warning("[sc_metrics:is_valid_host_metric_event]: host_id: " .. tostring(self.sc_event.event.host_id) .. " is not in an accepted hostgroup")
     return false
   end
+
+  self.sc_logger:log_trace("valid_hostgroup", self.sc_event.event.host_id)
 
   -- return false if there is no perfdata or it can't be parsed
   if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
@@ -158,6 +166,8 @@ function ScMetrics:is_valid_host_metric_event()
       .. tostring(self.sc_event.event.host_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
     return false
   end
+
+  self.sc_logger:log_trace("valid_perfdata", self.sc_event.event.host_id)
 
   return true
 end
@@ -171,11 +181,15 @@ function ScMetrics:is_valid_service_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_host", self.sc_event.event.host_id)
+
   -- return false if we can't get service description of service id is nil
   if not self.sc_event:is_valid_service() then
     self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service with id: " .. tostring(self.sc_event.event.service_id) .. " hasn't been validated")
     return false
   end
+
+  self.sc_logger:log_trace("valid_service", self.sc_event.event.host_id)
 
   -- return false if host is not monitored from an accepted poller
   if not self.sc_event:is_valid_poller() then
@@ -184,12 +198,16 @@ function ScMetrics:is_valid_service_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_poller", self.sc_event.event.host_id)
+
   -- return false if host has not an accepted severity
   if not self.sc_event:is_valid_host_severity() then
     self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id) 
       .. ". host_id: " .. tostring(self.sc_event.event.host_id) .. ". Host has not an accepted severity")
     return false
   end
+
+  self.sc_logger:log_trace("valid_host_severity", self.sc_event.event.host_id)
 
   -- return false if service has not an accepted severity
   if not self.sc_event:is_valid_service_severity() then
@@ -198,6 +216,8 @@ function ScMetrics:is_valid_service_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_service_severity", self.sc_event.event.host_id)
+
   -- return false if host is not in an accepted hostgroup
   if not self.sc_event:is_valid_hostgroup() then
     self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service_id: " .. tostring(self.sc_event.event.service_id) 
@@ -205,11 +225,15 @@ function ScMetrics:is_valid_service_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_hostgroup", self.sc_event.event.host_id)
+
   -- return false if service is not in an accepted servicegroup 
   if not self.sc_event:is_valid_servicegroup() then
     self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service_id: " .. tostring(self.sc_event.event.service_id) .. " is not in an accepted servicegroup")
     return false
   end
+
+  self.sc_logger:log_trace("valid_servicegroup", self.sc_event.event.host_id)
 
   -- return false if there is no perfdata or they it can't be parsed
   if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
@@ -217,6 +241,8 @@ function ScMetrics:is_valid_service_metric_event()
       .. tostring(self.sc_event.event.service_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perfdata))
     return false
   end
+
+  self.sc_logger:log_trace("valid_perfdata", self.sc_event.event.host_id)
 
   return true
 end
@@ -229,6 +255,8 @@ function ScMetrics:is_valid_kpi_metric_event()
       .. tostring(self.sc_event.event.kpi_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
     return false
   end
+
+  self.sc_logger:log_trace("valid_perfdata", self.sc_event.event.host_id)
 
   return true
 end
@@ -275,6 +303,7 @@ function ScMetrics:build_metric(format_metric)
       -- use stream connector method to format the metric event
       format_metric(metrics_info[metric])
     else
+      self.sc_logger:log_trace("excluded_metric", self.sc_event.event.host_id)
       self.sc_logger:debug("[ScMetric:build_metric]: metric name is filtered out: " .. tostring(metric_data.metric_name) .. ". Metric name filter is: " .. tostring(self.params.accepted_metrics))
     end
   end
