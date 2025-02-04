@@ -158,7 +158,7 @@ end
 -- refreshToken: refresh auth token
 --------------------------------------------------------------------------------
 function EventQueue:refreshToken (token)
-  local data = "grant_type=refresh_token&client_id=" .. broker.url_encode(self.sc_params.params.client_id) .. "&client_secret=" .. broker.url_encode(self.sc_params.params.client_secret)
+  local data = "grant_type=refresh_token&client_id=" .. broker.url_encode(self.sc_params.params.client_id) .. "&client_secret=" .. broker.url_encode(self.sc_params.params.client_secret)  .. "&refresh_token=" .. token
   
   local res = self:call(
     "oauth_token.do",
