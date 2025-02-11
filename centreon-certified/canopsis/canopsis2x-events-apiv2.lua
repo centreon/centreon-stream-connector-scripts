@@ -492,6 +492,7 @@ function EventQueue:send_data(payload, queue_metadata)
   local send_downtime_comment = false
   local http_method = "POST"
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
+  local data
 
   -- Deletion (for downtimes)
   if queue_metadata.method ~= nil and queue_metadata.method == "DELETE" then
@@ -501,7 +502,7 @@ function EventQueue:send_data(payload, queue_metadata)
       "accept: */*",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
-    payload = broker.json_encode(payload)
+    data = broker.json_encode(payload)
     self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, "")
 
   -- Downtime events creation
@@ -513,28 +514,28 @@ function EventQueue:send_data(payload, queue_metadata)
     }
     downtime_comment = table_extract_and_remove_key(payload,"comment")
     send_downtime_comment = true
-    payload = broker.json_encode(payload)
+    data = broker.json_encode(payload)
 
-    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
+    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, data)
 
   -- Other Event than downtimes
   else
-    payload = broker.json_encode(payload)
+    data = broker.json_encode(payload)
     queue_metadata.headers = {
       "content-length: " .. string.len(payload),
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
-    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
+    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, data)
   end
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(payload))
+    self.sc_logger:notice("[send_data]: " .. tostring(data))
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. payload)
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. data)
   self.sc_logger:info("[EventQueue:send_data]: Canopsis address is: " .. tostring(url))
 
   local http_response_body = ""
@@ -570,7 +571,7 @@ function EventQueue:send_data(payload, queue_metadata)
     end
   end
 
-  http_request:setopt_postfields(payload)
+  http_request:setopt_postfields(data)
 
   -- performing the HTTP request
   http_request:perform()
@@ -612,8 +613,8 @@ function EventQueue:send_data(payload, queue_metadata)
     self.sc_logger:error("[EventQueue:send_data]: HTTP " .. http_method .. " request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
 
-    if payload then
-      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
+    if data then
+      self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(data))
     end
   end
 
