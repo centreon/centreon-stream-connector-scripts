@@ -75,11 +75,14 @@ function ScBroker:get_host_all_infos(host_id)
         h.display_name,
         ehi.ehi_notes AS notes,
         ehi.ehi_notes_url AS notes_url,
-        ehi.ehi_action_url AS action_url 
+        ehi.ehi_action_url AS action_url,
+        nhr.nagios_server_id AS instance_id
       FROM host h,
-        extended_host_information ehi
+        extended_host_information ehi,
+        ns_host_relation nhr
       WHERE ehi.host_host_id = h.host_id
         AND h.host_activate <> '0'
+        AND h.host_id = nhr.host_host_id
         AND h.host_id = ]] .. tonumber(host_id)
 
     self.sc_logger:debug("[sc_broker:get_host_all_infos]: no information found in broker cache for host: " .. tostring(host_id) .. ", going to check in the centreon database with query: " .. tostring(query))
