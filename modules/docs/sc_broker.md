@@ -1,50 +1,54 @@
 # Documentation of the sc_broker module
 
-- [Documentation of the sc_broker module](#documentation-of-the-sc_broker-module)
+- [Documentation of the sc\_broker module](#documentation-of-the-sc_broker-module)
   - [Introduction](#introduction)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
-  - [get_host_all_infos method](#get_host_all_infos-method)
-    - [get_host_all_infos: parameters](#get_host_all_infos-parameters)
-    - [get_host_all_infos: returns](#get_host_all_infos-returns)
-    - [get_host_all_infos: example](#get_host_all_infos-example)
-  - [get_service_all_infos method](#get_service_all_infos-method)
-    - [get_service_all_infos: parameters](#get_service_all_infos-parameters)
-    - [get_service_all_infos: returns](#get_service_all_infos-returns)
-    - [get_service_all_infos: example](#get_service_all_infos-example)
-  - [get_host_infos method](#get_host_infos-method)
-    - [get_host_infos: parameters](#get_host_infos-parameters)
-    - [get_host_infos: returns](#get_host_infos-returns)
-    - [get_host_infos: example](#get_host_infos-example)
-  - [get_service_infos method](#get_service_infos-method)
-    - [get_service_infos: parameters](#get_service_infos-parameters)
-    - [get_service_infos: returns](#get_service_infos-returns)
-    - [get_service_infos: example](#get_service_infos-example)
-  - [get_hostgroups method](#get_hostgroups-method)
-    - [get_hostgroups: parameters](#get_hostgroups-parameters)
-    - [get_hostgroups: returns](#get_hostgroups-returns)
-    - [get_hostgroups: example](#get_hostgroups-example)
-  - [get_servicegroups method](#get_servicegroups-method)
-    - [get_servicegroups: parameters](#get_servicegroups-parameters)
-    - [get_servicegroups: returns](#get_servicegroups-returns)
-    - [get_servicegroups: example](#get_servicegroups-example)
-  - [get_severity method](#get_severity-method)
-    - [get_severity: parameters](#get_severity-parameters)
-    - [get_severity: returns](#get_severity-returns)
-    - [get_severity: example](#get_severity-example)
-  - [get_instance method](#get_instance-method)
-    - [get_instance: parameters](#get_instance-parameters)
-    - [get_instance: returns](#get_instance-returns)
-    - [get_instance: example](#get_instance-example)
-  - [get_ba_infos method](#get_ba_infos-method)
-    - [get_ba_infos: parameters](#get_ba_infos-parameters)
-    - [get_ba_infos: returns](#get_ba_infos-returns)
-    - [get_ba_infos: example](#get_ba_infos-example)
-  - [get_bvs_infos method](#get_bvs_infos-method)
-    - [get_bvs_infos: parameters](#get_bvs_infos-parameters)
-    - [get_bvs_infos: returns](#get_bvs_infos-returns)
-    - [get_bvs_infos: example](#get_bvs_infos-example)
+  - [get\_host\_all\_infos method](#get_host_all_infos-method)
+    - [get\_host\_all\_infos: parameters](#get_host_all_infos-parameters)
+    - [get\_host\_all\_infos: returns](#get_host_all_infos-returns)
+    - [get\_host\_all\_infos: example](#get_host_all_infos-example)
+  - [get\_service\_all\_infos method](#get_service_all_infos-method)
+    - [get\_service\_all\_infos: parameters](#get_service_all_infos-parameters)
+    - [get\_service\_all\_infos: returns](#get_service_all_infos-returns)
+    - [get\_service\_all\_infos: example](#get_service_all_infos-example)
+  - [get\_host\_infos method](#get_host_infos-method)
+    - [get\_host\_infos: parameters](#get_host_infos-parameters)
+    - [get\_host\_infos: returns](#get_host_infos-returns)
+    - [get\_host\_infos: example](#get_host_infos-example)
+  - [get\_service\_infos method](#get_service_infos-method)
+    - [get\_service\_infos: parameters](#get_service_infos-parameters)
+    - [get\_service\_infos: returns](#get_service_infos-returns)
+    - [get\_service\_infos: example](#get_service_infos-example)
+  - [get\_hostgroups method](#get_hostgroups-method)
+    - [get\_hostgroups: parameters](#get_hostgroups-parameters)
+    - [get\_hostgroups: returns](#get_hostgroups-returns)
+    - [get\_hostgroups: example](#get_hostgroups-example)
+  - [get\_servicegroups method](#get_servicegroups-method)
+    - [get\_servicegroups: parameters](#get_servicegroups-parameters)
+    - [get\_servicegroups: returns](#get_servicegroups-returns)
+    - [get\_servicegroups: example](#get_servicegroups-example)
+  - [get\_severity method](#get_severity-method)
+    - [get\_severity: parameters](#get_severity-parameters)
+    - [get\_severity: returns](#get_severity-returns)
+    - [get\_severity: example](#get_severity-example)
+  - [get\_instance method](#get_instance-method)
+    - [get\_instance: parameters](#get_instance-parameters)
+    - [get\_instance: returns](#get_instance-returns)
+    - [get\_instance: example](#get_instance-example)
+  - [get\_ba\_infos method](#get_ba_infos-method)
+    - [get\_ba\_infos: parameters](#get_ba_infos-parameters)
+    - [get\_ba\_infos: returns](#get_ba_infos-returns)
+    - [get\_ba\_infos: example](#get_ba_infos-example)
+  - [get\_bvs\_infos method](#get_bvs_infos-method)
+    - [get\_bvs\_infos: parameters](#get_bvs_infos-parameters)
+    - [get\_bvs\_infos: returns](#get_bvs_infos-returns)
+    - [get\_bvs\_infos: example](#get_bvs_infos-example)
+  - [get\_centreon\_db\_info method](#get_centreon_db_info-method)
+    - [get\_centreon\_db\_info: parameters](#get_centreon_db_info-parameters)
+    - [get\_centreon\_db\_info: returns](#get_centreon_db_info-returns)
+    - [get\_centreon\_db\_info: example](#get_centreon_db_info-example)
 
 ## Introduction
 
@@ -56,18 +60,18 @@ Since this is OOP, it is required to initiate your module
 
 ### Module constructor
 
-Constructor can be initialized with one parameter or it will use a default value.
+Constructor can be initialized with two parameters.
 
+- a params table.
 - sc_logger. This is an instance of the sc_logger module
 
-If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+If you don't provide the sc_logger parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
 
 ### constructor: Example
 
 ```lua
 -- load modules
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 
 -- initiate "mandatory" informations for the logger module
 local logfile = "/var/log/test_broker.log"
@@ -76,8 +80,11 @@ local severity = 1
 -- create a new instance of the sc_logger module
 local test_logger = sc_logger.new(logfile, severity)
 
--- create a new instance of the sc_common module
-local test_broker = sc_broker.new(test_logger)
+-- create a new instance of the sc_param module
+local test_param = sc_param.new(test_common, test_logger)
+
+-- create a new instance of the sc_broker module
+local test_broker = sc_broker.new(test_param.params, test_logger)
 ```
 
 ## get_host_all_infos method
@@ -613,4 +620,59 @@ local result = test_broker:get_ba_infos(ba_id)
   
   --> result[2].bv_name is: "another-BV"
 --]]
+```
+
+## get_centreon_db_info method
+
+The **get_centreon_db_info** method runs a query (that must return only one row) in the centreon database to build a cache from the db when asked to. If the query return multiple rows, only the last one will be returned
+
+This second cache method is currently only triggered when using the following sc_cache methods:
+
+- get_host_all_infos
+- get_service_all_infos
+
+The cache that is built this way will not return the same amount of information. This feature's purpose is not to replace the broker cache. It is just a best effort mecanism in case of a faulty broker cache.
+
+### get_centreon_db_info: parameters
+
+| parameter        | type   | optional | default value |
+| ---------------- | ------ | -------- | ------------- |
+| the query to run | string | no       |               |
+
+### get_centreon_db_info: returns
+
+| return                          | type  | always | condition                                          |
+| ------------------------------- | ----- | ------ | -------------------------------------------------- |
+| a table the result of the query | table | no     | it will return nil if the query failed or is empty |
+
+### get_centreon_db_info: example
+
+```lua
+local host_id = 2712
+local query = [[
+      SELECT h.host_id, 
+        h.host_name AS name, 
+        h.host_alias AS alias, 
+        h.host_address AS address, 
+        h.display_name,
+        ehi.ehi_notes AS notes,
+        ehi.ehi_notes_url AS notes_url,
+        ehi.ehi_action_url AS action_url 
+      FROM host h,
+        extended_host_information ehi
+      WHERE ehi.host_host_id = h.host_id
+        AND h.host_activate <> '0'
+        AND h.host_id = ]] .. tonumber(host_id)
+
+local result = test_broker:get_centreon_db_info(query)
+--[[
+  --> result structure is: 
+  {
+    "address" = "127.0.0.1",
+    "host_id" = "2712",
+    "name" = "bordeaux",
+    "alias" = "what a beautiful city",
+    "notes" = "you should go there when you have time"
+  }
+]]--
 ```
