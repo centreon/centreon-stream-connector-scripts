@@ -73,7 +73,7 @@ function EventQueue.new(params)
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.timestamp_conversion_format = params.timestamp_conversion_format or "%Y-%m-%d %H:%M:%S"
-
+  self.sc_params.params.accepted_servicegroups = params.accepted_servicegroups
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
