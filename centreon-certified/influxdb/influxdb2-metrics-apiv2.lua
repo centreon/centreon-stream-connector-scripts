@@ -219,8 +219,8 @@ function EventQueue:build_generic_tags(metric)
 
   -- add metric subinstances in tags
   if metric.subinstance[1] then
-    for subinstance_name, subinstance_value in ipairs(metric.subinstance) do
-      tags = tags .. ',' .. self.sc_common:trim(subinstance_name, "_") .. '=' .. self:escape_special_characters(subinstance_value)
+    for subinstance_id, subinstance_name in ipairs(metric.subinstance) do
+      tags = tags .. ',subinstance_' .. subinstance_id .. '=' .. self:escape_special_characters(subinstance_name)
     end
   end
 

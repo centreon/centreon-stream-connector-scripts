@@ -387,7 +387,12 @@ function EventQueue:format_event_downtime()
 
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
-  local downtime_name = "centreon-downtime-" .. event.internal_id .. "-" .. event.entry_time
+
+  if not event.internal_id then
+    event.internal_id = event.id
+  end
+
+  local downtime_name = "centreon-downtime-" .. tostring(event.internal_id) .. "-" .. tostring(event.entry_time)
 
   if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
     local metadata = {
@@ -427,7 +432,8 @@ function EventQueue:format_event_downtime()
       -- exdates = {}
     }
 
-    if event.service_id then
+    -- in downtime events, service id is equal to 0 when the downtime is about a host (same for BBDO 2 and 3)
+    if event.service_id ~= 0 then
       self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.service.description)
         .. "/" .. tostring(event.cache.host.name)
     else
@@ -592,10 +598,15 @@ function EventQueue:send_data(payload, queue_metadata)
     end
 
     retval = true
-  elseif http_response_code == 400 and string.match(http_response_body, "Trying to insert PBehavior with already existing _id") then
+  elseif http_response_code == 400 and (string.match(tostring(http_response_body), "Trying to insert PBehavior with already existing _id") or string.find(tostring(http_response_body), "ID already exists")) then
     self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
       .. ". Canopsis result: " .. tostring(http_response_body))
     self.sc_logger:info("[EventQueue:send_data]: duplicated downtime event: " .. tostring(data))
+    retval = true
+  elseif http_response_code == 404 and (string.match(tostring(http_response_body), "Not found")) then
+    self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime deletion with id: " .. tostring(payload.name)
+      .. ". Canopsis result: " .. tostring(http_response_body))
+    self.sc_logger:info("[EventQueue:send_data]: downtime already removed. event: " .. tostring(data))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP " .. http_method .. " request FAILED, return code is "
