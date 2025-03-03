@@ -138,6 +138,13 @@ function sc_params.new(common, logger)
     metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
 
+    --[[ cache mecanisms ]]--
+    cache_source = "broker",
+    -- engine type cache params. Only usable when the stream connector is running on a poller
+    engine_host_cfg = "/etc/centreon-engine/hosts.cfg",
+    engine_service_cfg = "/etc/centreon-engine/services.cfg",
+    broker_module_json = "/etc/centreon-broker/central-module.json",
+
     -- initiate mappings
     element_mapping = {},
     status_mapping = {},
