@@ -73,7 +73,13 @@ function ScFlush:create_new_virtual_queue(category_id, virtual_element_id, virtu
   end
 
   -- add a prefix for the element name to have it is easily identified as being a virtual queue
-  virtual_element_name = "virtual_" .. virtual_element_name
+  virtual_element_name = "_virtual_" .. virtual_element_name
+
+  if self.params.accepted_elements_info[virtual_element_name] then
+    self.sc_logger:error("[sc_flush:create_new_virtual_queue]: virtual element name already exists: " .. tostring(virtual_element_name)
+      .. ". You must change it. (the _virtual_ prefix is automatically added by stream connectors libraries)")
+    return false
+  end
 
   -- create queue
   self.queues[category_id][virtual_element_id] = {
