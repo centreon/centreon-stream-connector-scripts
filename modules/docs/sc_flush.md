@@ -5,6 +5,10 @@
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
+  - [create\_new\_virtual\_queue method](#create_new_virtual_queue-method)
+    - [create\_new\_virtual\_queue: parameters](#create_new_virtual_queue-parameters)
+    - [create\_new\_virtual\_queue: returns](#create_new_virtual_queue-returns)
+    - [create\_new\_virtual\_queue: example](#create_new_virtual_queue-example)
   - [add\_queue\_metadata method](#add_queue_metadata-method)
     - [add\_queue\_metadata: parameters](#add_queue_metadata-parameters)
     - [add\_queue\_metadata: example](#add_queue_metadata-example)
@@ -69,6 +73,61 @@ local params = {
 -- create a new instance of the sc_flush module
 local test_flush = sc_flush.new(params, test_logger)
 ```
+
+## create_new_virtual_queue method
+
+The **create_new_virtual_queue** method will create a virtual queue. Normally queues are created for accepted elements from the known BBDO elements. You can extend this mecanism with virtual queues.
+
+Use case:
+downtime end events are not sent the same way than downtime start events (not sent to the same API endpoint or not the same HTTP method for example).
+with the standard queue mecanism, those events are stored in the same queue. A queue only accepts a single method to send events (same endpoint, same HTTP method and so on). Therefore you can't discriminate downtime start and downtime end events.
+That is where virtual queues come in handy. Instead of storing both event in the standard downtime queue, you create a virtual queue for one of them.
+Usually when creating a virtual queue, you should then add metadata to your virtual queue using the [**add_queue_metadata method**](#add_queue_metadata-method)
+
+### create_new_virtual_queue: parameters
+
+| parameter                                   | type   | optional | default value |
+| ------------------------------------------- | ------ | -------- | ------------- |
+| the category id of the virtual queue        | number | no       |               |
+| the virtual element id of the virtual queue | number | no       |               |
+| the name of the virtual element             | string | no       |               |
+
+### create_new_virtual_queue: returns
+
+| return        | type    | always | condition |
+| ------------- | ------- | ------ | --------- |
+| true or false | boolean | yes    |           |
+
+### create_new_virtual_queue: example
+
+```lua
+-- add a special queue for downtime deletion
+local virtual_queues_info = {
+  downtime_end_element = {
+    id = 1000, -- a virtual element id that doesn't exist
+    name = "downtime_end"
+  }
+}
+
+local category = 1 -- 1 = neb category, since downtime are from the neb category, it makes sense to put them here
+
+test_flush:create_new_virtual_queue(category, virtual_queues_info.downtime_end_element.id, virtual_queues_info.downtime_end_element.name)
+--> the downtime_end category is now created (category: 1, element: 1000)  
+--[[
+  test_flush.queues = {
+    [1] = {
+      [1000] = {
+        events = {},
+        queue_metadata = {
+          category_id = 1,
+          element_id = 1000
+        }
+      }
+    }
+  }
+]]--
+```
+
 
 ## add_queue_metadata method
 
