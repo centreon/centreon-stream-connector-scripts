@@ -65,7 +65,7 @@ function EventQueue.new(params)
   end
 
   -- force buffer size to 1 because this SC does not allows the event bulk at this moment. (can't send more than one event at once)
-  params.max_buffer_size = 1
+  -- params.max_buffer_size = 1
   self.sc_logger:notice("[EventQueue:new]: max_buffer_size = 1 (force buffer size to 1 because this SC does not allows the event bulk at this moment)")
 
   -- mandatory parameter
@@ -77,7 +77,7 @@ function EventQueue.new(params)
   self.sc_params.params.canopsis_downtime_comment_route = params.canopsis_downtime_comment_route or "/api/v4/pbehavior-comments"
   self.sc_params.params.canopsis_downtime_reason_name =  params.canopsis_downtime_reason_name or "Centreon_downtime"
   self.sc_params.params.canopsis_downtime_reason_route = params.canopsis_downtime_reason_route or "/api/v4/pbehavior-reasons"
-  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/pbehaviors"
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/bulk/pbehaviors"
   self.sc_params.params.canopsis_downtime_send_pbh = params.canopsis_downtime_send_pbh or 1
   self.sc_params.params.canopsis_downtime_type_name = params.canopsis_downtime_type_name or "Default maintenance"
   self.sc_params.params.canopsis_downtime_type_route = params.canopsis_downtime_type_route or "/api/v4/pbehavior-types"
@@ -124,6 +124,18 @@ function EventQueue.new(params)
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.downtime.id, {event_route = self.sc_params.params.canopsis_downtime_route})
+  
+  -- add a special queue for downtime deletion
+  self.virtual_queues_info = {
+    downtime_end_element = {
+      id = 1000,
+      name = "downtime_end"
+    }
+  }
+
+  if self.sc_flush:create_new_virtual_queue(categories.neb.id, self.virtual_queues_info.downtime_end_element.id, self.virtual_queues_info.downtime_end_element.name) then
+    self.sc_flush:add_queue_metadata(categories.neb.id, self.virtual_queues_info.downtime_end_element.id, {event_route = self.sc_params.params.canopsis_downtime_route, method = "DELETE"})
+  end
 
   self.format_event = {
     [categories.neb.id] = {
@@ -216,7 +228,12 @@ function EventQueue.new(params)
       method = "GET",
       event_route = "/api/v4/app-info"
     }
-    canopsis_version = self:getCanopsisAPI(metadata_type, "/api/v4/app-info", "", "")
+
+    if self.sc_params.params.send_data_test == 1 then
+      self.canopsis_version = "fake_canopsis_version"
+    else
+      self.canopsis_version = self:getCanopsisAPI(metadata_type, "/api/v4/app-info", "", "")
+    end
   end
 
   return self
@@ -394,14 +411,14 @@ function EventQueue:format_event_downtime()
     event.internal_id = event.id
   end
 
-  local downtime_name = "centreon-downtime-" .. tostring(event.internal_id) .. "-" .. tostring(event.entry_time)
+  local downtime_name = "centreon-downtime-" .. tostring(event.host_id) .. "-" .. tostring(event.service_id) .. "-" .. tostring(event.internal_id) .. "-" .. tostring(event.entry_time)
 
   if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
-    local metadata = {
-      method = "DELETE",
-      event_route = self.sc_params.params.canopsis_downtime_route
+    -- transform the element_id into the virtual one. The add() function will properly store the event in the virtual queue. Since filters have already been appied, we don't mind tweaking the element_id
+    self.sc_event.event.element = self.virtual_queues_info.downtime_end_element.id
+    self.sc_event.event.formated_event = {
+      name = downtime_name
     }
-    self:send_data({name = downtime_name}, metadata)
   else
     self.sc_event.event.formated_event = {
       _id = downtime_name,
@@ -443,7 +460,7 @@ function EventQueue:format_event_downtime()
     end
 
     -- In case of Canopsis version 22.10.X a color value is add in downtime:
-    if string.find(canopsis_version, "22.10.") ~= nil then
+    if self.canopsis_version and string.find(self.canopsis_version, "22.10.") ~= nil then
       self.sc_event.event.formated_event["color"] = "#73D8FF"
     end
   end
@@ -456,18 +473,16 @@ function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
-  local next = next
 
-  if next(self.sc_event.event.formated_event) ~= nil then
-    self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
-      .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
-    self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
+  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
-    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+ -- self.sc_logger:notice(self.sc_common:dumper(self.sc_flush.queues[category]))
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-    self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
-    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
-  end
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
+  .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -488,7 +503,7 @@ end
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
-
+  -- self.sc_logger:notice(self.sc_common:dumper(payload))
   local params = self.sc_params.params
   local downtime_comment = ""
   local send_downtime_comment = false
@@ -496,25 +511,24 @@ function EventQueue:send_data(payload, queue_metadata)
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
 
   -- Deletion (for downtimes)
-  if queue_metadata.method ~= nil and queue_metadata.method == "DELETE" then
-    http_method = queue_metadata.method
-    url = url .. "?name=" .. payload.name
-    queue_metadata.headers = {
-      "accept: */*",
-      "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-    }
-    payload = broker.json_encode(payload)
-    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, "")
+  -- if queue_metadata.method ~= nil and queue_metadata.method == "DELETE" then
+  --   http_method = queue_metadata.method
+  --   url = url .. "?name=" .. payload.name
+  --   queue_metadata.headers = {
+  --     "accept: */*",
+  --     "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
+  --   }
+  --   payload = broker.json_encode(payload)
+  --   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, "")
 
   -- Downtime events creation
-  elseif queue_metadata.event_route == self.sc_params.params.canopsis_downtime_route then
-    payload = payload[1]
+  if queue_metadata.event_route == self.sc_params.params.canopsis_downtime_route and queue_metadata.method ~= "DELETE" then
     queue_metadata.headers = {
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
-    downtime_comment = table_extract_and_remove_key(payload,"comment")
-    send_downtime_comment = true
+    -- downtime_comment = table_extract_and_remove_key(payload,"comment")
+    -- send_downtime_comment = true
     payload = broker.json_encode(payload)
 
     self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
@@ -590,14 +604,14 @@ function EventQueue:send_data(payload, queue_metadata)
       .. tostring(http_response_code))
 
     -- in case of Downtime event post, an other post is required
-    if send_downtime_comment == true then
-      self.sc_logger:info("[EventQueue:send_data]: Comment to send is " .. tostring(downtime_comment))
-      local metadata_comment = {
-        method = "POST",
-        event_route = self.sc_params.params.canopsis_downtime_comment_route
-      }
-      self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
-    end
+    -- if send_downtime_comment == true then
+    --   self.sc_logger:info("[EventQueue:send_data]: Comment to send is " .. tostring(downtime_comment))
+    --   local metadata_comment = {
+    --     method = "POST",
+    --     event_route = self.sc_params.params.canopsis_downtime_comment_route
+    --   }
+    --   self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
+    -- end
 
     retval = true
   elseif http_response_code == 400 and (string.match(tostring(http_response_body), "Trying to insert PBehavior with already existing _id") or string.find(tostring(http_response_body), "ID already exists")) then
