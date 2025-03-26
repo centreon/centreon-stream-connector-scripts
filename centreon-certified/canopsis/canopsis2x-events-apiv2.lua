@@ -63,9 +63,7 @@ function EventQueue.new(params)
     self.fail = true
   end
 
-  -- force buffer size to 1 because this SC does not allows the event bulk at this moment. (can't send more than one event at once)
-  params.max_buffer_size = 1
-  self.sc_logger:notice("[EventQueue:new]: max_buffer_size = 1 (force buffer size to 1 because this SC does not allows the event bulk at this moment)")
+  self.sc_params.params.max_buffer_size = params.max_buffer_size or 1000
 
   -- mandatory parameter
   self.sc_params.params.canopsis_authkey = params.canopsis_authkey
@@ -73,10 +71,9 @@ function EventQueue.new(params)
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status,acknowledgement,downtime"
-  self.sc_params.params.canopsis_downtime_comment_route = params.canopsis_downtime_comment_route or "/api/v4/pbehavior-comments"
   self.sc_params.params.canopsis_downtime_reason_name =  params.canopsis_downtime_reason_name or "Centreon_downtime"
   self.sc_params.params.canopsis_downtime_reason_route = params.canopsis_downtime_reason_route or "/api/v4/pbehavior-reasons"
-  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/pbehaviors"
+  self.sc_params.params.canopsis_downtime_route = params.canopsis_downtime_route or "/api/v4/bulk/connector-pbehaviors"
   self.sc_params.params.canopsis_downtime_send_pbh = params.canopsis_downtime_send_pbh or 1
   self.sc_params.params.canopsis_downtime_type_name = params.canopsis_downtime_type_name or "Default maintenance"
   self.sc_params.params.canopsis_downtime_type_route = params.canopsis_downtime_type_route or "/api/v4/pbehavior-types"
@@ -121,7 +118,7 @@ function EventQueue.new(params)
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, {event_route = self.sc_params.params.canopsis_event_route})
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {event_route = self.sc_params.params.canopsis_event_route})
   self.sc_flush:add_queue_metadata(categories.neb.id, elements.acknowledgement.id, {event_route = self.sc_params.params.canopsis_event_route})
-  self.sc_flush:add_queue_metadata(categories.neb.id, elements.downtime.id, {event_route = self.sc_params.params.canopsis_downtime_route})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.downtime.id, {method = "PUT", event_route = self.sc_params.params.canopsis_downtime_route})
 
   self.format_event = {
     [categories.neb.id] = {
@@ -386,64 +383,44 @@ end
 function EventQueue:format_event_downtime()
 
   local event = self.sc_event.event
-  local elements = self.sc_params.params.bbdo.elements
 
   if not event.internal_id then
     event.internal_id = event.id
   end
 
-  local downtime_name = "centreon-downtime-" .. tostring(event.internal_id) .. "-" .. tostring(event.entry_time)
-
   if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
-    local metadata = {
-      method = "DELETE",
-      event_route = self.sc_params.params.canopsis_downtime_route
-    }
-    self:send_data({name = downtime_name}, metadata)
-  else
     self.sc_event.event.formated_event = {
-      _id = downtime_name,
-      author = event.author,
-      enabled = true,
+      action = "delete",
+      origin = self.sc_params.params.connector .. "/" .. self:get_connector_name(),
+      tstart = event.start_time,
+      tstop = event.end_time,
+      comment = event.comment_data
+    }
+  else
+    local origin = self.sc_params.params.connector .. "/" .. self:get_connector_name()
+    local downtime_name = origin .. " downtime " .. tostring(event.start_time) .. "-" .. tostring(event.end_time) .. " " .. event.comment_data
+    if string.len(downtime_name) > 255 then
+      downtime_name = string.sub(downtime_name, 1, 252) .. "..."
+    end
+    self.sc_event.event.formated_event = {
+      action = "create",
       name = downtime_name,
+      origin = origin,
       reason = self.sc_params.params.canopsis_downtime_reason_id,
-      rrule = "",
       tstart = event.start_time,
       tstop = event.end_time,
       type = self.sc_params.params.canopsis_downtime_type_id,
-      -- timezone = self.sc_params.params.timezone,
-      comment = {
-        {
-          --['author'] = event.author,
-          ['pbehavior'] = downtime_name,
-          ['message'] = event.comment_data
-        }
-      },
-      entity_pattern = {
-        {
-          {
-            field = "_id",
-            cond = {
-              type = "eq"
-            }
-          }
-        }
-      }
-      -- exdates = {}
+      comment = event.comment_data,
+      color = "#73D8FF"
     }
+  end
 
-    -- in downtime events, service id is equal to 0 when the downtime is about a host (same for BBDO 2 and 3)
-    if event.service_id ~= 0 then
-      self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.service.description)
-        .. "/" .. tostring(event.cache.host.name)
-    else
-      self.sc_event.event.formated_event["entity_pattern"][1][1]["cond"]["value"] = tostring(event.cache.host.name)
-    end
-
-    -- In case of Canopsis version 22.10.X a color value is add in downtime:
-    if string.find(canopsis_version, "22.10.") ~= nil then
-      self.sc_event.event.formated_event["color"] = "#73D8FF"
-    end
+  -- in downtime events, service id is equal to 0 when the downtime is about a host (same for BBDO 2 and 3)
+  if event.service_id ~= 0 then
+    self.sc_event.event.formated_event["entities"] = {tostring(event.cache.service.description)
+      .. "/" .. tostring(event.cache.host.name)}
+  else
+    self.sc_event.event.formated_event["entities"] = {tostring(event.cache.host.name)}
   end
 end
 
@@ -488,45 +465,21 @@ function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
   local params = self.sc_params.params
-  local downtime_comment = ""
-  local send_downtime_comment = false
   local http_method = "POST"
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
 
   -- Deletion (for downtimes)
-  if queue_metadata.method ~= nil and queue_metadata.method == "DELETE" then
+  if queue_metadata.method ~= nil then
     http_method = queue_metadata.method
-    url = url .. "?name=" .. payload.name
-    queue_metadata.headers = {
-      "accept: */*",
-      "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-    }
-    payload = broker.json_encode(payload)
-    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, "")
-
-  -- Downtime events creation
-  elseif queue_metadata.event_route == self.sc_params.params.canopsis_downtime_route then
-    payload = payload[1]
-    queue_metadata.headers = {
-      "content-type: application/json",
-      "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-    }
-    downtime_comment = table_extract_and_remove_key(payload,"comment")
-    send_downtime_comment = true
-    payload = broker.json_encode(payload)
-
-    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
-
-  -- Other Event than downtimes
-  else
-    payload = broker.json_encode(payload)
-    queue_metadata.headers = {
-      "content-length: " .. string.len(payload),
-      "content-type: application/json",
-      "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-    }
-    self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
   end
+
+  payload = broker.json_encode(payload)
+  queue_metadata.headers = {
+    "content-length: " .. string.len(payload),
+    "content-type: application/json",
+    "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
+  }
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -586,17 +539,6 @@ function EventQueue:send_data(payload, queue_metadata)
   if http_response_code >= 200 and http_response_code <= 299 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP " .. http_method .. " request successful: return code is "
       .. tostring(http_response_code))
-
-    -- in case of Downtime event post, an other post is required
-    if send_downtime_comment == true then
-      self.sc_logger:info("[EventQueue:send_data]: Comment to send is " .. tostring(downtime_comment))
-      local metadata_comment = {
-        method = "POST",
-        event_route = self.sc_params.params.canopsis_downtime_comment_route
-      }
-      self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
-    end
-
     retval = true
   elseif http_response_code == 400 and (string.match(tostring(http_response_body), "Trying to insert PBehavior with already existing _id") or string.find(tostring(http_response_body), "ID already exists")) then
     self.sc_logger:notice("[EventQueue:send_data]: Ignoring downtime with id: " .. tostring(payload._id)
@@ -710,22 +652,12 @@ function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
   local params = self.sc_params.params
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. route
 
-  if route == self.sc_params.params.canopsis_downtime_comment_route then
-    data_to_send = data_to_send[1]
-    self_metadata.headers = {
-      "accept: application/json",
-      "content-type: application/json",
-      "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-    }
-    data_to_send = broker.json_encode(data_to_send)
-  else
-    data_to_send = broker.json_encode(data_to_send)
-    self_metadata.headers = {
-      "content-length: " .. string.len(data_to_send),
-      "content-type: application/json",
-      "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-    }
-  end
+  data_to_send = broker.json_encode(data_to_send)
+  self_metadata.headers = {
+    "content-length: " .. string.len(data_to_send),
+    "content-type: application/json",
+    "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
+  }
 
   self.sc_logger:log_curl_command(url, self_metadata, self.sc_params.params, data_to_send)
 
