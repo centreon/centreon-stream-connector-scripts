@@ -7,5 +7,5 @@
 packaging/**        @centreon/owners-pipelines
 selinux/**          @centreon/owners-pipelines
 
-.gitleaks.toml    @centreon/owners-security
-.gitleaksignore   @centreon/owners-security
+.gitleaks.toml      @centreon/owners-security
+.gitleaksignore     @centreon/owners-security
