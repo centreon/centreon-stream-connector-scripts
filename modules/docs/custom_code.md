@@ -72,7 +72,7 @@ Everything has been made to grant you access to all the useful information. It m
 
 - access the [params table](sc_param.md#default-parameters) and the parameters that are dedicated to the stream connector that you are using
 - access the [event table](broker_data_structure.md) (you can also take a look at our [broker documentation](https://docs.centreon.com/docs/developer/developer-broker-mapping/))
-- access all the methods from: [event module](sc_event.md), [params module](sc_param.md), [logger module](sc_logger.md), [common module](sc_common.md), [broker module](sc_broker.md), [cache module](sc_cache.md) and if you are using a metric stream connector [metrics module](sc_metrics.md)
+- access all the methods from: [event module](sc_event.md), [params module](sc_param.md), [logger module](sc_logger.md), [common module](sc_common.md), [broker module](sc_broker.md), [storage module](sc_storage.md) and if you are using a metric stream connector [metrics module](sc_metrics.md)
 - access all the broker daemon methods that are listed [here](https://docs.centreon.com/docs/developer/developer-broker-stream-connector/#the-broker-table)
 
 ## Macros, templating and custom code
@@ -165,22 +165,22 @@ local self = ...
 -- this condition is quite simple because our example is using the parameter accepted_elements = host_status,service_status
 -- therefore, if there is a service_id and that it is not in downtime, we want to work on said event
 if self.event.service_id and self.event.scheduled_downtime_depth == 0 then
-  -- every data stored in cache is linked to an object id
+  -- every data stored in the storage is linked to an object id
   local object_id = "service_" .. self.event.host_id .. "_" .. self.event.service_id
 
-  -- we use the cache to know what is its state before going in downtime
-  local success, state_before_downtime = self.sc_cache:get(object_id, "state_before_downtime")
+  -- we use the storage to know what is its state before going in downtime
+  local success, state_before_downtime = self.sc_storage:get(object_id, "state_before_downtime")
 
   -- this condition is here to avoid sending an event because this is the end of the downtime. This is what we wanted to achieve.
   -- the first part of the condition is something that happens everytime a downtime ends. It makes us think that the status has changed during the downtime.
-  -- thanks to the cache, we can check if that is really the case or not
+  -- thanks to the storage, we can check if that is really the case or not
   if self.event.last_hard_state_change == self.event.last_check and self.event.state == state_before_downtime then
     -- normally, this event would have been sent. We don't want it, so we return false
     return self, false
   end
 
-  -- we make sure to fill the cache with the current service status in order to have the most up to date data in the cache
-  self.sc_cache:set(object_id, "state_before_downtime", self.event.state)
+  -- we make sure to fill the storage with the current service status in order to have the most up to date data in the storage
+  self.sc_storage:set(object_id, "state_before_downtime", self.event.state)
   return self, true
 end
 

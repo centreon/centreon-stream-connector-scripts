@@ -127,9 +127,9 @@ function sc_params.new(common, logger)
     log_level = "",
     log_curl_commands = 0,
 
-    -- cache parameters
-    cache_backend = "broker",
-    ["sc_cache.sqlite.db_file"] = "/var/lib/centreon-broker/stream-connector-cache.sdb",
+    -- storage parameters
+    storage_backend = "broker",
+    ["sc_storage.sqlite.db_file"] = "/var/lib/centreon-broker/stream-connector-storage.sdb",
 
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",

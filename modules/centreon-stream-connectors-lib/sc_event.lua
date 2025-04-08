@@ -11,11 +11,11 @@ local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
-local sc_cache = require("centreon-stream-connectors-lib.sc_cache")
+local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
 
-function sc_event.new(broker_event, params, common, logger, broker, cache)
+function sc_event.new(broker_event, params, common, logger, broker, storage)
   local self = {}
 
   self.sc_logger = logger
@@ -27,7 +27,7 @@ function sc_event.new(broker_event, params, common, logger, broker, cache)
   self.params = params
   self.broker_event = broker_event
   self.sc_broker = broker
-  self.sc_cache = cache
+  self.sc_storage = storage
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
   -- we create our event table

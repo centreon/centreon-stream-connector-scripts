@@ -1,31 +1,31 @@
 ---
--- a cache module that is using LuaSqlite3
--- @module sc_cache_sqlite
--- @module sc_cache_sqlite
+-- a storage module that is using LuaSqlite3
+-- @module sc_storage_sqlite
+-- @module sc_storage_sqlite
 
-local sc_cache_sqlite = {}
-local ScCacheSqlite = {}
+local sc_storage_sqlite = {}
+local ScStorageSqlite = {}
 
 local sqlite = require("lsqlite3")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
---- sc_cache_sqlite.new: sc_cache_sqlite constructor
+--- sc_storage_sqlite.new: sc_storage_sqlite constructor
 -- @param common (object) a sc_common instance
 -- @param logger (object) a sc_logger instance 
 -- @param params (table) the params table of the stream connector
-function sc_cache_sqlite.new(common, logger, params)
+function sc_storage_sqlite.new(common, logger, params)
   local self = {}
 
   self.sc_common = common
   self.sc_logger = logger
   self.params = params
 
-  self.sqlite = sqlite.open(params["sc_cache.sqlite.db_file"])
+  self.sqlite = sqlite.open(params["sc_storage.sqlite.db_file"])
 
   if not self.sqlite:isopen() then
-    self.sc_logger:error("[sc_cache_sqlite:new]: couldn't open sqlite database: " .. tostring(params["sc_cache.sqlite.db_file"]))
+    self.sc_logger:error("[sc_storage_sqlite:new]: couldn't open sqlite database: " .. tostring(params["sc_storage.sqlite.db_file"]))
   else
-    self.sc_logger:notice("[sc_cache_sqlite:new]: successfully loaded sqlite cache database: " .. tostring(params["sc_cache.sqlite.db_file"])
+    self.sc_logger:notice("[sc_storage_sqlite:new]: successfully loaded sqlite storage database: " .. tostring(params["sc_storage.sqlite.db_file"])
       .. ". Status is: " .. tostring(self.sqlite:isopen()))
   end
 
@@ -36,7 +36,7 @@ function sc_cache_sqlite.new(common, logger, params)
       return self:get_query_result(convert_data, column_count, column_value, column_name) end
   }
 
-  -- every functions that can be used to convert data retrieved from sc_cache table
+  -- every functions that can be used to convert data retrieved from sc_storage table
   self.convert_data_type  = {
     string = function (data) return tostring(data) end,
     number = function (data) return tonumber(data) end,
@@ -56,18 +56,18 @@ function sc_cache_sqlite.new(common, logger, params)
     type_column = "data_type"
   }
 
-  setmetatable(self, { __index = ScCacheSqlite})
-  self:check_cache_table()
+  setmetatable(self, { __index = ScStorageSqlite})
+  self:check_storage_table()
   return self
 end
 
---- sc_cache_sqlite:get_query_result: this is a callback function. It is called for each row found by a sql query
+--- sc_storage_sqlite:get_query_result: this is a callback function. It is called for each row found by a sql query
 -- @param convert_data (boolean) When set to true, values from the column "value" will have their type converted according to the "data_type" column. Query must be compatible with that.
 -- @param column_count (number) the number of columns from the sql query
 -- @param column_value (string) the value of a column
 -- @param column_name (string) the name of the column
 -- @return 0 (number) this is the required return code otherwise the sqlite:exec function will stop calling this callback function
-function ScCacheSqlite:get_query_result(convert_data, column_count, column_value, column_name)
+function ScStorageSqlite:get_query_result(convert_data, column_count, column_value, column_name)
   local row = {}
 
   for i = 1, column_count do
@@ -89,24 +89,24 @@ function ScCacheSqlite:get_query_result(convert_data, column_count, column_value
 end
 
 
---- sc_cache_sqlite:check_cache_table: check if the sc_cache table exists and, if not, create it.
-function ScCacheSqlite:check_cache_table()
-  local query = "SELECT name FROM sqlite_master WHERE type='table' AND name='sc_cache';"
+--- sc_storage_sqlite:check_storage_table: check if the sc_storage table exists and, if not, create it.
+function ScStorageSqlite:check_storage_table()
+  local query = "SELECT name FROM sqlite_master WHERE type='table' AND name='sc_storage';"
   
   self:run_query(query, true, false)
 
   if #self.last_query_result == 1 then
-    self.sc_logger:debug("[sc_cache_sqlite:check_cache_table]: sqlite table sc_cache exists")
+    self.sc_logger:debug("[sc_storage_sqlite:check_storage_table]: sqlite table sc_storage exists")
   else
-    self.sc_logger:notice("[sc_cache_sqlite:check_cache_table]: sqlite table sc_cache does not exist. We are going to create it")
-    self:create_cache_table()
+    self.sc_logger:notice("[sc_storage_sqlite:check_storage_table]: sqlite table sc_storage does not exist. We are going to create it")
+    self:create_storage_table()
   end
 end
 
---- sc_cache_sqlite:create_cache_table: create the sc_cache table.
-function ScCacheSqlite:create_cache_table()
+--- sc_storage_sqlite:create_storage_table: create the sc_storage table.
+function ScStorageSqlite:create_storage_table()
   local query = [[
-    CREATE TABLE sc_cache (
+    CREATE TABLE sc_storage (
       object_id TEXT,
       property TEXT,
       value TEXT,
@@ -118,12 +118,12 @@ function ScCacheSqlite:create_cache_table()
   self.sqlite:exec(query)
 end
 
---- sc_cache_sqlite:run_query: execute the given query
+--- sc_storage_sqlite:run_query: execute the given query
 -- @param query (string) the query that must be run
 -- @param get_result (boolean) When set to true, the query results will be stored in the self.last_query_result table
 -- @param convert_data (boolean) When set to true, values from the column "value" will have their type converted according to the "data_type" column. Query must be compatible with that.
 -- @return (boolean) false if query failed, true otherwise
-function ScCacheSqlite:run_query(query, get_result, convert_data)
+function ScStorageSqlite:run_query(query, get_result, convert_data)
   -- flush old stored query results
   self.last_query_result = {}
 
@@ -134,22 +134,22 @@ function ScCacheSqlite:run_query(query, get_result, convert_data)
   end
 
   if self.sqlite:errcode() ~= 0 then
-    self.sc_logger:error("[sc_cache_sqlite:run_query]: couldn't run query: " .. tostring(query)
+    self.sc_logger:error("[sc_storage_sqlite:run_query]: couldn't run query: " .. tostring(query)
       .. ". [SQL ERROR CODE]: " .. self.sqlite:errcode() .. ". [SQL ERROR MESSAGE]: " .. tostring(self.sqlite:errmsg()))
     return false
   else
-    self.sc_logger:debug("[sc_cache_sqlite:run_query]: successfully executed query: " .. tostring(query))
+    self.sc_logger:debug("[sc_storage_sqlite:run_query]: successfully executed query: " .. tostring(query))
   end
 
   return true
 end
 
---- sc_cache_sqlite:set: insert or update an object property value in the sc_cache table
+--- sc_storage_sqlite:set: insert or update an object property value in the sc_storage table
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
 -- @param value (string, number, boolean, table) the value of the property
--- @return (boolean) false if we couldn't store the information in the cache, true otherwise
-function ScCacheSqlite:set(object_id, property, value)
+-- @return (boolean) false if we couldn't store the information in the storage, true otherwise
+function ScStorageSqlite:set(object_id, property, value)
   local data_type = type(value)
 
   if data_type == "table" then
@@ -157,10 +157,10 @@ function ScCacheSqlite:set(object_id, property, value)
   end
 
   value = string.gsub(tostring(value), "'", " ")
-  local query = "INSERT OR REPLACE INTO sc_cache VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "', '" .. data_type .. "');"
+  local query = "INSERT OR REPLACE INTO sc_storage VALUES ('" .. object_id .. "', '" .. property .. "', '" .. value .. "', '" .. data_type .. "');"
   
   if not self:run_query(query) then
-    self.sc_logger:error("[sc_cache_sqlite:set]: couldn't insert property in cache. Object id: " ..tostring(object_id)
+    self.sc_logger:error("[sc_storage_sqlite:set]: couldn't insert property in storage. Object id: " ..tostring(object_id)
       .. ", property name: " .. tostring(property) .. ", property value: " .. tostring(value))
     return false
   end
@@ -168,11 +168,11 @@ function ScCacheSqlite:set(object_id, property, value)
   return true
 end
 
---- sc_cache_sqlite:set_multiple: insert or update multiple object properties value in the sc_cache table
+--- sc_storage_sqlite:set_multiple: insert or update multiple object properties value in the sc_storage table
 -- @param object_id (string) the object identifier.
 -- @param properties (table) a table of properties and their values
--- @return (boolean) false if we couldn't store the information in the cache, true otherwise
-function ScCacheSqlite:set_multiple(object_id, properties)
+-- @return (boolean) false if we couldn't store the information in the storage, true otherwise
+function ScStorageSqlite:set_multiple(object_id, properties)
   local counter = 0
   local sql_values = ""
   local data_type
@@ -194,10 +194,10 @@ function ScCacheSqlite:set_multiple(object_id, properties)
     end
   end
 
-  local query = "INSERT OR REPLACE INTO sc_cache VALUES " .. sql_values .. ";"
+  local query = "INSERT OR REPLACE INTO sc_storage VALUES " .. sql_values .. ";"
   
   if not self:run_query(query) then
-    self.sc_logger:error("[sc_cache_sqlite:set_multiple]: couldn't insert properties in cache. Object id: " ..tostring(object_id)
+    self.sc_logger:error("[sc_storage_sqlite:set_multiple]: couldn't insert properties in storage. Object id: " ..tostring(object_id)
       .. ", properties: " .. self.sc_common:dumper(properties))
     return false
   end
@@ -205,23 +205,23 @@ function ScCacheSqlite:set_multiple(object_id, properties)
   return true
 end
 
---- sc_cache_sqlite:get: retrieve a single property value of an object
+--- sc_storage_sqlite:get: retrieve a single property value of an object
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
--- @return (boolean) false if we couldn't get the information from the cache, true otherwise
+-- @return (boolean) false if we couldn't get the information from the storage, true otherwise
 -- @return value (string, number, boolean) the value of the property (an empty string when first return is false or if we didn't find a value for this object property)
-function ScCacheSqlite:get(object_id, property)
-  local query = "SELECT value, data_type FROM sc_cache WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
+function ScStorageSqlite:get(object_id, property)
+  local query = "SELECT value, data_type FROM sc_storage WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
 
   if not self:run_query(query, true, true) then
-    self.sc_logger:error("[sc_cache_sqlite:get]: couldn't get property in cache. Object id: " .. tostring(object_id)
+    self.sc_logger:error("[sc_storage_sqlite:get]: couldn't get property in storage. Object id: " .. tostring(object_id)
       .. ", property name: " .. tostring(property))
     return false, ""
   end
 
   local value = ""
 
-  -- if we didn't already store information in the cache, the last_query_result could be an empty table
+  -- if we didn't already store information in the storage, the last_query_result could be an empty table
   if self.last_query_result[1] then
     value = self.last_query_result[1].value
   end
@@ -229,12 +229,12 @@ function ScCacheSqlite:get(object_id, property)
   return true, value
 end
 
---- sc_cache_sqlite:get_multiple: retrieve a list of properties for an object
+--- sc_storage_sqlite:get_multiple: retrieve a list of properties for an object
 -- @param object_id (string) the object identifier.
 -- @param properties (table) a table of properties to retreive
--- @return (boolean) false if we couldn't get the information from the cache, true otherwise
+-- @return (boolean) false if we couldn't get the information from the storage, true otherwise
 -- @return values (table) a table of properties and their value if true, empty table otherwise
-function ScCacheSqlite:get_multiple(object_id, properties)
+function ScStorageSqlite:get_multiple(object_id, properties)
   local counter = 0
   local sql_properties_value = ""
   
@@ -247,17 +247,17 @@ function ScCacheSqlite:get_multiple(object_id, properties)
     end
   end
 
-  local query = "SELECT property, value, data_type FROM sc_cache WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
+  local query = "SELECT property, value, data_type FROM sc_storage WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
 
   if not self:run_query(query, true, true) then
-    self.sc_logger:error("[sc_cache_sqlite:get_multiple]: couldn't get properties in cache. Object id: " .. tostring(object_id)
+    self.sc_logger:error("[sc_storage_sqlite:get_multiple]: couldn't get properties in storage. Object id: " .. tostring(object_id)
       .. ", properties: " .. self.sc_common:dumper(properties))
     return false, {}
   end
 
   local values = {}
 
-  -- if we didn't already store information in the cache, the last_query_result could be an empty table
+  -- if we didn't already store information in the storage, the last_query_result could be an empty table
   if self.last_query_result[1] then
     values = self.last_query_result[1]
   end
@@ -265,30 +265,30 @@ function ScCacheSqlite:get_multiple(object_id, properties)
   return true, values
 end
 
---- sc_cache_sqlite:delete: delete a single property of an object
+--- sc_storage_sqlite:delete: delete a single property of an object
 -- @param object_id (string) the object identifier.
 -- @param property (string) the name of the property
--- @return (boolean) false if we couldn't delete the information from the cache, true otherwise
-function ScCacheSqlite:delete(object_id, property)
-  local query = "DELETE FROM sc_cache WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
+-- @return (boolean) false if we couldn't delete the information from the storage, true otherwise
+function ScStorageSqlite:delete(object_id, property)
+  local query = "DELETE FROM sc_storage WHERE property = '" .. property .. "' AND object_id = '" .. object_id .. "';"
 
   if not self:run_query(query) then
-    self.sc_logger:error("[sc_cache_sqlite:delete]: couldn't delete property in cache. Object id: " ..tostring(object_id)
+    self.sc_logger:error("[sc_storage_sqlite:delete]: couldn't delete property in storage. Object id: " ..tostring(object_id)
       .. ", property name: " .. tostring(property))
     return false
   end
 
-  self.sc_logger:debug("[sc_cache_sqlite:delete]: successfully deleted property in cache for object id: ".. tostring(object_id)
+  self.sc_logger:debug("[sc_storage_sqlite:delete]: successfully deleted property in storage for object id: ".. tostring(object_id)
     .. ", property name: " .. tostring(property))
 
   return true
 end
 
---- sc_cache_sqlite:delete_multiple: delete a multiple properties of an object
+--- sc_storage_sqlite:delete_multiple: delete a multiple properties of an object
 -- @param object_id (string) the object identifier.
 -- @param properties (table) a table of properties to retreive
--- @return (boolean) false if we couldn't delete the information from the cache, true otherwise
-function ScCacheSqlite:delete_multiple(object_id, properties)
+-- @return (boolean) false if we couldn't delete the information from the storage, true otherwise
+function ScStorageSqlite:delete_multiple(object_id, properties)
   local sql_properties_value = ""
   
   for _, property in ipairs(properties) do
@@ -300,48 +300,48 @@ function ScCacheSqlite:delete_multiple(object_id, properties)
     end
   end
 
-  local query = "DELETE FROM sc_cache WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
+  local query = "DELETE FROM sc_storage WHERE property IN (" .. sql_properties_value .. ") AND object_id = '" .. object_id .. "';"
 
   if not self:run_query(query) then
-    self.sc_logger:error("[sc_cache_sqlite:delete_multiple]: couldn't delete property in cache. Object id: " .. tostring(object_id)
+    self.sc_logger:error("[sc_storage_sqlite:delete_multiple]: couldn't delete property in storage. Object id: " .. tostring(object_id)
       .. ", properties: " .. self.sc_common:dumper(properties))
     return false
   end
 
-  self.sc_logger:debug("[sc_cache_sqlite:delete_multiple]: successfully deleted property in cache for object id: " .. tostring(object_id)
+  self.sc_logger:debug("[sc_storage_sqlite:delete_multiple]: successfully deleted property in storage for object id: " .. tostring(object_id)
       .. ", properties: " .. self.sc_common:dumper(properties))
 
   return true
 end
 
---- sc_cache_sqlite:show: display all property values of a given object in the stream connector log file.
+--- sc_storage_sqlite:show: display all property values of a given object in the stream connector log file.
 -- @param object_id (string) the object identifier.
--- @return (boolean) false if we couldn't display the information from the cache, true otherwise
-function ScCacheSqlite:show(object_id)
-  local query = "SELECT * FROM sc_cache WHERE object_id = '" .. object_id .. "';"
+-- @return (boolean) false if we couldn't display the information from the storage, true otherwise
+function ScStorageSqlite:show(object_id)
+  local query = "SELECT * FROM sc_storage WHERE object_id = '" .. object_id .. "';"
 
   if not self:run_query(query, true) then
-    self.sc_logger:error("[sc_cache_sqlite:show]: couldn't show stored properties for object id: " .. tostring(object_id))
+    self.sc_logger:error("[sc_storage_sqlite:show]: couldn't show stored properties for object id: " .. tostring(object_id))
     return false
   end
 
-  self.sc_logger:notice("[sc_cache_sqlite:show]: stored properties for object id: " .. tostring(object_id)
+  self.sc_logger:notice("[sc_storage_sqlite:show]: stored properties for object id: " .. tostring(object_id)
     .. ": " .. broker.json_encode(self.last_query_result))
 
   return true
 end
 
---- sc_cache_sqlite:clear: delete everything stored in the sc_cache table.
--- @return (boolean) false if we couldn't delete data stored in the sc_cache table, true otherwise
-function ScCacheSqlite:clear()
-  local query = "DELETE FROM sc_cache;"
+--- sc_storage_sqlite:clear: delete everything stored in the sc_storage table.
+-- @return (boolean) false if we couldn't delete data stored in the sc_storage table, true otherwise
+function ScStorageSqlite:clear()
+  local query = "DELETE FROM sc_storage;"
 
   if not self:run_query(query) then
-    self.sc_logger:error("[sc_cache_sqlite:CLEAR]: couldn't delete cache stored in the sc_cache table")
+    self.sc_logger:error("[sc_storage_sqlite:CLEAR]: couldn't delete storage stored in the sc_storage table")
     return false
   end
 
   return true
 end
 
-return sc_cache_sqlite
+return sc_storage_sqlite
