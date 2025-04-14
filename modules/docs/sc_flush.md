@@ -81,7 +81,7 @@ The **create_new_virtual_queue** method will create a virtual queue. Normally qu
 Use case:
 downtime end events are not sent the same way than downtime start events (not sent to the same API endpoint or not the same HTTP method for example).
 with the standard queue mecanism, those events are stored in the same queue. A queue only accepts a single method to send events (same endpoint, same HTTP method and so on). Therefore you can't discriminate downtime start and downtime end events.
-That is where virtual queues come in handy. Instead of storing both event in the standard downtime queue, you create a virtual queue for one of them.
+That is where virtual queues come in handy. Instead of storing both events in the standard downtime queue, you create a virtual queue for one of them.
 Usually when creating a virtual queue, you should then add metadata to your virtual queue using the [**add_queue_metadata method**](#add_queue_metadata-method)
 
 ### create_new_virtual_queue: parameters
@@ -127,7 +127,6 @@ test_flush:create_new_virtual_queue(category, virtual_queues_info.downtime_end_e
   }
 ]]--
 ```
-
 
 ## add_queue_metadata method
 
