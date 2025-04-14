@@ -16,16 +16,6 @@ local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 --------------------------------------------------------------------------------
--- Misc function
---------------------------------------------------------------------------------
-
-local function table_extract_and_remove_key(table, key)
-  local element = table[key]
-  table[key] = nil
-  return element
-end
-
---------------------------------------------------------------------------------
 -- Classe event_queue
 --------------------------------------------------------------------------------
 
@@ -510,25 +500,21 @@ function EventQueue:send_data(payload, queue_metadata)
   local http_method = "POST"
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
 
-  -- Deletion (for downtimes)
-  -- if queue_metadata.method ~= nil and queue_metadata.method == "DELETE" then
-  --   http_method = queue_metadata.method
-  --   url = url .. "?name=" .. payload.name
-  --   queue_metadata.headers = {
-  --     "accept: */*",
-  --     "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
-  --   }
-  --   payload = broker.json_encode(payload)
-  --   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, "")
-
-  -- Downtime events creation
+  -- Downtime events creation (downtime deletion goes though the standard mecanism like any other event)
   if queue_metadata.event_route == self.sc_params.params.canopsis_downtime_route and queue_metadata.method ~= "DELETE" then
     queue_metadata.headers = {
       "content-type: application/json",
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
-    -- downtime_comment = table_extract_and_remove_key(payload,"comment")
-    -- send_downtime_comment = true
+
+    local downtimes_comment_data = {}
+    for _, downtime_info in ipairs(payload) do
+      table.insert(downtimes_comment_data, downtime_info.comment)
+      -- remove comment from downtime creation payload. While it the paylaod is accepted with this data, it is not computed so it adds weight to the payload for nothing
+      downtime_info.comment = nil
+    end
+
+    send_downtime_comment = true
     payload = broker.json_encode(payload)
 
     self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
@@ -604,14 +590,17 @@ function EventQueue:send_data(payload, queue_metadata)
       .. tostring(http_response_code))
 
     -- in case of Downtime event post, an other post is required
-    -- if send_downtime_comment == true then
-    --   self.sc_logger:info("[EventQueue:send_data]: Comment to send is " .. tostring(downtime_comment))
-    --   local metadata_comment = {
-    --     method = "POST",
-    --     event_route = self.sc_params.params.canopsis_downtime_comment_route
-    --   }
-    --   self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
-    -- end
+    if send_downtime_comment == true then
+      self.sc_logger:info("[EventQueue:send_data]: Comment to send is " .. tostring(downtime_comment))
+      local metadata_comment = {
+        method = "POST",
+        event_route = self.sc_params.params.canopsis_downtime_comment_route
+      }
+
+      for _, downtime_comment in ipairs(downtimes_comment_data) do
+        self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
+      end
+    end
 
     retval = true
   elseif http_response_code == 400 and (string.match(tostring(http_response_body), "Trying to insert PBehavior with already existing _id") or string.find(tostring(http_response_body), "ID already exists")) then
