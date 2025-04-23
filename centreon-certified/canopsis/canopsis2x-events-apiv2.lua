@@ -275,10 +275,12 @@ end
 function EventQueue:list_hostgroups()
   local hostgroups =  {}
 
-  for _, hg in pairs(self.sc_event.event.cache.hostgroups) do
-    table.insert(hostgroups, hg.group_name)
+  if type(self.sc_event.event.cache.hostgroups) == "table" then
+    for _, hg in pairs(self.sc_event.event.cache.hostgroups) do
+      table.insert(hostgroups, hg.group_name)
+    end
   end
-
+  
   if self.sc_params.params.canopsis_sort_list_hostgroups == 1 then
     table.sort(hostgroups)
   end
