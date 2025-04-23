@@ -261,8 +261,10 @@ end
 function EventQueue:list_servicegroups()
   local servicegroups =  {}
 
-  for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
-    table.insert(servicegroups, sg.group_name)
+  if type(self.sc_event.event.cache.servicegroups) == "table" then
+    for _, sg in pairs(self.sc_event.event.cache.servicegroups) do
+      table.insert(servicegroups, sg.group_name)
+    end
   end
 
   if self.sc_params.params.canopsis_sort_list_servicegroups == 1 then
