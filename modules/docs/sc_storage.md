@@ -119,7 +119,7 @@ The **set** method sets an object property in the cache
 | --------------------------------------------- | ----------------------- | -------- | ------------- |
 | the object with the property that must be set | string                  | no       |               |
 | the name of the property                      | string                  | no       |               |
-| the value of the property                     | string, number, boolean | no       |               |
+| the value of the property                     | string, number, boolean, table | no       |               |
 
 ### set: returns
 
