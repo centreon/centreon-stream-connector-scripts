@@ -108,3 +108,5 @@ sc_storage.sqlite.db_file
 
 Obviously the backend must be documented, even the functions that are already documented in the [storage wrapper documentation](../sc_storage.md).
 The aforementioned documentation is a good example on how your storage module must be documented.
+
+You must also  add your functions in the global function index in the [README.md file](../README.md)
