@@ -310,10 +310,8 @@ local status, values = test_storage_sqlite:get_multiple(object_id, properties)
 --[[
   values structure is:
   {
-    {
-      city = "Bordeaux",
-      country = "France"
-    }
+    city = "Bordeaux",
+    country = "France"
   }
 ]]
 ```

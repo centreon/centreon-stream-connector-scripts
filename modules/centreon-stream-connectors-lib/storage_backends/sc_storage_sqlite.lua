@@ -259,7 +259,9 @@ function ScStorageSqlite:get_multiple(object_id, properties)
 
   -- if we didn't already store information in the storage, the last_query_result could be an empty table
   if self.last_query_result[1] then
-    values = self.last_query_result[1]
+    for index, stored_data in pairs(self.last_query_result) do
+      values[stored_data.property] = stored_data.value
+    end
   end
 
   return true, values
