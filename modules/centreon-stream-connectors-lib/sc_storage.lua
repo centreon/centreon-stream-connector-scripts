@@ -177,7 +177,7 @@ end
 --- show: show (in the log file) all stored properties of an object
 -- @param object_id (string) the object with the property that must be shown
 -- @return (boolean) true if object properties are retrieved, false otherwise
-function ScStorage:show(object_id, property)
+function ScStorage:show(object_id)
   if not self:is_valid_storage_object(object_id) then
     self.sc_logger:error("[sc_storage:show]: Object is invalid")
     return false
