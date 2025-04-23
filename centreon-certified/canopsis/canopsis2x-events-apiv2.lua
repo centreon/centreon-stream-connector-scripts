@@ -286,13 +286,27 @@ function EventQueue:list_hostgroups()
   return hostgroups
 end
 
-function EventQueue:get_state(event, severity)
-  -- return standard centreon state
-  if severity and self.sc_params.params.use_severity_as_state == 1 then
-    return severity
+function EventQueue:get_state()
+  local event = self.sc_event.event
+  local params = self.sc_params.params
+
+  if params.use_severity_as_state ~= 1 then
+    return self.centreon_to_canopsis_state[event.category][event.element][event.state]
   end
 
-  return self.centreon_to_canopsis_state[event.category][event.element][event.state]
+  local severity_cache_type = {
+    [params.bbdo.categories["neb"].id] = {
+      [params.bbdo.elements["host_status"].id] = "host",
+      [params.bbdo.elements["service_status"].id] = "service"
+    }
+  }
+
+  if event.cache.severity 
+    and event.cache.severity[severity_cache_type[event.category][event.element]] 
+    and params.use_severity_as_state == 1 
+  then
+    return event.cache.severity[severity_cache_type[event.category][event.element]]
+  end
 end
 
 function EventQueue:get_connector_name()
@@ -315,7 +329,7 @@ function EventQueue:format_event_host()
     component = tostring(event.cache.host.name),
     output = event.short_output,
     long_output = event.long_output,
-    state = self:get_state(event, event.cache.severity.host),
+    state = self:get_state(),
     timestamp = event.last_check,
     hostgroups = self:list_hostgroups(),
     notes_url = tostring(event.cache.host.notes_url),
@@ -336,7 +350,7 @@ function EventQueue:format_event_service()
     resource = tostring(event.cache.service.description),
     output = event.short_output,
     long_output = event.long_output,
-    state = self:get_state(event, event.cache.severity.service),
+    state = self:get_state(),
     timestamp = event.last_check,
     servicegroups = self:list_servicegroups(),
     notes_url = event.cache.service.notes_url,
