@@ -525,9 +525,9 @@ function EventQueue:send_data(payload, queue_metadata)
       "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
     }
 
-    local downtimes_comment_data = {}
+    self.downtimes_comment_data = {}
     for _, downtime_info in ipairs(payload) do
-      table.insert(downtimes_comment_data, downtime_info.comment)
+      table.insert(self.downtimes_comment_data, downtime_info.comment)
       -- remove comment from downtime creation payload. While it the paylaod is accepted with this data, it is not computed so it adds weight to the payload for nothing
       downtime_info.comment = nil
     end
@@ -615,7 +615,7 @@ function EventQueue:send_data(payload, queue_metadata)
         event_route = self.sc_params.params.canopsis_downtime_comment_route
       }
 
-      for _, downtime_comment in ipairs(downtimes_comment_data) do
+      for _, downtime_comment in ipairs(self.downtimes_comment_data) do
         self:postCanopsisAPI(metadata_comment, self.sc_params.params.canopsis_downtime_comment_route, downtime_comment)
       end
     end
