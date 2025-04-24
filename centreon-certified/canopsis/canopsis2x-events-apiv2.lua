@@ -159,14 +159,26 @@ function EventQueue.new(params)
 
   --Check if downtime are wanted
   if self.sc_params.params.canopsis_downtime_send_pbh ~= 0 and self.sc_params.params.accepted_elements_info["downtime"] then
+    -- 1. Check Canopsis version : if the API endpoint exists
+    local metadata_route = {
+      method = "PUT",
+      event_route = self.sc_params.params.canopsis_downtime_route
+    }
+    local routeExists = self:checkCanopsisAPI(metadata_route, {})
+    if routeExists ~= true then
+      self.sc_logger:info("[EventQueue.new]: route " .. self.sc_params.params.canopsis_downtime_route .. " is not available - check Canopsis API release")
+      -- if the route doesn't exist disable pbehavior management
+      self.sc_params.params.canopsis_downtime_send_pbh = 0
+
+      return self
+    end
+
+    -- 2. Reason : Ensure reason "centreon_reason" exists, if not create it and post it
     local metadata_reason = {
       method = "GET",
       event_route = self.sc_params.params.canopsis_downtime_reason_route
     }
-
     pbh_maintenance_reason_id = self:getCanopsisAPI(metadata_reason, self.sc_params.params.canopsis_downtime_reason_route, "", self.sc_params.params.canopsis_downtime_reason_name)
-
-    -- 1. Reason : Ensure reason "centreon_reason" exists, if not create it and post it
     if pbh_maintenance_reason_id == false then
       self.sc_logger:notice("Reason for Centreon downtimes doesn't exist in Canopsis API: Creating pbehavior-reason 'centreon_reason")
       new_reason = {
@@ -190,7 +202,7 @@ function EventQueue.new(params)
       end
     end
 
-    -- 2. Type : Dynamically get pbehavior type id for canopsis_downtime_type_name
+    -- 3. Type : Dynamically get pbehavior type id for canopsis_downtime_type_name
     local metadata_type = {
       method = "GET",
       event_route = self.sc_params.params.canopsis_downtime_type_route
@@ -205,13 +217,6 @@ function EventQueue.new(params)
       -- if unable to get type id, disable pbehavior management
       self.sc_params.params.canopsis_downtime_send_pbh = 0
     end
-
-    -- 3. Type : Check Canopsis version to add or not the color value
-    local metadata_type = {
-      method = "GET",
-      event_route = "/api/v4/app-info"
-    }
-    canopsis_version = self:getCanopsisAPI(metadata_type, "/api/v4/app-info", "", "")
   end
 
   return self
@@ -640,7 +645,7 @@ function flush()
 end
 
 --------------------------------------------------------------------------------
--- Function to send a Post Request to Canopsis API for Reason route
+-- Function to send a Post Request to Canopsis API for reason route
 --------------------------------------------------------------------------------
 
 function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
@@ -732,7 +737,7 @@ function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
 end
 
 --------------------------------------------------------------------------------
--- Function to send a Get Request to Canopsis API for Reason, type and version routes
+-- Function to send a Get Request to Canopsis API for reason and type routes
 --------------------------------------------------------------------------------
 
 function EventQueue:getCanopsisAPI(self_metadata, route, type_name, reason_name)
@@ -825,17 +830,99 @@ function EventQueue:getCanopsisAPI(self_metadata, route, type_name, reason_name)
           retval = reason_object["_id"]
         end
       end
-    -- No type_name and no reason_name had been given => getCanopsisAPI is used to check Canopsis version
-    elseif type_name == "" and reason_name == "" then
-      for json_element, json_object in pairs(json_response_decoded) do
-        if json_element == "version" then
-          retval = json_object
-        end
-      end
     end
   else
     self.sc_logger:error("[getCanopsisAPI]: HTTP request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
+  end
+
+  return retval
+end
+
+--------------------------------------------------------------------------------
+-- Function to send a request to Canopsis API and check if a route exists
+--------------------------------------------------------------------------------
+function EventQueue:checkCanopsisAPI(self_metadata, data_to_send)
+  self.sc_logger:debug("[checkCanopsisAPI]:Sending data to Canopsis route: ".. self_metadata.event_route)
+
+  -- Handling the return code
+  local retval = false
+  local data_to_send = data_to_send
+  local params = self.sc_params.params
+  local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. self_metadata.event_route
+
+  data_to_send = broker.json_encode(data_to_send)
+  self_metadata.headers = {
+    "content-length: " .. string.len(data_to_send),
+    "content-type: application/json",
+    "x-canopsis-authkey: " .. tostring(self.sc_params.params.canopsis_authkey)
+  }
+
+  self.sc_logger:log_curl_command(url, self_metadata, self.sc_params.params, data_to_send)
+
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[checkCanopsisAPI]: " .. tostring(data_to_send))
+    return true
+  end
+
+  self.sc_logger:info("[checkCanopsisAPI]: Going to send the following json: " .. data_to_send)
+  self.sc_logger:info("[checkCanopsisAPI]: Canopsis address is: " .. tostring(url))
+
+  local http_response_body = ""
+  local http_request = curl.easy()
+                           :setopt_url(url)
+                           :setopt_writefunction(
+      function (response)
+        http_response_body = http_response_body .. tostring(response)
+      end
+  )
+                           :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+                           :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
+                           :setopt(curl.OPT_SSL_VERIFYHOST, self.sc_params.params.verify_certificate)
+                           :setopt(curl.OPT_HTTPHEADER, self_metadata.headers)
+                           :setopt(curl.OPT_CUSTOMREQUEST, self_metadata.method)
+
+  -- set proxy address configuration
+  if (self.sc_params.params.proxy_address ~= '') then
+    if (self.sc_params.params.proxy_port ~= '') then
+      http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
+    else
+      self.sc_logger:error("[checkCanopsisAPI]: proxy_port parameter is not set but proxy_address is used")
+    end
+  end
+
+  -- set proxy user configuration
+  if (self.sc_params.params.proxy_username ~= '') then
+    if (self.sc_params.params.proxy_password ~= '') then
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username
+          .. ':' .. self.sc_params.params.proxy_password)
+    else
+      self.sc_logger:error("[checkCanopsisAPI]: proxy_password parameter is not set but proxy_username is used")
+    end
+  end
+
+  if self_metadata.method == 'POST' or self_metadata.method == 'PUT' then
+    http_request:setopt_postfields(data_to_send)
+  end
+
+  -- performing the HTTP request
+  http_request:perform()
+
+  -- collecting results
+  http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+
+  http_request:close()
+
+  if http_response_code >= 200 and http_response_code <= 299 or http_response_code == 400 then
+    self.sc_logger:info("[checkCanopsisAPI]: HTTP request successful: return code is "
+        .. tostring(http_response_code))
+    self.sc_logger:notice("[checkCanopsisAPI]: HTTP request successful: return code is "
+        .. tostring(http_response_code))
+    retval = true
+  else
+    self.sc_logger:error("[checkCanopsisAPI]: HTTP request FAILED, return code is "
+        .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
   end
 
   return retval
