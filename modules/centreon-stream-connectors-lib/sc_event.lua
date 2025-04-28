@@ -27,9 +27,6 @@ function sc_event.new(broker_event, params, common, logger, broker)
   self.sc_broker = broker
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
-  -- we put the broker_event userdata in a variable from our object this way it will be accessible from anywhere 
-  self.broker_event = broker_event
-
   -- we create our event table
   self.event = {
     cache = {}
