@@ -166,8 +166,15 @@ end
 -- @param metric {table} a single metric data
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_host]:  start format_metric host")
-  self.sc_event.event.formated_event = metric.metric_name .. ",type=host," .. self:build_generic_tags(metric) .. " value=" .. metric.value .. " " .. self.sc_event.event.last_check
+  self.sc_logger:debug("[EventQueue:format_metric_host]: start format_metric host")
+  local event = self.sc_event.event
+  local metric_key = tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name)
+  self.sc_event.event.formated_event = {
+    metric_name = metric.metric_name,
+    metric_value = metric.value,
+    metric_key = metric_key,
+    last_check = self.sc_event.event.last_check,
+  }
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric host")
 end
@@ -177,50 +184,17 @@ end
 -- @param metric {table} a single metric data
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_service(metric)
-  local params = self.sc_params.params
   self.sc_logger:debug("[EventQueue:format_metric_service]: start format_metric service")
-  self.sc_event.event.formated_event = metric.metric_name .. ",type=service,service.name="
-    .. self.sc_event.event.cache.service.description
-    .. "," .. self:build_generic_tags(metric) .. " value=" .. metric.value .. " " .. self.sc_event.event.last_check
+  local event = self.sc_event.event
+  local metric_key = tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name)
+  self.sc_event.event.formated_event = {
+    metric_name = metric.metric_name,
+    metric_value = metric.value,
+    metric_key = metric_key,
+    last_check = self.sc_event.event.last_check,
+  }
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric service")
-end
-
---------------------------------------------------------------------------------
----- EventQueue:build_tags method
--- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata
---------------------------------------------------------------------------------
-function EventQueue:build_generic_tags(metric)
-  local event = self.sc_event.event
-  local tags = 'host.name=' .. event.cache.host.name .. ',poller=' .. event.cache.poller
-
-  local metric_key = tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name)
-  broker_log:info(0, "METRIC_KEY: " .. metric_key)
-  if not metrics[metric_key] then
-    broker_log:error(0, "METRIC_ID not found for key: " .. metric_key)
-  else
-    broker_log:info(0, "METRIC_ID: " .. metrics[metric_key])
-    tags = tags .. ',metric.id=' .. metrics[metric_key]
-  end
-
-  -- add metric instance in tags
-  if metric.instance ~= "" then
-    tags = tags .. ',metric.instance=' .. metric.instance
-  end
-
-  if metric.uom ~= "" then
-    tags = tags .. ',metric.unit=' .. metric.uom
-  end
-
-  -- add metric subinstances in tags
-  if metric.subinstance[1] then
-    for subinstance_id, subinstance_name in ipairs(metric.subinstance) do
-      tags = tags .. ',subinstance_' .. subinstance_id .. '=' .. subinstance_name
-    end
-  end
-
-  return tags
 end
 
 --------------------------------------------------------------------------------
@@ -236,6 +210,7 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
+  self.sc_common:dumper(self.sc_event.event.formated_event)
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
@@ -251,11 +226,10 @@ end
 function EventQueue:build_payload(payload, event)
   broker_log:info(0, "EventQueue:build_payload()")
   if not payload then
-    payload = event
+    payload = {event}
   else
-    payload = payload .. "\n" .. event
+    table.insert(payload, event)
   end
-
   return payload
 end
 
@@ -274,7 +248,18 @@ function EventQueue:send_data(payload, queue_metadata)
     "content-type: text/plain; charset=utf-8"
   }
 
-  self.sc_logger:log_curl_command(url, queue_metadata, params, payload)
+  self.sc_common:dumper(payload)
+  local data_binary = ''
+  for index, event in ipairs(payload) do
+    if not metrics[event.metric_key] then
+      broker_log:error(0, "METRIC_ID not found for key: " .. event.metric_key)
+    else
+      broker_log:info(0, "METRIC_ID: " .. metrics[event.metric_key])
+      data_binary = data_binary .. "\n" .. event.metric_name .. ",metric.id=" .. metrics[event.metric_key] .. " value=" .. event.metric_value .. " " .. event.last_check
+    end
+  end
+
+  self.sc_logger:log_curl_command(url, queue_metadata, params, data_binary)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -316,7 +301,7 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(payload)
+  http_request:setopt_postfields(data_binary)
 
   -- performing the HTTP request
   http_request:perform()
@@ -341,35 +326,6 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   return retval
-end
-
-function EventQueue:convert_metric_event(event)
-  local params = self.sc_params.params
-  -- drop the event if it is not a metric event from the storage category
-  if event.category ~= params.bbdo.categories["storage"].id then
-    return false
-  end
-  if event.element ~= params.bbdo.elements["metric"].id then
-    return false
-  end
-
-  -- hack event to make stream connector lib think it is a standard status neb event.
-  event.perfdata = "'" .. event.name .. "'=" .. event.value .. ";;;;"
-  event.category = params.bbdo.categories["neb"].id
-
-  if not event.ctime then
-    event.last_check = event.time
-  else
-    event.last_check = event.ctime
-  end
-
-  if event.service_id and event.service_id ~= 0 then
-    event.element = params.bbdo.elements["service_status"].id
-  else
-    event.element = params.bbdo.elements["host_status"].id
-  end
-
-  return event
 end
 
 --------------------------------------------------------------------------------
@@ -397,7 +353,6 @@ function write (event)
     -- check if the metric is already in the metrics table
     if not metrics[metric_key] then
       metrics[metric_key] = event.metric_id
-      broker_log:info(0, "ADD METRIC key: " .. metric_key .. " - value: " .. metrics[metric_key])
     end
   end
 
