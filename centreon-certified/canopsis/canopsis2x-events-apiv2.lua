@@ -169,6 +169,7 @@ function EventQueue.new(params)
       self.sc_logger:info("[EventQueue.new]: route " .. self.sc_params.params.canopsis_downtime_route .. " is not available - check Canopsis API release")
       -- if the route doesn't exist disable pbehavior management
       self.sc_params.params.canopsis_downtime_send_pbh = 0
+      self.sc_params.params.canopsis_downtime_not_send_pbh_reason = " route " .. self.sc_params.params.canopsis_downtime_route .. " is not available - check Canopsis API release"
 
       return self
     end
@@ -189,17 +190,21 @@ function EventQueue.new(params)
         method = "POST",
         event_route = self.sc_params.params.canopsis_downtime_reason_route
       }
-      self:postCanopsisAPI(metadata_post, self.sc_params.params.canopsis_downtime_reason_route, new_reason)
-    else
+      pbh_maintenance_reason_id = self:postCanopsisAPI(metadata_post, self.sc_params.params.canopsis_downtime_reason_route, new_reason)
+    end
+
+    if pbh_maintenance_reason_id ~= false then
       -- If the reason id is reachable with downtime_reason_route
-      if pbh_maintenance_reason_id ~= false and self.sc_params.params.send_data_test ~= 1 then
+      if self.sc_params.params.send_data_test ~= 1 then
         self.sc_params.params.canopsis_downtime_reason_id = pbh_maintenance_reason_id
-      elseif pbh_maintenance_reason_id ~= false and self.sc_params.params.send_data_test == 1 then
-        self.sc_params.params.canopsis_downtime_reason_id = "RRRR"
       else
-        -- if unable to get reason id, disable pbehavior management
-        self.sc_params.params.canopsis_downtime_send_pbh = 0
+        self.sc_params.params.canopsis_downtime_reason_id = "RRRR"
       end
+    else
+      -- if unable to get reason id, disable pbehavior management
+      self.sc_logger:info("[EventQueue.new]: Canopsis reason is not available")
+      self.sc_params.params.canopsis_downtime_send_pbh = 0
+      self.sc_params.params.canopsis_downtime_not_send_pbh_reason = " Canopsis reason is not available"
     end
 
     -- 3. Type : Dynamically get pbehavior type id for canopsis_downtime_type_name
@@ -215,7 +220,15 @@ function EventQueue.new(params)
       self.sc_params.params.canopsis_downtime_type_id = "TTTT"
     else
       -- if unable to get type id, disable pbehavior management
+      self.sc_logger:info("[EventQueue.new]: Canopsis type is not available")
       self.sc_params.params.canopsis_downtime_send_pbh = 0
+      self.sc_params.params.canopsis_downtime_not_send_pbh_reason = " Canopsis type is not available"
+    end
+  else
+    if self.sc_params.params.canopsis_downtime_send_pbh ~= 1 then
+      self.sc_params.params.canopsis_downtime_not_send_pbh_reason = " parameter canopsis_downtime_send_pbh is set to 0"
+    else
+      self.sc_params.params.canopsis_downtime_not_send_pbh_reason = " parameter accepted_elements doesn't contain downtime"
     end
   end
 
@@ -469,11 +482,20 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
+  if self.sc_params.params.canopsis_downtime_send_pbh ~= 1 and queue_metadata.event_route == self.sc_params.params.canopsis_downtime_route then
+    if self.sc_params.params.canopsis_downtime_not_send_pbh_reason ~= nil then
+      self.sc_logger:info("[EventQueue:send_data]: Downtime data is not sent, " .. self.sc_params.params.canopsis_downtime_not_send_pbh_reason)
+    else
+      self.sc_logger:info("[EventQueue:send_data]: Downtime data is not sent")
+    end
+
+    return true
+  end
+
   local params = self.sc_params.params
   local http_method = "POST"
   local url = params.sending_protocol .. "://" .. params.canopsis_host .. ':' .. params.canopsis_port .. queue_metadata.event_route
 
-  -- Deletion (for downtimes)
   if queue_metadata.method ~= nil then
     http_method = queue_metadata.method
   end
@@ -723,7 +745,15 @@ function EventQueue:postCanopsisAPI(self_metadata, route, data_to_send)
       .. tostring(http_response_code))
     self.sc_logger:notice("[postCanopsisAPI]: HTTP POST request successful: return code is "
     .. tostring(http_response_code))
-    retval = true
+
+    local json_response_decoded, error = broker.json_decode(http_response_body)
+    if error then
+      self.sc_logger:error("[postCanopsisAPI]: couldn't decode json string: " .. tostring(http_response_body)
+          .. ". Error is: " .. tostring(error))
+      return retval
+    end
+
+    retval = json_response_decoded["_id"]
   else
     self.sc_logger:error("[postCanopsisAPI]: HTTP POST request FAILED, return code is "
       .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
