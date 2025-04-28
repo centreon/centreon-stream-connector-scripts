@@ -14,7 +14,7 @@ local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 
 local ScEvent = {}
 
-function sc_event.new(event, params, common, logger, broker)
+function sc_event.new(broker_event, params, common, logger, broker)
   local self = {}
 
   self.sc_logger = logger
@@ -23,11 +23,18 @@ function sc_event.new(event, params, common, logger, broker)
   end
   self.sc_common = common
   self.params = params
-  self.event = event
+  self.broker_event = broker_event
   self.sc_broker = broker
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
-  self.event.cache = {}
+  -- we create our event table
+  self.event = {
+    cache = {}
+  }
+
+  -- create the meta table for the self.event table
+  local event_meta = { __index = function (tbl, key) return self.broker_event[key] end}
+  setmetatable(self.event, event_meta)
 
   setmetatable(self, { __index = ScEvent })
   return self
