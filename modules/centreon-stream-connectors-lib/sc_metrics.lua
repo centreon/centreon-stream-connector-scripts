@@ -269,7 +269,7 @@ end
 function ScMetrics:build_metric(format_metric)
   local metrics_info = self.metrics_info
 
-  for metric, metric_data in pairs(self.metrics_info) do
+  for metric, metric_data in pairs(metrics_info) do
     if string.match(metric_data.metric_name, self.params.accepted_metrics) then
       metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, self.params.metric_name_regex, self.params.metric_replacement_character)
       -- use stream connector method to format the metric event
