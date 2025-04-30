@@ -68,14 +68,6 @@ function EventQueue.new(params)
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
-  -- for cache problems, we need to check the datas in the database
-  self.sc_params.params.enable_broker_cache_counter_check = params.enable_broker_cache_counter_check or 0
-  -- centreon database information (only used if you set enable_broker_cache_counter_check to 1
-  self.sc_params.params.centreon_db_name = params.centreon_db_name or "centreon"
-  self.sc_params.params.centreon_db_address = params.centreon_db_name or "127.0.0.1"
-  self.sc_params.params.centreon_db_port = params.centreon_db_name or 3306
-  self.sc_params.params.centreon_db_user = params.centreon_db_name or "centreon"
-  self.sc_params.params.centreon_db_password = params.centreon_db_name or ""
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
