@@ -22,7 +22,6 @@ function EventQueue.new(params)
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
-  self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
 
   -- initiate parameters dedicated to this stream connector
@@ -41,6 +40,8 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+
+  self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })

@@ -73,7 +73,6 @@ function EventQueue.new(params)
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
-  self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
 
   -- checking mandatory parameters and setting a fail flag
@@ -107,6 +106,7 @@ function EventQueue.new(params)
   end
 
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+  self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements

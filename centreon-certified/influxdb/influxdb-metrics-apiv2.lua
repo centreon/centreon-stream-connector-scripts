@@ -48,7 +48,6 @@ function EventQueue.new(params)
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(logfile, log_level)
   self.sc_common = sc_common.new(self.sc_logger)
-  self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
 
   -- checking mandatory parameters and setting a fail flag
@@ -90,6 +89,7 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+  self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -256,7 +256,8 @@ function EventQueue:send_data(payload, queue_metadata)
       payload_event.retry = 1
       table.insert(events_retry, payload_event)
     else
-      data_binary = data_binary .. payload_event.metric_name .. ",metric.id=" .. metrics[payload_event.metric_key] .. " value=" .. payload_event.metric_value .. " " .. payload_event.last_check .. "\n" .. payload_event.status .. "\n"
+      data_binary = data_binary .. payload_event.metric_name .. ",metric_id=" .. metrics[payload_event.metric_key] .. " value=" .. payload_event.metric_value .. " " .. payload_event.last_check .. "\n"
+      data_binary = data_binary  .. payload_event.status .. "\n"
     end
   end
 
@@ -266,10 +267,12 @@ function EventQueue:send_data(payload, queue_metadata)
       if retry_event.retry > 3 then
         self.sc_logger:debug("Retry limit reached for key: " .. retry_event.metric_key)
         data_binary = data_binary .. retry_event.metric_name .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
+        data_binary = data_binary .. retry_event.status .. "\n"
         table.remove(events_retry, index)
       end
     else
-      data_binary = data_binary .. retry_event.metric_name .. ",metric.id=" .. metrics[retry_event.metric_key] .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n" .. retry_event.status .. "\n"
+      data_binary = data_binary .. retry_event.metric_name .. ",metric_id=" .. metrics[retry_event.metric_key] .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
+      data_binary = data_binary .. retry_event.status .. "\n"
       table.remove(events_retry, index)
     end
   end
@@ -368,7 +371,6 @@ function write (event)
       metrics[metric_key] = event.metric_id
     end
   end
-  --broker_log:info(0, "METRICS: " .. broker.json_encode(metrics))
 
   -- skip event if a mandatory parameter is missing
   if queue.fail then
