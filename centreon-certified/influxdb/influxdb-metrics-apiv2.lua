@@ -65,7 +65,7 @@ function EventQueue.new(params)
   self.sc_params.params.influxdb_database = params.influxdb_database
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
   self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.max_buffer_size = params.max_buffer_size or 5000
+  self.sc_params.params.max_buffer_size = params.max_buffer_size or 100
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
@@ -167,13 +167,15 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: start format_metric host")
+
   local event = self.sc_event.event
-  local metric_key = tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name)
-  self.sc_event.event.formated_event = {
+  local metric_key = tostring(event.host_id) .. ':0:' .. tostring(metric.metric_name)
+  event.formated_event = {
     metric_name = metric.metric_name,
     metric_value = metric.value,
     metric_key = metric_key,
-    last_check = self.sc_event.event.last_check,
+    last_check = event.last_check,
+    status = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. " " .. tostring(event.last_check)
   }
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric host")
@@ -187,11 +189,12 @@ function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: start format_metric service")
   local event = self.sc_event.event
   local metric_key = tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name)
-  self.sc_event.event.formated_event = {
+  event.formated_event = {
     metric_name = metric.metric_name,
     metric_value = metric.value,
     metric_key = metric_key,
-    last_check = self.sc_event.event.last_check,
+    last_check = event.last_check,
+    status = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. ",service_id=" .. tostring(event.cache.service.service_id) .. " " .. tostring(event.last_check)
   }
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric service")
@@ -201,7 +204,6 @@ end
 -- EventQueue:add, add an event to the sending queue
 --------------------------------------------------------------------------------
 function EventQueue:add()
-  broker_log:info(0, "EventQueue:add()")
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
@@ -224,7 +226,6 @@ end
 -- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
-  broker_log:info(0, "EventQueue:build_payload()")
   if not payload then
     payload = {event}
   else
@@ -233,8 +234,9 @@ function EventQueue:build_payload(payload, event)
   return payload
 end
 
+local events_retry = {}
+
 function EventQueue:send_data(payload, queue_metadata)
-  broker_log:info(0, "EventQueue:send_data()")
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
   local params = self.sc_params.params
 
@@ -248,14 +250,27 @@ function EventQueue:send_data(payload, queue_metadata)
     "content-type: text/plain; charset=utf-8"
   }
 
-  self.sc_common:dumper(payload)
   local data_binary = ''
-  for index, event in ipairs(payload) do
-    if not metrics[event.metric_key] then
-      broker_log:error(0, "METRIC_ID not found for key: " .. event.metric_key)
+  for index, payload_event in ipairs(payload) do
+    if not metrics[payload_event.metric_key] then
+      payload_event.retry = 1
+      table.insert(events_retry, payload_event)
     else
-      broker_log:info(0, "METRIC_ID: " .. metrics[event.metric_key])
-      data_binary = data_binary .. "\n" .. event.metric_name .. ",metric.id=" .. metrics[event.metric_key] .. " value=" .. event.metric_value .. " " .. event.last_check
+      data_binary = data_binary .. payload_event.metric_name .. ",metric.id=" .. metrics[payload_event.metric_key] .. " value=" .. payload_event.metric_value .. " " .. payload_event.last_check .. "\n" .. payload_event.status .. "\n"
+    end
+  end
+
+  for index, retry_event in ipairs(events_retry) do
+    if not metrics[retry_event.metric_key] then
+      retry_event.retry = retry_event.retry + 1
+      if retry_event.retry > 3 then
+        self.sc_logger:debug("Retry limit reached for key: " .. retry_event.metric_key)
+        data_binary = data_binary .. retry_event.metric_name .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
+        table.remove(events_retry, index)
+      end
+    else
+      data_binary = data_binary .. retry_event.metric_name .. ",metric.id=" .. metrics[retry_event.metric_key] .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n" .. retry_event.status .. "\n"
+      table.remove(events_retry, index)
     end
   end
 
@@ -267,7 +282,7 @@ function EventQueue:send_data(payload, queue_metadata)
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following data " .. tostring(data_binary))
   self.sc_logger:info("[EventQueue:send_data]: Influxdb address is: " .. tostring(url))
 
   local http_response_body = ""
@@ -336,7 +351,6 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  broker_log:info(0, "EventQueue:init()")
   queue = EventQueue.new(conf)
 end
 
@@ -346,7 +360,6 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)
-  --broker_log:info(0, "EventQueue:write()")
 
   if event._type == 196617 then
     local metric_key = tostring(event.host_id) .. ':' .. tostring(event.service_id) .. ':' .. tostring(event.name)
@@ -355,6 +368,7 @@ function write (event)
       metrics[metric_key] = event.metric_id
     end
   end
+  --broker_log:info(0, "METRICS: " .. broker.json_encode(metrics))
 
   -- skip event if a mandatory parameter is missing
   if queue.fail then
