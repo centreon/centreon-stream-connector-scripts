@@ -2,7 +2,7 @@
 
 broker_api_version = 2
 
---- 
+---
 -- Module to help initiate a stream connector with all paramaters
 -- @module sc_params
 -- @alias sc_params
@@ -22,20 +22,20 @@ function sc_params.new(common, logger)
 
   -- initiate mandatory libs
   self.logger = logger
-  if not self.logger then 
+  if not self.logger then
     self.logger = sc_logger.new()
   end
   self.common = common
 
   -- get the version of the bbdo protocol (only the first digit, nothing else matters)
   self.bbdo_version = self.common:get_bbdo_version()
-  
+
   -- initiate params
   self.params = {
     -- filter broker events
     accepted_categories = "neb,bam", -- could be: neb,storage,bam (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#event-categories)
     accepted_elements = "host_status,service_status,ba_status", -- could be: metric,host_status,service_status,ba_event,kpi_event" (https://docs.centreon.com/docs/centreon-broker/en/latest/dev/bbdo.html#neb)
-    
+
     -- filter status
     host_status = "0,1,2", -- = ok, down, unreachable
     service_status = "0,1,2,3", -- = ok, warning, critical, unknown,
@@ -44,13 +44,13 @@ function sc_params.new(common, logger)
     ack_service_status = "", -- will use service_status if empty
     dt_host_status = "", -- will use host_status if empty
     dt_service_status = "", -- will use service_status if empty
-    
+
     -- filter state type 
     hard_only = 1,
     acknowledged = 0,
     in_downtime = 0,
     flapping = 0,
-    
+
     -- objects filter
     accepted_hostgroups = "",
     rejected_hostgroups = "",
@@ -77,7 +77,22 @@ function sc_params.new(common, logger)
     -- filter anomalous events
     skip_anon_events = 1,
     skip_nil_id = 1,
-    enable_bam_host = 0,
+
+    -- enable or disable dedup
+    enable_host_status_dedup = 1,
+    enable_service_status_dedup = 1,
+
+    -- communication parameters
+    max_buffer_size = 1,
+    max_buffer_age = 5, --deprecated
+    max_all_queues_age = 60,
+    send_mixed_events = 1,
+
+    -- connection parameters
+    connection_timeout = 60,
+    allow_insecure_connection = 0, --deprecated (confusing naming)
+    verify_certificate = 1,
+
     enable_broker_cache_counter_check = 0,
 
     -- centreon database information (only used if you set enable_broker_cache_counter_check to 1
@@ -86,21 +101,6 @@ function sc_params.new(common, logger)
     centreon_db_port = 3306,
     centreon_db_user = "centreon",
     centreon_db_password = "",
-
-    -- enable or disable dedup
-    enable_host_status_dedup = 1,
-    enable_service_status_dedup = 1,
-    
-    -- communication parameters
-    max_buffer_size = 1,
-    max_buffer_age = 5, --deprecated
-    max_all_queues_age = 5,
-    send_mixed_events = 1,
-
-    -- connection parameters
-    connection_timeout = 60,
-    allow_insecure_connection = 0, --deprecated (confusing naming)
-    verify_certificate = 1,
 
     -- proxy parameters
     proxy_address = "",
@@ -119,6 +119,10 @@ function sc_params.new(common, logger)
     -- custom code parameters
     custom_code_file = "",
 
+    -- storage parameters
+    storage_backend = "broker",
+    ["sc_storage.sqlite.db_file"] = "/var/lib/centreon-broker/stream-connector-storage.sdb",
+
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
     timestamp_conversion_format = "%Y-%m-%d %X", -- will print 2021-06-11 10:43:38
@@ -134,6 +138,8 @@ function sc_params.new(common, logger)
     logfile = "",
     log_level = "",
     log_curl_commands = 0,
+    enable_trace = 0,
+    trace_host_id_list = "",
 
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",
@@ -954,7 +960,7 @@ function ScParams:param_override(user_params)
     return
   end
 
-  local keywords_to_hide =  {"pass", "key"}
+  local keywords_to_hide = { "pass", "key" }
   local logged_param_value
 
   for param_name, param_value in pairs(user_params) do
@@ -987,7 +993,6 @@ function ScParams:check_params()
   self.params.flapping = self.common:check_boolean_number_option_syntax(self.params.flapping, 0)
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
-  self.params.enable_bam_host = self.common:check_boolean_number_option_syntax(self.params.enable_bam_host, 0)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.rejected_authors = self.common:if_wrong_type(self.params.rejected_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
@@ -1028,7 +1033,7 @@ function ScParams:check_params()
   self.params.metric_replacement_character = self.common:ifnil_or_empty(self.params.metric_replacement_character, "_")
   self.params.output_size_limit = self.common:if_wrong_type(self.params.output_size_limit, "number", "")
   self.params.delta_host_status_change_allow = self.common:if_wrong_type(self.params.delta_host_status_change_allow, "number", 20)
-  
+
   if self.params.accepted_hostgroups ~= '' and self.params.rejected_hostgroups ~= '' then
     self.logger:error("[sc_params:check_params]: Parameters accepted_hostgroups and rejected_hostgroups cannot be used together. None will be used.")
   end
@@ -1046,14 +1051,15 @@ function ScParams:check_params()
   end
 
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
-  self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
+  self:build_and_validate_filters_pattern({ "accepted_hosts", "accepted_services" })
+  self:build_trace_host_list(self.params.trace_host_id_list)
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
 -- @param kafka_config (object) object instance of kafka_config
 -- @param params (table) the list of parameters from broker web configuration
 function ScParams:get_kafka_params(kafka_config, params)
-  local keywords_to_hide =  {"pass", "key"}
+  local keywords_to_hide = { "pass", "key" }
   local logged_param_value
 
   for param_name, param_value in pairs(params) do
@@ -1062,14 +1068,14 @@ function ScParams:get_kafka_params(kafka_config, params)
     if string.find(param_name, "^_sc_kafka_") ~= nil then
       -- remove the _sc_kafka_ prefix and store the param in a dedicated kafka table
       kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
-      
+
       for _, must_be_hidden_param in pairs(keywords_to_hide) do
         if string.match(param_name, must_be_hidden_param) then
           logged_param_value = "******"
         end
-        
-        self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name) 
-          .. " parameter with value " .. tostring(logged_param_value) .. " added to kafka_config")
+
+        self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name)
+            .. " parameter with value " .. tostring(logged_param_value) .. " added to kafka_config")
       end
     end
   end
@@ -1082,8 +1088,8 @@ end
 function ScParams:is_mandatory_config_set(mandatory_params, params)
   for index, mandatory_param in ipairs(mandatory_params) do
     if not params[mandatory_param] or params[mandatory_param] == "" then
-      self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param) 
-        .. " parameter is not set in the stream connector web configuration (or value is empty)")
+      self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param)
+          .. " parameter is not set in the stream connector web configuration (or value is empty)")
       return false
     end
 
@@ -1101,10 +1107,10 @@ function ScParams:load_event_format_file(json_string)
   -- return if there is no file configured
   if self.params.format_file == "" or self.params.format_file == nil then
     return false
-  end 
-  
+  end
+
   local retval, content = self.common:load_json_file(self.params.format_file)
-  
+
   -- return if we couldn't load the json file
   if not retval then
     return false
@@ -1115,16 +1121,16 @@ function ScParams:load_event_format_file(json_string)
   local elements = self.params.bbdo.elements
   local tpl_category
   local tpl_element
-  
+
   -- store format template in their appropriate category/element table
   for cat_el, format in pairs(content) do
     tpl_category, tpl_element = string.match(cat_el, "^(%w+)_(.*)")
-    
+
     -- convert back to json if 
     if json_string then
       format = broker.json_encode(format)
     end
-    
+
     self.params.format_template[categories[tpl_category].id][elements[tpl_element].id] = format
   end
 
@@ -1138,14 +1144,14 @@ function ScParams:load_custom_code_file(custom_code_file)
   -- return if there is no file configured
   if self.params.custom_code_file == "" or self.params.custom_code_file == nil then
     return true
-  end 
-  
+  end
+
   local file = io.open(custom_code_file, "r")
 
   -- return false if we can't open the file
   if not file then
     self.logger:error("[sc_params:load_custom_code_file]: couldn't open file "
-      .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+        .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
     return false
   end
 
@@ -1157,11 +1163,11 @@ function ScParams:load_custom_code_file(custom_code_file)
   for return_value in string.gmatch(file_content, "return (.-)\n") do
     if return_value ~= "self, true" and return_value ~= "self, false" then
       self.logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
-        .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
+          .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
       return false
     end
   end
-  
+
   -- check if it is valid lua code
   local custom_code, error = loadfile(custom_code_file)
 
@@ -1181,7 +1187,7 @@ function ScParams:build_accepted_elements_info()
   -- list all accepted elements
   for _, accepted_element in ipairs(self.common:split(self.params.accepted_elements, ",")) do
     -- try to find element in known categories
-    for category_name, category_info in pairs(categories) do        
+    for category_name, category_info in pairs(categories) do
       if self.params.element_mapping[category_info.id][accepted_element] then
         -- if found, store information in a dedicated table
         self.params.accepted_elements_info[accepted_element] = {
@@ -1202,7 +1208,7 @@ end
 function ScParams:validate_pattern_param(param_name, param_value)
   if not self.common:validate_pattern(param_value) then
     self.logger:error("[sc_params:validate_pattern_param]: couldn't validate Lua pattern: " .. tostring(param_value)
-      .. " for parameter: " .. tostring(param_name) .. ". The filter will be reset to an empty value.")
+        .. " for parameter: " .. tostring(param_name) .. ". The filter will be reset to an empty value.")
     return ""
   end
 
@@ -1230,23 +1236,43 @@ function ScParams:build_and_validate_filters_pattern(param_list)
     -- this option is here to overcome the lack of alternation operator ("|" character in POSIX regex) in Lua regex
     if self.params[param_name .. "_enable_split_pattern"] == 1 then
       temp_pattern_table = self.common:split(self.params[param_name], self.params[param_name .. "_split_character"])
-      
+
       for index, temp_pattern in ipairs(temp_pattern_table) do
         -- each sub pattern must be a valid standalone pattern. We are not here to develop regex in Lua
         if self.common:is_valid_pattern(temp_pattern) then
           table.insert(self.params[param_name .. "_pattern_list"], temp_pattern)
           self.logger:notice("[sc_params:build_accepted_filters_pattern]: adding " .. tostring(temp_pattern)
-            .. " to the list of filtering patterns for parameter: " .. param_name)
+              .. " to the list of filtering patterns for parameter: " .. param_name)
         else
           -- if the sub pattern is not valid, just ignore it
-          self.logger:error("[sc_params:build_accepted_filters_pattern]: ignoring pattern for param: " 
-            .. param_name .. " because after splitting the string:" .. param_name
-            .. ", we end up with the following pattern: " .. tostring(temp_pattern) .. " which is not a valid Lua pattern")
+          self.logger:error("[sc_params:build_accepted_filters_pattern]: ignoring pattern for param: "
+              .. param_name .. " because after splitting the string:" .. param_name
+              .. ", we end up with the following pattern: " .. tostring(temp_pattern) .. " which is not a valid Lua pattern")
         end
       end
     else
       table.insert(self.params[param_name .. "_pattern_list"], self.params[param_name])
     end
+  end
+end
+
+function ScParams:build_trace_host_list(param_value)
+  if self.params.enable_trace == 1 then
+    if param_value == "" then
+      self.logger:notice("[sc_params:build_trace_host_list]: enable_trace param is set to 1 but no trace_host_id_list provided. Trace is going to be disabled")
+      self.params.enable_trace = 0
+      return
+    end
+    local tmp_trace_list = self.common:split(param_value)
+    local trace_list = {}
+    local host_info
+
+    for index, host_id in ipairs(tmp_trace_list) do
+      trace_list[tonumber(host_id)] = tonumber(host_id)
+    end
+    self.params.trace_host_id_list = trace_list
+  elseif self.params.trace_host_id_list ~= "" and self.params.enable_trace == 0 then
+    self.logger:notice("[sc_params:build_trace_host_list]: trace_host_id_list is not empty but enable_trace param is set to 0. trace_host_id_list param is going to be ignored")
   end
 end
 

@@ -7,6 +7,7 @@ local metrics = {}
 
 -- Libraries
 local curl = require "cURL"
+local mime = require("mime")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -15,6 +16,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
+local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -63,12 +65,13 @@ function EventQueue.new(params)
   self.sc_params.params.influxdb_password = params.influxdb_password
   self.sc_params.params.influxdb_database = params.influxdb_database
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_elements = params.accepted_elements or "service_status"
   self.sc_params.params.max_buffer_size = params.max_buffer_size or 100
   self.sc_params.params.hard_only = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup = params.enable_host_status_dedup or 0
   self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 0
-  
+  self.sc_params.params.metric_name_regex = params.metric_name_regex or "([, =])"
+  self.sc_params.params.metric_replacement_character = params.metric_replacement_character or "\\%1"
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
@@ -82,30 +85,49 @@ function EventQueue.new(params)
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  local rc, init_metrics = self.sc_storage:get_all_values_from_property("metric_id")
+  if type(init_metrics) == "boolean" or rc == false then
+    self.sc_logger:notice("no metric_id found in the sqlite db. That's probably because it is the first time the stream connector is executed")
+  else
+    metrics = init_metrics
+  end
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
 
   self.format_event = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function () return self:format_event_host() end,
-      [elements.service_status.id] = function () return self:format_event_service() end
+      [elements.host_status.id] = function()
+        return self:format_event_host()
+      end,
+      [elements.service_status.id] = function()
+        return self:format_event_service()
+      end
     }
   }
 
   self.format_metric = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function (metric) return self:format_metric_host(metric) end,
-      [elements.service_status.id] = function (metric) return self:format_metric_service(metric) end
+      [elements.host_status.id] = function(metric)
+        return self:format_metric_host(metric)
+      end,
+      [elements.service_status.id] = function(metric)
+        return self:format_metric_service(metric)
+      end
     }
   }
 
   self.send_data_method = {
-    [1] = function (payload, queue_metadata) return self:send_data(payload, queue_metadata) end
+    [1] = function(payload, queue_metadata)
+      return self:send_data(payload, queue_metadata)
+    end
   }
 
   self.build_payload_method = {
-    [1] = function (payload, event) return self:build_payload(payload, event) end
+    [1] = function(payload, event)
+      return self:build_payload(payload, event)
+    end
   }
 
   -- return EventQueue object
@@ -125,9 +147,9 @@ function EventQueue:format_accepted_event()
   -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
   if not self.format_event[category][element] then
     self.sc_logger:error("[format_event]: You are trying to format an event with category: "
-      .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
-      .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
-      .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
+        .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+        .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+        .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
   else
     self.format_event[category][element]()
   end
@@ -161,12 +183,14 @@ function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: start format_metric host")
 
   local event = self.sc_event.event
-  local metric_key = tostring(event.host_id) .. ':0:' .. tostring(metric.metric_name)
+  local metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':0:' .. tostring(metric.metric_name))
   event.formated_event = {
     metric_name = metric.metric_name,
     metric_value = metric.value,
     metric_key = metric_key,
     last_check = event.last_check,
+    host_id = event.host_id,
+    service_id = 0,
     status = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. " " .. tostring(event.last_check)
   }
   self:add()
@@ -180,12 +204,14 @@ end
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: start format_metric service")
   local event = self.sc_event.event
-  local metric_key = tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name)
+  local metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name))
   event.formated_event = {
     metric_name = metric.metric_name,
     metric_value = metric.value,
     metric_key = metric_key,
     last_check = event.last_check,
+    host_id = event.host_id,
+    service_id = event.service_id,
     status = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. ",service_id=" .. tostring(event.cache.service.service_id) .. " " .. tostring(event.last_check)
   }
   self:add()
@@ -201,14 +227,14 @@ function EventQueue:add()
   local element = self.sc_event.event.element
 
   self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
-    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+      .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_common:dumper(self.sc_event.event.formated_event)
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
-    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
+  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
+      .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -219,7 +245,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = {event}
+    payload = { event }
   else
     table.insert(payload, event)
   end
@@ -245,11 +271,15 @@ function EventQueue:send_data(payload, queue_metadata)
   local data_binary = ''
   for index, payload_event in ipairs(payload) do
     if not metrics[payload_event.metric_key] then
+      if payload_event.host_id == 7423 and payload_event.service_id == 0 and payload_event.metric_name == "rtmin" then
+        self.sc_logger:notice("send_data: No metric_id found for: host_id:" .. tostring(payload_event.host_id) .. ", service_id: " .. tostring(payload_event.service_id) .. ", metric name: " .. tostring(payload_event.metric_name))
+      end
       payload_event.retry = 1
+
       table.insert(events_retry, payload_event)
     else
       data_binary = data_binary .. payload_event.metric_name .. ",metric_id=" .. metrics[payload_event.metric_key] .. " value=" .. payload_event.metric_value .. " " .. payload_event.last_check .. "\n"
-      data_binary = data_binary  .. payload_event.status .. "\n"
+      data_binary = data_binary .. payload_event.status .. "\n"
     end
   end
 
@@ -257,7 +287,7 @@ function EventQueue:send_data(payload, queue_metadata)
     if not metrics[retry_event.metric_key] then
       retry_event.retry = retry_event.retry + 1
       if retry_event.retry > 3 then
-        self.sc_logger:debug("Retry limit reached for key: " .. retry_event.metric_key)
+        self.sc_logger:warning("Retry limit reached for key: " .. retry_event.metric_key)
         data_binary = data_binary .. retry_event.metric_name .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
         data_binary = data_binary .. retry_event.status .. "\n"
         table.remove(events_retry, index)
@@ -282,15 +312,15 @@ function EventQueue:send_data(payload, queue_metadata)
 
   local http_response_body = ""
   local http_request = curl.easy()
-    :setopt_url(url)
-    :setopt_writefunction(
-      function (response)
+                           :setopt_url(url)
+                           :setopt_writefunction(
+      function(response)
         http_response_body = http_response_body .. tostring(response)
       end
-    )
-    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
-    :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
+  )
+                           :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+                           :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
+                           :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
@@ -355,12 +385,25 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)
+  if event._type == 196617 or event._type == 196609 then
+    local mname = event.name
+    local metric_key = ""
+    mname = string.gsub(mname, queue.sc_params.params.metric_name_regex, queue.sc_params.params.metric_replacement_character)
+    --if event.host_id == 7423 then
+    --		    queue.sc_logger:notice("metric_key for host 7423: " .. tostring(metric_key) .. ", dumper write func: " .. queue.sc_common:dumper(event) )
+    --	    end
+    --local metric_key = tostring(event.host_id) .. ':' .. tostring(event.service_id) .. ':' .. tostring(event.name)
+    if not event.service_id or event.service_id == 0 then
+      metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':0:' .. mname)
+    else
+      metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':' .. event.service_id .. ':' .. mname)
+    end
 
-  if event._type == 196617 then
-    local metric_key = tostring(event.host_id) .. ':' .. tostring(event.service_id) .. ':' .. tostring(event.name)
     -- check if the metric is already in the metrics table
     if not metrics[metric_key] then
+      queue.sc_logger:notice("write: no metric_id found for 'metric_key': " .. tostring(metric_key) .. ", info:  " .. tostring(event.host_id) .. ':' .. tostring(event.service_id) .. ':' .. mname .. ", going to save metric_id : " .. tostring(event.metric_id) .. " in sqlite db and memory")
       metrics[metric_key] = event.metric_id
+      queue.sc_storage:set(metric_key, "metric_id", event.metric_id)
     end
   end
 
@@ -380,14 +423,14 @@ function write (event)
       if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped
+      --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
-        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+          .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
     end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
-      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
+        .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
 
   return flush()
