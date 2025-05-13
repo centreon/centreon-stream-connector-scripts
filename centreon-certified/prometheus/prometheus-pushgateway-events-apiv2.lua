@@ -77,6 +77,8 @@ function EventQueue.new(params)
   self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
   self.sc_params.params.http_timeout           = params.http_timeout or 30
   self.sc_params.params.prometheus_gateway_job = params.prometheus_gateway_job or "monitoring"
+  -- force max_buffer_size to 1 because we each service is sent to its own url
+  self.sc_params.params.max_buffer_size = 1
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
