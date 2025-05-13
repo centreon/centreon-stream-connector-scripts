@@ -1,5 +1,7 @@
 #!/usr/bin/lua
 
+broker_api_version = 2
+
 ---
 -- Module to help initiate a stream connector with all paramaters
 -- @module sc_params
