@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
---- 
+---
 -- Module that handles data queue for stream connectors
 -- @module sc_flush
 -- @alias sc_flush
@@ -16,10 +16,10 @@ local ScFlush = {}
 -- @param [opt] sc_logger (object) a sc_logger object 
 function sc_flush.new(params, logger)
   local self = {}
-  
+
   -- create a default logger if it is not provided
   self.sc_logger = logger
-  if not self.sc_logger then 
+  if not self.sc_logger then
     self.sc_logger = sc_logger.new()
   end
 
@@ -37,7 +37,7 @@ function sc_flush.new(params, logger)
     [categories.bam.id] = {},
     global_queues_metadata = {}
   }
-  
+
   -- link events queues to their respective categories and elements
   for element_name, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id] = {
@@ -62,7 +62,7 @@ function ScFlush:add_queue_metadata(category_id, element_id, metadata)
     self.sc_logger:warning("[ScFlush:add_queue_metadata]: can't add queue metadata for category: " .. self.params.reverse_category_mapping[category_id]
       .. " (id: " .. category_id .. ") and element: " .. self.params.reverse_element_mapping[category_id][element_id] .. " (id: " .. element_id .. ")."
       .. ". metadata name: " .. tostring(metadata_name) .. ", metadata value: " .. tostring(metadata_value)
-      .. ". You need to accept this category with the parameter 'accepted_categories'.") 
+      .. ". You need to accept this category with the parameter 'accepted_categories'.")
     return
   end
 
@@ -156,14 +156,14 @@ function ScFlush:flush_mixed_payload(build_payload_method, send_method)
 
   -- all events have been sent
   return true
-end 
+end
 
 --- flush_homogeneous_payload: flush a payload that contains a single type of events (services with services only and hosts with hosts only for example)
 -- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
   local counter = 0
   local payload = nil
-  
+
   -- get all queues
   for _, element_info in pairs(self.params.accepted_elements_info) do
     -- get events from queues
@@ -171,17 +171,17 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
       -- add event to the payload
       payload = build_payload_method(payload, event)
       counter = counter + 1
-      
+
       -- send events if max buffer size is reached
       if counter >= self.params.max_buffer_size then
         if not self:flush_payload(
-          send_method, 
-          payload, 
+          send_method,
+          payload,
           self.queues[element_info.category_id][element_info.element_id].queue_metadata
         ) then
           return false
         end
-        
+
         -- reset payload and counter because events have been sent
         counter = 0
         payload = nil
@@ -190,8 +190,8 @@ function ScFlush:flush_homogeneous_payload(build_payload_method, send_method)
 
     -- make sure there are no events left inside a specific queue
     if not self:flush_payload(
-      send_method, 
-      payload, 
+      send_method,
+      payload,
       self.queues[element_info.category_id][element_info.element_id].queue_metadata
     ) then
       return false
@@ -210,21 +210,13 @@ end
 -- @param metadata (table) all metadata for the payload
 -- @return boolean (boolean) true or false depending on the success of the operation
 function ScFlush:flush_payload(send_method, payload, metadata)
-  -- when the payload doesn't exist or is empty, we just tell broker that everything is fine on the stream connector side
-  if not payload or payload == "" then
-    return true
+  if payload then
+    if not send_method(payload, metadata) then
+      return false
+    end
   end
 
-  local pcall_status, result = pcall(send_method, payload, metadata)
-
-  self.sc_logger:debug("[sc_flush:flush_payload]: tried to send payload protected by pcall. Status: " .. tostring(pcall_status) .. ", Message: " .. tostring(result))
-
-  if not pcall_status then
-    self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
-    return false
-  end
-
-  return result
+  return true
 end
 
 return sc_flush

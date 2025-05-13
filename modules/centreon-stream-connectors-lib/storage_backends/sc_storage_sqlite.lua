@@ -26,7 +26,7 @@ function sc_storage_sqlite.new(common, logger, params)
     self.sc_logger:error("[sc_storage_sqlite:new]: couldn't open sqlite database: " .. tostring(params["sc_storage.sqlite.db_file"]))
   else
     self.sc_logger:notice("[sc_storage_sqlite:new]: successfully loaded sqlite storage database: " .. tostring(params["sc_storage.sqlite.db_file"])
-        .. ". Status is: " .. tostring(self.sqlite:isopen()))
+      .. ". Status is: " .. tostring(self.sqlite:isopen()))
   end
 
   self.last_query_result = {}
@@ -76,9 +76,9 @@ function ScStorageSqlite:get_query_result(convert_data, column_count, column_val
 
   -- only convert data when possible
   if convert_data
-      and self.convert_data_type[row.data_type]
-      and row[self.required_columns_for_data_type_conversion.value_column]
-      and row[self.required_columns_for_data_type_conversion.type_column]
+    and self.convert_data_type[row.data_type]
+    and row[self.required_columns_for_data_type_conversion.value_column]
+    and row[self.required_columns_for_data_type_conversion.type_column]
   then
     row.value = self.convert_data_type[row.data_type](row.value)
   end
@@ -134,7 +134,7 @@ function ScStorageSqlite:run_query(query, get_result, convert_data)
 
   if self.sqlite:errcode() ~= 0 then
     self.sc_logger:error("[sc_storage_sqlite:run_query]: couldn't run query: " .. tostring(query)
-        .. ". [SQL ERROR CODE]: " .. self.sqlite:errcode() .. ". [SQL ERROR MESSAGE]: " .. tostring(self.sqlite:errmsg()))
+      .. ". [SQL ERROR CODE]: " .. self.sqlite:errcode() .. ". [SQL ERROR MESSAGE]: " .. tostring(self.sqlite:errmsg()))
     return false
   else
     self.sc_logger:debug("[sc_storage_sqlite:run_query]: successfully executed query: " .. tostring(query))
@@ -160,7 +160,7 @@ function ScStorageSqlite:set(object_id, property, value)
 
   if not self:run_query(query) then
     self.sc_logger:error("[sc_storage_sqlite:set]: couldn't insert property in storage. Object id: " .. tostring(object_id)
-        .. ", property name: " .. tostring(property) .. ", property value: " .. tostring(value))
+      .. ", property name: " .. tostring(property) .. ", property value: " .. tostring(value))
     return false
   end
 
@@ -197,7 +197,7 @@ function ScStorageSqlite:set_multiple(object_id, properties)
 
   if not self:run_query(query) then
     self.sc_logger:error("[sc_storage_sqlite:set_multiple]: couldn't insert properties in storage. Object id: " .. tostring(object_id)
-        .. ", properties: " .. self.sc_common:dumper(properties))
+      .. ", properties: " .. self.sc_common:dumper(properties))
     return false
   end
 
@@ -214,7 +214,7 @@ function ScStorageSqlite:get(object_id, property)
 
   if not self:run_query(query, true, true) then
     self.sc_logger:error("[sc_storage_sqlite:get]: couldn't get property in storage. Object id: " .. tostring(object_id)
-        .. ", property name: " .. tostring(property))
+      .. ", property name: " .. tostring(property))
     return false, ""
   end
 
@@ -250,7 +250,7 @@ function ScStorageSqlite:get_multiple(object_id, properties)
 
   if not self:run_query(query, true, true) then
     self.sc_logger:error("[sc_storage_sqlite:get_multiple]: couldn't get properties in storage. Object id: " .. tostring(object_id)
-        .. ", properties: " .. self.sc_common:dumper(properties))
+      .. ", properties: " .. self.sc_common:dumper(properties))
     return false, {}
   end
 
@@ -275,12 +275,12 @@ function ScStorageSqlite:delete(object_id, property)
 
   if not self:run_query(query) then
     self.sc_logger:error("[sc_storage_sqlite:delete]: couldn't delete property in storage. Object id: " .. tostring(object_id)
-        .. ", property name: " .. tostring(property))
+      .. ", property name: " .. tostring(property))
     return false
   end
 
   self.sc_logger:debug("[sc_storage_sqlite:delete]: successfully deleted property in storage for object id: " .. tostring(object_id)
-      .. ", property name: " .. tostring(property))
+    .. ", property name: " .. tostring(property))
 
   return true
 end
@@ -305,12 +305,12 @@ function ScStorageSqlite:delete_multiple(object_id, properties)
 
   if not self:run_query(query) then
     self.sc_logger:error("[sc_storage_sqlite:delete_multiple]: couldn't delete property in storage. Object id: " .. tostring(object_id)
-        .. ", properties: " .. self.sc_common:dumper(properties))
+      .. ", properties: " .. self.sc_common:dumper(properties))
     return false
   end
 
   self.sc_logger:debug("[sc_storage_sqlite:delete_multiple]: successfully deleted property in storage for object id: " .. tostring(object_id)
-      .. ", properties: " .. self.sc_common:dumper(properties))
+    .. ", properties: " .. self.sc_common:dumper(properties))
 
   return true
 end
@@ -327,7 +327,7 @@ function ScStorageSqlite:show(object_id)
   end
 
   self.sc_logger:notice("[sc_storage_sqlite:show]: stored properties for object id: " .. tostring(object_id)
-      .. ": " .. broker.json_encode(self.last_query_result))
+    .. ": " .. broker.json_encode(self.last_query_result))
 
   return true
 end

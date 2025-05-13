@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
---- 
+---
 -- Module with Centreon broker related methods for easier usage
 -- @module sc_broker
 -- @alias sc_broker
@@ -13,6 +13,8 @@ local ScBroker = {}
 
 function sc_broker.new(params, logger)
   local self = {}
+
+  broker_api_version = 2
 
   self.sc_logger = logger
   if not self.sc_logger then
@@ -40,7 +42,6 @@ function sc_broker.new(params, logger)
   end
 
   setmetatable(self, { __index = ScBroker })
-
   return self
 end
 
@@ -55,39 +56,42 @@ function ScBroker:get_host_all_infos(host_id)
     self.sc_logger:warning("[sc_broker:get_host_all_infos]: host id is nil")
     return false
   end
-  
+
   -- get host information from broker cache
   local host_info = broker_cache:get_host(host_id)
 
   -- return false only if no host information were found in broker cache
   if not host_info and self.params.enable_broker_cache_counter_check ~= 1 then
     self.sc_logger:warning("[sc_broker:get_host_all_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")
+    --self.sc_logger:notice("[sc_broker:get_host_all_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
     return false
 
-  -- user is asking to also check in the database for the host. if we find it, we return a limited set of value (the most common ones)
-  elseif not host_info and self.params.enable_broker_cache_counter_check == 1 then
+    -- user is asking to also check in the database for the host. if we find it, we return a limited set of value (the most common ones)
+  elseif (not host_info or not host_info.name) and self.params.enable_broker_cache_counter_check == 1 then
+    --self.sc_logger:notice("going to check host info in the database")
     local query = [[
-      SELECT h.host_id,
-        h.host_name AS name,
-        h.host_alias AS alias,
-        h.host_address AS address,
+      SELECT h.host_id, 
+        h.host_name AS name, 
+        h.host_alias AS alias, 
+        h.host_address AS address, 
         h.display_name,
         ehi.ehi_notes AS notes,
         ehi.ehi_notes_url AS notes_url,
         ehi.ehi_action_url AS action_url,
-        nhr.nagios_server_id AS instance_id
+	nhr.nagios_server_id as instance_id
       FROM host h,
         extended_host_information ehi,
-        ns_host_relation nhr
+	ns_host_relation nhr
       WHERE ehi.host_host_id = h.host_id
         AND h.host_activate <> '0'
-        AND h.host_id = nhr.host_host_id
         AND h.host_id = ]] .. tonumber(host_id)
+      .. [[ AND nhr.host_host_id = ]] .. tonumber(host_id)
 
     self.sc_logger:debug("[sc_broker:get_host_all_infos]: no information found in broker cache for host: " .. tostring(host_id) .. ", going to check in the centreon database with query: " .. tostring(query))
 
+    --- self.sc_logger:notice("[sc_broker:get_host_all_infos]: no information found in broker cache for host: " .. tostring(host_id) .. ", going to check in the centreon database with query: " .. tostring(query))
     host_info = self:get_centreon_db_info(query)
-
+    -- self.sc_logger:notice("found host info in db cacheç " .. self.sc_common:dumper(host_info)
     if not host_info then
       self.sc_logger:error("[sc_broker:get_host_all_infos]: couldn't find host: " .. tostring(host_id)
         .. " in your database. Maybe it has been disabled or removed. You should export your configuration.")
@@ -109,7 +113,7 @@ function ScBroker:get_service_all_infos(host_id, service_id)
     self.sc_logger:warning("[sc_broker:get_service_all_infos]: host id or service id is nil")
     return false
   end
-  
+
   -- get service information from broker cache
   local service_info = broker_cache:get_service(host_id, service_id)
 
@@ -117,16 +121,18 @@ function ScBroker:get_service_all_infos(host_id, service_id)
   if not service_info and self.params.enable_broker_cache_counter_check ~= 1 then
     self.sc_logger:warning("[sc_broker:get_service_all_infos]: No service information found for host_id:  " .. tostring(host_id)
       .. " and service_id: " .. tostring(service_id) .. ". Restarting centengine should fix this.")
+    self.sc_logger:notice("[sc_broker:get_service_all_infos]: No service information found for host_id:  " .. tostring(host_id)
+      .. " and service_id: " .. tostring(service_id) .. ". Restarting centengine should fix this.")
     return false
-  elseif not service_info and self.params.enable_broker_cache_counter_check == 1 then
+  elseif (not service_info or not service_info.description) and self.params.enable_broker_cache_counter_check == 1 then
     local query = [[
-      SELECT s.service_id,
-        s.service_description AS description,
-        s.service_alias AS alias,
+      SELECT s.service_id, 
+        s.service_description AS description, 
+        s.service_alias AS alias, 
         s.display_name,
         esi.esi_notes AS notes,
         esi.esi_notes_url AS notes_url,
-        esi.esi_action_url AS action_url
+        esi.esi_action_url AS action_url 
       FROM service s,
         extended_service_information esi
       WHERE esi.service_service_id = s.service_id
@@ -134,6 +140,8 @@ function ScBroker:get_service_all_infos(host_id, service_id)
         AND s.service_id = ]] .. tonumber(service_id)
 
     self.sc_logger:debug("[sc_broker:get_host_all_infos]: no information found in broker cache for service: " .. tostring(service_id) .. ", going to check in the centreon database with query: " .. tostring(query))
+    --- self.sc_logger:notice("[sc_broker:get_host_all_infos]: no information found in broker cache for service: " .. tostring(service_id) .. ", going to check in the centreon database with query: " .. tostring(query))
+
 
     service_info = self:get_centreon_db_info(query)
 
@@ -149,7 +157,7 @@ end
 
 --- get_host_infos: retrieve the the desired host informations
 -- @param host_id (number)
--- @params info (string|table) the name of the wanted host parameter or a table of all wanted host parameters
+-- @param info (string|table) the name of the wanted host parameter or a table of all wanted host parameters
 -- @return false (boolean) if host_id is nil or empty 
 -- @return host (any) a table of all wanted host params if input param is a table. The single parameter if input param is a string 
 function ScBroker:get_host_infos(host_id, info)
@@ -158,7 +166,7 @@ function ScBroker:get_host_infos(host_id, info)
     self.sc_logger:warning("[sc_broker:get_host_infos]: host id is nil")
     return false
   end
-  
+
   -- prepare return table with host information
   local host = {
     host_id = host_id
@@ -174,7 +182,7 @@ function ScBroker:get_host_infos(host_id, info)
 
   -- return host_id only if no host information were found in broker cache
   if not host_info then
-    self.sc_logger:warning("[sc_broker:get_host_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")  
+    self.sc_logger:warning("[sc_broker:get_host_infos]: No host information found for host_id:  " .. tostring(host_id) .. ". Restarting centengine should fix this.")
     return host
   end
 
@@ -200,7 +208,7 @@ end
 --- get_service_infos: retrieve the the desired service informations
 -- @param host_id (number)
 -- @param service_id (number)
--- @params info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
+-- @param info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
 -- @return false (boolean) if host_id and/or service_id are nil or empty 
 -- @return service (any) a table of all wanted service params if input param is a table. A single parameter if input param is a string 
 function ScBroker:get_service_infos(host_id, service_id, info)
@@ -209,7 +217,7 @@ function ScBroker:get_service_infos(host_id, service_id, info)
     self.sc_logger:warning("[sc_broker:get_service_infos]: host id or service id is invalid")
     return false
   end
-  
+
   -- prepare return table with service information
   local service = {
     host_id = host_id,
@@ -226,8 +234,8 @@ function ScBroker:get_service_infos(host_id, service_id, info)
 
   -- return host_id and service_id only if no host information were found in broker cache
   if not service_info then
-    self.sc_logger:warning("[sc_broker:get_service_infos]: No service information found for host_id:  " .. tostring(host_id) .. " and service_id: " .. tostring(service_id) 
-      .. ". Restarting centengine should fix this.")  
+    self.sc_logger:warning("[sc_broker:get_service_infos]: No service information found for host_id:  " .. tostring(host_id) .. " and service_id: " .. tostring(service_id)
+      .. ". Restarting centengine should fix this.")
     return service
   end
 
@@ -256,7 +264,7 @@ end
 -- @return hostgroups (table) a table of all hostgroups for the host 
 function ScBroker:get_hostgroups(host_id)
   -- return false if host id is invalid
-  if host_id == nil or host_id == "" then 
+  if host_id == nil or host_id == "" then
     self.sc_logger:warning("[sc_broker:get_hostgroup]: host id is nil or empty")
     return false
   end
@@ -268,7 +276,7 @@ function ScBroker:get_hostgroups(host_id)
   if not hostgroups then
     return false
   end
-  
+
   return hostgroups
 end
 
@@ -279,7 +287,7 @@ end
 -- @return servicegroups (table) a table of all servicegroups for the service
 function ScBroker:get_servicegroups(host_id, service_id)
   -- return false if service id is invalid
-  if host_id == nil or host_id == "" or service_id == nil or service_id == "" then 
+  if host_id == nil or host_id == "" or service_id == nil or service_id == "" then
     self.sc_logger:warning("[sc_broker:get_servicegroups]: service id is nil or empty")
     return false
   end
@@ -291,7 +299,7 @@ function ScBroker:get_servicegroups(host_id, service_id)
   if not servicegroups then
     return false
   end
-  
+
   return servicegroups
 end
 
@@ -302,7 +310,7 @@ end
 -- @return severity (table) all the severity from the host or the service 
 function ScBroker:get_severity(host_id, service_id)
   -- return false if host id is invalid
-  if host_id == nil or host_id == "" then 
+  if host_id == nil or host_id == "" then
     self.sc_logger:warning("[sc_broker:get_severity]: host id is nil or empty")
     return false
   end
@@ -364,7 +372,7 @@ end
 -- @return ba_info (table) a table with the name and description of the ba
 function ScBroker:get_ba_infos(ba_id)
   -- return false if ba_id is invalid
-  if ba_id == nil or ba_id == "" then 
+  if ba_id == nil or ba_id == "" then
     self.sc_logger:warning("[sc_broker:get_ba_infos]: ba id is nil or empty")
     return false
   end
@@ -387,7 +395,7 @@ end
 -- @return bvs (table) name and description of all the bvs 
 function ScBroker:get_bvs_infos(ba_id)
   -- return false if ba_id is invalid
-  if ba_id == nil or ba_id == "" then 
+  if ba_id == nil or ba_id == "" then
     self.sc_logger:warning("[sc_broker:get_bvs]: ba id is nil or empty")
     return false
   end
@@ -411,9 +419,9 @@ function ScBroker:get_bvs_infos(ba_id)
 
     -- add bv information to the list
     if bv_infos then
-      table.insert(bvs,bv_infos)
+      table.insert(bvs, bv_infos)
       found_bv = true
-    else 
+    else
       self.sc_logger:warning("[sc_broker:get_bvs]: couldn't get bv information for bv id: " .. tostring(bv_id))
     end
   end
@@ -427,8 +435,8 @@ function ScBroker:get_bvs_infos(ba_id)
 end
 
 --- get_centreon_db_info: run a query (that must return only one row) in the centreon database to build a cache from the db when asking to. If the query return multiple rows, only the last one will be returned
--- @param query (string) the sql query that must be executed to build the cache
--- @return result (table or nil) the result of the query or nil
+-- @param query (string) the sql query that must be executed to build the cache 
+-- @return result (table or nil) the result of the query or nil 
 function ScBroker:get_centreon_db_info(query)
   local result, error = self.centreon_db:execute(query)
 

@@ -1,7 +1,5 @@
 #!/usr/bin/lua
 
-broker_api_version = 2
-
 ---
 -- Module to help initiate a stream connector with all paramaters
 -- @module sc_params
@@ -1075,7 +1073,7 @@ function ScParams:get_kafka_params(kafka_config, params)
         end
 
         self.logger:notice("[sc_param:get_kafka_params]: " .. tostring(param_name)
-            .. " parameter with value " .. tostring(logged_param_value) .. " added to kafka_config")
+          .. " parameter with value " .. tostring(logged_param_value) .. " added to kafka_config")
       end
     end
   end
@@ -1089,7 +1087,7 @@ function ScParams:is_mandatory_config_set(mandatory_params, params)
   for index, mandatory_param in ipairs(mandatory_params) do
     if not params[mandatory_param] or params[mandatory_param] == "" then
       self.logger:error("[sc_param:is_mandatory_config_set]: " .. tostring(mandatory_param)
-          .. " parameter is not set in the stream connector web configuration (or value is empty)")
+        .. " parameter is not set in the stream connector web configuration (or value is empty)")
       return false
     end
 
@@ -1151,7 +1149,7 @@ function ScParams:load_custom_code_file(custom_code_file)
   -- return false if we can't open the file
   if not file then
     self.logger:error("[sc_params:load_custom_code_file]: couldn't open file "
-        .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+      .. tostring(custom_code_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
     return false
   end
 
@@ -1163,7 +1161,7 @@ function ScParams:load_custom_code_file(custom_code_file)
   for return_value in string.gmatch(file_content, "return (.-)\n") do
     if return_value ~= "self, true" and return_value ~= "self, false" then
       self.logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
-          .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
+        .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
       return false
     end
   end
@@ -1208,7 +1206,7 @@ end
 function ScParams:validate_pattern_param(param_name, param_value)
   if not self.common:validate_pattern(param_value) then
     self.logger:error("[sc_params:validate_pattern_param]: couldn't validate Lua pattern: " .. tostring(param_value)
-        .. " for parameter: " .. tostring(param_name) .. ". The filter will be reset to an empty value.")
+      .. " for parameter: " .. tostring(param_name) .. ". The filter will be reset to an empty value.")
     return ""
   end
 
@@ -1242,12 +1240,12 @@ function ScParams:build_and_validate_filters_pattern(param_list)
         if self.common:is_valid_pattern(temp_pattern) then
           table.insert(self.params[param_name .. "_pattern_list"], temp_pattern)
           self.logger:notice("[sc_params:build_accepted_filters_pattern]: adding " .. tostring(temp_pattern)
-              .. " to the list of filtering patterns for parameter: " .. param_name)
+            .. " to the list of filtering patterns for parameter: " .. param_name)
         else
           -- if the sub pattern is not valid, just ignore it
           self.logger:error("[sc_params:build_accepted_filters_pattern]: ignoring pattern for param: "
-              .. param_name .. " because after splitting the string:" .. param_name
-              .. ", we end up with the following pattern: " .. tostring(temp_pattern) .. " which is not a valid Lua pattern")
+            .. param_name .. " because after splitting the string:" .. param_name
+            .. ", we end up with the following pattern: " .. tostring(temp_pattern) .. " which is not a valid Lua pattern")
         end
       end
     else

@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
---- 
+---
 -- Module to handle centreon macros (e.g: $HOSTADDRESS$) and sc macros (e.g: {cache.host.address})
 -- @module sc_macros
 -- @alias sc_macros
@@ -20,7 +20,7 @@ function sc_macros.new(params, logger, common)
 
   -- initiate mandatory libs
   self.sc_logger = logger
-  if not self.sc_logger then 
+  if not self.sc_logger then
     self.sc_logger = sc_logger.new()
   end
 
@@ -47,12 +47,12 @@ function sc_macros.new(params, logger, common)
 
   -- mapping of macro that we will convert if asked
   self.transform_macro = {
-    date = function (macro_value) return self:transform_date(macro_value) end,
-    type = function (macro_value) return self:transform_type(macro_value) end,
-    short = function (macro_value) return self:transform_short(macro_value) end,
-    state = function (macro_value, event) return self:transform_state(macro_value, event) end,
-    number = function (macro_value) return self:transform_number(macro_value) end,
-    string = function (macro_value) return self:transform_string(macro_value) end
+    date = function(macro_value) return self:transform_date(macro_value) end,
+    type = function(macro_value) return self:transform_type(macro_value) end,
+    short = function(macro_value) return self:transform_short(macro_value) end,
+    state = function(macro_value, event) return self:transform_state(macro_value, event) end,
+    number = function(macro_value) return self:transform_number(macro_value) end,
+    string = function(macro_value) return self:transform_string(macro_value) end
   }
 
   -- mapping of centreon standard macros to their stream connectors counterparts
@@ -77,7 +77,7 @@ function sc_macros.new(params, logger, common)
     -- HOSTDURATION doesn't exist 
     -- HOSTDURATIONSEC doesn't exist
     HOSTDOWNTIME = "{cache.host.scheduled_downtime_depth}",
-    HOSTPERCENTCHANGE = "{percent_state_change}" , -- will be replaced by the service percent_state_change if event is about a service
+    HOSTPERCENTCHANGE = "{percent_state_change}", -- will be replaced by the service percent_state_change if event is about a service
     -- HOSTGROUPNAME doesn't exist
     -- HOSTGROUPNAMES doesn't exist
     LASTHOSTCHECK = "{cache.host.last_check_value}",
@@ -207,17 +207,17 @@ function ScMacros:replace_sc_macro(string, event, json_string)
   -- will generate two macros {cache.host.name} and {host_id})
   for macro in string.gmatch(string, "{[%w_.%(%),%%%+%-%*%?%[%]%^%$]+}") do
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
-    
+
     -- check if macro is in the cache
     cache_macro_value = self:get_cache_macro(macro, event)
-    
+
     -- replace all cache macro such as {cache.host.name} with their values
     if cache_macro_value then
       converted_string = self:build_converted_string_for_cache_and_event_macro(cache_macro_value, macro, converted_string)
     else
       -- if not in cache, try to find a matching value in the event itself
       event_macro_value = self:get_event_macro(macro, event)
-      
+
       -- replace all event macro such as {host_id} with their values
       if event_macro_value then
         converted_string = self:build_converted_string_for_cache_and_event_macro(event_macro_value, macro, converted_string)
@@ -229,11 +229,11 @@ function ScMacros:replace_sc_macro(string, event, json_string)
         if group_macro_value then
           group_macro_value = broker.json_encode(group_macro_value)
           macro = self.sc_common:lua_regex_escape(macro)
-          
+
           self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a group macro. Macro name: "
             .. tostring(macro) .. ", value is: " .. tostring(group_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string)
             .. ". Applied format is: " .. tostring(format))
-          
+
           if string.match(converted_string, '"' .. macro .. '"') then
             converted_string = string.gsub(converted_string, '"' .. macro .. '"', group_macro_value)
           else
@@ -285,7 +285,7 @@ function ScMacros:get_cache_macro(raw_macro, event)
   if event.cache[cache_type] then
     -- check if it is asked to transform the macro and if so, separate the real macro from the transformation flag
     local macro_value, flag = self:get_transform_flag(macro)
-    
+
     -- check if the macro is in the cache 
     if event.cache[cache_type][macro_value] then
       if flag then
@@ -314,12 +314,12 @@ function ScMacros:get_event_macro(macro, event)
 
   -- check if it is asked to transform the macro and if so, separate the real macro from the transformation flag
   local macro_value, flag = self:get_transform_flag(macro)
-  
+
   -- check if the macro is in the event
   if event[macro_value] then
     if flag then
       self.sc_logger:info("[sc_macros:get_event_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
-          .. ", a macro value conversion will be done. Macro value is: " .. tostring(macro_value))
+        .. ", a macro value conversion will be done. Macro value is: " .. tostring(macro_value))
       -- convert the found value according to the flag that has been sent
       return self.transform_macro[flag](event[macro_value], event)
     else
@@ -351,7 +351,7 @@ function ScMacros:get_group_macro(macro, event)
   if not code then
     self.sc_logger:error("[sc_macros:get_group_macro]: couldn't convert data for group type: " .. tostring(group_type)
       .. ". Desired format: " .. tostring(format) .. ". Filtering using regex: " .. tostring(regex))
-    return false 
+    return false
   end
 
   return converted_data, format
@@ -395,7 +395,7 @@ function ScMacros:build_group_macro_value(data, index_name, format, regex)
       table.insert(result, group_info[index_name])
     end
   end
-  
+
   if not self.group_macro_format[format] then
     self.sc_logger:error("[sc_macros:build_group_macro_value]: unknown format for group macro. Format provided: " .. tostring(format))
     return false
@@ -437,7 +437,7 @@ function ScMacros:convert_centreon_macro(string, event)
   local centreon_macro = false
   local sc_macro_value = false
   local converted_string = string
-  
+
   -- get all standard macros 
   for macro in string.gmatch(string, "$%w$") do
     self.sc_logger:debug("[sc_macros:convert_centreon_macro]: found a macro, name is: " .. tostring(macro))
@@ -447,11 +447,11 @@ function ScMacros:convert_centreon_macro(string, event)
     -- if the macro has been found, try to get its value
     if centreon_macro then
       sc_macro_value = self:replace_sc_macro(centreon_macro, event)
-      
+
       -- if a value has been found, replace the macro with the value
       if sc_macro_value then
         self.sc_logger:debug("[sc_macros:replace_sc_macro]: macro is a centreon macro. Macro name: "
-        .. tostring(macro) .. ", value is: " .. tostring(sc_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
+          .. tostring(macro) .. ", value is: " .. tostring(sc_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
         converted_string = string.gsub(converted_string, centreon_macro, sc_macro_value)
       end
     else
@@ -478,7 +478,7 @@ end
 function ScMacros:get_transform_flag(macro)
   -- separate macro and flag
   local macro_value, flag = string.match(macro, "(.*)_sc(%w+)$")
-  
+
   -- if there was a flag in the macro name, return the real macro name and its flag
   if macro_value then
     return macro_value, flag
@@ -499,7 +499,7 @@ end
 -- @param macro_value (string) the string that needs to be shortened
 -- @return string (string) the input string with only the first lne
 function ScMacros:transform_short(macro_value)
-  return string.match(macro_value, "^(.*)\n") or macro_value
+  return string.match(macro_value, "^(.*)\n")
 end
 
 --- transform_type: convert a 0, 1 value into SOFT or HARD
@@ -553,10 +553,10 @@ function ScMacros:build_converted_string_for_cache_and_event_macro(macro_value, 
   -- need to escape % characters or else it will break the string.gsub that is done later
   local clean_macro_value, _ = string.gsub(macro_value, "%%", "%%%%")
   local clean_macro_value_json = ""
-  
+
   self.sc_logger:debug("[sc_macros:build_converted_string_for_cache_and_event_macro]: macro is a cache macro. Macro name: "
-  .. tostring(macro) .. ", value is: " .. tostring(clean_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
-  
+    .. tostring(macro) .. ", value is: " .. tostring(clean_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
+
   --[[
     to have the best json possible, we try to remove double quotes. 
     "service_severity": "{cache.severity.service}" must become "service_severity": 1 and not "service_severity": "1" 

@@ -98,36 +98,24 @@ function EventQueue.new(params)
 
   self.format_event = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function()
-        return self:format_event_host()
-      end,
-      [elements.service_status.id] = function()
-        return self:format_event_service()
-      end
+      [elements.host_status.id] = function() return self:format_event_host() end,
+      [elements.service_status.id] = function() return self:format_event_service() end
     }
   }
 
   self.format_metric = {
     [categories.neb.id] = {
-      [elements.host_status.id] = function(metric)
-        return self:format_metric_host(metric)
-      end,
-      [elements.service_status.id] = function(metric)
-        return self:format_metric_service(metric)
-      end
+      [elements.host_status.id] = function(metric) return self:format_metric_host(metric) end,
+      [elements.service_status.id] = function(metric) return self:format_metric_service(metric) end
     }
   }
 
   self.send_data_method = {
-    [1] = function(payload, queue_metadata)
-      return self:send_data(payload, queue_metadata)
-    end
+    [1] = function(payload, queue_metadata) return self:send_data(payload, queue_metadata) end
   }
 
   self.build_payload_method = {
-    [1] = function(payload, event)
-      return self:build_payload(payload, event)
-    end
+    [1] = function(payload, event) return self:build_payload(payload, event) end
   }
 
   -- return EventQueue object
@@ -147,9 +135,9 @@ function EventQueue:format_accepted_event()
   -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
   if not self.format_event[category][element] then
     self.sc_logger:error("[format_event]: You are trying to format an event with category: "
-        .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
-        .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
-        .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
+      .. tostring(self.sc_params.params.reverse_category_mapping[category]) .. " and element: "
+      .. tostring(self.sc_params.params.reverse_element_mapping[category][element])
+      .. ". If it is a not a misconfiguration, you should create a format file to handle this kind of element")
   else
     self.format_event[category][element]()
   end
@@ -227,14 +215,14 @@ function EventQueue:add()
   local element = self.sc_event.event.element
 
   self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
-      .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
+    .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_common:dumper(self.sc_event.event.formated_event)
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
-      .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
+    .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
@@ -259,10 +247,10 @@ function EventQueue:send_data(payload, queue_metadata)
   local params = self.sc_params.params
 
   local url = params.http_server_protocol .. "://" .. params.http_server_address .. ":" .. tostring(params.http_server_port)
-      .. "/write?u=" .. tostring(params.influxdb_username)
-      .. "&p=" .. tostring(params.influxdb_password)
-      .. "&db=" .. tostring(params.influxdb_database)
-      .. "&precision=s"
+    .. "/write?u=" .. tostring(params.influxdb_username)
+    .. "&p=" .. tostring(params.influxdb_password)
+    .. "&db=" .. tostring(params.influxdb_database)
+    .. "&precision=s"
 
   queue_metadata.headers = {
     "content-type: text/plain; charset=utf-8"
@@ -287,7 +275,8 @@ function EventQueue:send_data(payload, queue_metadata)
     if not metrics[retry_event.metric_key] then
       retry_event.retry = retry_event.retry + 1
       if retry_event.retry > 3 then
-        self.sc_logger:warning("Retry limit reached for key: " .. retry_event.metric_key)
+        self.sc_logger:error("send_data: retry limit reached for metric_key: " .. retry_event.metric_key .. " ; metric name ='" .. retry_event.metric_name .. "' ; metric value='" .. retry_event.metric_value .. "'")
+        --self.sc_logger:error("Retry limit reached for key: " .. retry_event.metric_key)
         data_binary = data_binary .. retry_event.metric_name .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
         data_binary = data_binary .. retry_event.status .. "\n"
         table.remove(events_retry, index)
@@ -314,9 +303,9 @@ function EventQueue:send_data(payload, queue_metadata)
   local http_request = curl.easy()
                            :setopt_url(url)
                            :setopt_writefunction(
-      function(response)
-        http_response_body = http_response_body .. tostring(response)
-      end
+    function(response)
+      http_response_body = http_response_body .. tostring(response)
+    end
   )
                            :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
                            :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
@@ -426,11 +415,11 @@ function write (event)
       --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
-          .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
+        .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
     end
   else
     queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
-        .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
+      .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
   end
 
   return flush()

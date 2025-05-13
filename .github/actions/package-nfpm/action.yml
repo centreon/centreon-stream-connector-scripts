@@ -105,7 +105,7 @@ runs:
     - if: ${{ contains(github.event.pull_request.labels.*.name, 'upload-artifacts') }}
       name: Get artifact name
       id: get-artifact-name
-      run: | 
+      run: |
         if [ -z "${{ inputs.artifact_name }}" ]; then
           echo "artifact_name=packages-${{ inputs.distrib }}" >> $GITHUB_OUTPUT
         else

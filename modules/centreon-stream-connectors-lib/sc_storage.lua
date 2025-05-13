@@ -33,8 +33,8 @@ function sc_storage.new(common, logger, params)
     self.storage_backend = storage_backend.new(self.sc_common, logger, params)
   else
     self.sc_logger:error("[sc_storage:new]: Couldn't load storage backend: " .. tostring(params.storage_backend)
-        .. ". Make sure that the file sc_storage_" .. tostring(params.storage_backend) .. ".lua exists on your server."
-        .. " The stream connector is going to use the broker storage backend.")
+      .. ". Make sure that the file sc_storage_" .. tostring(params.storage_backend) .. ".lua exists on your server."
+      .. " The stream connector is going to use the broker storage backend.")
     self.storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_broker")
   end
 
@@ -49,13 +49,13 @@ function ScStorage:is_valid_storage_object(object_id)
   for _, accepted_object_format in ipairs(self.storage_objects) do
     if string.match(object_id, accepted_object_format) then
       self.sc_logger:debug("[sc_storage:is_valid_storage_object]: object_id: " .. tostring(object_id)
-          .. " matched object format: " .. accepted_object_format)
+        .. " matched object format: " .. accepted_object_format)
       return true
     end
   end
 
   self.sc_logger:error("[sc_storage:is_valid_storage_object]: object id: " .. tostring(object_id)
-      .. " is not a valid object_id.")
+    .. " is not a valid object_id.")
   return false
 end
 
@@ -86,7 +86,7 @@ function ScStorage:set_multiple(object_id, properties)
 
   if type(properties) ~= "table" then
     self.sc_logger:error("[sc_storage:set_multiple]: properties parameter is not a table"
-        .. ". Received properties: " .. self.sc_common:dumper(properties))
+      .. ". Received properties: " .. self.sc_common:dumper(properties))
     return false
   end
 
@@ -108,7 +108,7 @@ function ScStorage:get(object_id, property)
 
   if not status then
     self.sc_logger:error("[sc_storage:get]: couldn't get property in storage. Object id: " .. tostring(object_id)
-        .. ", property name: " .. tostring(property))
+      .. ", property name: " .. tostring(property))
   end
 
   return status, value
@@ -127,7 +127,7 @@ function ScStorage:get_multiple(object_id, properties)
 
   if type(properties) ~= "table" then
     self.sc_logger:error("[sc_storage:get_multiple]: properties parameter is not a table"
-        .. ". Received properties: " .. self.sc_common:dumper(properties))
+      .. ". Received properties: " .. self.sc_common:dumper(properties))
     return false
   end
 
@@ -135,7 +135,7 @@ function ScStorage:get_multiple(object_id, properties)
 
   if not status then
     self.sc_logger:error("[sc_storage:get]: couldn't get property in storage. Object id: " .. tostring(object_id)
-        .. ", property name: " .. self.sc_common:dumper(properties))
+      .. ", property name: " .. self.sc_common:dumper(properties))
   end
 
   return status, value
@@ -166,7 +166,7 @@ function ScStorage:delete_multiple(object_id, properties)
 
   if type(properties) ~= "table" then
     self.sc_logger:error("[sc_storage:delete_multiple]: properties parameter is not a table"
-        .. ". Received properties: " .. self.sc_common:dumper(properties))
+      .. ". Received properties: " .. self.sc_common:dumper(properties))
     return false
   end
 

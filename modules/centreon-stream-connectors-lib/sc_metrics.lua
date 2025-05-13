@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
---- 
+---
 -- Module that handles event metrics for stream connectors
 -- @module sc_metrics
 -- @alias sc_metrics
@@ -25,10 +25,10 @@ function sc_metrics.new(event, params, common, broker, logger)
 
   -- create a default logger if it is not provided
   self.sc_logger = logger
-  if not self.sc_logger then 
+  if not self.sc_logger then
     self.sc_logger = sc_logger.new()
   end
-  
+
   self.sc_common = common
   self.params = params
   self.sc_broker = broker
@@ -39,21 +39,21 @@ function sc_metrics.new(event, params, common, broker, logger)
   -- store metric validation functions inside a table linked to category/element
   self.metric_validation = {
     [categories.neb.id] = {
-      [elements.host.id] = function () return self:is_valid_host_metric_event() end,
+      [elements.host.id] = function() return self:is_valid_host_metric_event() end,
       [elements.host_status.id] = function() return self:is_valid_host_metric_event() end,
-      [elements.service.id] = function () return self:is_valid_service_metric_event() end,
-      [elements.service_status.id] = function () return self:is_valid_service_metric_event() end
+      [elements.service.id] = function() return self:is_valid_service_metric_event() end,
+      [elements.service_status.id] = function() return self:is_valid_service_metric_event() end
     },
     [categories.bam.id] = {
-      [elements.kpi_event.id] = function () return self:is_valid_kpi_metric_event() end
+      [elements.kpi_event.id] = function() return self:is_valid_kpi_metric_event() end
     }
   }
 
--- open metric (prometheus) : metric name = [a-zA-Z0-9_:], labels [a-zA-Z0-9_] https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#protocol-negotiation
--- datadog : metric_name = [a-zA-Z0-9_.] https://docs.datadoghq.com/fr/metrics/custom_metrics/#naming-custom-metrics
--- dynatrace matric name [a-zA-Z0-9-_.] https://dynatrace.com/support/help/how-to-use-dynatrace/metrics/metric-ingestion/metric-ingestion-protocol#metric-key
--- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
--- splunk [^a-zA-Z0-9_]
+  -- open metric (prometheus) : metric name = [a-zA-Z0-9_:], labels [a-zA-Z0-9_] https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#protocol-negotiation
+  -- datadog : metric_name = [a-zA-Z0-9_.] https://docs.datadoghq.com/fr/metrics/custom_metrics/#naming-custom-metrics
+  -- dynatrace matric name [a-zA-Z0-9-_.] https://dynatrace.com/support/help/how-to-use-dynatrace/metrics/metric-ingestion/metric-ingestion-protocol#metric-key
+  -- metric 2.0 (carbon/grafite/grafana) [a-zA-Z0-9-_./]  http://metrics20.org/spec/ (see Data Model section)
+  -- splunk [^a-zA-Z0-9_]
 
   if self.params.metrics_name_custom_regex and self.params.metrics_name_custom_regex ~= "" then
     self.metrics_name_operations.custom.regex = self.params.metrics_custom_regex
@@ -84,7 +84,7 @@ function ScMetrics:is_valid_bbdo_element()
 
   -- drop event if event category is not accepted
   if not self.sc_event:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, event_category) then
-    self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element] event with category: " ..  tostring(event_category) .. " is not an accepted category")
+    self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element] event with category: " .. tostring(event_category) .. " is not an accepted category")
     return false
   else
     -- drop event if accepted category is not supposed to be used for a metric stream connector
@@ -95,7 +95,7 @@ function ScMetrics:is_valid_bbdo_element()
     else
       -- drop event if element is not accepted
       if not self.sc_event:find_in_mapping(self.params.element_mapping[event_category], self.params.accepted_elements, event_element) then
-        self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element] event with element: " ..  tostring(event_element) .. " is not an accepted element")
+        self.sc_logger:debug("[sc_metrics:is_valid_bbdo_element] event with element: " .. tostring(event_element) .. " is not an accepted element")
         return false
       else
         -- drop event if element is not an element that carries perfdata
@@ -119,7 +119,7 @@ end
 function ScMetrics:is_valid_metric_event()
   category = self.sc_event.event.category
   element = self.sc_event.event.element
-  
+
   self.sc_logger:debug("[sc_metrics:is_valid_metric_event]: starting validation for event with category: "
     .. tostring(category) .. ". And element: " .. tostring(element))
   return self.metric_validation[category][element]()
@@ -134,11 +134,15 @@ function ScMetrics:is_valid_host_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_host", self.sc_event.event.host_id)
+
   -- return false if host is not monitored from an accepted poller
   if not self.sc_event:is_valid_poller() then
     self.sc_logger:warning("[sc_metrics:is_valid_host_metric_event]: host_id: " .. tostring(self.sc_event.event.host_id) .. " is not monitored from an accepted poller")
     return false
   end
+
+  self.sc_logger:log_trace("valid_poller", self.sc_event.event.host_id)
 
   -- return false if host has not an accepted severity
   if not self.sc_event:is_valid_host_severity() then
@@ -146,11 +150,15 @@ function ScMetrics:is_valid_host_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_host_severity", self.sc_event.event.host_id)
+
   -- return false if host is not in an accepted hostgroup
   if not self.sc_event:is_valid_hostgroup() then
     self.sc_logger:warning("[sc_metrics:is_valid_host_metric_event]: host_id: " .. tostring(self.sc_event.event.host_id) .. " is not in an accepted hostgroup")
     return false
   end
+
+  self.sc_logger:log_trace("valid_hostgroup", self.sc_event.event.host_id)
 
   -- return false if there is no perfdata or it can't be parsed
   if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
@@ -158,6 +166,8 @@ function ScMetrics:is_valid_host_metric_event()
       .. tostring(self.sc_event.event.host_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perf_data))
     return false
   end
+
+  self.sc_logger:log_trace("valid_perfdata", self.sc_event.event.host_id)
 
   return true
 end
@@ -171,39 +181,49 @@ function ScMetrics:is_valid_service_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_host", self.sc_event.event.host_id)
+
   -- return false if we can't get service description of service id is nil
   if not self.sc_event:is_valid_service() then
     self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service with id: " .. tostring(self.sc_event.event.service_id) .. " hasn't been validated")
     return false
   end
 
+  self.sc_logger:log_trace("valid_service", self.sc_event.event.host_id)
+
   -- return false if host is not monitored from an accepted poller
   if not self.sc_event:is_valid_poller() then
-    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id) 
+    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id)
       .. ". host_id: " .. tostring(self.sc_event.event.host_id) .. " is not monitored from an accepted poller")
     return false
   end
 
   -- return false if host has not an accepted severity
   if not self.sc_event:is_valid_host_severity() then
-    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id) 
+    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id)
       .. ". host_id: " .. tostring(self.sc_event.event.host_id) .. ". Host has not an accepted severity")
     return false
   end
 
+  self.sc_logger:log_trace("valid_host_severity", self.sc_event.event.host_id)
+
   -- return false if service has not an accepted severity
   if not self.sc_event:is_valid_service_severity() then
-    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id) 
+    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service id: " .. tostring(self.sc_event.event.service_id)
       .. ". host_id: " .. tostring(self.sc_event.event.host_id) .. ". Service has not an accepted severity")
     return false
   end
 
+  self.sc_logger:log_trace("valid_service_severity", self.sc_event.event.host_id)
+
   -- return false if host is not in an accepted hostgroup
   if not self.sc_event:is_valid_hostgroup() then
-    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service_id: " .. tostring(self.sc_event.event.service_id) 
+    self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service_id: " .. tostring(self.sc_event.event.service_id)
       .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.sc_event.event.host_id))
     return false
   end
+
+  self.sc_logger:log_trace("valid_hostgroup", self.sc_event.event.host_id)
 
   -- return false if service is not in an accepted servicegroup 
   if not self.sc_event:is_valid_servicegroup() then
@@ -211,12 +231,16 @@ function ScMetrics:is_valid_service_metric_event()
     return false
   end
 
+  self.sc_logger:log_trace("valid_servicegroup", self.sc_event.event.host_id)
+
   -- return false if there is no perfdata or they it can't be parsed
   if not self:is_valid_perfdata(self.sc_event.event.perfdata) then
     self.sc_logger:warning("[sc_metrics:is_valid_service_metric_event]: service_id: "
       .. tostring(self.sc_event.event.service_id) .. " is not sending valid perfdata. Received perfdata: " .. tostring(self.sc_event.event.perfdata))
     return false
   end
+
+  self.sc_logger:log_trace("valid_perfdata", self.sc_event.event.host_id)
 
   return true
 end
@@ -270,6 +294,13 @@ function ScMetrics:build_metric(format_metric)
   local metrics_info = self.metrics_info
 
   for metric, metric_data in pairs(self.metrics_info) do
+    if metrics_info[metric].instance ~= "" then
+      if #metrics_info[metric].subinstance ~= 0 then
+        metrics_info[metric].metric_name = metrics_info[metric].instance .. '~' .. table.concat(metrics_info[metric].subinstance, '~') .. '#' .. metrics_info[metric].metric_name
+      else
+        metrics_info[metric].metric_name = metrics_info[metric].instance .. '#' .. metrics_info[metric].metric_name
+      end
+    end
     if string.match(metric_data.metric_name, self.params.accepted_metrics) then
       metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, self.params.metric_name_regex, self.params.metric_replacement_character)
       -- use stream connector method to format the metric event
