@@ -296,8 +296,6 @@ function EventQueue:send_data(payload, queue_metadata)
     self.sc_logger:error("the body request " .. data)
   end
 
-  -- and update the timestamp
-  self.__internal_ts_last_flush = os.time()
 
   self.sc_logger:debug("[EventQueue:send_data]: End")
   
