@@ -259,9 +259,6 @@ function EventQueue:send_data(payload, queue_metadata)
   local data_binary = ''
   for index, payload_event in ipairs(payload) do
     if not metrics[payload_event.metric_key] then
-      if payload_event.host_id == 7423 and payload_event.service_id == 0 and payload_event.metric_name == "rtmin" then
-        self.sc_logger:notice("send_data: No metric_id found for: host_id:" .. tostring(payload_event.host_id) .. ", service_id: " .. tostring(payload_event.service_id) .. ", metric name: " .. tostring(payload_event.metric_name))
-      end
       payload_event.retry = 1
 
       table.insert(events_retry, payload_event)
