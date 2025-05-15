@@ -6,7 +6,7 @@
 
 -- Libraries
 local curl      = require "cURL"
-local base64    = require("base64")
+local mime      = require("mime")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -159,7 +159,7 @@ function EventQueue:format_event_host()
     event_type      = "host",
     prom_hname      = event.cache.host.name,
     prom_sdesc      = sdesc,
-    prom_sdesc_url  = base64.encode(sdesc),
+    prom_sdesc_url  = mime.b64(sdesc),
     state           = event.state,
     state_type      = event.state_type,
     hostname        = event.cache.host.name,
@@ -177,7 +177,7 @@ function EventQueue:format_event_service()
     event_type          = "service",
     prom_hname          = event.cache.host.name,
     prom_sdesc          = sdesc,
-    prom_sdesc_url      = base64.encode(sdesc),
+    prom_sdesc_url      = mime.b64(sdesc),
     state               = event.state,
     state_type          = event.state_type,
     hostname            = event.cache.host.name,
