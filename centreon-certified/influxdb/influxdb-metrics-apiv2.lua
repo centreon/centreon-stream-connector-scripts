@@ -274,11 +274,8 @@ function EventQueue:send_data(payload, queue_metadata)
   for index, retry_event in ipairs(events_retry) do
     if not metrics[retry_event.metric_key] then
       retry_event.retry = retry_event.retry + 1
-      if retry_event.retry > 3 then
+      if retry_event.retry > 5 then
         self.sc_logger:error("send_data: retry limit reached for metric_key: " .. retry_event.metric_key .. " ; metric name ='" .. retry_event.metric_name .. "' ; metric value='" .. retry_event.metric_value .. "'")
-        --self.sc_logger:error("Retry limit reached for key: " .. retry_event.metric_key)
-        data_binary = data_binary .. retry_event.metric_name .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
-        data_binary = data_binary .. retry_event.status .. "\n"
         table.remove(events_retry, index)
       end
     else
@@ -378,10 +375,6 @@ function write (event)
     local mname = event.name
     local metric_key = ""
     mname = string.gsub(mname, queue.sc_params.params.metric_name_regex, queue.sc_params.params.metric_replacement_character)
-    --if event.host_id == 7423 then
-    --		    queue.sc_logger:notice("metric_key for host 7423: " .. tostring(metric_key) .. ", dumper write func: " .. queue.sc_common:dumper(event) )
-    --	    end
-    --local metric_key = tostring(event.host_id) .. ':' .. tostring(event.service_id) .. ':' .. tostring(event.name)
     if not event.service_id or event.service_id == 0 then
       metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':0:' .. mname)
     else
