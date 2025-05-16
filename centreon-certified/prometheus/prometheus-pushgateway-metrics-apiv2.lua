@@ -98,9 +98,10 @@ function EventQueue.new(params)
   self.sc_params.metric_replacement_character = params.metric_replacement_character or '_'
 
   -- prometheus specific parameters
-  self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
-  self.sc_params.params.http_timeout           = params.http_timeout or 30
-  self.sc_params.params.prometheus_gateway_job = params.prometheus_gateway_job or "monitoring"
+  self.sc_params.params.prometheus_url              = params.prometheus_url or "http://127.0.0.1:9091"
+  self.sc_params.params.http_timeout                = params.http_timeout or 30
+  self.sc_params.params.prometheus_gateway_job      = params.prometheus_gateway_job or "monitoring"
+  self.sc_params.params.enable_extended_metric_name = params.enable_extended_metric_name or 1
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -324,25 +325,17 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:create_metric_name (label, unit)
   local name = ''
-  local sdesc = 'host'
-  if (self.sc_event.event.service_description) then
-    sdesc = self.sc_event.event.service_description
-  end
+  local sdesc = self.sc_event.event.service_description or 'host'
   local hname = self.sc_event.event.cache.host.name
 
-  if (unit ~= '') then
-    if (self.enable_extended_metric_name == 0) then
-      name = label .. '_' .. unit
-    else
-      name = hname .. '_' .. sdesc .. ':' .. label .. '_' .. unit
-    end
-  else
-    if (self.enable_extended_metric_name == 0) then
+    if (self.sc_params.params.enable_extended_metric_name == 0) then
       name = label
     else
       name = hname .. '_' .. sdesc .. ':' .. label
     end
-  end
+    if (unit ~= '') then
+      name = name .. '_' .. unit
+    end
 
   return string.gsub(name, self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
 end
