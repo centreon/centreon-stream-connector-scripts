@@ -124,7 +124,7 @@ function sc_params.new(common, logger)
 
     -- logging parameters
     logfile = "",
-    log_level = "",
+    log_level = 1,
     log_curl_commands = 0,
 
     -- metric
