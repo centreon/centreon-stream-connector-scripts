@@ -277,9 +277,16 @@ function EventQueue:send_data(payload, queue_metadata)
     end
   end
 
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(payload.formatted_payload))
+    return true
+  end
   -- adding the HTTP POST data
-  self.sc_logger:debug("EventQueue:send_data: POST data: '" .. payload.formatted_payload .. "'")
   httpRequest:setopt_postfields(payload.formatted_payload)
+
+  -- log the curl command for troubleshooting
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload.formatted_payload)
 
   -- performing the HTTP request
   httpRequest:perform()

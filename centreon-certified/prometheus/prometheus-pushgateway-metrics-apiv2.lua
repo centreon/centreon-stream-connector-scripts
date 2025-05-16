@@ -441,9 +441,10 @@ function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
   local httpPostData = payload.payload
   local httpResponseBody = ""
+  local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
 
   local httpRequest = curl.easy()
-  :setopt_url(self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url)
+  :setopt_url(url)
   :setopt_writefunction(
     function (response)
       httpResponseBody = httpResponseBody .. tostring(response)
@@ -475,9 +476,17 @@ function EventQueue:send_data(payload, queue_metadata)
     end
   end
 
+  -- write payload in the logfile for test purpose
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(httpPostData))
+    return true
+  end
+
   -- adding the HTTP POST data
-  self.sc_logger:debug("EventQueue:send_data: POST data: '" .. httpPostData .. "'")
   httpRequest:setopt_postfields(httpPostData)
+
+  -- log the curl command for troubleshooting
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, httpPostData)
 
   -- performing the HTTP request
   httpRequest:perform()
