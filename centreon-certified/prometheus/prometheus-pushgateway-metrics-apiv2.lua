@@ -49,8 +49,8 @@ local function unit_mapping (unit)
     V = 'volts',
     A = 'amperes',
     K = 'kelvins',
-    ratio = 'ratios',
-    degres = 'celsius'
+    ["%"] = 'ratios',
+    ["°"] = 'celsius'
   }
 
   local unhandledUnit = nil
@@ -59,15 +59,9 @@ local function unit_mapping (unit)
     unit = ''
   end
 
-  if unit == '%' then 
-    unit = unitMapping['ratio']
-  elseif unit == '°' then
-    unit = unitMapping['degres']
-  else
-    if (unitMapping[unit] ~= nil) then
-      unit = unitMapping[unit]
-    end
-  end
+if unitMapping[unit] then
+  unit = unitMapping[unit]
+end
 
   return unit, true
 end
@@ -398,18 +392,20 @@ function EventQueue:format_metric_event(metric)
 end
 
 --------------------------------------------------------------------------------
--- ifnumber_not_nan: [for Prometheus] check if a number is a number (and not a NaN)
+-- ifnumber_not_nan:  check if a number is a number (and not a NaN)
 -- @param {number} number, the number to check
 -- @return {boolean}
 --------------------------------------------------------------------------------
-local function ifnumber_not_nan (number)
+local function is_number_and_not_a_NaN (number)
   if (number ~= number) then
     return false
-  elseif (type(number) ~= 'number') then
-    return false
-  else
-    return true
   end
+  
+  if (type(number) ~= "number") then
+    return false
+  end
+
+  return true
 end
 
 --------------------------------------------------------------------------------
@@ -418,14 +414,11 @@ end
 -- @return {string} metricType, the type of the metric
 --------------------------------------------------------------------------------
 function EventQueue:get_metric_type (perfdata)
-  local metricType = nil;
   if (ifnumber_not_nan(perfdata.max)) then
-    metricType = 'gauge'
-  else 
-    metricType = 'counter'
+    return "gauge"
   end
   
-  return metricType
+  return "counter"
 end
 
 --------------------------------------------------------------------------------
@@ -521,13 +514,9 @@ function EventQueue:send_data(payload, queue_metadata)
     self.events = {}
     retval = true
   else
-    self.sc_logger:error("EventQueue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. httpResponseBody .. "\n\"\n")
+    self.sc_logger:error("EventQueue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. tostring(httpResponseBody) .. "\n\"\n")
     self.sc_logger:error("the body request " .. httpPostData)
   end
-
-  -- and update the timestamp
-  self.__internal_ts_last_flush = os.time()
-
   self.sc_logger:debug("[EventQueue:send_data]: End")
   return retval
 end
