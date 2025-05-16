@@ -153,25 +153,50 @@ function EventQueue:format_event_host()
   self.sc_logger:debug("[EventQueue:format_event_host]: starting format event host.")
 
   local event = self.sc_event.event
+  local hname = event.cache.host.name
   local sdesc = "host"
 
-  self.sc_event.event.formated_event = {
-    event_type      = "host",
-    prom_hname      = event.cache.host.name,
-    prom_sdesc      = sdesc,
-    prom_sdesc_url  = mime.b64(sdesc),
-    state           = event.state,
-    state_type      = event.state_type,
-    hostname        = event.cache.host.name,
-    output          = event.output,
+  local name = convert_to_openmetric(hname .. '_' .. sdesc .. ':status:monitoring_status')
+
+  local data = '# TYPE ' .. name .. ' counter\n'
+  data = data .. '# HELP ' .. name .. ' 0 is OK, 1 or higher is DOWN\n'
+  if not event.hostgroupsLabel then
+    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
+  else
+    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  event.hostgroupsLabel .. '} ' .. event.state .. '\n'
+  end
+
+  event.formated_event = {
+    event_type          = "host",
+    prom_hname          = event.cache.host.name,
+    prom_sdesc          = sdesc,
+    prom_sdesc_url      = mime.b64(sdesc),
+    state               = event.state,
+    state_type          = event.state_type,
+    hostname            = hname,
+    service_description = sdesc,
+    output              = event.output,
+    formatted_payload   = data
   }
+
 end
 
 function EventQueue:format_event_service()
   self.sc_logger:debug("[EventQueue:format_event_service]: starting format event service.")
 
   local event = self.sc_event.event
+  local hname = event.cache.host.name
   local sdesc = event.cache.service.description
+
+  local name = convert_to_openmetric(hname .. '_' .. sdesc .. ':status:monitoring_status')
+
+  local data = '# TYPE ' .. name .. ' counter\n'
+  data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
+  if not event.hostgroupsLabel then
+    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
+  else
+    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  event.hostgroupsLabel .. '} ' .. event.state .. '\n'
+  end
 
   event.formated_event = {
     event_type          = "service",
@@ -180,9 +205,10 @@ function EventQueue:format_event_service()
     prom_sdesc_url      = mime.b64(sdesc),
     state               = event.state,
     state_type          = event.state_type,
-    hostname            = event.cache.host.name,
+    hostname            = hname,
     service_description = sdesc,
     output              = event.output,
+    formatted_payload   = data
   }
 end
 
@@ -225,19 +251,9 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
   --self.sc_logger:warning("[EventQueue:send_data]: payload: " .. self.sc_common:dumper(payload))
-  local data = ""
+  
   local httpResponseBody = ""
   local label = "status"
-
-  local name = convert_to_openmetric(payload.prom_hname .. '_' .. payload.prom_sdesc .. ':' .. label .. ':monitoring_status')
-  data = data .. '# TYPE ' .. name .. ' counter\n'
-  data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
-  if not payload.hostgroupsLabel then
-    data = data .. name .. '{label="monitoring_status", host="' .. payload.prom_hname .. '", service="' .. payload.prom_sdesc .. '"} ' .. payload.state .. '\n'
-  else
-    data = data .. name .. '{label="monitoring_status", host="' .. payload.prom_hname .. '", service="' .. payload.prom_sdesc .. '", ' ..  payload.hostgroupsLabel .. '} ' .. payload.state .. '\n'
-  end
-
 
   local httpRequest = curl.easy()
   :setopt_url(self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url)
@@ -273,8 +289,8 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   -- adding the HTTP POST data
-  self.sc_logger:debug("EventQueue:send_data: POST data: '" .. data .. "'")
-  httpRequest:setopt_postfields(data)
+  self.sc_logger:debug("EventQueue:send_data: POST data: '" .. payload.formatted_payload .. "'")
+  httpRequest:setopt_postfields(payload.formatted_payload)
 
   -- performing the HTTP request
   httpRequest:perform()
