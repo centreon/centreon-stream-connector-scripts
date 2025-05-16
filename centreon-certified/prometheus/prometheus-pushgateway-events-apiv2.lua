@@ -5,7 +5,7 @@
 
 
 -- Libraries
-local curl      = require "cURL"
+local curl      = require("cURL")
 local mime      = require("mime")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
@@ -19,19 +19,6 @@ local sc_flush  = require("centreon-stream-connectors-lib.sc_flush")
 --------------------------------------------------------------------------------
 -- Local functions
 --------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- convert_to_openmetric: [for Prometheus] replace unwanted characters in order to comply with the open metrics format
--- @param {string} string, the string to convert
--- @return {string} string, a string that matches [a-zA-Z0-9_\.]+
---------------------------------------------------------------------------------
-local function convert_to_openmetric (string)
-  if string == nil or string == '' or type(string) ~= 'string' then
-    return false
-  end
-
-  return string.gsub(string, '[^a-zA-Z0-9_:]', '_')
-end
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -70,8 +57,10 @@ function EventQueue.new(params)
   end
   
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements   = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_categories         = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements           = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.enable_host_status_dedup    = params.enable_host_status_dedup or 1
+  self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 1
 
   -- prometheus specific parameters
   self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
@@ -156,7 +145,7 @@ function EventQueue:format_event_host()
   local hname = event.cache.host.name
   local sdesc = "host"
 
-  local name = convert_to_openmetric(hname .. '_' .. sdesc .. ':status:monitoring_status')
+  local name = string.gsub(hname .. '_' .. sdesc .. ':status:monitoring_status', self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
 
   local data = '# TYPE ' .. name .. ' counter\n'
   data = data .. '# HELP ' .. name .. ' 0 is OK, 1 or higher is DOWN\n'
@@ -188,7 +177,7 @@ function EventQueue:format_event_service()
   local hname = event.cache.host.name
   local sdesc = event.cache.service.description
 
-  local name = convert_to_openmetric(hname .. '_' .. sdesc .. ':status:monitoring_status')
+  local name = string.gsub(hname .. '_' .. sdesc .. ':status:monitoring_status', self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
 
   local data = '# TYPE ' .. name .. ' counter\n'
   data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'

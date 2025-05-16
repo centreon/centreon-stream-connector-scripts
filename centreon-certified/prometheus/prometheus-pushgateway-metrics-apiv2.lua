@@ -5,7 +5,7 @@
 
 
 -- Libraries
-local curl        = require "cURL"
+local curl        = require("cURL")
 local mime        = require("mime")
 local sc_common   = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger   = require("centreon-stream-connectors-lib.sc_logger")
@@ -20,19 +20,6 @@ local sc_metrics  = require("centreon-stream-connectors-lib.sc_metrics")
 --------------------------------------------------------------------------------
 -- Local functions
 --------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- convert_to_openmetric: [for Prometheus] replace unwanted characters in order to comply with the open metrics format
--- @param {string} string, the string to convert
--- @return {string} string, a string that matches [a-zA-Z0-9_\.]+
---------------------------------------------------------------------------------
-local function convert_to_openmetric (string)
-  if string == nil or string == '' or type(string) ~= 'string' then
-    return false
-  end
-
-  return string.gsub(string, '[^a-zA-Z0-9_:]', '_')
-end
 
 --------------------------------------------------------------------------------
 -- unit_mapping: convert perfdata units to openmetrics standard
@@ -105,8 +92,10 @@ function EventQueue.new(params)
   params.max_buffer_size = 1
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements   = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_categories   = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements     = params.accepted_elements or "host_status,service_status"
+  self.sc_params.metric_name_regex            = params.metric_name_regex or '[^a-zA-Z0-9_:]'
+  self.sc_params.metric_replacement_character = params.metric_replacement_character or '_'
 
   -- prometheus specific parameters
   self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
@@ -328,10 +317,10 @@ function EventQueue:add_unit_info (label, unit, name)
 end
 
 --------------------------------------------------------------------------------
--- create_metric_name: concatenates data to create the metric name
--- @param {string} label, the name of the perfdata
--- @param {string} unit, the unit name
--- @return {string} name, the prometheus metric name (open metric format)
+--- create_metric_name: concatenates data to create the metric name
+--- @param {string} label, the name of the perfdata
+--- @param {string} unit, the unit name
+--- @return {string} name, the prometheus metric name (open metric format)
 --------------------------------------------------------------------------------
 function EventQueue:create_metric_name (label, unit)
   local name = ''
@@ -355,12 +344,12 @@ function EventQueue:create_metric_name (label, unit)
     end
   end
 
-  return convert_to_openmetric(name)
+  return string.gsub(name, self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_metric_service method
--- @param metric {table} a single metric data
+--- EventQueue:format_metric_service method
+--- @param metric {table} a single metric data
 -------------------------------------------------------------------------------
 function EventQueue:format_metric_event(metric)
   self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
@@ -369,10 +358,9 @@ function EventQueue:format_metric_event(metric)
   local unit  = unit_mapping(metric.uom)
   local label = metric.metric_name
   local name  = self:create_metric_name(label, unit)
-  local data = ''
   local sdesc = event.formated_event.prom_sdesc
 
-  data = '# TYPE ' .. name .. ' ' .. type .. '\n'
+  local data = '# TYPE ' .. name .. ' ' .. type .. '\n'
   data = data .. self:add_unit_info(label, unit, name)
   
   if not event.hostgroupsLabel then
@@ -392,9 +380,9 @@ function EventQueue:format_metric_event(metric)
 end
 
 --------------------------------------------------------------------------------
--- ifnumber_not_nan:  check if a number is a number (and not a NaN)
--- @param {number} number, the number to check
--- @return {boolean}
+--- is_number_and_not_a_NaN:  check if a number is a number (and not a NaN)
+--- @param {number} number, the number to check
+--- @return {boolean}
 --------------------------------------------------------------------------------
 local function is_number_and_not_a_NaN (number)
   if (number ~= number) then
@@ -414,7 +402,7 @@ end
 -- @return {string} metricType, the type of the metric
 --------------------------------------------------------------------------------
 function EventQueue:get_metric_type (perfdata)
-  if (ifnumber_not_nan(perfdata.max)) then
+  if (is_number_and_not_a_NaN(perfdata.max)) then
     return "gauge"
   end
   
