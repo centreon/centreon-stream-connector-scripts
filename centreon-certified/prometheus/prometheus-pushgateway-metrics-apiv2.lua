@@ -58,16 +58,16 @@ end
 -- Classe event_queue
 --------------------------------------------------------------------------------
 
-local EventQueue = {}
-EventQueue.__index = EventQueue
+local event_queue = {}
+event_queue.__index = event_queue
 
 --------------------------------------------------------------------------------
 ---- Constructor
 ---- @param conf The table given by the init() function and returned from the GUI
----- @return the new EventQueue
+---- @return the new event_queue
 ----------------------------------------------------------------------------------
 
-function EventQueue.new(params)
+function event_queue.new(params)
   local self = {}
 
   local mandatory_parameters = {
@@ -115,7 +115,7 @@ function EventQueue.new(params)
 
   -- only load the custom code file, not executed yet
   if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
-    self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
+    self.sc_logger:error("[event_queue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
 
   self.sc_params:build_accepted_elements_info()
@@ -167,19 +167,19 @@ function EventQueue.new(params)
   self.send_data_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
   self.init_fail_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
 
-  -- return EventQueue object
-  setmetatable(self, { __index = EventQueue })
+  -- return event_queue object
+  setmetatable(self, { __index = event_queue })
   return self
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_accepted_event method
+---- event_queue:format_accepted_event method
 --------------------------------------------------------------------------------
-function EventQueue:format_accepted_event()
+function event_queue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
 
-  self.sc_logger:debug("[EventQueue:format_accepted_event]: starting format event")
+  self.sc_logger:debug("[event_queue:format_accepted_event]: starting format event")
 
   -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
   if not self.format_event[category][element] then
@@ -191,13 +191,13 @@ function EventQueue:format_accepted_event()
     self.format_event[category][element]()
   end
 
-  self.sc_logger:debug("[EventQueue:format_accepted_event]: event formatting is finished")
+  self.sc_logger:debug("[event_queue:format_accepted_event]: event formatting is finished")
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_event_host method
+---- event_queue:format_event_host method
 --------------------------------------------------------------------------------
-function EventQueue:format_event_host()
+function event_queue:format_event_host()
   local event = self.sc_event.event
   self.previous_info[event.category][event.element].flush_success = false
 
@@ -220,15 +220,15 @@ function EventQueue:format_event_host()
       self.previous_info[event.category][event.element].host_id = event.host_id
     end
   end
-  self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
+  self.sc_logger:debug("[event_queue:format_event_host]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_event_service method
+---- event_queue:format_event_service method
 --------------------------------------------------------------------------------
-function EventQueue:format_event_service()
-  self.sc_logger:debug("[EventQueue:format_event_service]: starting format event service.")
+function event_queue:format_event_service()
+  self.sc_logger:debug("[event_queue:format_event_service]: starting format event service.")
   local event = self.sc_event.event
 
   self.previous_info[event.category][event.element].flush_success = false
@@ -258,17 +258,17 @@ function EventQueue:format_event_service()
       self.previous_info[event.category][event.element].service_id = event.service_id
     end
   end
-  self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
+  self.sc_logger:debug("[event_queue:format_event_service]: call build_metric ")
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
-  self.sc_logger:debug("[EventQueue:format_event_service]: format metric service is finished ")
+  self.sc_logger:debug("[event_queue:format_event_service]: format metric service is finished ")
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_metric_host method
+---- event_queue:format_metric_host method
 -- @param metric {table} a single metric data
 --------------------------------------------------------------------------------
-function EventQueue:format_metric_host(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_host]: starting format event host.")
+function event_queue:format_metric_host(metric)
+  self.sc_logger:debug("[event_queue:format_metric_host]: starting format event host.")
   local event = self.sc_event.event
   local sdesc = "host"
 
@@ -277,17 +277,17 @@ function EventQueue:format_metric_host(metric)
     prom_sdesc      = sdesc,
     prom_sdesc_url  = mime.b64(sdesc)
   }
-  self.sc_logger:debug("[EventQueue:format_metric_host]: call format_metric ")
+  self.sc_logger:debug("[event_queue:format_metric_host]: call format_metric ")
   self:format_metric_event(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_host]: format metric host is finished ")
+  self.sc_logger:debug("[event_queue:format_metric_host]: format metric host is finished ")
 end
 
 --------------------------------------------------------------------------------
----- EventQueue:format_metric_service method
+---- event_queue:format_metric_service method
 -- @param metric {table} a single metric data
 --------------------------------------------------------------------------------
-function EventQueue:format_metric_service(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_service]: starting format event service.")
+function event_queue:format_metric_service(metric)
+  self.sc_logger:debug("[event_queue:format_metric_service]: starting format event service.")
   local event = self.sc_event.event
   local sdesc = event.cache.service.description
 
@@ -296,9 +296,9 @@ function EventQueue:format_metric_service(metric)
     prom_sdesc      = sdesc,
     prom_sdesc_url  = mime.b64(sdesc)
   }
-  self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric ")
+  self.sc_logger:debug("[event_queue:format_metric_service]: call format_metric ")
   self:format_metric_event(metric)
-  self.sc_logger:debug("[EventQueue:format_metric_service]: format metric service is finished ")
+  self.sc_logger:debug("[event_queue:format_metric_service]: format metric service is finished ")
 end
 
 --------------------------------------------------------------------------------
@@ -308,7 +308,7 @@ end
 -- @param {string} name, the name of the metric
 -- @return {string} data, the unit metadata information
 --------------------------------------------------------------------------------
-function EventQueue:add_unit_info (label, unit, name)
+function event_queue:add_unit_info (label, unit, name)
   local data = ''
 
   if (unit ~= '' and unit ~= nil) then
@@ -324,7 +324,7 @@ end
 --- @param {string} unit, the unit name
 --- @return {string} name, the prometheus metric name (open metric format)
 --------------------------------------------------------------------------------
-function EventQueue:create_metric_name (label, unit)
+function event_queue:create_metric_name (label, unit)
   local name = ''
   local sdesc = self.sc_event.event.cache.service.description or 'host'
   local hname = self.sc_event.event.cache.host.name
@@ -345,11 +345,11 @@ function EventQueue:create_metric_name (label, unit)
 end
 
 --------------------------------------------------------------------------------
---- EventQueue:format_metric_service method
+--- event_queue:format_metric_service method
 --- @param metric {table} a single metric data
 -------------------------------------------------------------------------------
-function EventQueue:format_metric_event(metric)
-  self.sc_logger:debug("[EventQueue:format_metric]: start real format metric ")
+function event_queue:format_metric_event(metric)
+  self.sc_logger:debug("[event_queue:format_metric]: start real format metric ")
   local event = self.sc_event.event
   local type  = self:get_metric_type(metric)
   local unit  = unit_mapping(metric.uom)
@@ -400,7 +400,7 @@ CENTREON_Financial:acme_bank_business_gold_reserve_euros{label="acme_bank_busine
   event.formated_event.payload = data
 
   self:add()
-  self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
+  self.sc_logger:debug("[event_queue:format_metric]: end real format metric ")
 end
 
 --------------------------------------------------------------------------------
@@ -425,7 +425,7 @@ end
 -- @param {table} perfdata, the perfdata informations
 -- @return {string} metricType, the type of the metric
 --------------------------------------------------------------------------------
-function EventQueue:get_metric_type (perfdata)
+function event_queue:get_metric_type (perfdata)
   if (is_number_and_not_a_NaN(perfdata.max)) then
     return "gauge"
   end
@@ -434,30 +434,30 @@ function EventQueue:get_metric_type (perfdata)
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:add, add an event to the sending queue
+-- event_queue:add, add an event to the sending queue
 --------------------------------------------------------------------------------
-function EventQueue:add()
+function event_queue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
 
-  self.sc_logger:debug("[EventQueue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
+  self.sc_logger:debug("[event_queue:add]: add event in queue category: " .. tostring(self.sc_params.params.reverse_category_mapping[category])
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
-  self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
+  self.sc_logger:debug("[event_queue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-  self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+  self.sc_logger:info("[event_queue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:build_payload, concatenate data so it is ready to be sent
+-- event_queue:build_payload, concatenate data so it is ready to be sent
 -- @param payload {string} json encoded string
 -- @param event {table} the event that is going to be added to the payload
 -- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
-function EventQueue:build_payload(payload, event)
+function event_queue:build_payload(payload, event)
 
   if not payload then -- FIXME: voir obsidian
     payload = event
@@ -468,8 +468,8 @@ function EventQueue:build_payload(payload, event)
   return payload
 end
 
-function EventQueue:send_data(payload, queue_metadata)
-  self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
+function event_queue:send_data(payload, queue_metadata)
+  self.sc_logger:debug("[event_queue:send_data]: Starting to send data")
   local httpPostData = payload.payload
   local httpResponseBody = ""
   local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
@@ -494,7 +494,7 @@ function EventQueue:send_data(payload, queue_metadata)
     if (self.sc_params.params.proxy_port and self.sc_params.params.proxy_port ~= '') then
       httpRequest:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
     else
-      self.sc_logger:error("EventQueue:send_data: proxy_port parameter is not set but proxy_address is used")
+      self.sc_logger:error("event_queue:send_data: proxy_port parameter is not set but proxy_address is used")
     end
   end
 
@@ -503,7 +503,7 @@ function EventQueue:send_data(payload, queue_metadata)
     if (self.sc_params.params.proxy_password ~= '') then
       httpRequest:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
     else
-      self.sc_logger:error("EventQueue:send_data: proxy_password parameter is not set but proxy_username is used")
+      self.sc_logger:error("event_queue:send_data: proxy_password parameter is not set but proxy_username is used")
     end
   end
 
@@ -530,15 +530,15 @@ function EventQueue:send_data(payload, queue_metadata)
   -- Handling the return code
   local retval = false
   if httpResponseCode == 200 then
-    self.sc_logger:info("EventQueue:send_data: HTTP POST request successful: return code is " .. httpResponseCode)
+    self.sc_logger:info("event_queue:send_data: HTTP POST request successful: return code is " .. httpResponseCode)
     -- now that the data has been sent, we empty the events array
     self.events = {}
     retval = true
   else
-    self.sc_logger:error("EventQueue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. tostring(httpResponseBody) .. "\n\"\n")
+    self.sc_logger:error("event_queue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. tostring(httpResponseBody) .. "\n\"\n")
     self.sc_logger:error("the body request " .. httpPostData)
   end
-  self.sc_logger:debug("[EventQueue:send_data]: End")
+  self.sc_logger:debug("[event_queue:send_data]: End")
   return retval
 end
 
@@ -550,7 +550,7 @@ local queue
 
 -- Fonction init()
 function init(conf)
-  queue = EventQueue.new(conf)
+  queue = event_queue.new(conf)
 end
 
 -- --------------------------------------------------------------------------------
