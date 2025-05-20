@@ -360,7 +360,6 @@ function ScStorageSqlite:get_properties_for_object_type(object_type, properties)
 
   -- if we didn't already store information in the storage, the last_query_result could be an empty table
   if self.last_query_result[1] then
-    self.sc_logger:notice(self.sc_common:dumper(self.last_query_result))
     for index, stored_data in pairs(self.last_query_result) do
       if not values[stored_data.object_id] then
         values[stored_data.object_id] = {}
