@@ -346,4 +346,31 @@ function ScStorageSqlite:clear()
   return true
 end
 
+function ScStorageSqlite:get_properties_for_object_type(object_type, properties)
+  local query = "SELECT object_id, property, value, data_type FROM sc_storage WHERE object_id like '" .. object_type 
+    .. "_%' AND property in ('" .. table.concat(properties, "','") .. "')"
+
+  if not self:run_query(query, true, true) then
+    self.sc_logger:error("[sc_storage_sqlite:get_properties_for_object_type]: couldn't get properties in storage for object type: " .. tostring(object_type)
+      .. ", properties: " .. self.sc_common:dumper(properties))
+    return false, {}
+  end
+
+  local values = {}
+
+  -- if we didn't already store information in the storage, the last_query_result could be an empty table
+  if self.last_query_result[1] then
+    self.sc_logger:notice(self.sc_common:dumper(self.last_query_result))
+    for index, stored_data in pairs(self.last_query_result) do
+      if not values[stored_data.object_id] then
+        values[stored_data.object_id] = {}
+      end
+
+      values[stored_data.object_id][stored_data.property] = stored_data.value
+    end
+  end
+
+  return true, values
+end
+
 return sc_storage_sqlite

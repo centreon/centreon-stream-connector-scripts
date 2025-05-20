@@ -91,7 +91,50 @@ function sc_storage.new(common, logger, params)
   setmetatable(self.memory, memory_meta)
 
   setmetatable(self, { __index = ScStorage})
+  self:init_memory()
   return self
+end
+
+function ScStorage:init_memory()
+  -- load host properties in memory table
+  self:set_memory("host", self.params.load_host_properties_from_storage)
+
+  -- load service properties in memory table
+  self:set_memory("service", self.params.load_service_properties_from_storage)
+
+  -- load BA properties in memory table
+  self:set_memory("ba", self.params.load_ba_properties_from_storage)
+
+  -- load metric properties in memory table
+  self:set_memory("metric", self.params.load_metric_properties_from_storage)
+end
+
+function ScStorage:set_memory(object_type, properties_list)
+  local success, result
+  local rawset = rawset -- we may have to use it a million time so let's try to improve perfs even if it is in the init phase
+
+  if properties_list ~= "" then
+    self.sc_logger:notice("[sc_storage:set_memory] init memory: start getting properties: " .. tostring(properties_list) .. " for object type: " .. tostring(object_type))
+    success, result = self:get_properties_for_object_type(object_type, self.sc_common:split(properties_list))
+
+    if success then
+      for object_id, data in pairs(result) do
+        if not self.memory[object_id] then
+          self.memory[object_id] = {}
+        end
+
+        for property, value in pairs(data) do
+          rawset(self.memory[object_id], property, value)
+        end
+      end
+    end
+
+    self.sc_logger:notice("[sc_storage:set_memory] init memory: finished getting properties for object type: " .. tostring(object_type))
+  end
+end
+
+function ScStorage:get_properties_for_object_type(object_type, object_properties)
+  return self.storage_backend:get_properties_for_object_type(object_type, object_properties)
 end
 
 --- is_valid_storage_object: make sure that the object that needs an interraction with the storage is an object that can have storage

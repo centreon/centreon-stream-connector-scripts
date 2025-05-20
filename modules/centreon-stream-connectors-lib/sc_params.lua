@@ -128,6 +128,10 @@ function sc_params.new(common, logger)
     log_curl_commands = 0,
 
     -- storage parameters
+    load_host_properties_from_storage = "",
+    load_service_properties_from_storage = "",
+    load_ba_properties_from_storage = "",
+    load_metric_properties_from_storage = "",
     storage_backend = "broker",
     ["sc_storage.sqlite.db_file"] = "/var/lib/centreon-broker/stream-connector-storage.sdb",
 
