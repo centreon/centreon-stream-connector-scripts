@@ -38,6 +38,58 @@ function sc_storage.new(common, logger, params)
     self.storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_broker")
   end
 
+  -- prepare the "magic table". It is a table to store data in memory. 
+  -- But when you set/delete values from it, it will also set/delete from the persistent storage
+  -- when you get values, if it is not found in the memory table, it will search it in the persistent storage 
+  self.memory = {}
+
+  -- the meta table for your storage_objects that are going to be subtables of the memory table: 
+  local object_meta = {
+    -- this meta table function gets data from the persistent storage when not found in memory 
+    __index = function (object_memory_table, property)
+        local status, value = self:get(object_memory_table._internal_object_id, property)
+        return value
+    end,
+    -- this meta table function will delete/set the data in the persistent storage while also setting/deleting from the memory table
+    __newindex = function (object_memory_table, property, value)
+      if value ~= value then
+        self:delete(object_memory_table._internal_object_id, property)
+        rawset(object_memory_table, property, value) -- rawset is needed to not trigger meta table functions otherwise you create an infinite loop
+        return
+      end
+
+      self:set(object_memory_table._internal_object_id, property, value)
+      rawset(object_memory_table, property, value)
+    end
+  }
+
+  -- the meta table for the memory table. It is here to dynamically create storage_objects subtables and to link them with the object_meta meta table
+  local memory_meta = {
+    __newindex = function (memory_table, key, value)
+      -- you can store whatever you want in the self.memory table. 
+      -- but if the index is a valid storage_object it will assume that you want to create the magic between memory and persistent storage
+      if self:is_valid_storage_object(key) then
+        -- we need to create the storage_object subtable and link it to the appropriate meta table
+        if not self.memory[key] then
+          rawset(self.memory, key, {})
+          setmetatable(self.memory[key], object_meta)
+        end
+
+        -- condition is either triggered on first storage_object memory creation or some weird code that someone is doing.
+        if type(value) == "table" then
+          -- need to add an internal property to the storage_object subtable that contains the storage_object ID otherwise we will never be able to get this information and communicate with the persistent storage backend
+          rawset(self.memory[key], "_internal_object_id", key)
+          
+          -- at the moment, I can't find a way to make use of "multiple()" functions. So we can't bulk things. Therefore we loop through everything and it will do a set() action for each property
+          for property, property_value in pairs(value) do
+            self.memory[key][property] = property_value
+          end
+        end
+      end
+    end
+  }
+  setmetatable(self.memory, memory_meta)
+
   setmetatable(self, { __index = ScStorage})
   return self
 end
