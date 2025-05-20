@@ -93,10 +93,10 @@ function EventQueue.new(params)
   params.max_buffer_size = 1
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.accepted_categories   = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements     = params.accepted_elements or "service_status"
-  self.sc_params.metric_name_regex            = params.metric_name_regex or '[^a-zA-Z0-9_:]'
-  self.sc_params.metric_replacement_character = params.metric_replacement_character or '_'
+  self.sc_params.params.accepted_categories           = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements             = params.accepted_elements or "service_status"
+  self.sc_params.params.metric_name_regex             = params.metric_name_regex or '[^a-zA-Z0-9_:]'
+  self.sc_params.params.metric_replacement_character  = params.metric_replacement_character or '_'
 
   -- prometheus specific parameters
   self.sc_params.params.prometheus_url              = params.prometheus_url or "http://127.0.0.1:9091"
@@ -341,7 +341,7 @@ function EventQueue:create_metric_name (label, unit)
         name = name .. '_' .. unit
       end
     end
-  return string.gsub(name, self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
+  return string.gsub(name, self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
 end
 
 --------------------------------------------------------------------------------

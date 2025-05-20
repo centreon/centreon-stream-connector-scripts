@@ -55,19 +55,22 @@ function EventQueue.new(params)
   if not self.sc_params:is_mandatory_config_set(mandatory_parameters, params) then
     self.fail = true
   end
+
+  params.max_buffer_size = 1
   
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
-  self.sc_params.params.accepted_categories         = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements           = params.accepted_elements or "host_status,service_status"
-  self.sc_params.params.enable_host_status_dedup    = params.enable_host_status_dedup or 1
-  self.sc_params.params.enable_service_status_dedup = params.enable_service_status_dedup or 1
+  self.sc_params.params.accepted_categories           = params.accepted_categories or "neb"
+  self.sc_params.params.accepted_elements             = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.metric_name_regex             = params.metric_name_regex or '[^a-zA-Z0-9_:]'
+  self.sc_params.params.metric_replacement_character  = params.metric_replacement_character or '_'
+  self.sc_params.params.enable_host_status_dedup      = params.enable_host_status_dedup or 1
+  self.sc_params.params.enable_service_status_dedup   = params.enable_service_status_dedup or 1
 
   -- prometheus specific parameters
   self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
   self.sc_params.params.http_timeout           = params.http_timeout or 30
   self.sc_params.params.prometheus_gateway_job = params.prometheus_gateway_job or "monitoring"
   -- force max_buffer_size to 1 because we each service is sent to its own url
-  self.sc_params.params.max_buffer_size = 1
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -145,7 +148,7 @@ function EventQueue:format_event_host()
   local hname = event.cache.host.name
   local sdesc = "host"
 
-  local name = string.gsub(hname .. '_' .. sdesc .. ':status:monitoring_status', self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
+  local name = string.gsub(hname .. '_' .. sdesc .. ':monitoring_status', self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
 
   local data = '# TYPE ' .. name .. ' counter\n'
   data = data .. '# HELP ' .. name .. ' 0 is OK, 1 or higher is DOWN\n'
@@ -177,10 +180,10 @@ function EventQueue:format_event_service()
   local hname = event.cache.host.name
   local sdesc = event.cache.service.description
 
-  local name = string.gsub(hname .. '_' .. sdesc .. ':status:monitoring_status', self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
+  local name = string.gsub(hname .. '_' .. sdesc .. ':monitoring_status', self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
 
   local data = '# TYPE ' .. name .. ' counter\n'
-  data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 is UNKNOWN\n'
+  data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 or higher is UNKNOWN\n'
   if not event.hostgroupsLabel then
     data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
   else
@@ -227,10 +230,10 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = event --TBD
+    payload = event
   else
     self.sc_logger:error("[EventQueue:build_payload]: payload should be nil at this point.")
-    table.insert(payload, event) --TBD
+    table.insert(payload, event)
   end
   
   return payload
@@ -243,9 +246,12 @@ function EventQueue:send_data(payload, queue_metadata)
   
   local httpResponseBody = ""
   local label = "status"
+  local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
+
+  queue_metadata.headers = { "content-type: application/openmetrics-text" }
 
   local httpRequest = curl.easy()
-  :setopt_url(self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url)
+  :setopt_url(url)
   :setopt_writefunction(
     function (response)
       httpResponseBody = httpResponseBody .. tostring(response)
@@ -254,9 +260,7 @@ function EventQueue:send_data(payload, queue_metadata)
   :setopt(curl.OPT_TIMEOUT, self.sc_params.params.http_timeout)
   :setopt(
     curl.OPT_HTTPHEADER,
-    {
-      "content-type: application/openmetrics-text"
-    }
+    queue_metadata.headers
   )
 
   -- set proxy address configuration
@@ -305,7 +309,7 @@ function EventQueue:send_data(payload, queue_metadata)
     retval = true
   else
     self.sc_logger:error("EventQueue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. tostring(httpResponseBody) .. "\n\"\n")
-    self.sc_logger:error("the body request " .. data)
+    self.sc_logger:error("the body request " .. payload.formatted_payload)
   end
 
 
