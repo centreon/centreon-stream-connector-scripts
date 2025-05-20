@@ -37,7 +37,8 @@ local function unit_mapping (unit)
     A = 'amperes',
     K = 'kelvins',
     ["%"] = 'ratios',
-    ["°"] = 'celsius'
+    ["°"] = 'celsius',
+    ["€"] = 'euros'
   }
 
   local unhandledUnit = nil
@@ -93,7 +94,7 @@ function EventQueue.new(params)
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
   self.sc_params.params.accepted_categories   = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements     = params.accepted_elements or "host_status,service_status"
+  self.sc_params.params.accepted_elements     = params.accepted_elements or "service_status"
   self.sc_params.metric_name_regex            = params.metric_name_regex or '[^a-zA-Z0-9_:]'
   self.sc_params.metric_replacement_character = params.metric_replacement_character or '_'
 
@@ -325,7 +326,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:create_metric_name (label, unit)
   local name = ''
-  local sdesc = self.sc_event.event.service_description or 'host'
+  local sdesc = self.sc_event.event.cache.service.description or 'host'
   local hname = self.sc_event.event.cache.host.name
 
     if (self.sc_params.params.enable_extended_metric_name == 0) then
@@ -334,9 +335,12 @@ function EventQueue:create_metric_name (label, unit)
       name = hname .. '_' .. sdesc .. ':' .. label
     end
     if (unit ~= '') then
-      name = name .. '_' .. unit
+      local pos_unit = string.find(name, unit)
+      -- we append the unit only if the name is not already ending with it
+      if not pos_unit or not (pos_unit > 0 and pos_unit == string.len(name) - string.len(unit) + 1) then
+        name = name .. '_' .. unit
+      end
     end
-
   return string.gsub(name, self.sc_params.metric_name_regex, self.sc_params.metric_replacement_character)
 end
 
@@ -349,20 +353,47 @@ function EventQueue:format_metric_event(metric)
   local event = self.sc_event.event
   local type  = self:get_metric_type(metric)
   local unit  = unit_mapping(metric.uom)
-  local label = metric.metric_name
+  local label = ''
+
+  -- case when the metric belongs to an instance
+  if metric.instance and metric.instance ~= '' then
+    label =  metric.instance .. '_'
+  end
+
+  -- case when there are sub-levels of an instance
+  local i, sub_instance
+  for i, sub_instance in ipairs(metric.subinstance) do
+    label =  label .. sub_instance .. '_'
+  end
+
+  label = label .. metric.metric_name
+
   local name  = self:create_metric_name(label, unit)
   local sdesc = event.formated_event.prom_sdesc
 
+  -- Example of data to send
+  --[[
+# TYPE CENTREON_proc_crond:nbproc counter
+CENTREON_proc_crond:nbproc{label="nbproc", host="CENTREON", service="proc-crond"} 1.0
+  ]]
+  -- Other example
+  --[[
+# TYPE CENTREON_Ah_Que_Coucou:bnp_bank_business_gold_reserve_euros counter
+# UNIT CENTREON_Ah_Que_Coucou:bnp_bank_business_gold_reserve_euros
+CENTREON_Financial:acme_bank_business_gold_reserve_euros{label="acme_bank_business_gold.reserve.euros", host="CENTREON", service="Financial"} 3.0
+  ]]
+
   local data = '# TYPE ' .. name .. ' ' .. type .. '\n'
   data = data .. self:add_unit_info(label, unit, name)
-  
-  if not event.hostgroupsLabel then
-    data = data .. name .. '{label="' .. label .. '", host="' .. event.cache.host.name .. '", service="' .. sdesc .. '"} ' .. metric.value .. '\n'
-  else
-    data = data .. name .. '{label="' .. label .. '", host="' .. event.cache.host.name .. '", service="' .. sdesc .. '", ' ..  event.hostgroupsLabel .. '} ' .. metric.value .. '\n'
+  data = data .. name .. '{label="' .. label .. '", host="' .. event.cache.host.name .. '", service="' .. sdesc .. '"'
+
+  if event.hostgroupsLabel then
+    data = data .. ', ' .. event.hostgroupsLabel
   end
 
-  if (self.enable_threshold_metrics == 1) then 
+  data = data ..  '} ' .. metric.value .. '\n'
+
+  if (self.enable_threshold_metrics == 1) then
     data = data .. self:threshold_metrics(metric, label, unit, type)
   end
 
@@ -443,6 +474,8 @@ function EventQueue:send_data(payload, queue_metadata)
   local httpResponseBody = ""
   local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
 
+  queue_metadata.headers = { "content-type: application/openmetrics-text" }
+
   local httpRequest = curl.easy()
   :setopt_url(url)
   :setopt_writefunction(
@@ -453,9 +486,7 @@ function EventQueue:send_data(payload, queue_metadata)
   :setopt(curl.OPT_TIMEOUT, self.sc_params.params.http_timeout)
   :setopt(
     curl.OPT_HTTPHEADER,
-    {
-      "content-type: application/openmetrics-text"
-    }
+    queue_metadata.headers
   )
 
   -- set proxy address configuration
