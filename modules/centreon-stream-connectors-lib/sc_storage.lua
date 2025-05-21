@@ -38,33 +38,65 @@ function sc_storage.new(common, logger, params)
     self.storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_broker")
   end
 
+  setmetatable(self, { __index = ScStorage})
+  self:init_memory()
+  return self
+end
+
+--- init_memory: create and populate the self.memory table that is able to interact with the persistent storage when updated
+function ScStorage:init_memory()
+
+  self:create_memory()
+
+  -- load host properties in memory table
+  self:set_memory("host", self.params.load_host_properties_from_storage)
+
+  -- load service properties in memory table
+  self:set_memory("service", self.params.load_service_properties_from_storage)
+
+  -- load BA properties in memory table
+  self:set_memory("ba", self.params.load_ba_properties_from_storage)
+
+  -- load metric properties in memory table
+  self:set_memory("metric", self.params.load_metric_properties_from_storage)
+end
+
+--- create_memory: create the self.memory table and add meta tables to it
+function ScStorage:create_memory()
   -- prepare the "magic table". It is a table to store data in memory. 
   -- But when you set/delete values from it, it will also set/delete from the persistent storage
   -- when you get values, if it is not found in the memory table, it will search it in the persistent storage 
-  self.memory = {}
+  self.memory = {} -- this is a proxy table, the one that will be used by users, it will not store data. This is needed to be able to updates values
+  self.internal_memory = {} -- this is the table that will store all the data
 
   -- the meta table for your storage_objects that are going to be subtables of the memory table: 
-  local object_meta = {
+  self.object_meta = {
     -- this meta table function gets data from the persistent storage when not found in memory 
     __index = function (object_memory_table, property)
-        local status, value = self:get(object_memory_table._internal_object_id, property)
-        return value
+        -- try to find value in the real memory
+      if self.internal_memory[object_memory_table._internal_object_id][property] then
+        return self.internal_memory[object_memory_table._internal_object_id][property]
+      end
+
+      -- else try to find it in the persistent storage
+      local status, value = self:get(object_memory_table._internal_object_id, property)
+      return value
     end,
     -- this meta table function will delete/set the data in the persistent storage while also setting/deleting from the memory table
     __newindex = function (object_memory_table, property, value)
-      if value ~= value then
-        self:delete(object_memory_table._internal_object_id, property)
-        rawset(object_memory_table, property, value) -- rawset is needed to not trigger meta table functions otherwise you create an infinite loop
+      if value == nil then
+        self.internal_memory[object_memory_table._internal_object_id][property] = value --delete in real memory
+        self:delete(object_memory_table._internal_object_id, property) -- delete in persistent
         return
       end
 
-      self:set(object_memory_table._internal_object_id, property, value)
-      rawset(object_memory_table, property, value)
+      self.internal_memory[object_memory_table._internal_object_id][property] = value --set in real memory
+      self:set(object_memory_table._internal_object_id, property, value) -- set in persistent
     end
   }
 
   -- the meta table for the memory table. It is here to dynamically create storage_objects subtables and to link them with the object_meta meta table
-  local memory_meta = {
+  self.memory_meta = {
     __newindex = function (memory_table, key, value)
       -- you can store whatever you want in the self.memory table. 
       -- but if the index is a valid storage_object it will assume that you want to create the magic between memory and persistent storage
@@ -72,7 +104,7 @@ function sc_storage.new(common, logger, params)
         -- we need to create the storage_object subtable and link it to the appropriate meta table
         if not self.memory[key] then
           rawset(self.memory, key, {})
-          setmetatable(self.memory[key], object_meta)
+          setmetatable(self.memory[key], self.object_meta)
         end
 
         -- condition is either triggered on first storage_object memory creation or some weird code that someone is doing.
@@ -88,27 +120,12 @@ function sc_storage.new(common, logger, params)
       end
     end
   }
-  setmetatable(self.memory, memory_meta)
-
-  setmetatable(self, { __index = ScStorage})
-  self:init_memory()
-  return self
+  setmetatable(self.memory, self.memory_meta)
 end
 
-function ScStorage:init_memory()
-  -- load host properties in memory table
-  self:set_memory("host", self.params.load_host_properties_from_storage)
-
-  -- load service properties in memory table
-  self:set_memory("service", self.params.load_service_properties_from_storage)
-
-  -- load BA properties in memory table
-  self:set_memory("ba", self.params.load_ba_properties_from_storage)
-
-  -- load metric properties in memory table
-  self:set_memory("metric", self.params.load_metric_properties_from_storage)
-end
-
+--- set_memory: populate the self.memory table with data from the persistent storage.
+-- @param object_type (string) the object_type from which properties are going to be retrieved. Object types can be host, service, ba, metric
+-- @param properties_list (string) a coma-separated list of properties that must be retrieved from a given object
 function ScStorage:set_memory(object_type, properties_list)
   local success, result
   local rawset = rawset -- we may have to use it a million time so let's try to improve perfs even if it is in the init phase
@@ -124,7 +141,7 @@ function ScStorage:set_memory(object_type, properties_list)
         end
 
         for property, value in pairs(data) do
-          rawset(self.memory[object_id], property, value)
+          self.memory[object_id][property] = value
         end
       end
     end
@@ -133,6 +150,11 @@ function ScStorage:set_memory(object_type, properties_list)
   end
 end
 
+--- get_properties_for_object_type: retrieve every given properties for a given object type
+-- @param object_type (string) the object type from which propertes are going to be retrieved. Object type can be host, service, ba, metric
+-- @param object_properties (table) a list of properties that you want to retrieve from the given object type
+-- @return (boolean) true if it worked, false otherwise
+-- @return result (table) table with all results, an empty table if it failed (or if no object/properties were found)
 function ScStorage:get_properties_for_object_type(object_type, object_properties)
   return self.storage_backend:get_properties_for_object_type(object_type, object_properties)
 end

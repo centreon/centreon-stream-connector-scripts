@@ -346,6 +346,11 @@ function ScStorageSqlite:clear()
   return true
 end
 
+--- get_properties_for_object_type: retrieve every given properties for a given object type
+-- @param object_type (string) the object type from which propertes are going to be retrieved. Object type can be host, service, ba, metric
+-- @param object_properties (table) a list of properties that you want to retrieve from the given object type
+-- @return (boolean) true if it worked, false otherwise
+-- @return result (table) table with all results, an empty table if it failed (or if no object/properties were found)
 function ScStorageSqlite:get_properties_for_object_type(object_type, properties)
   local query = "SELECT object_id, property, value, data_type FROM sc_storage WHERE object_id like '" .. object_type 
     .. "_%' AND property in ('" .. table.concat(properties, "','") .. "')"
