@@ -50,6 +50,10 @@
   - [clear method](#clear-method)
     - [clear: returns](#clear-returns)
     - [clear: example](#clear-example)
+  - [get\_properties\_for\_object\_type method](#get_properties_for_object_type-method)
+    - [get\_properties\_for\_object\_type: parameters](#get_properties_for_object_type-parameters)
+    - [get\_properties\_for\_object\_type: returns](#get_properties_for_object_type-returns)
+    - [get\_properties\_for\_object\_type: example](#get_properties_for_object_type-example)
 
 ## Introduction
 
@@ -114,7 +118,7 @@ test_storage.memory[object_id] = object_properties
 ]]
 ```
 
-As you can see, upon creation, a `_internal_object_id` index has been added in the memory table. This is because it is required by the mechanims in order to know how to store data in the persistent storage. Because while the memory table has been populated with some values, so does the persistent storage.
+As you can see, upon creation, a `_internal_object_id` index has been added in the memory table. This is because it is required by the mechanism in order to know how to store data in the persistent storage. Because while the memory table has been populated with some values, so does the persistent storage.
 
 #### Get data from the memory table
 
@@ -478,4 +482,45 @@ local object_id = "host_2712"
 
 local status = test_storage:clear() 
 --> status is true
+```
+
+## get_properties_for_object_type method
+
+The **get_properties_for_object_type** method retrieves a list of properties for a given object
+
+### get_properties_for_object_type: parameters
+
+| parameter                                           | type   | optional | default value |
+| --------------------------------------------------- | ------ | -------- | ------------- |
+| the object type with the properties that must be retrieved (can be host, service, ba or metric) | string | no       |               |
+| a list of properties                                | table  | no       |               |
+
+### get_properties_for_object_type: returns
+
+| return                | type    | always | condition                                                                           |
+| --------------------- | ------- | ------ | ----------------------------------------------------------------------------------- |
+| true or false         | boolean | yes    | true if value properly retrieved from storage, false otherwise                        |
+| values from the storage | table   | yes    | empty table if first return is false, table of properties and their value otherwise |
+
+### get_properties_for_object_type: example
+
+```lua
+local object_type = "host"
+local properties = {"city", "country"}
+
+local status, values = test_storage:get_properties_for_object_type(object_type, properties) 
+--> status is true
+--[[
+  values structure is:
+  {
+    host_2712 = {
+      city = "Bordeaux",
+      country = "France"
+    },
+    host_1911 = {
+      city = "Rabanastre",
+      country = "Dalmasca"
+    }
+  }
+]]
 ```

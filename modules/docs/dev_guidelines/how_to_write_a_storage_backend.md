@@ -50,6 +50,7 @@ A storage backend is a Lua module that must implement the following methods:
 - delete_multiple()
 - show()
 - clear()
+- get_properties_for_object_type()
 
 When implementing them in your cache backend, you must follow the below rules:
 
