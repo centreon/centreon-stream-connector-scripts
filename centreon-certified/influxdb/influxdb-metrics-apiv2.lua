@@ -377,7 +377,7 @@ function EventQueue:check_incomplete_metrics()
       incomplete_metrics_payload = incomplete_metrics_payload .. metric_data.metric_name .. ",metric_id=" .. metrics[metric_data.metric_key] .. " value=" .. metric_data.metric_value .. " " .. metric_data.last_check .. "\n"
       incomplete_metrics_queue_size = incomplete_metrics_queue_size + 1
       table.remove(incomplete_metrics, metric_index)
-    elseif os.time() - metric_data.entry_creation_date > 60 then
+    elseif os.time() - metric_data.entry_creation_date > 30 then
       self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: metric_key " .. tostring(metric_data.metric_key) .. " is too old, removing it")
       table.remove(incomplete_metrics, metric_index)
     else
@@ -467,7 +467,7 @@ function flush()
   local queues_size = queue.sc_flush:get_queues_size()
 
   -- retry to send the incomplete metrics table every 10 seconds, if there are some
-  if #incomplete_metrics > 0 and os.time() - last_check_incomplete_metrics > 10 then
+  if #incomplete_metrics > 0 and os.time() - last_check_incomplete_metrics > 1 then
     last_check_incomplete_metrics = os.time()
     queue:check_incomplete_metrics()
   end
