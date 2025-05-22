@@ -87,12 +87,12 @@ function EventQueue.new(params)
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
-  --local rc, init_metrics = self.sc_storage:get_all_values_from_property("metric_id")
-  --if rc == false or type(init_metrics) == "boolean" then
-  --  self.sc_logger:notice("no metric_id found in the sqlite db. That's probably because it is the first time the stream connector is executed")
-  --else
-  --  metrics = init_metrics
-  --end
+  local rc, init_metrics = self.sc_storage:get_all_values_from_property("metric_id")
+  if rc == false or type(init_metrics) == "boolean" then
+    self.sc_logger:notice("no metric_id found in the sqlite db. That's probably because it is the first time the stream connector is executed")
+  else
+    metrics = init_metrics
+  end
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -362,7 +362,6 @@ function EventQueue:send_data(payload, queue_metadata)
 end
 
 function EventQueue:check_incomplete_metrics()
-  broker_log:info(0, "[EventQueue:check_incomplete_metrics]: start check_incomplete_metrics")
   self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: start check_incomplete_metrics")
   local incomplete_metrics_queue_size = 0
   local incomplete_metrics_payload = ""
@@ -373,22 +372,18 @@ function EventQueue:check_incomplete_metrics()
   }
   for metric_index = #incomplete_metrics, 1, -1 do
     local metric_data = incomplete_metrics[metric_index]
-    broker_log:info(0, "[EventQueue:check_incomplete_metrics]: metric_data: " .. broker.json_encode(metric_data))
     if metrics[metric_data.metric_key] then
-      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: metric_key found")
+      self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: metric_key " .. tostring(metric_data.metric_key) .. " found: sending metric")
       incomplete_metrics_payload = incomplete_metrics_payload .. metric_data.metric_name .. ",metric_id=" .. metrics[metric_data.metric_key] .. " value=" .. metric_data.metric_value .. " " .. metric_data.last_check .. "\n"
       incomplete_metrics_queue_size = incomplete_metrics_queue_size + 1
       table.remove(incomplete_metrics, metric_index)
     elseif os.time() - metric_data.entry_creation_date > 60 then
-      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: metric_key " .. tostring(metric_data.metric_key) .. " is too old, removing it")
       self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: metric_key " .. tostring(metric_data.metric_key) .. " is too old, removing it")
       table.remove(incomplete_metrics, metric_index)
     else
-      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: keeping metric_key " .. tostring(metric_data.metric_key) .. " in the incomplete metrics list")
       self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: keeping metric_key " .. tostring(metric_data.metric_key) .. " in the incomplete metrics list")
     end
     if incomplete_metrics_queue_size > self.sc_params.params.max_buffer_size then
-      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
       self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
       self:send_data(incomplete_metrics_payload, queue_metadata)
       incomplete_metrics_payload = ""
@@ -396,7 +391,6 @@ function EventQueue:check_incomplete_metrics()
     end
   end
   if incomplete_metrics_payload ~= "" then
-    broker_log:info(0, "[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
     self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
     self:send_data(incomplete_metrics_payload, queue_metadata)
   end
@@ -466,10 +460,17 @@ function write (event)
   return flush()
 end
 
+local last_check_incomplete_metrics = 0
 
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
+
+  -- retry to send the incomplete metrics table every 10 seconds, if there are some
+  if #incomplete_metrics > 0 and os.time() - last_check_incomplete_metrics > 10 then
+    last_check_incomplete_metrics = os.time()
+    queue:check_incomplete_metrics()
+  end
 
   -- nothing to flush
   if queues_size == 0 then
@@ -481,9 +482,6 @@ function flush()
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
     end
-    if #incomplete_metrics > 0 then
-      queue:check_incomplete_metrics()
-    end
     return true
   end
 
@@ -491,9 +489,6 @@ function flush()
   if queues_size > queue.sc_params.params.max_buffer_size then
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
-    end
-    if #incomplete_metrics > 0 then
-      queue:check_incomplete_metrics()
     end
     return true
   end
