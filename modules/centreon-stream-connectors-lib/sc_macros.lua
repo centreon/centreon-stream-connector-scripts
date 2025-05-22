@@ -68,13 +68,13 @@ function sc_macros.new(params, logger, common)
     HOSTSTATETYPE = "{cache.host.state_type}",
     HOSTATTEMPTS = "{cache.host.check_attempt}",
     MAXHOSTATTEMPTS = "{cache.host.max_check_attempts}",
-    -- HOSTEVENTID doesn't exist 
+    -- HOSTEVENTID doesn't exist
     -- LASTHOSTEVENTID doesn't exist
     -- HOSTPROBLEMID doesn't exist
     -- LASTHOSTPROBLEMID doesn't exist
     HOSTLATENCY = "{cache.host.latency}",
     HOSTEXECUTIONTIME = "{cache.host.execution_time}",
-    -- HOSTDURATION doesn't exist 
+    -- HOSTDURATION doesn't exist
     -- HOSTDURATIONSEC doesn't exist
     HOSTDOWNTIME = "{cache.host.scheduled_downtime_depth}",
     HOSTPERCENTCHANGE = "{percent_state_change}", -- will be replaced by the service percent_state_change if event is about a service
@@ -193,7 +193,7 @@ end
 --- replace_sc_macro: replace any stream connector macro with it's value
 -- @param string (string) the string in which there might be some stream connector macros to replace
 -- @param event (table) the current event table
--- @param json_string (boolean)  
+-- @param json_string (boolean)
 -- @return converted_string (string) the input string but with the macro replaced with their json escaped values
 function ScMacros:replace_sc_macro(string, event, json_string)
   local cache_macro_value = false
@@ -202,8 +202,8 @@ function ScMacros:replace_sc_macro(string, event, json_string)
   local format = false
   local converted_string = string
 
-  -- find all macros for exemple the string: 
-  -- {cache.host.name} is the name of host with id: {host_id} 
+  -- find all macros for exemple the string:
+  -- {cache.host.name} is the name of host with id: {host_id}
   -- will generate two macros {cache.host.name} and {host_id})
   for macro in string.gmatch(string, "{[%w_.%(%),%%%+%-%*%?%[%]%^%$]+}") do
     self.sc_logger:debug("[sc_macros:replace_sc_macro]: found a macro, name is: " .. tostring(macro))
@@ -265,7 +265,7 @@ function ScMacros:replace_sc_macro(string, event, json_string)
   return converted_string
 end
 
---- get_cache_macro: check if the macro is a macro which value must be found in the cache 
+--- get_cache_macro: check if the macro is a macro which value must be found in the cache
 -- @param macro (string) the macro we want to check (for example: {cache.host.name})
 -- @param event (table) the event table (obivously, cache must be in the event table if we want to find something in it)
 -- @return false (boolean) if the macro is not a cache macro ({host_id} instead of {cache.xxxx.yyy} for example) or we can't find the cache type or the macro in the cache
@@ -286,7 +286,7 @@ function ScMacros:get_cache_macro(raw_macro, event)
     -- check if it is asked to transform the macro and if so, separate the real macro from the transformation flag
     local macro_value, flag = self:get_transform_flag(macro)
 
-    -- check if the macro is in the cache 
+    -- check if the macro is in the cache
     if event.cache[cache_type][macro_value] then
       if flag then
         self.sc_logger:info("[sc_macros:get_cache_macro]: macro has a flag associated. Flag is: " .. tostring(flag)
@@ -303,7 +303,7 @@ function ScMacros:get_cache_macro(raw_macro, event)
   return false
 end
 
---- get_event_macro: check if the macro is a macro which value must be found in the event table (meaning not in the cache) 
+--- get_event_macro: check if the macro is a macro which value must be found in the event table (meaning not in the cache)
 -- @param macro (string) the macro we want to check (for example: {host_id})
 -- @param event (table) the event table
 -- @return false (boolean) if the macro is not found in the event
@@ -331,13 +331,13 @@ function ScMacros:get_event_macro(macro, event)
   return false
 end
 
---- get_group_macro: check if the macro is a macro which value must be found in a group table (meaning it is a special kind of data in the event) 
+--- get_group_macro: check if the macro is a macro which value must be found in a group table (meaning it is a special kind of data in the event)
 -- @param macro (string) the macro we want to check (for example: {group(hg,table)})
 -- @param event (table) the event table
 -- @return false (boolean) if the macro is not found
 -- @return macro_value (string|boolean|number) the value of the macro
 function ScMacros:get_group_macro(macro, event)
-  -- try to cut the macro 
+  -- try to cut the macro
   local group_type, format, regex = string.match(macro, "^{groups%((%w+),(%w+),(.*)%)}")
 
   if not group_type or not format or not regex or not self.group_macro_conversion[group_type] then
@@ -438,7 +438,7 @@ function ScMacros:convert_centreon_macro(string, event)
   local sc_macro_value = false
   local converted_string = string
 
-  -- get all standard macros 
+  -- get all standard macros
   for macro in string.gmatch(string, "$%w$") do
     self.sc_logger:debug("[sc_macros:convert_centreon_macro]: found a macro, name is: " .. tostring(macro))
     -- try to find the macro in the mapping table table self.centreon_macro
@@ -472,7 +472,7 @@ end
 
 --- get_transform_flag: check if there is a tranformation flag linked to the macro and separate them
 -- @param macro (string) the macro that needs to be checked
--- @return macro_value (string) the macro name ONLY if there is a flag 
+-- @return macro_value (string) the macro name ONLY if there is a flag
 -- @return flag (string) the flag name if there is one
 -- @return macro (string) the original macro if no flag were found
 function ScMacros:get_transform_flag(macro)
@@ -499,7 +499,7 @@ end
 -- @param macro_value (string) the string that needs to be shortened
 -- @return string (string) the input string with only the first lne
 function ScMacros:transform_short(macro_value)
-  return string.match(macro_value, "^(.*)\n")
+  return string.match(macro_value, "^(.*)\n") or macro_value
 end
 
 --- transform_type: convert a 0, 1 value into SOFT or HARD
@@ -518,7 +518,7 @@ end
 -- @param event (table) the event table
 -- @return string (string) the status of the event in a human readable format (e.g: OK, WARNING)
 function ScMacros:transform_state(macro_value, event)
-  -- acknowledgement events are special, the state can be for a host or a service. 
+  -- acknowledgement events are special, the state can be for a host or a service.
   -- We force the element to be host_status or service_status in order to properly convert the state
   if event.element == 1 and event.service_id == 0 then
     return self.params.status_mapping[event.category][event.element].host_status[macro_value]
@@ -558,8 +558,8 @@ function ScMacros:build_converted_string_for_cache_and_event_macro(macro_value, 
     .. tostring(macro) .. ", value is: " .. tostring(clean_macro_value) .. ", trying to replace it in the string: " .. tostring(converted_string))
 
   --[[
-    to have the best json possible, we try to remove double quotes. 
-    "service_severity": "{cache.severity.service}" must become "service_severity": 1 and not "service_severity": "1" 
+    to have the best json possible, we try to remove double quotes.
+    "service_severity": "{cache.severity.service}" must become "service_severity": 1 and not "service_severity": "1"
     "service_severity": "my service severity is: {cache.severity.service}" must become "service_severity": "my service severity is: 1"
   ]]--
   if string.match(converted_string, '"' .. macro .. '"') then

@@ -4,6 +4,7 @@
 --------------------------------------------------------------------------------
 
 local metrics = {}
+local incomplete_metrics = {}
 
 -- Libraries
 local curl = require "cURL"
@@ -86,12 +87,12 @@ function EventQueue.new(params)
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
   self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
-  local rc, init_metrics = self.sc_storage:get_all_values_from_property("metric_id")
-  if type(init_metrics) == "boolean" or rc == false then
-    self.sc_logger:notice("no metric_id found in the sqlite db. That's probably because it is the first time the stream connector is executed")
-  else
-    metrics = init_metrics
-  end
+  --local rc, init_metrics = self.sc_storage:get_all_values_from_property("metric_id")
+  --if rc == false or type(init_metrics) == "boolean" then
+  --  self.sc_logger:notice("no metric_id found in the sqlite db. That's probably because it is the first time the stream connector is executed")
+  --else
+  --  metrics = init_metrics
+  --end
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -146,12 +147,37 @@ function EventQueue:format_accepted_event()
 end
 
 --------------------------------------------------------------------------------
+---- EventQueue:build_metric: use the stream connector format method to parse every metric in the event and remove unwanted metrics based on their name
+-- @param format_metric (function) the format method from the stream connector
+function EventQueue:build_metric(format_metric)
+  self.sc_logger:debug("[EventQueue:build_metric]: start build_metric")
+  local metrics_info = self.sc_metrics.metrics_info
+  for metric, metric_data in pairs(metrics_info) do
+    if metrics_info[metric].instance ~= "" then
+      if #metrics_info[metric].subinstance ~= 0 then
+        metrics_info[metric].metric_name = metrics_info[metric].instance .. '~' .. table.concat(metrics_info[metric].subinstance, '~') .. '#' .. metrics_info[metric].metric_name
+      else
+        metrics_info[metric].metric_name = metrics_info[metric].instance .. '#' .. metrics_info[metric].metric_name
+      end
+    end
+    if string.match(metric_data.metric_name, self.sc_params.params.accepted_metrics) then
+      metrics_info[metric].metric_name = string.gsub(metric_data.metric_name, self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
+      -- use stream connector method to format the metric event
+      format_metric(metrics_info[metric])
+    else
+      self.sc_logger:debug("[ScMetric:build_metric]: metric name is filtered out: " .. tostring(metric_data.metric_name) .. ". Metric name filter is: " .. tostring(self.sc_params.params.accepted_metrics))
+    end
+  end
+  self.sc_logger:debug("[EventQueue:build_metric]: end build_metric")
+end
+
+--------------------------------------------------------------------------------
 ---- EventQueue:format_event_host method
 --------------------------------------------------------------------------------
 function EventQueue:format_event_host()
   local event = self.sc_event.event
   self.sc_logger:debug("[EventQueue:format_event_host]: call build_metric ")
-  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
+  self:build_metric(self.format_metric[event.category][event.element])
 end
 
 --------------------------------------------------------------------------------
@@ -160,7 +186,7 @@ end
 function EventQueue:format_event_service()
   self.sc_logger:debug("[EventQueue:format_event_service]: call build_metric ")
   local event = self.sc_event.event
-  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
+  self:build_metric(self.format_metric[event.category][event.element])
 end
 
 --------------------------------------------------------------------------------
@@ -169,19 +195,26 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]: start format_metric host")
-
   local event = self.sc_event.event
-  local metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':0:' .. tostring(metric.metric_name))
-  event.formated_event = {
-    metric_name = metric.metric_name,
-    metric_value = metric.value,
-    metric_key = metric_key,
-    last_check = event.last_check,
-    host_id = event.host_id,
-    service_id = 0,
-    status = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. " " .. tostring(event.last_check)
-  }
+  -- status
+  self.sc_event.event.formated_event = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. " " .. tostring(event.last_check)
   self:add()
+  -- metrics
+  local metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':0:' .. tostring(metric.metric_name))
+  if not metrics[metric_key] then
+    local category = self.sc_event.event.category
+    local element = self.sc_event.event.element
+    table.insert(incomplete_metrics, {
+      entry_creation_date = os.time(),
+      metric_name = metric.metric_name,
+      metric_value = metric.value,
+      metric_key = metric_key,
+      last_check = event.last_check
+    })
+  else
+    self.sc_event.event.formated_event = metric.metric_name .. ",metric_id=" .. metrics[metric_key] .. " value=" .. metric.value .. " " .. event.last_check
+    self:add()
+  end
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric host")
 end
 
@@ -192,17 +225,23 @@ end
 function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: start format_metric service")
   local event = self.sc_event.event
-  local metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name))
-  event.formated_event = {
-    metric_name = metric.metric_name,
-    metric_value = metric.value,
-    metric_key = metric_key,
-    last_check = event.last_check,
-    host_id = event.host_id,
-    service_id = event.service_id,
-    status = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. ",service_id=" .. tostring(event.cache.service.service_id) .. " " .. tostring(event.last_check)
-  }
+  -- status
+  self.sc_event.event.formated_event = "status value=" .. tostring(event.state) .. ",host_id=" .. tostring(event.host_id) .. ",service_id=" .. tostring(event.cache.service.service_id) .. " " .. tostring(event.last_check)
   self:add()
+  -- metrics
+  local metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':' .. tostring(event.cache.service.service_id) .. ':' .. tostring(metric.metric_name))
+  if not metrics[metric_key] then
+    table.insert(incomplete_metrics, {
+      entry_creation_date = os.time(),
+      metric_name = metric.metric_name,
+      metric_value = metric.value,
+      metric_key = metric_key,
+      last_check = event.last_check
+    })
+  else
+    self.sc_event.event.formated_event = metric.metric_name .. ",metric_id=" .. metrics[metric_key] .. " value=" .. metric.value .. " " .. event.last_check
+    self:add()
+  end
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric service")
 end
 
@@ -218,7 +257,6 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_common:dumper(self.sc_event.event.formated_event)
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
@@ -233,56 +271,28 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = { event }
+    payload = event
   else
-    table.insert(payload, event)
+    payload = payload .. "\n" .. event
   end
   return payload
 end
-
-local events_retry = {}
 
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
   local params = self.sc_params.params
 
   local url = params.http_server_protocol .. "://" .. params.http_server_address .. ":" .. tostring(params.http_server_port)
-    .. "/write?u=" .. tostring(params.influxdb_username)
-    .. "&p=" .. tostring(params.influxdb_password)
-    .. "&db=" .. tostring(params.influxdb_database)
+    .. "/write?u=" .. broker.url_encode(params.influxdb_username)
+    .. "&p=" .. broker.url_encode(params.influxdb_password)
+    .. "&db=" .. broker.url_encode(params.influxdb_database)
     .. "&precision=s"
 
   queue_metadata.headers = {
     "content-type: text/plain; charset=utf-8"
   }
 
-  local data_binary = ''
-  for index, payload_event in ipairs(payload) do
-    if not metrics[payload_event.metric_key] then
-      payload_event.retry = 1
-
-      table.insert(events_retry, payload_event)
-    else
-      data_binary = data_binary .. payload_event.metric_name .. ",metric_id=" .. metrics[payload_event.metric_key] .. " value=" .. payload_event.metric_value .. " " .. payload_event.last_check .. "\n"
-      data_binary = data_binary .. payload_event.status .. "\n"
-    end
-  end
-
-  for index, retry_event in ipairs(events_retry) do
-    if not metrics[retry_event.metric_key] then
-      retry_event.retry = retry_event.retry + 1
-      if retry_event.retry > 5 then
-        self.sc_logger:error("send_data: retry limit reached for metric_key: " .. retry_event.metric_key .. " ; metric name ='" .. retry_event.metric_name .. "' ; metric value='" .. retry_event.metric_value .. "'")
-        table.remove(events_retry, index)
-      end
-    else
-      data_binary = data_binary .. retry_event.metric_name .. ",metric_id=" .. metrics[retry_event.metric_key] .. " value=" .. retry_event.metric_value .. " " .. retry_event.last_check .. "\n"
-      data_binary = data_binary .. retry_event.status .. "\n"
-      table.remove(events_retry, index)
-    end
-  end
-
-  self.sc_logger:log_curl_command(url, queue_metadata, params, data_binary)
+  self.sc_logger:log_curl_command(url, queue_metadata, params, payload)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
@@ -290,7 +300,7 @@ function EventQueue:send_data(payload, queue_metadata)
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following data " .. tostring(data_binary))
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following data " .. tostring(payload))
   self.sc_logger:info("[EventQueue:send_data]: Influxdb address is: " .. tostring(url))
 
   local http_response_body = ""
@@ -324,7 +334,7 @@ function EventQueue:send_data(payload, queue_metadata)
   end
 
   -- adding the HTTP POST data
-  http_request:setopt_postfields(data_binary)
+  http_request:setopt_postfields(payload)
 
   -- performing the HTTP request
   http_request:perform()
@@ -351,6 +361,48 @@ function EventQueue:send_data(payload, queue_metadata)
   return retval
 end
 
+function EventQueue:check_incomplete_metrics()
+  broker_log:info(0, "[EventQueue:check_incomplete_metrics]: start check_incomplete_metrics")
+  self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: start check_incomplete_metrics")
+  local incomplete_metrics_queue_size = 0
+  local incomplete_metrics_payload = ""
+  local queue_metadata = {
+    headers = {
+      "content-type: text/plain; charset=utf-8"
+    }
+  }
+  for metric_index = #incomplete_metrics, 1, -1 do
+    local metric_data = incomplete_metrics[metric_index]
+    broker_log:info(0, "[EventQueue:check_incomplete_metrics]: metric_data: " .. broker.json_encode(metric_data))
+    if metrics[metric_data.metric_key] then
+      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: metric_key found")
+      incomplete_metrics_payload = incomplete_metrics_payload .. metric_data.metric_name .. ",metric_id=" .. metrics[metric_data.metric_key] .. " value=" .. metric_data.metric_value .. " " .. metric_data.last_check .. "\n"
+      incomplete_metrics_queue_size = incomplete_metrics_queue_size + 1
+      table.remove(incomplete_metrics, metric_index)
+    elseif os.time() - metric_data.entry_creation_date > 60 then
+      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: metric_key " .. tostring(metric_data.metric_key) .. " is too old, removing it")
+      self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: metric_key " .. tostring(metric_data.metric_key) .. " is too old, removing it")
+      table.remove(incomplete_metrics, metric_index)
+    else
+      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: keeping metric_key " .. tostring(metric_data.metric_key) .. " in the incomplete metrics list")
+      self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: keeping metric_key " .. tostring(metric_data.metric_key) .. " in the incomplete metrics list")
+    end
+    if incomplete_metrics_queue_size > self.sc_params.params.max_buffer_size then
+      broker_log:info(0, "[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
+      self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
+      self:send_data(incomplete_metrics_payload, queue_metadata)
+      incomplete_metrics_payload = ""
+      incomplete_metrics_queue_size = 0
+    end
+  end
+  if incomplete_metrics_payload ~= "" then
+    broker_log:info(0, "[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
+    self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: sending incomplete metrics payload")
+    self:send_data(incomplete_metrics_payload, queue_metadata)
+  end
+  self.sc_logger:debug("[EventQueue:check_incomplete_metrics]: end check_incomplete_metrics")
+end
+
 --------------------------------------------------------------------------------
 -- Required functions for Broker StreamConnector
 --------------------------------------------------------------------------------
@@ -368,7 +420,7 @@ end
 -- @return {boolean}
 --------------------------------------------------------------------------------
 function write (event)
-  if event._type == 196617 or event._type == 196609 then
+  if queue.sc_params.params.bbdo.categories["storage"].id == event.category and queue.sc_params.params.bbdo.elements["metric"].id == event.element then
     local mname = event.name
     local metric_key = ""
     mname = string.gsub(mname, queue.sc_params.params.metric_name_regex, queue.sc_params.params.metric_replacement_character)
@@ -377,7 +429,6 @@ function write (event)
     else
       metric_key = "metric_" .. mime.b64(tostring(event.host_id) .. ':' .. event.service_id .. ':' .. mname)
     end
-
     -- check if the metric is already in the metrics table
     if not metrics[metric_key] then
       queue.sc_logger:notice("write: no metric_id found for 'metric_key': " .. tostring(metric_key) .. ", info:  " .. tostring(event.host_id) .. ':' .. tostring(event.service_id) .. ':' .. mname .. ", going to save metric_id : " .. tostring(event.metric_id) .. " in sqlite db and memory")
@@ -430,7 +481,9 @@ function flush()
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
     end
-
+    if #incomplete_metrics > 0 then
+      queue:check_incomplete_metrics()
+    end
     return true
   end
 
@@ -439,7 +492,9 @@ function flush()
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
     end
-
+    if #incomplete_metrics > 0 then
+      queue:check_incomplete_metrics()
+    end
     return true
   end
 
