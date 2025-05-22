@@ -22,13 +22,13 @@ local sc_metrics  = require("centreon-stream-connectors-lib.sc_metrics")
 --------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
--- unit_mapping: convert perfdata units to openmetrics standard
+-- get_unit_full_name: convert perfdata units to openmetrics standard
 -- @param {string} unit, the unit value
 -- @return {string} unit, the openmetrics unit name
 -- @return {boolean}, true if the unit is found in the mapping or empty
 --------------------------------------------------------------------------------
-local function unit_mapping (unit)
-  local unitMapping = {
+local function get_unit_full_name (unit)
+  local unit_mapping = {
     s = 'seconds',
     m = 'meters',
     B = 'bytes',
@@ -41,15 +41,13 @@ local function unit_mapping (unit)
     ["€"] = 'euros'
   }
 
-  local unhandledUnit = nil
-
   if unit == nil or unit == '' or type(unit) ~= 'string' then
     unit = ''
   end
 
-if unitMapping[unit] then
-  unit = unitMapping[unit]
-end
+  if unit_mapping[unit] then
+    unit = unit_mapping[unit]
+  end
 
   return unit, true
 end
@@ -202,8 +200,15 @@ function event_queue:format_event_host()
   self.previous_info[event.category][event.element].flush_success = false
 
   -- this is the first time we receive a metric from a host, we store host id in the table
-  if self.previous_info[event.category][event.element].host_id == "" then 
+  if self.previous_info[event.category][event.element].host_id == "" then
     self.previous_info[event.category][event.element].host_id = event.host_id
+    -- handle hostgroups
+    if self.add_hostgroups == 1 then
+      self.current_event.hostgroupsLabel = self:display_hostgroups()
+    else
+      self.current_event.hostgroupsLabel = false
+    end
+
   else
     -- the event is linked to a new host, we can't send payload with data from different hosts so we force a data flush
     -- we store the new host id and then we continue working on metrics from said host
@@ -352,7 +357,7 @@ function event_queue:format_metric_event(metric)
   self.sc_logger:debug("[event_queue:format_metric]: start real format metric ")
   local event = self.sc_event.event
   local type  = self:get_metric_type(metric)
-  local unit  = unit_mapping(metric.uom)
+  local unit  = get_unit_full_name(metric.uom)
   local label = ''
 
   -- case when the metric belongs to an instance
@@ -378,17 +383,17 @@ CENTREON_proc_crond:nbproc{label="nbproc", host="CENTREON", service="proc-crond"
   ]]
   -- Other example
   --[[
-# TYPE CENTREON_Ah_Que_Coucou:bnp_bank_business_gold_reserve_euros counter
-# UNIT CENTREON_Ah_Que_Coucou:bnp_bank_business_gold_reserve_euros
-CENTREON_Financial:acme_bank_business_gold_reserve_euros{label="acme_bank_business_gold.reserve.euros", host="CENTREON", service="Financial"} 3.0
+# TYPE CENTREON_Financial_Check:bnp_bank_business_gold_reserve_euros counter
+# UNIT CENTREON_Financial_Check:bnp_bank_business_gold_reserve_euros
+CENTREON_Financial_Check:acme_bank_business_gold_reserve_euros{label="acme_bank_business_gold.reserve.euros", host="CENTREON", service="Financial-Check"} 3.0
   ]]
 
   local data = '# TYPE ' .. name .. ' ' .. type .. '\n'
   data = data .. self:add_unit_info(label, unit, name)
   data = data .. name .. '{label="' .. label .. '", host="' .. event.cache.host.name .. '", service="' .. sdesc .. '"'
 
-  if event.hostgroupsLabel then
-    data = data .. ', ' .. event.hostgroupsLabel
+  if event.hostgroups_label then
+    data = data .. ', ' .. event.hostgroups_label
   end
 
   data = data ..  '} ' .. metric.value .. '\n'
@@ -404,11 +409,11 @@ CENTREON_Financial:acme_bank_business_gold_reserve_euros{label="acme_bank_busine
 end
 
 --------------------------------------------------------------------------------
---- is_number_and_not_a_NaN:  check if a number is a number (and not a NaN)
+--- is_number_and_not_a_nan:  check if a number is a number (and not a NaN)
 --- @param {number} number, the number to check
 --- @return {boolean}
 --------------------------------------------------------------------------------
-local function is_number_and_not_a_NaN (number)
+local function is_number_and_not_a_nan (number)
   if (number ~= number) then
     return false
   end
@@ -423,10 +428,10 @@ end
 --------------------------------------------------------------------------------
 -- get_metric_type: [for Prometheus] find out the metric type to match openmetrics standard
 -- @param {table} perfdata, the perfdata informations
--- @return {string} metricType, the type of the metric
+-- @return {string} metric_type, the type of the metric
 --------------------------------------------------------------------------------
 function event_queue:get_metric_type (perfdata)
-  if (is_number_and_not_a_NaN(perfdata.max)) then
+  if (is_number_and_not_a_nan(perfdata.max)) then
     return "gauge"
   end
   
@@ -470,17 +475,17 @@ end
 
 function event_queue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[event_queue:send_data]: Starting to send data")
-  local httpPostData = payload.payload
-  local httpResponseBody = ""
+  local http_post_data = payload.payload
+  local http_response_body = ""
   local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
 
   queue_metadata.headers = { "content-type: application/openmetrics-text" }
 
-  local httpRequest = curl.easy()
+  local http_request = curl.easy()
   :setopt_url(url)
   :setopt_writefunction(
     function (response)
-      httpResponseBody = httpResponseBody .. tostring(response)
+      http_response_body = http_response_body .. tostring(response)
     end
   )
   :setopt(curl.OPT_TIMEOUT, self.sc_params.params.http_timeout)
@@ -492,7 +497,7 @@ function event_queue:send_data(payload, queue_metadata)
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address and self.sc_params.params.proxy_address ~= '') then
     if (self.sc_params.params.proxy_port and self.sc_params.params.proxy_port ~= '') then
-      httpRequest:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
+      http_request:setopt(curl.OPT_PROXY, self.sc_params.params.proxy_address .. ':' .. self.sc_params.params.proxy_port)
     else
       self.sc_logger:error("event_queue:send_data: proxy_port parameter is not set but proxy_address is used")
     end
@@ -501,7 +506,7 @@ function event_queue:send_data(payload, queue_metadata)
   -- set proxy user configuration
   if (self.sc_params.params.proxy_username ~= '') then
     if (self.sc_params.params.proxy_password ~= '') then
-      httpRequest:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
+      http_request:setopt(curl.OPT_PROXYUSERPWD, self.sc_params.params.proxy_username .. ':' .. self.sc_params.params.proxy_password)
     else
       self.sc_logger:error("event_queue:send_data: proxy_password parameter is not set but proxy_username is used")
     end
@@ -509,41 +514,41 @@ function event_queue:send_data(payload, queue_metadata)
 
   -- write payload in the logfile for test purpose
   if self.sc_params.params.send_data_test == 1 then
-    self.sc_logger:notice("[send_data]: " .. tostring(httpPostData))
+    self.sc_logger:notice("[send_data]: " .. tostring(http_post_data))
     return true
   end
 
   -- adding the HTTP POST data
-  httpRequest:setopt_postfields(httpPostData)
+  http_request:setopt_postfields(http_post_data)
 
   -- log the curl command for troubleshooting
-  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, httpPostData)
+  self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, http_post_data)
 
   -- performing the HTTP request
-  httpRequest:perform()
+  http_request:perform()
 
   -- collecting results
-  local httpResponseCode = httpRequest:getinfo(curl.INFO_RESPONSE_CODE)
+  local http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
 
-  httpRequest:close()
+  http_request:close()
 
   -- Handling the return code
   local retval = false
-  if httpResponseCode == 200 then
-    self.sc_logger:info("event_queue:send_data: HTTP POST request successful: return code is " .. httpResponseCode)
+  if http_response_code == 200 then
+    self.sc_logger:info("event_queue:send_data: HTTP POST request successful: return code is " .. http_response_code)
     -- now that the data has been sent, we empty the events array
     self.events = {}
     retval = true
   else
-    self.sc_logger:error("event_queue:send_data: HTTP POST request FAILED, return code is " .. httpResponseCode .. " message is:\n\"" .. tostring(httpResponseBody) .. "\n\"\n")
-    self.sc_logger:error("the body request " .. httpPostData)
+    self.sc_logger:error("event_queue:send_data: HTTP POST request FAILED, return code is " .. http_response_code .. " message is:\n\"" .. tostring(http_response_body) .. "\n\"\n")
+    self.sc_logger:error("the body request " .. http_post_data)
   end
   self.sc_logger:debug("[event_queue:send_data]: End")
   return retval
 end
 
 --------------------------------------------------------------------------------
--- Required functions for Broker StreamConnector
+-- Required functions for Broker Stream Connector
 --------------------------------------------------------------------------------
 
 local queue
