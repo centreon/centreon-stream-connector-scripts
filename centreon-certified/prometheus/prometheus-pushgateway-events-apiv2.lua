@@ -1,8 +1,5 @@
 #!/usr/bin/lua
---------------------------------------------------------------------------------
 -- Centreon Broker Splunk Connector Events
---------------------------------------------------------------------------------
-
 
 -- Libraries
 local curl      = require("cURL")
@@ -15,24 +12,15 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush  = require("centreon-stream-connectors-lib.sc_flush")
 
+-- event_queue class
 
---------------------------------------------------------------------------------
--- Local functions
---------------------------------------------------------------------------------
-
---------------------------------------------------------------------------------
--- Classe event_queue
---------------------------------------------------------------------------------
-
+--- @class event_queue Class that handles all the actions of the stream connector
 local event_queue = {}
 event_queue.__index = event_queue
 
---------------------------------------------------------------------------------
----- Constructor
----- @param conf The table given by the init() function and returned from the GUI
----- @return the new event_queue
-----------------------------------------------------------------------------------
-
+--- Constructor of the event_queue class
+--- @param params table The table given by the init() function and returned from the GUI
+--- @return table the new event_queue
 function event_queue.new(params)
   local self = {}
 
@@ -70,6 +58,7 @@ function event_queue.new(params)
   self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
   self.sc_params.params.http_timeout           = params.http_timeout or 30
   self.sc_params.params.prometheus_gateway_job = params.prometheus_gateway_job or "monitoring"
+  self.sc_params.params.add_hostgroups         = params.add_hostgroups or 0
   -- force max_buffer_size to 1 because we each service is sent to its own url
   
   -- apply users params and check syntax of standard ones
@@ -111,9 +100,9 @@ function event_queue.new(params)
   return self
 end
 
---------------------------------------------------------------------------------
----- event_queue:format_event method
-----------------------------------------------------------------------------------
+--- Calls the adequate format_event_* function and then
+--- calls add()
+--- @return void
 function event_queue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
@@ -141,6 +130,8 @@ function event_queue:format_accepted_event()
   self.sc_logger:debug("[event_queue:format_event]: event formatting is finished")
 end
 
+--- Prepares the self.sc_event.event.formated_event object
+--- @return void
 function event_queue:format_event_host()
   self.sc_logger:debug("[event_queue:format_event_host]: starting format event host.")
 
@@ -170,9 +161,16 @@ function event_queue:format_event_host()
     output              = event.output,
     formatted_payload   = data
   }
-
+  -- handle hostgroups
+  if self.sc_params.params.add_hostgroups == 1 then
+    event.formated_event.hostgroups_label = self:display_hostgroups()
+  else
+    event.formated_event.hostgroups_label = false
+  end
 end
 
+--- Prepares the self.sc_event.event.formated_event object
+--- @return void
 function event_queue:format_event_service()
   self.sc_logger:debug("[event_queue:format_event_service]: starting format event service.")
 
@@ -202,11 +200,45 @@ function event_queue:format_event_service()
     output              = event.output,
     formatted_payload   = data
   }
+
+  -- handle hostgroups
+  if self.sc_params.params.add_hostgroups == 1 then
+    event.formated_event.hostgroups_label = self:display_hostgroups()
+  else
+    event.formated_event.hostgroups_label = false
+  end
 end
 
---------------------------------------------------------------------------------
--- event_queue:add, add an event to the sending queue
---------------------------------------------------------------------------------
+--- Creates the hostgroup label for the event
+--- @return string hostgroups_label: the full label for the metric
+function event_queue:display_hostgroups ()
+  self.sc_logger:debug("[display_hostgroups]: function starting")
+
+  if not self.sc_event.event.cache.hostgroups then
+    self.sc_logger:debug("[display_hostgroups]: no hostgroups, exiting")
+    return false
+  end
+
+  local hostgroups_label = 'hostgroup="'
+  local counter = 0
+
+  for i, v in pairs(self.sc_event.event.cache.hostgroups) do
+    if counter == 0 then
+      hostgroups_label = hostgroups_label .. v.group_name
+      counter = 1
+    else
+      hostgroups_label = hostgroups_label .. ',' .. v.group_name
+    end
+  end
+  hostgroups_label = hostgroups_label .. '"'
+
+  self.sc_logger:debug("[display_hostgroups]: hostgroup string composed: '" .. hostgroups_label .. "'")
+  return hostgroups_label
+end
+
+
+--- event_queue:add, add an event to the sending queue
+--- @return void
 function event_queue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
@@ -222,12 +254,10 @@ function event_queue:add()
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
---------------------------------------------------------------------------------
--- event_queue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} json encoded string
--- @param event {table} the event that is going to be added to the payload
--- @return payload {string} json encoded string
---------------------------------------------------------------------------------
+--- Concatenate data so it is ready to be sent
+--- @param payload string json encoded string
+--- @param event table the event that is going to be added to the payload
+--- @return string payload json encoded string
 function event_queue:build_payload(payload, event)
   if not payload then
     payload = event
@@ -239,11 +269,13 @@ function event_queue:build_payload(payload, event)
   return payload
 end
 
-
+--- Tries to send the data to the third-party tool
+--- @param payload table table containing payload and host/service metadata
+--- @param queue_metadata table global metadata
+--- @return boolean true if the data has been sent, false otherwise
 function event_queue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[event_queue:send_data]: Starting to send data")
-  --self.sc_logger:warning("[event_queue:send_data]: payload: " .. self.sc_common:dumper(payload))
-  
+
   local http_response_body = ""
   local label = "status"
   local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
@@ -318,23 +350,22 @@ function event_queue:send_data(payload, queue_metadata)
   return retval
 end
 
---------------------------------------------------------------------------------
--- Required functions for Broker StreamConnector
---------------------------------------------------------------------------------
-
+-- global stream connector object
 local queue
 
--- Fonction init()
+-- Required functions for Broker Stream Connector
+
+--- Mandatory function for centreon-broker
+--- @param conf table parameters as a table
+--- @return void
 function init(conf)
   queue = event_queue.new(conf)
 end
 
---------------------------------------------------------------------------------
--- write,
--- @param {table} event, the event from broker
--- @return {boolean}
---------------------------------------------------------------------------------
-function write (event)
+--- Mandatory function for centreon-broker
+--- @param event table event sent by broker
+--- @return boolean
+function write(event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
@@ -362,7 +393,10 @@ function write (event)
   return flush()
 end
 
--- flush method is called by broker every now and then (more often when broker has nothing else to do)
+--- Optional function for centreon-broker.
+--- flush() method is called by broker every now and then (more often when broker has nothing else to do)
+--- @param event table event sent by broker
+--- @return boolean true if the queue is flushed, false otherwise
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
   

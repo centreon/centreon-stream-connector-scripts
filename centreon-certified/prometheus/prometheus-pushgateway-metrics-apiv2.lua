@@ -1,8 +1,5 @@
 #!/usr/bin/lua
---------------------------------------------------------------------------------
 -- Centreon Broker Datadog Connector Events
---------------------------------------------------------------------------------
-
 
 -- Libraries
 local curl        = require("cURL")
@@ -10,24 +7,17 @@ local mime        = require("mime")
 local sc_common   = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger   = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker   = require("centreon-stream-connectors-lib.sc_broker")
-local sc_event    = require("centreon-stream-connectors-lib.sc_event")
 local sc_params   = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros   = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush    = require("centreon-stream-connectors-lib.sc_flush")
 local sc_metrics  = require("centreon-stream-connectors-lib.sc_metrics")
 
-
---------------------------------------------------------------------------------
 -- Local functions
---------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
--- get_unit_full_name: convert perfdata units to openmetrics standard
--- @param {string} unit, the unit value
--- @return {string} unit, the openmetrics unit name
--- @return {boolean}, true if the unit is found in the mapping or empty
---------------------------------------------------------------------------------
-local function get_unit_full_name (unit)
+--- Converts perfdata units to openmetrics standard
+--- @param unit string The unit symbol found in perfdata
+--- @return string The openmetrics unit name
+local function get_unit_full_name(unit)
   local unit_mapping = {
     s = 'seconds',
     m = 'meters',
@@ -49,22 +39,16 @@ local function get_unit_full_name (unit)
     unit = unit_mapping[unit]
   end
 
-  return unit, true
+  return unit
 end
 
---------------------------------------------------------------------------------
--- Classe event_queue
---------------------------------------------------------------------------------
-
+--- @class event_queue Class that handles all the actions of the stream connector
 local event_queue = {}
 event_queue.__index = event_queue
 
---------------------------------------------------------------------------------
----- Constructor
----- @param conf The table given by the init() function and returned from the GUI
----- @return the new event_queue
-----------------------------------------------------------------------------------
-
+--- Constructor of the event_queue class
+--- @param params table The table given by the init() function and returned from the GUI
+--- @return event_queue The new event_queue
 function event_queue.new(params)
   local self = {}
 
@@ -101,6 +85,7 @@ function event_queue.new(params)
   self.sc_params.params.http_timeout                = params.http_timeout or 30
   self.sc_params.params.prometheus_gateway_job      = params.prometheus_gateway_job or "monitoring"
   self.sc_params.params.enable_extended_metric_name = params.enable_extended_metric_name or 1
+  self.sc_params.params.add_hostgroups              = params.add_hostgroups or 0
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -170,9 +155,9 @@ function event_queue.new(params)
   return self
 end
 
---------------------------------------------------------------------------------
----- event_queue:format_accepted_event method
---------------------------------------------------------------------------------
+--- Calls the adequate format_event_* function and then
+--- calls add() functions
+--- @return void
 function event_queue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
@@ -192,9 +177,8 @@ function event_queue:format_accepted_event()
   self.sc_logger:debug("[event_queue:format_accepted_event]: event formatting is finished")
 end
 
---------------------------------------------------------------------------------
----- event_queue:format_event_host method
---------------------------------------------------------------------------------
+--- Formats host events by calling the format_metric() function defined for host status events
+--- @return void
 function event_queue:format_event_host()
   local event = self.sc_event.event
   self.previous_info[event.category][event.element].flush_success = false
@@ -202,13 +186,6 @@ function event_queue:format_event_host()
   -- this is the first time we receive a metric from a host, we store host id in the table
   if self.previous_info[event.category][event.element].host_id == "" then
     self.previous_info[event.category][event.element].host_id = event.host_id
-    -- handle hostgroups
-    if self.add_hostgroups == 1 then
-      self.current_event.hostgroupsLabel = self:display_hostgroups()
-    else
-      self.current_event.hostgroupsLabel = false
-    end
-
   else
     -- the event is linked to a new host, we can't send payload with data from different hosts so we force a data flush
     -- we store the new host id and then we continue working on metrics from said host
@@ -229,9 +206,8 @@ function event_queue:format_event_host()
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
 end
 
---------------------------------------------------------------------------------
----- event_queue:format_event_service method
---------------------------------------------------------------------------------
+--- Formats service events by calling the format_metric() function defined for service status events
+--- @return void
 function event_queue:format_event_service()
   self.sc_logger:debug("[event_queue:format_event_service]: starting format event service.")
   local event = self.sc_event.event
@@ -239,9 +215,9 @@ function event_queue:format_event_service()
   self.previous_info[event.category][event.element].flush_success = false
 
   -- this is the first time we receive a metric from a servuce, we store host id and service id in the table
-  if self.previous_info[event.category][event.element].host_id == "" 
-    or self.previous_info[event.category][event.element].service_id == "" 
-  then 
+  if self.previous_info[event.category][event.element].host_id == ""
+          or self.previous_info[event.category][event.element].service_id == ""
+  then
     self.previous_info[event.category][event.element].host_id = event.host_id
     self.previous_info[event.category][event.element].service_id = event.service_id
   else
@@ -268,10 +244,9 @@ function event_queue:format_event_service()
   self.sc_logger:debug("[event_queue:format_event_service]: format metric service is finished ")
 end
 
---------------------------------------------------------------------------------
----- event_queue:format_metric_host method
--- @param metric {table} a single metric data
---------------------------------------------------------------------------------
+--- Formats metrics for host status events
+--- @param metric table A single metric's data
+--- @return void
 function event_queue:format_metric_host(metric)
   self.sc_logger:debug("[event_queue:format_metric_host]: starting format event host.")
   local event = self.sc_event.event
@@ -282,15 +257,22 @@ function event_queue:format_metric_host(metric)
     prom_sdesc      = sdesc,
     prom_sdesc_url  = mime.b64(sdesc)
   }
+
+  -- handle hostgroups
+  if self.sc_params.params.add_hostgroups == 1 then
+    event.formated_event.hostgroups_label = self:display_hostgroups()
+  else
+    event.formated_event.hostgroups_label = false
+  end
+
   self.sc_logger:debug("[event_queue:format_metric_host]: call format_metric ")
   self:format_metric_event(metric)
   self.sc_logger:debug("[event_queue:format_metric_host]: format metric host is finished ")
 end
 
---------------------------------------------------------------------------------
----- event_queue:format_metric_service method
--- @param metric {table} a single metric data
---------------------------------------------------------------------------------
+--- Formats metrics for service status events
+--- @param metric table a single metric's data
+--- @return void
 function event_queue:format_metric_service(metric)
   self.sc_logger:debug("[event_queue:format_metric_service]: starting format event service.")
   local event = self.sc_event.event
@@ -301,18 +283,24 @@ function event_queue:format_metric_service(metric)
     prom_sdesc      = sdesc,
     prom_sdesc_url  = mime.b64(sdesc)
   }
+
+  -- handle hostgroups
+  if self.sc_params.params.add_hostgroups == 1 then
+    event.formated_event.hostgroups_label = self:display_hostgroups()
+  else
+    event.formated_event.hostgroups_label = false
+  end
+
   self.sc_logger:debug("[event_queue:format_metric_service]: call format_metric ")
   self:format_metric_event(metric)
   self.sc_logger:debug("[event_queue:format_metric_service]: format metric service is finished ")
 end
 
---------------------------------------------------------------------------------
--- add_unit_info: add unit metadata to match openmetrics standard
--- @param {string} label, the name of the metric
--- @param {string} unit, the unit name
--- @param {string} name, the name of the metric
--- @return {string} data, the unit metadata information
---------------------------------------------------------------------------------
+--- event_queue:add_unit_info metadata to match openmetrics standard
+--- @param label string The name of the metric
+--- @param unit string The unit name
+--- @param name string The name of the metric
+--- @return string The unit metadata information
 function event_queue:add_unit_info (label, unit, name)
   local data = ''
 
@@ -323,12 +311,10 @@ function event_queue:add_unit_info (label, unit, name)
   return data
 end
 
---------------------------------------------------------------------------------
 --- create_metric_name: concatenates data to create the metric name
---- @param {string} label, the name of the perfdata
---- @param {string} unit, the unit name
---- @return {string} name, the prometheus metric name (open metric format)
---------------------------------------------------------------------------------
+--- @param label string The name of the perfdata
+--- @param unit string The unit name
+--- @return string The prometheus metric name (open metric format)
 function event_queue:create_metric_name (label, unit)
   local name = ''
   local sdesc = self.sc_event.event.cache.service.description or 'host'
@@ -349,10 +335,8 @@ function event_queue:create_metric_name (label, unit)
   return string.gsub(name, self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
 end
 
---------------------------------------------------------------------------------
 --- event_queue:format_metric_service method
---- @param metric {table} a single metric data
--------------------------------------------------------------------------------
+--- @param metric table A single metric data
 function event_queue:format_metric_event(metric)
   self.sc_logger:debug("[event_queue:format_metric]: start real format metric ")
   local event = self.sc_event.event
@@ -366,7 +350,6 @@ function event_queue:format_metric_event(metric)
   end
 
   -- case when there are sub-levels of an instance
-  local i, sub_instance
   for i, sub_instance in ipairs(metric.subinstance) do
     label =  label .. sub_instance .. '_'
   end
@@ -392,8 +375,8 @@ CENTREON_Financial_Check:acme_bank_business_gold_reserve_euros{label="acme_bank_
   data = data .. self:add_unit_info(label, unit, name)
   data = data .. name .. '{label="' .. label .. '", host="' .. event.cache.host.name .. '", service="' .. sdesc .. '"'
 
-  if event.hostgroups_label then
-    data = data .. ', ' .. event.hostgroups_label
+  if event.formated_event.hostgroups_label then
+    data = data .. ', ' .. event.formated_event.hostgroups_label
   end
 
   data = data ..  '} ' .. metric.value .. '\n'
@@ -408,11 +391,9 @@ CENTREON_Financial_Check:acme_bank_business_gold_reserve_euros{label="acme_bank_
   self.sc_logger:debug("[event_queue:format_metric]: end real format metric ")
 end
 
---------------------------------------------------------------------------------
 --- is_number_and_not_a_nan:  check if a number is a number (and not a NaN)
---- @param {number} number, the number to check
---- @return {boolean}
---------------------------------------------------------------------------------
+--- @param number number The number to check
+--- @return boolean true if it is actually a number, false otherwise
 local function is_number_and_not_a_nan (number)
   if (number ~= number) then
     return false
@@ -425,11 +406,10 @@ local function is_number_and_not_a_nan (number)
   return true
 end
 
---------------------------------------------------------------------------------
--- get_metric_type: [for Prometheus] find out the metric type to match openmetrics standard
--- @param {table} perfdata, the perfdata informations
--- @return {string} metric_type, the type of the metric
---------------------------------------------------------------------------------
+--- For Prometheus steam connector, find out the metric type
+--- to match openmetrics standard.
+--- @param  perfdata table The perfdata information
+--- @return string metric_type, the type of the metric
 function event_queue:get_metric_type (perfdata)
   if (is_number_and_not_a_nan(perfdata.max)) then
     return "gauge"
@@ -438,9 +418,35 @@ function event_queue:get_metric_type (perfdata)
   return "counter"
 end
 
---------------------------------------------------------------------------------
--- event_queue:add, add an event to the sending queue
---------------------------------------------------------------------------------
+--- Create the hostgroup label for the metric
+--- @return string hostgroups_label: the full label for the metric
+function event_queue:display_hostgroups ()
+  self.sc_logger:debug("[display_hostgroups]: function starting")
+
+  if not self.sc_event.event.cache.hostgroups then
+    self.sc_logger:debug("[display_hostgroups]: no hostgroups, exiting")
+    return false
+  end
+
+  local hostgroups_label = 'hostgroup="'
+  local counter = 0
+
+  for i, v in pairs(self.sc_event.event.cache.hostgroups) do
+    if counter == 0 then
+      hostgroups_label = hostgroups_label .. v.group_name
+      counter = 1
+    else
+      hostgroups_label = hostgroups_label .. ',' .. v.group_name
+    end
+  end
+  hostgroups_label = hostgroups_label .. '"'
+
+  self.sc_logger:debug("[display_hostgroups]: hostgroup string composed: '" .. hostgroups_label .. "'")
+  return hostgroups_label
+end
+
+--- Adds an event to the sending queue @type void
+--- @return void
 function event_queue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
@@ -456,15 +462,13 @@ function event_queue:add()
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
---------------------------------------------------------------------------------
--- event_queue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} json encoded string
--- @param event {table} the event that is going to be added to the payload
--- @return payload {string} json encoded string
---------------------------------------------------------------------------------
+--- Concatenates data so it is ready to be sent
+--- @param payload string json encoded string
+--- @param event table the event that is going to be added to the payload
+--- @return string payload json encoded string
 function event_queue:build_payload(payload, event)
 
-  if not payload then -- FIXME: voir obsidian
+  if not payload then
     payload = event
   else
     table.insert(payload, event)
@@ -473,8 +477,13 @@ function event_queue:build_payload(payload, event)
   return payload
 end
 
+--- Tries to send the data to the third-party tool
+--- @param payload table table containing payload and host/service metadata
+--- @param queue_metadata table global metadata
+--- @return boolean true if the data has been sent, false otherwise
 function event_queue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[event_queue:send_data]: Starting to send data")
+
   local http_post_data = payload.payload
   local http_response_body = ""
   local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
@@ -547,22 +556,19 @@ function event_queue:send_data(payload, queue_metadata)
   return retval
 end
 
---------------------------------------------------------------------------------
--- Required functions for Broker Stream Connector
---------------------------------------------------------------------------------
-
+-- Global stream connector object
 local queue
 
--- Fonction init()
+--- Mandatory function for centreon-broker - must be exposed (not local)
+--- @param conf table Configuration parameters as a table
+--- @return void
 function init(conf)
   queue = event_queue.new(conf)
 end
 
--- --------------------------------------------------------------------------------
--- write,
--- @param {table} event, the event from broker
--- @return {boolean}
---------------------------------------------------------------------------------
+--- Mandatory function for centreon-broker - must be exposed (not local)
+--- @param event table Event sent by broker
+--- @return boolean
 function write(event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
@@ -596,7 +602,10 @@ function write(event)
   return flush()
 end
 
--- flush method is called by broker every now and then (more often when broker has nothing else to do)
+--- Optional function for centreon-broker.
+--- flush() method is called by broker every now and then (more often when broker has nothing else to do)
+--- @param event table Event sent by broker
+--- @return boolean true if the queue is flushed, false otherwise
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
 
