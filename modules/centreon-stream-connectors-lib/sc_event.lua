@@ -166,6 +166,16 @@ function ScEvent:is_valid_host_status_event()
       "is_valid_hostgroup",
       "prepare_event"
     },
+    step_order_reverse_mapping = {
+      is_valid_host = 1,
+      is_valid_event_status = 2,
+      is_host_status_event_duplicated = 3,
+      is_valid_event_states = 4,
+      is_valid_poller = 5,
+      is_valid_host_severity = 6,
+      is_valid_hostgroup = 7,
+      prepare_event = 8
+    },
     steps = {
       { 
         is_executed = false, 
@@ -312,6 +322,19 @@ function ScEvent:is_valid_service_status_event()
       "is_valid_hostgroup",
       "is_valid_servicegroup",
       "prepare_event"
+    },
+    step_order_reverse_mapping = {
+      is_valid_host = 1,
+      is_valid_service = 2,
+      is_valid_event_status = 3,
+      is_service_status_event_duplicated = 4,
+      is_valid_event_states = 5,
+      is_valid_poller = 6,
+      is_valid_host_severity = 7,
+      is_valid_service_severity = 8,
+      is_valid_hostgroup = 9,
+      is_valid_servicegroup = 10,
+      prepare_event = 11
     },
     steps = {
       { 
@@ -886,6 +909,13 @@ function ScEvent:is_valid_bam_event()
       "is_valid_ba_downtime_event",
       "is_valid_ba_acknowledge_state",
       "is_valid_bv"
+    },
+    step_order_reverse_mapping = {
+      is_valid_ba = 1,
+      is_valid_ba_status_event = 2,
+      is_valid_ba_downtime_event = 3,
+      is_valid_ba_acknowledge_state = 4,
+      is_valid_bv = 5
     },
     steps = {
       {
