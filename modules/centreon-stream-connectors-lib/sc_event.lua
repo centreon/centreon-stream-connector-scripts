@@ -111,17 +111,19 @@ function ScEvent:is_valid_event()
   if self.is_event_validated_by_force then
     for step_id, step_info in pairs(steps) do
       -- a filter has already been applied and refused the event. The custom code didn't change this outcome so we trash it
-      if step_info[step_id].is_executed and not step_info[step_id].is_accepted then
+      if step_info.is_executed and not step_info.is_accepted then
         return false
       end
 
       -- custom code can be run before all the filters. We still need to run the remaining filters. If they don't accept the event, it needs to be trashed
-      if not step_info[step_id].is_executed then
+      if not step_info.is_executed then
         if not step_info[step_order[step_id]]() then
           return false
         end
       end
     end
+
+    return true
   end
   
   if not is_valid_event or not is_validated_by_custom_code then
@@ -284,7 +286,7 @@ function ScEvent:is_valid_host_status_event()
   for step_id, step_info in ipairs(steps) do
     is_accepted = step_info[step_order[step_id]]()
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
-    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = is_accepted
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_accepted = is_accepted
 
     if not is_accepted then
       return false
@@ -476,7 +478,7 @@ function ScEvent:is_valid_service_status_event()
     is_accepted = step_info[step_order[step_id]]()
     self.sc_logger:notice("[sc_event:is_valid_service_status_event]: step name: " .. tostring(step_order[step_id]))
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
-    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = is_accepted
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_accepted = is_accepted
 
     if not is_accepted then
       return false
@@ -963,7 +965,7 @@ function ScEvent:is_valid_bam_event()
     is_accepted = step_info[step_order[step_id]]()
     self.sc_logger:notice("[sc_event:is_valid_service_status_event]: step name: " .. tostring(step_order[step_id]))
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
-    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = is_accepted
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_accepted = is_accepted
 
     if not is_accepted then
       return false
