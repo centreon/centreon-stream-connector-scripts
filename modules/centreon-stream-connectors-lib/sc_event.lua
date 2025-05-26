@@ -39,9 +39,20 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
   local event_meta = { __index = function (tbl, key) return self.broker_event[key] end}
   setmetatable(self.event, event_meta)
 
+  self.validation_steps = {}
+
+  for accepted_element, info in pairs(self.params.accepted_elements_info) do
+    if not self.validation_steps[info.category_id] then 
+      self.validation_steps[info.category_id] = {}
+    end
+    
+    self.validation_steps[info.category_id][info.element_id] = {}
+  end
+
   setmetatable(self, { __index = ScEvent })
   return self
 end
+
 
 --- is_valid_category: check if the event is in an accepted category
 -- @retun true|false (boolean)
@@ -93,9 +104,24 @@ function ScEvent:is_valid_event()
   end
 
   -- this value is only set to true by custom code or never set (nil).
-  -- its purpose is to allow some specific events that have been discarded because they were deemed invalid by standard filters. 
+  -- its purpose is to allow some specific events that have been discarded because they were deemed invalid by standard filters.
+  local steps = self.validation_steps[self.event.category][self.event.element].steps
+  local step_order = self.validation_steps[self.event.category][self.event.element].step_order
+
   if self.is_event_validated_by_force then
-    return true
+    for step_id, step_info in pairs(steps) do
+      -- a filter has already been applied and refused the event. The custom code didn't change this outcome so we trash it
+      if step_info[step_id].is_executed and not step_info[step_id].is_accepted then
+        return false
+      end
+
+      -- custom code can be run before all the filters. We still need to run the remaining filters. If they don't accept the event, it needs to be trashed
+      if not step_info[step_id].is_executed then
+        if not step_info[step_order[step_id]]() then
+          return false
+        end
+      end
+    end
   end
   
   if not is_valid_event or not is_validated_by_custom_code then
@@ -127,59 +153,143 @@ end
 --- is_valid_host_status_event: check if the host status event is an accepted one
 -- @return true|false (boolean)
 function ScEvent:is_valid_host_status_event()
-  -- return false if we can't get hostname or host id is nil
-  if not self:is_valid_host() then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
-    return false
-  end
-  
-  -- return false if event status is not accepted
-  if not self:is_valid_event_status(self.params.host_status) then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) 
-      .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
-    return false
-  end
+  self.validation_steps[self.event.category][self.event.element] = {
+    step_order = {
+      "is_valid_host",
+      "is_valid_event_status",
+      "is_host_status_event_duplicated",
+      "is_valid_event_states",
+      "is_valid_poller",
+      "is_valid_host_severity",
+      "is_valid_hostgroup",
+      "prepare_event"
+    },
+    steps = {
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_host = function ()
+          -- return false if we can't get hostname or host id is nil
+          if not self:is_valid_host() then
+            self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " hasn't been validated")
+            return false
+          end 
 
-  -- return false if event status is a duplicate and dedup is enabled 
-  if self:is_host_status_event_duplicated() then
-    self.sc_logger:warning("[sc_event:is_host_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
-      .. " is sending a duplicated event. Dedup option (enable_host_status_dedup) is set to: " .. tostring(self.params.enable_host_status_dedup))
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_event_status = function () 
+          -- return false if event status is not accepted
+          if not self:is_valid_event_status(self.params.host_status) then
+            self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) 
+              .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+            return false
+          end
 
-  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
-  if not self:is_valid_event_states() then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_host_status_event_duplicated = function () 
+          -- return false if event status is a duplicate and dedup is enabled 
+          if self:is_host_status_event_duplicated() then
+            self.sc_logger:warning("[sc_event:is_host_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
+              .. " is sending a duplicated event. Dedup option (enable_host_status_dedup) is set to: " .. tostring(self.params.enable_host_status_dedup))
+            return false
+          end
 
-  -- return false if host is not monitored from an accepted poller
-  if not self:is_valid_poller() then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_event_states = function () 
+          -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
+          if not self:is_valid_event_states() then
+            self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in a validated downtime, ack or hard/soft state")
+            return false
+          end
 
-  -- return false if host has not an accepted severity
-  if not self:is_valid_host_severity() then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " has not an accepted severity")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_poller = function () 
+          -- return false if host is not monitored from an accepted poller
+          if not self:is_valid_poller() then
+            self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+            return false
+          end
 
-  -- return false if host is not in an accepted hostgroup
-  if not self:is_valid_hostgroup() then
-    self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in an accepted hostgroup")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_host_severity = function () 
+          -- return false if host has not an accepted severity
+          if not self:is_valid_host_severity() then
+            self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " has not an accepted severity")
+            return false
+          end
 
-  -- in bbdo 2 last_update do exist but not in bbdo3.
-  -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
-  if not self.event.last_update and self.event.last_check then
-    self.event.last_update = self.event.last_check
-  elseif not self.event.last_check and self.event.last_update then
-    self.event.last_check = self.event.last_update
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_hostgroup = function () 
+          -- return false if host is not in an accepted hostgroup
+          if not self:is_valid_hostgroup() then
+            self.sc_logger:warning("[sc_event:is_valid_host_status_event]: host_id: " .. tostring(self.event.host_id) .. " is not in an accepted hostgroup")
+            return false
+          end
 
-  self:build_outputs()
+          return true
+        end
+      },
+      {
+        is_executed = false,
+        is_accepted = true,
+        prepare_event = function ()
+          -- in bbdo 2 last_update do exist but not in bbdo3.
+          -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
+          if not self.event.last_update and self.event.last_check then
+            self.event.last_update = self.event.last_check
+          elseif not self.event.last_check and self.event.last_update then
+            self.event.last_check = self.event.last_update
+          end
+
+          self:build_outputs()
+          return true
+        end
+      }
+    }
+  } 
+
+  -- run every filter function defined above and set flags accordingly in the validation steps
+  local step_order = self.validation_steps[self.event.category][self.event.element].step_order
+  local steps = self.validation_steps[self.event.category][self.event.element].steps
+
+  for step_id, step_info in ipairs(steps) do
+    is_accepted = step_info[step_order[step_id]]()
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = is_accepted
+
+    if not is_accepted then
+      return false
+    end
+  end
 
   return true
 end
@@ -187,82 +297,191 @@ end
 --- is_valid_service_status_event: check if the service status event is an accepted one
 -- @return true|false (boolean)
 function ScEvent:is_valid_service_status_event()
-  -- return false if we can't get hostname or host id is nil
-  if not self:is_valid_host() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: host_id: " .. tostring(self.event.host_id) 
-      .. " hasn't been validated for service with id: " .. tostring(self.event.service_id))
-    return false
-  end
+  self.validation_steps[self.event.category][self.event.element] = {
+    step_order = {
+      "is_valid_host",
+      "is_valid_service",
+      "is_valid_event_status",
+      "is_service_status_event_duplicated",
+      "is_valid_event_states",
+      "is_valid_poller",
+      "is_valid_host_severity",
+      "is_valid_service_severity",
+      "is_valid_hostgroup",
+      "is_valid_servicegroup",
+      "prepare_event"
+    },
+    steps = {
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_host = function ()
+          -- return false if we can't get hostname or host id is nil
+          if not self:is_valid_host() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: host_id: " .. tostring(self.event.host_id) 
+              .. " hasn't been validated for service with id: " .. tostring(self.event.service_id))
+            return false
+          end 
 
-  -- return false if we can't get service description of service id is nil
-  if not self:is_valid_service() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) .. " hasn't been validated")
-    return false
-  end
+          return true
+        end
+      },
+      {
+        is_executed = false,
+        is_accepted = true,
+        is_valid_service = function ()
+          -- return false if we can't get service description of service id is nil
+          if not self:is_valid_service() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) .. " hasn't been validated")
+            return false
+          end
 
-  -- return false if event status is not accepted
-  if not self:is_valid_event_status(self.params.service_status) then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) 
-      .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_event_status = function () 
+          -- return false if event status is not accepted
+          if not self:is_valid_event_status(self.params.service_status) then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service with id: " .. tostring(self.event.service_id) 
+              .. " hasn't a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.state]))
+            return false
+          end
 
-  -- return false if event status is a duplicate and dedup is enabled 
-  if self:is_service_status_event_duplicated() then
-    self.sc_logger:warning("[sc_event:is_service_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
-      .. " service_id: " .. tostring(self.event.service_id) .. " is sending a duplicated event. Dedup option (enable_service_status_dedup) is set to: " .. tostring(self.params.enable_service_status_dedup))
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_service_status_event_duplicated = function () 
+          -- return false if event status is a duplicate and dedup is enabled 
+          if self:is_service_status_event_duplicated() then
+            self.sc_logger:warning("[sc_event:is_service_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
+            .. " service_id: " .. tostring(self.event.service_id) .. " is sending a duplicated event. Dedup option (enable_service_status_dedup) is set to: " .. tostring(self.params.enable_service_status_dedup))
+            return false
+          end
 
-  -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
-  if not self:is_valid_event_states() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_event_states = function () 
+          -- return false if one of event ack, downtime, state type (hard soft) or flapping aren't valid
+          if not self:is_valid_event_states() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in a validated downtime, ack or hard/soft state")
+            return false
+          end
 
-  -- return false if host is not monitored from an accepted poller
-  if not self:is_valid_poller() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
-      .. ". host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_poller = function () 
+          -- return false if host is not monitored from an accepted poller
+          if not self:is_valid_poller() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
+              .. ". host_id: " .. tostring(self.event.host_id) .. " is not monitored from an accepted poller")
+            return false
+          end
 
-  -- return false if host has not an accepted severity
-  if not self:is_valid_host_severity() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
-      .. ". host_id: " .. tostring(self.event.host_id) .. ". Host has not an accepted severity")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_host_severity = function () 
+          -- return false if host has not an accepted severity
+          if not self:is_valid_host_severity() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
+              .. ". host_id: " .. tostring(self.event.host_id) .. ". Host has not an accepted severity")
+            return false
+          end
 
-  -- return false if service has not an accepted severity
-  if not self:is_valid_service_severity() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
-      .. ". host_id: " .. tostring(self.event.host_id) .. ". Service has not an accepted severity")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_service_severity = function () 
+          -- return false if host has not an accepted severity
+          if not self:is_valid_service_severity() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service id: " .. tostring(self.event.service_id) 
+              .. ". host_id: " .. tostring(self.event.host_id) .. ". Service has not an accepted severity")
+            return false
+          end
 
-  -- return false if host is not in an accepted hostgroup
-  if not self:is_valid_hostgroup() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) 
-      .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
-    return false
-  end
-  
-  -- return false if service is not in an accepted servicegroup 
-  if not self:is_valid_servicegroup() then
-    self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
-    return false
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_hostgroup = function () 
+          -- return false if host is not in an accepted hostgroup
+          if not self:is_valid_hostgroup() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) 
+              .. " is not in an accepted hostgroup. Host ID is: " .. tostring(self.event.host_id))
+            return false
+          end
 
-  -- in bbdo 2 last_update do exist but not in bbdo3.
-  -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
-  if not self.event.last_update and self.event.last_check then
-    self.event.last_update = self.event.last_check
-  elseif not self.event.last_check and self.event.last_update then
-    self.event.last_check = self.event.last_update
-  end
+          return true
+        end
+      },
+      { 
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_servicegroup = function () 
+          -- return false if host is not in an accepted hostgroup
+          if not self:is_valid_servicegroup() then
+            self.sc_logger:warning("[sc_event:is_valid_service_status_event]: service_id: " .. tostring(self.event.service_id) .. " is not in an accepted servicegroup")
+            return false
+          end
 
-  self:build_outputs()
+          return true
+        end
+      },
+      {
+        is_executed = false,
+        is_accepted = true,
+        prepare_event = function ()
+          -- in bbdo 2 last_update do exist but not in bbdo3.
+          -- last_check also exist in bbdo2 but it is preferable to stay compatible with all stream connectors
+          if not self.event.last_update and self.event.last_check then
+            self.event.last_update = self.event.last_check
+          elseif not self.event.last_check and self.event.last_update then
+            self.event.last_check = self.event.last_update
+          end
+
+          self:build_outputs()
+          return true
+        end
+      }
+    }
+  }
+
+  -- run every filter function defined above and set flags accordingly in the validation steps
+  local step_order = self.validation_steps[self.event.category][self.event.element].step_order
+  local steps = self.validation_steps[self.event.category][self.event.element].steps
+
+  for step_id, step_info in ipairs(steps) do
+    is_accepted = step_info[step_order[step_id]]()
+    self.sc_logger:notice("[sc_event:is_valid_service_status_event]: step name: " .. tostring(step_order[step_id]))
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = is_accepted
+
+    if not is_accepted then
+      return false
+    end
+  end
 
   return true
 end
@@ -659,36 +878,108 @@ end
 --- is_valid_bam_event: check if the event is an accepted bam type event
 -- @return true|false (boolean)
 function ScEvent:is_valid_bam_event()
-  -- return false if ba name is invalid or ba_id is nil 
-  if not self:is_valid_ba() then
-    self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " hasn't been validated")
-    return false
-  end
-
-  -- return false if BA status is not accepted
-  if not self:is_valid_ba_status_event() then
-    self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " has an invalid state")
-    return false
-  end
-
-  -- return false if BA downtime state is not accepted
-  if not self:is_valid_ba_downtime_state() then
-    self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated downtime state")
-    return false
-  end
-
-  -- DO NOTHING FOR THE MOMENT
-  if not self:is_valid_ba_acknowledge_state() then
-    self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated acknowledge state")
-    return false
-  end
-
-  -- return false if BA is not in an accepted BV
-  if not self:is_valid_bv() then
-    self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in an accepted BV")
-    return false
-  end
+  self.validation_steps[self.event.category][self.event.element] = {
+    step_order = {
+      "is_valid_ba",
+      "is_valid_ba_status_event",
+      "is_valid_ba_downtime_event",
+      "is_valid_ba_acknowledge_state",
+      "is_valid_bv"
+    },
+    steps = {
+      {
+        is_valid_ba = { 
+          is_executed = false, 
+          is_accepted = true,
+          is_valid_ba = function ()
+            -- return false if ba name is invalid or ba_id is nil 
+            if not self:is_valid_ba() then
+              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " hasn't been validated")
+              return false
+            end
   
+            return true
+          end
+        }
+      },
+      {
+        is_valid_ba_status_event = { 
+          is_executed = false, 
+          is_accepted = true,
+          is_valid_ba_status_event = function () 
+            -- return false if BA status is not accepted
+            if not self:is_valid_ba_status_event() then
+              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " has an invalid state")
+              return false
+            end
+  
+            return true
+          end
+        }
+      },
+      {
+        is_valid_ba_downtime_state = { 
+          is_executed = false, 
+          is_accepted = true,
+          is_valid_ba_downtime_state = function () 
+            -- return false if BA downtime state is not accepted
+            if not self:is_valid_ba_downtime_state() then
+              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated downtime state")
+              return false
+            end
+  
+            return true
+          end
+        }
+      },
+      {
+        is_valid_ba_acknowledge_state = { 
+          is_executed = false, 
+          is_accepted = true,
+          is_valid_ba_acknowledge_state = function () 
+            -- DO NOTHING FOR THE MOMENT
+            if not self:is_valid_ba_acknowledge_state() then
+              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated acknowledge state")
+              return false
+            end
+  
+            return true
+          end
+        }
+      },
+      {
+        is_valid_bv = { 
+          is_executed = false, 
+          is_accepted = true,
+          is_valid_bv = function () 
+            -- return false if BA is not in an accepted BV
+            if not self:is_valid_bv() then
+              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in an accepted BV")
+              return false
+            end
+  
+            return true
+          end
+        }
+      }
+    }
+  }
+
+  -- run every filter function defined above and set flags accordingly in the validation steps
+  local step_order = self.validation_steps[self.event.category][self.event.element].step_order
+  local steps = self.validation_steps[self.event.category][self.event.element].steps
+
+  for step_id, step_info in ipairs(steps) do
+    is_accepted = step_info[step_order[step_id]]()
+    self.sc_logger:notice("[sc_event:is_valid_service_status_event]: step name: " .. tostring(step_order[step_id]))
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
+    self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = is_accepted
+
+    if not is_accepted then
+      return false
+    end
+  end
+
   return true
 end
 
