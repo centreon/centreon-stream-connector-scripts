@@ -15,7 +15,13 @@ runs:
   using: "composite"
   steps:
     - name: Set environment variable
-      run: echo "CENTREON_VERSION=24.10" >> $GITHUB_ENV
+      run: |
+        # Set Centreon version as an environment variable
+        version="24.10"
+        if [[ "${{ inputs.distrib }}" == "bookworm" ]] then
+          version="24.04"
+        fi
+        echo "CENTREON_VERSION=${version}" >> $GITHUB_ENV
       shell: bash
 
     - if: ${{ inputs.package_extension == 'rpm' }}
@@ -80,7 +86,7 @@ runs:
         apt-get update
         apt-get install -y zstd wget gpg apt-utils procps build-essential
         wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null 2>&1
-        # Get centreon repo
+        # Set Centreon repository prefix based on distribution
         repo="apt"
         if [[ "${{ inputs.distrib }}" == "jammy" || "${{ inputs.distrib }}" == "noble" ]]; then
           repo="ubuntu"

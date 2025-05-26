@@ -30,15 +30,15 @@ overrides:
   rpm:
     depends:
       - lua-socket >= 3.0
-      - centreon-broker-core >= 22.04.0
+      - centreon-broker-core >= 23.10.0
       - lua-curl >= 0.3.13-10
       - lua-sql-mysql
       - lua
   deb:
     depends:
-      - "centreon-broker-core (>= 22.04.0)"
+      - "centreon-broker-core (>= 23.10.0)"
       - "lua-socket (>= 3.0~)"
-      - "lua-curl (>= 0.3.13-10)"
+      - "lua-curl (>= ${LUA_CURL_VERSION})"
       - "lua-sql-mysql"
       - "lua5.3"
 
