@@ -14,6 +14,9 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Set environment variable
+      run: echo "CENTREON_VERSION=24.10" >> $GITHUB_ENV
+      shell: bash
 
     - if: ${{ inputs.package_extension == 'rpm' }}
       name: Install zstd and Centreon repositories
@@ -25,6 +28,10 @@ runs:
         GPG_KEY_URL="https://yum-gpg.centreon.com/RPM-GPG-KEY-CES"
         curl -sSL $GPG_KEY_URL -o RPM-GPG-KEY-CES
         rpm --import RPM-GPG-KEY-CES
+        # Add Centreon repository
+        dnf -y config-manager --add-repo https://packages.centreon.com/rpm-standard/${{ env.CENTREON_VERSION }}/${{ inputs.distrib }}/centreon-${{ env.CENTREON_VERSION }}.repo
+        dnf -y clean all --enablerepo=*
+        dnf -y update
       shell: bash
 
     - if: ${{ inputs.package_extension == 'deb' }}
@@ -34,6 +41,15 @@ runs:
         apt-get update
         apt-get install -y zstd wget gpg apt-utils procps build-essential
         wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null 2>&1
+        # si distrib = jammy ou noble, le repository est différent
+        if [[ "${{ inputs.distrib }}" == "jammy" || "${{ inputs.distrib }}" == "noble" ]]; then
+          repo="ubuntu-standard"
+        else
+          repo="apt-standard"
+        fi
+        echo "deb https://packages.centreon.com/${{ repo }}-${{ env.CENTREON_VERSION }}-stable/ ${{ inputs.distrib }} main" | tee /etc/apt/sources.list.d/centreon.list
+        echo "deb https://packages.centreon.com/${{ repo }}-${{ env.CENTREON_VERSION }}-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${{ repo }}-${{ env.CENTREON_VERSION }}-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         apt-get update
       shell: bash
 
