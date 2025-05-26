@@ -888,79 +888,69 @@ function ScEvent:is_valid_bam_event()
     },
     steps = {
       {
-        is_valid_ba = { 
-          is_executed = false, 
-          is_accepted = true,
-          is_valid_ba = function ()
-            -- return false if ba name is invalid or ba_id is nil 
-            if not self:is_valid_ba() then
-              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " hasn't been validated")
-              return false
-            end
-  
-            return true
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_ba = function ()
+          -- return false if ba name is invalid or ba_id is nil 
+          if not self:is_valid_ba() then
+            self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " hasn't been validated")
+            return false
           end
-        }
+
+          return true
+        end
       },
       {
-        is_valid_ba_status_event = { 
-          is_executed = false, 
-          is_accepted = true,
-          is_valid_ba_status_event = function () 
-            -- return false if BA status is not accepted
-            if not self:is_valid_ba_status_event() then
-              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " has an invalid state")
-              return false
-            end
-  
-            return true
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_ba_status_event = function () 
+          -- return false if BA status is not accepted
+          if not self:is_valid_ba_status_event() then
+            self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " has an invalid state")
+            return false
           end
-        }
+
+          return true
+        end
       },
       {
-        is_valid_ba_downtime_state = { 
-          is_executed = false, 
-          is_accepted = true,
-          is_valid_ba_downtime_state = function () 
-            -- return false if BA downtime state is not accepted
-            if not self:is_valid_ba_downtime_state() then
-              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated downtime state")
-              return false
-            end
-  
-            return true
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_ba_downtime_state = function () 
+          -- return false if BA downtime state is not accepted
+          if not self:is_valid_ba_downtime_state() then
+            self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated downtime state")
+            return false
           end
-        }
+
+          return true
+        end
       },
       {
-        is_valid_ba_acknowledge_state = { 
-          is_executed = false, 
-          is_accepted = true,
-          is_valid_ba_acknowledge_state = function () 
-            -- DO NOTHING FOR THE MOMENT
-            if not self:is_valid_ba_acknowledge_state() then
-              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated acknowledge state")
-              return false
-            end
-  
-            return true
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_ba_acknowledge_state = function () 
+          -- DO NOTHING FOR THE MOMENT
+          if not self:is_valid_ba_acknowledge_state() then
+            self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in a validated acknowledge state")
+            return false
           end
-        }
+
+          return true
+        end
       },
       {
-        is_valid_bv = { 
-          is_executed = false, 
-          is_accepted = true,
-          is_valid_bv = function () 
-            -- return false if BA is not in an accepted BV
-            if not self:is_valid_bv() then
-              self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in an accepted BV")
-              return false
-            end
-  
-            return true
+        is_executed = false, 
+        is_accepted = true,
+        is_valid_bv = function () 
+          -- return false if BA is not in an accepted BV
+          if not self:is_valid_bv() then
+            self.sc_logger:warning("[sc_event:is_valid_bam_event]: ba_id: " .. tostring(self.event.ba_id) .. " is not in an accepted BV")
+            return false
           end
-        }
+
+          return true
+        end
       }
     }
   }
