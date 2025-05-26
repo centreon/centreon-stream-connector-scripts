@@ -80,7 +80,7 @@ jobs:
           stability: ${{ needs.get-environment.outputs.stability }}
 
   test-packages:
-    needs: [ get-environment, package ]
+    needs: [get-environment, package]
     strategy:
       fail-fast: false
       matrix:
