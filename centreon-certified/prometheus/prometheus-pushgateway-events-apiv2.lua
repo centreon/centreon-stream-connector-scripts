@@ -55,7 +55,7 @@ function event_queue.new(params)
   self.sc_params.params.enable_service_status_dedup   = params.enable_service_status_dedup or 1
 
   -- prometheus specific parameters
-  self.sc_params.params.prometheus_url         = params.prometheus_url or "http://127.0.0.1:9091"
+  self.sc_params.params.prometheus_gateway_url = params.prometheus_gateway_url or "http://127.0.0.1:9091"
   self.sc_params.params.http_timeout           = params.http_timeout or 30
   self.sc_params.params.prometheus_gateway_job = params.prometheus_gateway_job or "monitoring"
   self.sc_params.params.add_hostgroups         = params.add_hostgroups or 0
@@ -94,6 +94,10 @@ function event_queue.new(params)
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
+
+  -- those sleep counters will avoid log spam and connection spam
+  self.send_data_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
+  self.init_fail_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
 
   -- return event_queue object
   setmetatable(self, { __index = event_queue })
@@ -139,7 +143,7 @@ function event_queue:format_event_host()
   local hname = event.cache.host.name
   local sdesc = "host"
 
-  local name = string.gsub(hname .. '_' .. sdesc .. ':monitoring_status', self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
+  local name = 'monitoring_status'
 
   local data = '# TYPE ' .. name .. ' counter\n'
   data = data .. '# HELP ' .. name .. ' 0 is OK, 1 or higher is DOWN\n'
@@ -152,6 +156,7 @@ function event_queue:format_event_host()
   event.formated_event = {
     event_type          = "host",
     prom_hname          = event.cache.host.name,
+    prom_hname_url      = mime.b64(event.cache.host.name),
     prom_sdesc          = sdesc,
     prom_sdesc_url      = mime.b64(sdesc),
     state               = event.state,
@@ -178,7 +183,7 @@ function event_queue:format_event_service()
   local hname = event.cache.host.name
   local sdesc = event.cache.service.description
 
-  local name = string.gsub(hname .. '_' .. sdesc .. ':monitoring_status', self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
+  local name = 'monitoring_status'
 
   local data = '# TYPE ' .. name .. ' counter\n'
   data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 or higher is UNKNOWN\n'
@@ -191,6 +196,7 @@ function event_queue:format_event_service()
   event.formated_event = {
     event_type          = "service",
     prom_hname          = event.cache.host.name,
+    prom_hname_url      = mime.b64(event.cache.host.name),
     prom_sdesc          = sdesc,
     prom_sdesc_url      = mime.b64(sdesc),
     state               = event.state,
@@ -209,12 +215,22 @@ function event_queue:format_event_service()
   end
 end
 
+--- Replace unwanted characters in order to comply with the open metrics format
+--- @param string string the string to convert
+--- @return string A string that matches openmetrics
+function event_queue:convert_to_openmetric(string)
+  if string == nil or string == '' or type(string) ~= 'string' then
+    return false
+  end
+  return string.gsub(string, self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
+end
+
 --- Creates the hostgroup label for the event
 --- @return string hostgroups_label: the full label for the metric
 function event_queue:display_hostgroups ()
   self.sc_logger:debug("[display_hostgroups]: function starting")
 
-  if not self.sc_event.event.cache.hostgroups then
+  if not self.sc_event.event.cache.hostgroups or #self.sc_event.event.cache.hostgroups == 0 then
     self.sc_logger:debug("[display_hostgroups]: no hostgroups, exiting")
     return false
   end
@@ -278,7 +294,7 @@ function event_queue:send_data(payload, queue_metadata)
 
   local http_response_body = ""
   local label = "status"
-  local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
+  local url = self.sc_params.params.prometheus_gateway_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance@base64/' .. payload.prom_hname_url .. '/service@base64/' .. payload.prom_sdesc_url
 
   queue_metadata.headers = { "content-type: application/openmetrics-text" }
 
@@ -369,8 +385,11 @@ function write(event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
+    queue.init_fail_sleep_counter:sleep()
     return false
   end
+
+  queue.init_fail_sleep_counter:reset()
 
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
@@ -399,28 +418,21 @@ end
 --- @return boolean true if the queue is flushed, false otherwise
 function flush()
   local queues_size = queue.sc_flush:get_queues_size()
-  
+
   -- nothing to flush
   if queues_size == 0 then
     return true
   end
 
   -- flush all queues because last global flush is too old
-  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
-    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
-      return false
+  -- or because too many events are stored in them
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age
+          or queues_size > queue.sc_params.params.max_buffer_size then
+    if queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      queue.send_data_sleep_counter:reset()
+      return true
     end
-
-    return true
-  end
-
-  -- flush queues because too many events are stored in them
-  if queues_size > queue.sc_params.params.max_buffer_size then
-    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
-      return false
-    end
-
-    return true
+    queue.send_data_sleep_counter:sleep()
   end
 
   -- there are events in the queue but they were not ready to be send

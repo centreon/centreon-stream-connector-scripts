@@ -81,10 +81,10 @@ function event_queue.new(params)
   self.sc_params.params.metric_replacement_character  = params.metric_replacement_character or '_'
 
   -- prometheus specific parameters
-  self.sc_params.params.prometheus_url              = params.prometheus_url or "http://127.0.0.1:9091"
+  self.sc_params.params.prometheus_gateway_url      = params.prometheus_gateway_url or "http://127.0.0.1:9091"
   self.sc_params.params.http_timeout                = params.http_timeout or 30
   self.sc_params.params.prometheus_gateway_job      = params.prometheus_gateway_job or "monitoring"
-  self.sc_params.params.enable_extended_metric_name = params.enable_extended_metric_name or 1
+  self.sc_params.params.enable_extended_metric_name = params.enable_extended_metric_name or 0
   self.sc_params.params.add_hostgroups              = params.add_hostgroups or 0
 
   -- apply users params and check syntax of standard ones
@@ -254,6 +254,7 @@ function event_queue:format_metric_host(metric)
 
   event.formated_event = {
     prom_hname      = event.cache.host.name,
+    prom_hname_url  = mime.b64(event.cache.host.name),
     prom_sdesc      = sdesc,
     prom_sdesc_url  = mime.b64(sdesc)
   }
@@ -280,6 +281,7 @@ function event_queue:format_metric_service(metric)
 
   event.formated_event = {
     prom_hname      = event.cache.host.name,
+    prom_hname_url  = mime.b64(event.cache.host.name),
     prom_sdesc      = sdesc,
     prom_sdesc_url  = mime.b64(sdesc)
   }
@@ -311,7 +313,7 @@ function event_queue:add_unit_info (label, unit, name)
   return data
 end
 
---- create_metric_name: concatenates data to create the metric name
+--- Concatenates data to create the metric name
 --- @param label string The name of the perfdata
 --- @param unit string The unit name
 --- @return string The prometheus metric name (open metric format)
@@ -332,7 +334,17 @@ function event_queue:create_metric_name (label, unit)
         name = name .. '_' .. unit
       end
     end
-  return string.gsub(name, self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
+  return self:convert_to_openmetric(name)
+end
+
+--- Replace unwanted characters in order to comply with the open metrics format
+--- @param string string the string to convert
+--- @return string A string that matches openmetrics
+function event_queue:convert_to_openmetric (string)
+  if string == nil or string == '' or type(string) ~= 'string' then
+    return false
+  end
+  return string.gsub(string, self.sc_params.params.metric_name_regex, self.sc_params.params.metric_replacement_character)
 end
 
 --- event_queue:format_metric_service method
@@ -372,7 +384,9 @@ CENTREON_Financial_Check:acme_bank_business_gold_reserve_euros{label="acme_bank_
   ]]
 
   local data = '# TYPE ' .. name .. ' ' .. type .. '\n'
-  data = data .. self:add_unit_info(label, unit, name)
+  if (type == 'counter') then
+    data = data .. self:add_unit_info(label, unit, name)
+  end
   data = data .. name .. '{label="' .. label .. '", host="' .. event.cache.host.name .. '", service="' .. sdesc .. '"'
 
   if event.formated_event.hostgroups_label then
@@ -411,7 +425,7 @@ end
 --- @param  perfdata table The perfdata information
 --- @return string metric_type, the type of the metric
 function event_queue:get_metric_type (perfdata)
-  if (is_number_and_not_a_nan(perfdata.max)) then
+  if (is_number_and_not_a_nan(perfdata.max) or (perfdata.uom and perfdata.uom == '%')) then
     return "gauge"
   end
   
@@ -423,7 +437,7 @@ end
 function event_queue:display_hostgroups ()
   self.sc_logger:debug("[display_hostgroups]: function starting")
 
-  if not self.sc_event.event.cache.hostgroups then
+  if not self.sc_event.event.cache.hostgroups or #self.sc_event.event.cache.hostgroups == 0 then
     self.sc_logger:debug("[display_hostgroups]: no hostgroups, exiting")
     return false
   end
@@ -486,7 +500,7 @@ function event_queue:send_data(payload, queue_metadata)
 
   local http_post_data = payload.payload
   local http_response_body = ""
-  local url = self.sc_params.params.prometheus_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance/' .. payload.prom_hname .. '/service@base64/' .. payload.prom_sdesc_url
+  local url = self.sc_params.params.prometheus_gateway_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance@base64/' .. payload.prom_hname_url .. '/service@base64/' .. payload.prom_sdesc_url
 
   queue_metadata.headers = { "content-type: application/openmetrics-text" }
 
@@ -589,7 +603,7 @@ function write(event)
       if queue.sc_metrics:is_valid_metric_event() then
         queue:format_accepted_event()
       end
-  --- log why the event has been dropped
+  -- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
@@ -615,23 +629,17 @@ function flush()
   end
 
   -- flush all queues because last global flush is too old
-  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age then
-    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
-      return false
+  -- or because too many events are stored in them
+  if queue.sc_flush.last_global_flush < os.time() - queue.sc_params.params.max_all_queues_age
+          or queues_size > queue.sc_params.params.max_buffer_size then
+    if queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
+      queue.send_data_sleep_counter:reset()
+      return true
     end
-
-    return true
-  end
-
-  -- flush queues because too many events are stored in them
-  if queues_size > queue.sc_params.params.max_buffer_size then
-    if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
-      return false
-    end
-
-    return true
+    queue.send_data_sleep_counter:sleep()
   end
 
   -- there are events in the queue but they were not ready to be send
   return false
 end
+
