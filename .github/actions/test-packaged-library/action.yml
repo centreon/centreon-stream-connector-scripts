@@ -18,7 +18,7 @@ runs:
       run: |
         # Set Centreon version as an environment variable
         version="24.10"
-        if [[ "${{ inputs.distrib }}" == "bookworm" ]] then
+        if [[ "${{ inputs.distrib }}" == "bullseye" ]]; then
           version="24.04"
         fi
         echo "CENTREON_VERSION=${version}" >> $GITHUB_ENV
