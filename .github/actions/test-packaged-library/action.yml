@@ -28,7 +28,7 @@ runs:
       shell: bash
 
     - if: ${{ inputs.package_extension == 'deb' }}
-      name: Install zstd, perl and Centreon repositories
+      name: Install zstd and Centreon repositories
       run: |
         export DEBIAN_FRONTEND=noninteractive
         apt-get update
