@@ -70,7 +70,7 @@ function ScStorage:create_memory()
   self.internal_memory = {} -- this is the table that will store all the data
 
   -- the meta table for your storage_objects that are going to be subtables of the memory table: 
-  self.object_meta = {
+  local object_meta = {
     -- this meta table function gets data from the persistent storage when not found in memory 
     __index = function (object_memory_table, property)
         -- try to find value in the real memory
@@ -96,7 +96,7 @@ function ScStorage:create_memory()
   }
 
   -- the meta table for the memory table. It is here to dynamically create storage_objects subtables and to link them with the object_meta meta table
-  self.memory_meta = {
+  local memory_meta = {
     __newindex = function (memory_table, key, value)
       -- you can store whatever you want in the self.memory table. 
       -- but if the index is a valid storage_object it will assume that you want to create the magic between memory and persistent storage
@@ -111,6 +111,7 @@ function ScStorage:create_memory()
         if type(value) == "table" then
           -- need to add an internal property to the storage_object subtable that contains the storage_object ID otherwise we will never be able to get this information and communicate with the persistent storage backend
           rawset(self.memory[key], "_internal_object_id", key)
+          self.internal_memory[key] = {} -- add object_id table to internal memory table
           
           -- at the moment, I can't find a way to make use of "multiple()" functions. So we can't bulk things. Therefore we loop through everything and it will do a set() action for each property
           for property, property_value in pairs(value) do
