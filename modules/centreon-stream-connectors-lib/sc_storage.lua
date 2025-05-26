@@ -104,7 +104,7 @@ function ScStorage:create_memory()
         -- we need to create the storage_object subtable and link it to the appropriate meta table
         if not self.memory[key] then
           rawset(self.memory, key, {})
-          setmetatable(self.memory[key], self.object_meta)
+          setmetatable(self.memory[key], object_meta)
         end
 
         -- condition is either triggered on first storage_object memory creation or some weird code that someone is doing.
@@ -121,7 +121,7 @@ function ScStorage:create_memory()
       end
     end
   }
-  setmetatable(self.memory, self.memory_meta)
+  setmetatable(self.memory, memory_meta)
 end
 
 --- set_memory: populate the self.memory table with data from the persistent storage.
