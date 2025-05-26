@@ -31,6 +31,45 @@ runs:
         # Add Centreon repository
         dnf -y config-manager --add-repo https://packages.centreon.com/rpm-standard/${{ env.CENTREON_VERSION }}/${{ inputs.distrib }}/centreon-${{ env.CENTREON_VERSION }}.repo
         dnf -y clean all --enablerepo=*
+        # Add Centreon plugins repository
+        cat <<EOF >> /etc/yum.repos.d/centreon-plugins.repo
+        [centreon-plugins-stable]
+        name=centreon plugins stable x86_64
+        baseurl=https://packages.centreon.com/rpm-plugins/${{ inputs.distrib }}/stable/x86_64
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        [centreon-plugins-stable-noarch]
+        name=centreon plugins stable noarch
+        baseurl=https://packages.centreon.com/rpm-plugins/${{ inputs.distrib }}/stable/noarch
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        [centreon-plugins-testing]
+        name=centreon plugins testing x86_64
+        baseurl=https://packages.centreon.com/rpm-plugins/${{ inputs.distrib }}/testing/x86_64
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        [centreon-plugins-testing-noarch]
+        name=centreon plugins testing noarch
+        baseurl=https://packages.centreon.com/rpm-plugins/${{ inputs.distrib }}/testing/noarch
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        [centreon-plugins-unstable]
+        name=centreon plugins unstable x86_64
+        baseurl=https://packages.centreon.com/rpm-plugins/${{ inputs.distrib }}/unstable/x86_64
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        [centreon-plugins-unstable-noarch]
+        name=centreon plugins unstable noarch
+        baseurl=https://packages.centreon.com/rpm-plugins/${{ inputs.distrib }}/unstable/noarch
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        EOF
         dnf -y update
       shell: bash
 
@@ -41,15 +80,19 @@ runs:
         apt-get update
         apt-get install -y zstd wget gpg apt-utils procps build-essential
         wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null 2>&1
-        # si distrib = jammy ou noble, le repository est différent
+        # Get centreon repo
+        repo="apt"
         if [[ "${{ inputs.distrib }}" == "jammy" || "${{ inputs.distrib }}" == "noble" ]]; then
-          repo="ubuntu-standard"
-        else
-          repo="apt-standard"
+          repo="ubuntu"
         fi
-        echo "deb https://packages.centreon.com/${{ repo }}-${{ env.CENTREON_VERSION }}-stable/ ${{ inputs.distrib }} main" | tee /etc/apt/sources.list.d/centreon.list
-        echo "deb https://packages.centreon.com/${{ repo }}-${{ env.CENTREON_VERSION }}-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
-        echo "deb https://packages.centreon.com/${{ repo }}-${{ env.CENTREON_VERSION }}-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        # Add Centreon repositories
+        echo "deb https://packages.centreon.com/${repo}-standard-${{ env.CENTREON_VERSION }}-stable/ ${{ inputs.distrib }} main" | tee /etc/apt/sources.list.d/centreon.list
+        echo "deb https://packages.centreon.com/${repo}-standard-${{ env.CENTREON_VERSION }}-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${repo}-standard-${{ env.CENTREON_VERSION }}-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        # Add Centreon plugins repositories
+        echo "deb https://packages.centreon.com/${repo}-${{ env.CENTREON_VERSION }}-stable/ ${{ inputs.distrib }} main" | tee /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${repo}-${{ env.CENTREON_VERSION }}-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${repo}-${{ env.CENTREON_VERSION }}-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         apt-get update
       shell: bash
 
