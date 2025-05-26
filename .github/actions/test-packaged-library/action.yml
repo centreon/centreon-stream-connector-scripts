@@ -1,0 +1,91 @@
+name: "test-cpan-libs"
+description: "Test packaged CPAN libraries"
+inputs:
+  package_extension:
+    description: "The package extension (deb or rpm)"
+    required: true
+  distrib:
+    description: "The distribution name"
+    required: true
+  arch:
+    description: "The architecture (amd64 or arm64)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+
+    - if: ${{ inputs.package_extension == 'rpm' }}
+      name: Install zstd and Centreon repositories
+      run: |
+        dnf install -y zstd epel-release 'dnf-command(config-manager)'
+        dnf config-manager --set-enabled powertools || true # alma 8
+        dnf config-manager --set-enabled crb || true # alma 9
+        # Import Centreon GPG key
+        GPG_KEY_URL="https://yum-gpg.centreon.com/RPM-GPG-KEY-CES"
+        curl -sSL $GPG_KEY_URL -o RPM-GPG-KEY-CES
+        rpm --import RPM-GPG-KEY-CES
+      shell: bash
+
+    - if: ${{ inputs.package_extension == 'deb' }}
+      name: Install zstd, perl and Centreon repositories
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y zstd wget gpg apt-utils procps build-essential
+        wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null 2>&1
+        apt-get update
+      shell: bash
+
+    - name: Restore package from cache
+      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: ./*.${{ inputs.package_extension }}
+        key: ${{ github.sha }}-${{ github.run_id }}-${{ inputs.package_extension }}-${{ inputs.distrib }}
+        fail-on-cache-miss: true
+
+    - if: ${{ inputs.package_extension == 'rpm' }}
+      name: Check package installation / uninstallation
+      run: |
+        error_log="install_error_${{ inputs.distrib }}_${{ inputs.arch }}.log"
+        for package in ./*.rpm; do
+          echo "Installing package: $package"
+          # Install package, then uninstall it with all his dependencies
+          echo "Package installation..."
+          error_output=$(dnf install -y $package 2>&1) || { echo "$error_output" >> $error_log; echo "Error during installation of the package $package" >> $error_log; true; }
+          echo "Package installation done."
+          echo "Package uninstallation..."
+          error_output=$(dnf autoremove --setopt=keepcache=True -y $(echo $package | sed 's/_[0-9].*\.rpm//' | sed 's/.\///') 2>&1) || { echo "$error_output" >> $error_log; echo "Error during autoremove of the package $package" >> $error_log; true; }
+          echo "Package uninstallation done."
+        done
+        # If the file error_log exists and is not empty, the workflow is in error
+        if [[ -s $error_log ]]; then
+            cat $error_log
+            exit 1
+        fi
+      shell: bash
+
+    - if: ${{ inputs.package_extension == 'deb' }}
+      name: Check packages installation / uninstallation
+      run: |
+        error_log="install_error_${{ inputs.distrib }}_${{ inputs.arch }}.log"
+        for package in ./*.deb; do
+          # If the debian package name ends with amd64 or arm64, we only install it if the tested architecture is the same, otherwise we skip it
+          if [[ $package == *amd64.deb && ${{ inputs.arch }} != "amd64" || $package == *arm64.deb && ${{ inputs.arch }} != "arm64" ]]; then
+            continue
+          fi
+          echo "Installing package: $package"
+          # Install package, then uninstall it with all his dependencies
+          echo "Package installation..."
+          error_output=$(apt-get install -y $package 2>&1) || { echo "$error_output" >> $error_log; echo "Error during installation of the package $package" >> $error_log; true; }
+          echo "Package installation done."
+          echo "Package uninstallation..."
+          error_output=$(apt-get autoremove -y --purge $(echo $package | sed 's/_[0-9].*\.deb//' | sed 's/.\///') 2>&1) || { echo "$error_output" >> $error_log; echo "Error during autoremove of the package $package" >> $error_log; true; }
+          echo "Package uninstallation done."
+        done
+        # If the file error_log exists and is not empty, the workflow is in error
+        if [[ -s $error_log ]]; then
+            cat $error_log
+            exit 1
+        fi
+      shell: bash
