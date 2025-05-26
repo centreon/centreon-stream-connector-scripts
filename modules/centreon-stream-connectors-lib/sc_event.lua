@@ -476,7 +476,6 @@ function ScEvent:is_valid_service_status_event()
 
   for step_id, step_info in ipairs(steps) do
     is_accepted = step_info[step_order[step_id]]()
-    self.sc_logger:notice("[sc_event:is_valid_service_status_event]: step name: " .. tostring(step_order[step_id]))
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_accepted = is_accepted
 
@@ -963,7 +962,6 @@ function ScEvent:is_valid_bam_event()
 
   for step_id, step_info in ipairs(steps) do
     is_accepted = step_info[step_order[step_id]]()
-    self.sc_logger:notice("[sc_event:is_valid_service_status_event]: step name: " .. tostring(step_order[step_id]))
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_executed = true
     self.validation_steps[self.event.category][self.event.element].steps[step_id].is_accepted = is_accepted
 
