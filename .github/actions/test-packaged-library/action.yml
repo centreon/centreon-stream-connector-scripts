@@ -90,9 +90,9 @@ runs:
         echo "deb https://packages.centreon.com/${repo}-standard-${{ env.CENTREON_VERSION }}-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         echo "deb https://packages.centreon.com/${repo}-standard-${{ env.CENTREON_VERSION }}-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         # Add Centreon plugins repositories
-        echo "deb https://packages.centreon.com/${repo}-${{ env.CENTREON_VERSION }}-stable/ ${{ inputs.distrib }} main" | tee /etc/apt/sources.list.d/centreon-plugins.list
-        echo "deb https://packages.centreon.com/${repo}-${{ env.CENTREON_VERSION }}-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
-        echo "deb https://packages.centreon.com/${repo}-${{ env.CENTREON_VERSION }}-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${repo}-plugins-stable/ ${{ inputs.distrib }} main" | tee /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${repo}-plugins-testing/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${repo}-plugins-unstable/ ${{ inputs.distrib }} main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         apt-get update
       shell: bash
 
