@@ -49,7 +49,7 @@ function event_queue.new(params)
   self.sc_params.params.splunk_sourcetype            = params.splunk_sourcetype or "_json"
   self.sc_params.params.splunk_host                  = params.splunk_host or "Central"
   self.sc_params.params.accepted_categories          = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements            = params.accepted_elements or "service_status"
+  self.sc_params.params.accepted_elements            = params.accepted_elements or "host_status,service_status"
   self.sc_params.params.max_buffer_size              = params.max_buffer_size or 30
   self.sc_params.params.hard_only                    = params.hard_only or 0
   self.sc_params.params.enable_host_status_dedup     = params.enable_host_status_dedup or 0
@@ -77,23 +77,6 @@ function event_queue.new(params)
   local categories = self.sc_params.params.bbdo.categories
   local elements   = self.sc_params.params.bbdo.elements
 
-  -- it is not possible to have a payload containing metrics from different hosts or services.
-  -- therefore, we need to check if the metric that we are working on belongs to the same host/service than the previous metric
-  -- that's why we initiate a structure to store this info
-  self.previous_info = {
-    [categories.neb.id] = {
-      [elements.host_status.id] = {
-        host_id = "",
-        flush_success = false
-      },
-      [elements.service_status.id] = {
-        host_id = "",
-        service_id = "",
-        flush_success = false
-      }
-    }
-  }
-
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id]    = function () return self:format_event_host() end,
@@ -116,6 +99,10 @@ function event_queue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  -- Since this stream connector sends metrics and since all the metrics of one service are sent as one event
+  -- the volume of data can be really high if some services contain hundreds of metrics.
+  -- To avoid sending megabytes in one request, we will use a custom queue size attribute
+  self.custom_queue_size = 0
   -- those sleep counters will avoid log spam and connection spam
   self.send_data_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
   self.init_fail_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
@@ -144,15 +131,6 @@ function event_queue:format_accepted_event()
     self.format_event[category][element]()
   end
 
-  -- Add hostgroup
-  if self.sc_event.event.cache.host.groups then
-    self.sc_event.event.formated_event["hostgroups:"] = self.sc_event.event.cache.host.groups
-  end
-
-  -- Add ACK & Downtime
-  self.sc_event.event.formated_event["acknowledge"] = self.sc_event.event.acknowledged
-  self.sc_event.event.formated_event["downtime"] = self.sc_event.event.scheduled_downtime_depth
-
   self.sc_logger:debug("[event_queue:format_event]: event formatting is finished")
 end
 
@@ -160,25 +138,6 @@ end
 --- @return void
 function event_queue:format_event_host()
   self.sc_logger:debug("[event_queue:format_event_host]: starting format event host.")
-  local event = self.sc_event.event
-  self.sc_logger:debug("[event_queue:format_event_host]: call build_metric ")
-  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
-end
-
---- Formats service events by calling the format_metric() function defined for service status events
---- @return void
-function event_queue:format_event_service()
-  self.sc_logger:debug("[event_queue:format_event_service]: starting format event service.")
-  local event = self.sc_event.event
-  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
-  self.sc_logger:debug("[event_queue:format_event_service]: format metric service is finished ")
-end
-
---- Prepare a formatted metric event based on a service status event
---- @param metric table A single metric's data
---- @return void
-function event_queue:format_metric_host(metric)
-  self.sc_logger:debug("[event_queue:format_metric_host]: call format metric ")
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
@@ -190,16 +149,25 @@ function event_queue:format_metric_host(metric)
     lastchange = event.last_hard_state_change,
     ctime = event.last_check
   }
+  -- Add ACK & Downtime
+  event.formated_event["acknowledge"] = event.acknowledged
+  event.formated_event["downtime"]    = event.scheduled_downtime_depth
 
-  self:format_metric_event(metric)
-  self.sc_logger:debug("[event_queue:format_metric_host]: Finishing")
+  -- Add hostgroup
+  if event.cache.host.groups then
+    event.formated_event["hostgroups"] = event.cache.host.groups
+  end
+
+  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
+  self:add()
+
+  self.sc_logger:debug("[event_queue:format_event_host]: format event host is finished ")
 end
 
---- Prepare a formatted metric event based on a service status event
---- @param metric table a single metric's data
+--- Formats service events by calling the format_metric() function defined for service status events
 --- @return void
-function event_queue:format_metric_service(metric)
-  self.sc_logger:debug("[event_queue:format_metric_service]: Beginning to format metric ")
+function event_queue:format_event_service()
+  self.sc_logger:debug("[event_queue:format_event_service]: starting format event service.")
   local event = self.sc_event.event
 
   self.sc_event.event.formated_event = {
@@ -212,8 +180,40 @@ function event_queue:format_metric_service(metric)
     lastchange = event.last_hard_state_change,
     ctime = event.last_check
   }
+  -- Add ACK & Downtime
+  event.formated_event["acknowledge"] = event.acknowledged
+  event.formated_event["downtime"]    = event.scheduled_downtime_depth
+
+  -- Add hostgroup
+  if event.cache.host.groups then
+    event.formated_event["hostgroups"] = event.cache.host.groups
+  end
+
+  self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
+  self:add()
+
+  self.sc_logger:debug("[event_queue:format_event_service]: format event service is finished ")
+end
+
+--- Prepare a formatted metric event based on a service status event
+--- @param metric table A single metric's data
+--- @return void
+function event_queue:format_metric_host(metric)
+  self.sc_logger:debug("[event_queue:format_metric_host]: call format metric ")
 
   self:format_metric_event(metric)
+
+  self.sc_logger:debug("[event_queue:format_metric_host]: Finishing")
+end
+
+--- Prepare a formatted metric event based on a service status event
+--- @param metric table a single metric's data
+--- @return void
+function event_queue:format_metric_service(metric)
+  self.sc_logger:debug("[event_queue:format_metric_service]: Beginning to format metric ")
+
+  self:format_metric_event(metric)
+
   self.sc_logger:debug("[event_queue:format_metric_service]: Finishing")
 end
 
@@ -222,18 +222,21 @@ end
 --- @return void
 function event_queue:format_metric_event(metric)
   self.sc_logger:debug("[event_queue:format_metric]: start real format metric ")
-  self.sc_event.event.formated_event["metric_name:" .. tostring(metric.metric_name)] = metric.value
-  
-  -- add metric instance in tags
+  local full_metric_name = ''
+
+  -- add metric instance
   if metric.instance ~= "" then
-    self.sc_event.event.formated_event["instance"] = metric.instance
+    full_metric_name = metric.instance .. '_'
   end
-  
-  if metric.subinstance[1] then
-    self.sc_event.event.formated_event["subinstances"] = metric.subinstance
+
+  for _, sub_instance in ipairs(metric.subinstance) do
+    full_metric_name = full_metric_name .. sub_instance .. '_'
   end
-  
-  self:add()
+  full_metric_name = full_metric_name .. tostring(metric.metric_name)
+
+  self.sc_event.event.formated_event["metric_name:" .. full_metric_name] = metric.value
+  self.custom_queue_size = self.custom_queue_size + 1
+
   self.sc_logger:debug("[event_queue:format_metric]: end real format metric ")
 end
 
@@ -250,7 +253,7 @@ function event_queue:add()
 
   self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
 
-  self.sc_logger:info("[event_queue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
+  self.sc_logger:info("[event_queue:add]: queue size is now: " .. tostring(self.custom_queue_size)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end
 
@@ -260,11 +263,19 @@ end
 --- @return string json encoded string
 function event_queue:build_payload(payload, event)
   self.sc_logger:debug("[event_queue:build_payload]: Starting to build payload")
+  local data_to_send = {
+    sourcetype = self.sc_params.params.splunk_sourcetype,
+    source     = self.sc_params.params.splunk_source,
+    index      = self.sc_params.params.splunk_index,
+    host       = self.sc_params.params.splunk_host,
+    time       = self.sc_event.event.last_check,
+    event      = event
+  }
 
   if not payload then
-    payload = { event }
+    payload = { data_to_send }
   else
-    table.insert(payload, event)
+    table.insert(payload, data_to_send)
   end
 
   self.sc_logger:debug("[event_queue:build_payload]: Finishing to build payload")
@@ -279,16 +290,7 @@ function event_queue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[event_queue:send_data]: Starting to send data")
 
   -- until this line, the payload variable contains an array of objects
-  payload = broker.json_encode(
-    {
-      sourcetype = self.sc_params.params.splunk_sourcetype,
-      source     = self.sc_params.params.splunk_source,
-      index      = self.sc_params.params.splunk_index,
-      host       = self.sc_params.params.splunk_host,
-      time       = self.sc_event.event.last_check,
-      event      = payload
-    }
-  )
+  payload = broker.json_encode( payload )
   -- now it is a JSON string with the former table encoded under the event attribute
 
   queue_metadata.headers = {
@@ -419,8 +421,9 @@ end
 -- flush method is called by broker every now and then (more often when broker has nothing else to do)
 function flush()
   queue.sc_logger:debug("[flush]: Function starting")
-  local queues_size = queue.sc_flush:get_queues_size()
-  
+  local queues_size = queue.custom_queue_size
+  queue.sc_logger:debug("[flush]: queue size is now: " .. queues_size .. ", max is: " .. queue.sc_params.params.max_buffer_size)
+
   -- nothing to flush
   if queues_size == 0 then
     queue.sc_logger:debug("[flush]: Function finishing without flushing (queue empty)")
@@ -433,7 +436,7 @@ function flush()
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
     end
-
+    queue.custom_queue_size = 0
     return true
   end
 
@@ -443,11 +446,10 @@ function flush()
     if not queue.sc_flush:flush_all_queues(queue.build_payload_method[1], queue.send_data_method[1]) then
       return false
     end
-
+    queue.custom_queue_size = 0
     return true
   end
   queue.sc_logger:debug("[flush]: Function finishing without flushing")
   -- there are events in the queue but they were not ready to be send
   return false
 end
-
