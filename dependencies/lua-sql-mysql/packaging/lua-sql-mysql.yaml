@@ -15,7 +15,7 @@ homepage: "https://www.centreon.com"
 license: "Apache-2.0"
 
 contents:
-  - src: "../../lua-curl-src/src/mysql.so.so"
+  - src: "../../lua-curl-src/src/mysql.so"
     dst: "/usr/lib64/lua/@luaver@/luasql/mysql.so"
     file_info:
       mode: 0644
