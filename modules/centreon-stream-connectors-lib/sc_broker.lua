@@ -23,26 +23,34 @@ function sc_broker.new(params, logger)
 
   self.params = params
 
-  if params.enable_broker_cache_counter_check == 1 then
-    if pcall(require, "luasql.mysql") then
-      local db = require("luasql.mysql")
-      local db_driver = db.mysql()
-      local centreon_db, error = db_driver:connect(params.centreon_db_name, params.centreon_db_user, params.centreon_db_password, params.centreon_db_address, params.centreon_db_port)
-      
-      if not centreon_db then
-        self.sc_logger:error("[sc_broker:new]: couldn't connect to " .. tostring(params.centreon_db_name) .. ". Error is: " .. tostring(error)
-          .. "make sure that your parameters are valid: centreon_db_user: " .. tostring(params.centreon_db_user) .. ", centreon_db_address: " .. tostring(params.centreon_db_address) .. ", centreon_db_port: " .. tostring(params.centreon_db_port))
-      else
-        self.centreon_db = centreon_db
-      end
-    else
-      self.sc_logger:error("[sc_broker:new]: couldn't load luasql.mysql module and you asked for it by using the enable_broker_cache_counter_check parameter."
-        .. " Make sure that you have installed this dependency. We are disabling the aformentioned parameter.")
-    end
-  end
-
   setmetatable(self, { __index = ScBroker })
+
+  if params.enable_broker_cache_counter_check == 1 then
+    self:init_db_connection()
+  end
   return self
+end
+
+function ScBroker:init_db_connection()
+  local params = self.params
+  self.is_db_connection_active = false
+
+  if pcall(require, "luasql.mysql") then
+    local db = require("luasql.mysql")
+    local db_driver = db.mysql()
+    local centreon_db, error_msg = db_driver:connect(params.centreon_db_name, params.centreon_db_user, params.centreon_db_password, params.centreon_db_address, params.centreon_db_port)
+    
+    if not centreon_db then
+      self.sc_logger:error("[sc_broker:init_db_connection]: couldn't connect to " .. tostring(params.centreon_db_name) .. ". Error is: " .. tostring(error_msg)
+        .. "make sure that your parameters are valid: centreon_db_user: " .. tostring(params.centreon_db_user) .. ", centreon_db_address: " .. tostring(params.centreon_db_address) .. ", centreon_db_port: " .. tostring(params.centreon_db_port))
+    else
+      self.centreon_db = centreon_db
+      self.is_db_connection_active = true
+    end
+  else
+    self.sc_logger:error("[sc_broker:init_db_connection]: couldn't load luasql.mysql module and you asked for it by using the enable_broker_cache_counter_check parameter."
+      .. " Make sure that you have installed this dependency. We are disabling the aformentioned parameter.")
+  end
 end
 
 
@@ -432,11 +440,37 @@ end
 -- @param query (string) the sql query that must be executed to build the cache 
 -- @return result (table or nil) the result of the query or nil 
 function ScBroker:get_centreon_db_info(query)
-  local result, error = self.centreon_db:execute(query)
+  if not self.is_db_connection_active then
+    self.sc_logger:notice("[sc_broker:get_centreon_db_info]: connection to database is not active. We will try to do it again")
+    self:init_db_connection()
+
+    if not self.is_db_connection_active then
+      return nil
+    end
+  end
+
+  local result, error_msg = self.centreon_db:execute(query)
 
   if not result then
-    self.sc_logger:error("[sc_broker:get_centreon_db_info]: query: " .. tostring(query) .. " failed\n error: " .. tostring(error))
-    return nil
+    self.sc_logger:error("[sc_broker:get_centreon_db_info]: query: " .. tostring(query) .. " failed\n error: " .. tostring(error_msg))
+
+    -- we may have just lost the connection. We can try to redo it
+    if string.match(tostring(error_msg), "Server has gone away") or string.match(tostring(error_msg), "Connection was killed") then
+      self.sc_logger:warning("[sc_broker:get_centreon_db_info]: Connection to db may have just been lost. We try to redo it")
+      self:init_db_connection()
+      
+      if not self.is_db_connection_active then
+        return nil
+      end
+
+      -- TODO: perhaps add a parameter to do some retry loop instead of one single retry
+      result, error_msg = self.centreon_db:execute(query)
+
+      if not result then
+        self.sc_logger:error("[sc_broker:get_centreon_db_info]: retried to run query: " .. tostring(query) .. " failed\n error: " .. tostring(error_msg))
+        return nil
+      end
+    end
   end
 
   local rows = result:fetch({}, "a")
