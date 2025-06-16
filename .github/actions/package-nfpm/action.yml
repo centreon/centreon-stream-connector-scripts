@@ -38,6 +38,9 @@ inputs:
   stability:
     description: "Branch stability (stable, testing, unstable, canary)"
     required: true
+  artifact_name:
+    description: The name of the uploaded artifact
+    required: false
 
 runs:
   using: composite
@@ -98,11 +101,22 @@ runs:
         path: ./*.${{ inputs.package_extension }}
         key: ${{ inputs.cache_key }}
 
-    # Update if condition to true to get packages as artifacts
-    - if: ${{ false }}
+    # Add to your PR the label upload-artifacts to get packages as artifacts
+    - if: ${{ contains(github.event.pull_request.labels.*.name, 'upload-artifacts') }}
+      name: Get artifact name
+      id: get-artifact-name
+      run: |
+        if [ -z "${{ inputs.artifact_name }}" ]; then
+          echo "artifact_name=packages-${{ inputs.distrib }}" >> $GITHUB_OUTPUT
+        else
+          echo "artifact_name=${{ inputs.artifact_name }}" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - if: ${{ contains(github.event.pull_request.labels.*.name, 'upload-artifacts') }}
       name: Upload package artifacts
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
-        name: packages-${{ inputs.distrib }}
+        name: ${{ steps.get-artifact-name.outputs.artifact_name }}
         path: ./*.${{ inputs.package_extension}}
         retention-days: 1
