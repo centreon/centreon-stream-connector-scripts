@@ -66,7 +66,7 @@ jobs:
           fi
           dnf install -y make gcc lua lua-devel mysql mysql-devel
           cd lua-sql-src
-          make mysql DRIVER_LIBS_mysql=-L/usr/lib64/mysql DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER=${{ matrix.lua_version }}
+          make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER=${{ matrix.lua_version }}
           cd ..
 
           sed -i "s/@luaver@/${{ matrix.lua_version }}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
