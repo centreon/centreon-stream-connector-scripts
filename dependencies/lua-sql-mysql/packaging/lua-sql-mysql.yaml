@@ -25,6 +25,7 @@ overrides:
   rpm:
     depends:
       - lua
+      - mysql-libs
 
 rpm:
   summary: LuaSQL MySQL
