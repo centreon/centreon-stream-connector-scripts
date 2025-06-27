@@ -12,9 +12,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush  = require("centreon-stream-connectors-lib.sc_flush")
 
--- event_queue class
-
---- @class event_queue Class that handles all the actions of the stream connector
+--- @class event_queue Handles all the actions of the stream connector
 local event_queue = {}
 event_queue.__index = event_queue
 
@@ -24,8 +22,7 @@ event_queue.__index = event_queue
 function event_queue.new(params)
   local self = {}
 
-  local mandatory_parameters = {
-  }
+  local mandatory_parameters = {}
 
   self.fail = false
 
@@ -44,6 +41,7 @@ function event_queue.new(params)
     self.fail = true
   end
 
+  -- force max_buffer_size to 1 because we each service is sent to its own url
   params.max_buffer_size = 1
   
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
@@ -55,11 +53,14 @@ function event_queue.new(params)
   self.sc_params.params.enable_service_status_dedup   = params.enable_service_status_dedup or 1
 
   -- prometheus specific parameters
-  self.sc_params.params.prometheus_gateway_url = params.prometheus_gateway_url or "http://127.0.0.1:9091"
-  self.sc_params.params.http_timeout           = params.http_timeout or 30
-  self.sc_params.params.prometheus_gateway_job = params.prometheus_gateway_job or "monitoring"
-  self.sc_params.params.add_hostgroups         = params.add_hostgroups or 0
-  -- force max_buffer_size to 1 because we each service is sent to its own url
+  self.sc_params.params.prometheus_gateway_url    = params.prometheus_gateway_url or "http://127.0.0.1:9091"
+  self.sc_params.params.http_timeout              = params.http_timeout or 30
+  self.sc_params.params.prometheus_gateway_job    = params.prometheus_gateway_job or "monitoring"
+  self.sc_params.params.add_hostgroups            = params.add_hostgroups or 0
+  self.sc_params.params.prometheus_metrics_prefix = params.prometheus_metrics_prefix or "centreon_"
+  self.sc_params.params.prometheus_username       = params.prometheus_username or ""
+  self.sc_params.params.prometheus_password       = params.prometheus_password or ""
+  self.sc_params.params.send_mixed_events         = 1
   
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
@@ -78,11 +79,22 @@ function event_queue.new(params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
+  local headers = { ["content-type"] = "application/openmetrics-text" }
+  if self.sc_params.params.prometheus_username ~= "" and self.sc_params.params.prometheus_password ~= "" then
+    headers["Authorization"] = "Basic " .. mime.b64(self.sc_params.params.prometheus_username .. ":" .. self.sc_params.params.prometheus_password)
+  end
+
+  -- case when send_mixed_events == 0
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.host_status.id, {headers = headers})
+  self.sc_flush:add_queue_metadata(categories.neb.id, elements.service_status.id, {headers = headers})
+  -- case when send_mixed_events == 1
+  self.sc_flush.queues.global_queues_metadata.headers = headers
 
   self.format_event = {
     [categories.neb.id] = {
       [elements.host_status.id] = function () return self:format_event_host() end,
-      [elements.service_status.id] = function () return self:format_event_service() end
+      [elements.service_status.id] = function () return self:format_event_service() end,
+      [elements.acknowledgement.id] = function () return self:format_event_acknowledgement() end
     },
     [categories.bam.id] = {}
   }
@@ -143,14 +155,19 @@ function event_queue:format_event_host()
   local hname = event.cache.host.name
   local sdesc = "host"
 
-  local name = 'monitoring_status'
+  local name = self.sc_params.params.prometheus_metrics_prefix .. 'status'
+  local hostgroups_label = false
+  -- handle hostgroups
+  if self.sc_params.params.add_hostgroups == 1 then
+    hostgroups_label = self:display_hostgroups()
+  end
 
   local data = '# TYPE ' .. name .. ' counter\n'
-  data = data .. '# HELP ' .. name .. ' 0 is OK, 1 or higher is DOWN\n'
-  if not event.hostgroups_label then
-    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
+  data = data .. '# HELP ' .. name .. ' 0 is UP, 1 or higher is DOWN\n'
+  if not hostgroups_label then
+    data = data .. name .. '{label="' .. self.sc_params.params.prometheus_metrics_prefix .. '"status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
   else
-    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  event.hostgroups_label .. '} ' .. event.state .. '\n'
+    data = data .. name .. '{label="' .. self.sc_params.params.prometheus_metrics_prefix .. '"status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  hostgroups_label .. '} ' .. event.state .. '\n'
   end
 
   event.formated_event = {
@@ -166,12 +183,6 @@ function event_queue:format_event_host()
     output              = event.output,
     formatted_payload   = data
   }
-  -- handle hostgroups
-  if self.sc_params.params.add_hostgroups == 1 then
-    event.formated_event.hostgroups_label = self:display_hostgroups()
-  else
-    event.formated_event.hostgroups_label = false
-  end
 end
 
 --- Prepares the self.sc_event.event.formated_event object
@@ -183,14 +194,19 @@ function event_queue:format_event_service()
   local hname = event.cache.host.name
   local sdesc = event.cache.service.description
 
-  local name = 'monitoring_status'
+  local name = self.sc_params.params.prometheus_metrics_prefix .. 'status'
+  local hostgroups_label = false
+  -- handle hostgroups
+  if self.sc_params.params.add_hostgroups == 1 then
+    hostgroups_label = self:display_hostgroups()
+  end
 
   local data = '# TYPE ' .. name .. ' counter\n'
   data = data .. '# HELP ' .. name .. ' 0 is OK, 1 is WARNING, 2 is CRITICAL, 3 or higher is UNKNOWN\n'
-  if not event.hostgroups_label then
-    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
+  if not hostgroups_label then
+    data = data .. name .. '{label="' .. self.sc_params.params.prometheus_metrics_prefix .. '"status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. event.state .. '\n'
   else
-    data = data .. name .. '{label="monitoring_status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  event.hostgroups_label .. '} ' .. event.state .. '\n'
+    data = data .. name .. '{label="' .. self.sc_params.params.prometheus_metrics_prefix .. '"status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  hostgroups_label .. '} ' .. event.state .. '\n'
   end
 
   event.formated_event = {
@@ -206,13 +222,49 @@ function event_queue:format_event_service()
     output              = event.output,
     formatted_payload   = data
   }
+end
 
+--- Prepares the self.sc_event.event.formated_event object
+--- @return void
+function event_queue:format_event_acknowledgement()
+  self.sc_logger:debug("[event_queue:format_event_acknowledgement]: starting to format acknowledgement event.")
+
+  local event = self.sc_event.event
+  local hname = event.cache.host.name
+  local type  = "host"
+  local sdesc = "host"
+  if event.cache.service and event.cache.service.description and event.cache.service.description ~= "" then
+    type  = "service"
+    sdesc = event.cache.service.description
+  end
+  local name = self.sc_params.params.prometheus_metrics_prefix .. type .. '_ack'
+  local hostgroups_label = false
   -- handle hostgroups
   if self.sc_params.params.add_hostgroups == 1 then
-    event.formated_event.hostgroups_label = self:display_hostgroups()
-  else
-    event.formated_event.hostgroups_label = false
+    hostgroups_label = self:display_hostgroups()
   end
+
+  local data = '# TYPE ' .. name .. ' gauge\n'
+  data = data .. '# HELP ' .. name .. ' 0 is unacknowledged, 1 is acknowledged\n'
+  if not hostgroups_label then
+    data = data .. name .. '{label="' .. self.sc_params.params.prometheus_metrics_prefix .. '"status", host="' .. hname .. '", service="' .. sdesc .. '"} ' .. 1 .. '\n'
+  else
+    data = data .. name .. '{label="' .. self.sc_params.params.prometheus_metrics_prefix .. '"status", host="' .. hname .. '", service="' .. sdesc .. '", ' ..  hostgroups_label .. '} ' .. 1 .. '\n'
+  end
+
+  event.formated_event = {
+    event_type          = "service",
+    prom_hname          = event.cache.host.name,
+    prom_hname_url      = mime.b64(event.cache.host.name),
+    prom_sdesc          = sdesc,
+    prom_sdesc_url      = mime.b64(sdesc),
+    hostname            = hname,
+    service_description = sdesc,
+    timestamp = event.entry_time,
+    output = event.comment_data,
+    long_output = event.comment_data,
+    formatted_payload   = data
+  }
 end
 
 --- Replace unwanted characters in order to comply with the open metrics format
@@ -235,21 +287,21 @@ function event_queue:display_hostgroups ()
     return false
   end
 
-  local hostgroups_label = 'hostgroup="'
+  local hostgroups_names = 'hostgroup="'
   local counter = 0
 
   for i, v in pairs(self.sc_event.event.cache.hostgroups) do
     if counter == 0 then
-      hostgroups_label = hostgroups_label .. v.group_name
+      hostgroups_names = hostgroups_names .. v.group_name
       counter = 1
     else
-      hostgroups_label = hostgroups_label .. ',' .. v.group_name
+      hostgroups_names = hostgroups_names .. ',' .. v.group_name
     end
   end
-  hostgroups_label = hostgroups_label .. '"'
+  hostgroups_names = hostgroups_names .. '"'
 
-  self.sc_logger:debug("[display_hostgroups]: hostgroup string composed: '" .. hostgroups_label .. "'")
-  return hostgroups_label
+  self.sc_logger:debug("[display_hostgroups]: hostgroup string composed: '" .. hostgroups_names .. "'")
+  return hostgroups_names
 end
 
 
@@ -296,7 +348,6 @@ function event_queue:send_data(payload, queue_metadata)
   local label = "status"
   local url = self.sc_params.params.prometheus_gateway_url .. '/metrics/job/' .. self.sc_params.params.prometheus_gateway_job .. '/instance@base64/' .. payload.prom_hname_url .. '/service@base64/' .. payload.prom_sdesc_url
 
-  queue_metadata.headers = { "content-type: application/openmetrics-text" }
 
   local http_request = curl.easy()
   :setopt_url(url)
