@@ -40,23 +40,23 @@ function sc_event.new(broker_event, params, common, logger, broker)
   return self
 end
 
---- is_valid_category: check if the event is in an accepted category
--- @retun true|false (boolean)
+--- Check if the event is in an accepted category
+--- @return (boolean) true if the event's category makes it eligible for being handled, false if not
 function ScEvent:is_valid_category()
   return self:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
 end
 
---- is_valid_element: check if the event is an accepted element
--- @return true|false (boolean)
+--- Check if the event is an accepted element
+--- @return (boolean) true if the event's element makes it eligible for being handled, false if not
 function ScEvent:is_valid_element()
   return self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
 end
 
---- find_in_mapping: check if item type is in the mapping and is accepted
--- @param mapping (table) the mapping table
--- @param reference (string)  the accepted values for the item
--- @param item (string) the item we want to find in the mapping table and in the reference
--- @return (boolean)
+--- Check if item type is in the mapping and is accepted
+--- @param mapping (table) the mapping table
+--- @param reference (string)  the accepted values for the item
+--- @param item (string) the item we want to find in the mapping table and in the reference
+--- @return (boolean)
 function ScEvent:find_in_mapping(mapping, reference, item)
   for mapping_index, mapping_value in pairs(mapping) do
     for reference_index, reference_value in pairs(self.sc_common:split(reference, ",")) do
@@ -69,8 +69,8 @@ function ScEvent:find_in_mapping(mapping, reference, item)
   return false
 end
 
---- is_valid_event: check if the event is accepted depending on configured conditions
--- @return true|false (boolean) 
+--- Check if the event is accepted depending on configured conditions
+--- @return (boolean) true if the event has to be handled, false if not
 function ScEvent:is_valid_event()
   local is_valid_event = false
   
@@ -96,8 +96,8 @@ function ScEvent:is_valid_event()
   return is_valid_event
 end
 
---- is_valid_neb_event: check if the event is an accepted neb type event
--- @return true|false (boolean)
+--- Check if the event is an accepted neb type event
+--- @return (boolean) true if the event's category makes it eligible for being handled, false if not
 function ScEvent:is_valid_neb_event()
   local is_valid_event = false
   
@@ -115,8 +115,8 @@ function ScEvent:is_valid_neb_event()
   return is_valid_event
 end
 
---- is_valid_host_status_event: check if the host status event is an accepted one
--- @return true|false (boolean)
+--- Check if the host status event is an accepted one
+--- @return (boolean)
 function ScEvent:is_valid_host_status_event()
   -- return false if we can't get hostname or host id is nil
   if not self:is_valid_host() then
@@ -175,8 +175,8 @@ function ScEvent:is_valid_host_status_event()
   return true
 end
 
---- is_valid_service_status_event: check if the service status event is an accepted one
--- @return true|false (boolean)
+--- Check if the service status event is an accepted one
+--- @return (boolean)
 function ScEvent:is_valid_service_status_event()
   -- return false if we can't get hostname or host id is nil
   if not self:is_valid_host() then
@@ -258,8 +258,8 @@ function ScEvent:is_valid_service_status_event()
   return true
 end
 
---- is_valid_host: check if host name and/or id are valid
--- @return true|false (boolean)
+--- Check if host name and/or id are valid
+--- @return (boolean)
 function ScEvent:is_valid_host()
 
   -- return false if host id is nil
@@ -317,8 +317,8 @@ function ScEvent:is_valid_host()
   return true
 end
 
---- is_valid_service: check if service description and/or id are valid
--- @return true|false (boolean)
+--- Check if service description and/or id are valid
+--- @return (boolean)
 function ScEvent:is_valid_service()
 
   -- return false if service id is nil
@@ -382,8 +382,8 @@ function ScEvent:is_valid_service()
   return true
 end
 
---- is_valid_event_states: wrapper method that checks common aspect of an event such as ack and state_type
--- @return true|false (boolean)
+--- Wrapper method that checks common aspect of an event such as ack and state_type
+--- @return (boolean)
 function ScEvent:is_valid_event_states()
   -- return false if state_type (HARD/SOFT) is not valid
   if not self:is_valid_event_state_type() then
@@ -408,9 +408,9 @@ function ScEvent:is_valid_event_states()
   return true
 end
 
---- is_valid_event_status: check if the event has an accepted status
--- @param accepted_status_list (string) a coma separated list of accepted status ("ok,warning,critical")
--- @return true|false (boolean)
+--- Check if the event has an accepted status
+--- @param accepted_status_list (string) a coma separated list of accepted status ("ok,warning,critical")
+--- @return (boolean)
 function ScEvent:is_valid_event_status(accepted_status_list)
   local status_list = self.sc_common:split(accepted_status_list, ",")
   
@@ -448,8 +448,8 @@ function ScEvent:is_valid_event_status(accepted_status_list)
   return false
 end
 
---- is_valid_event_state_type: check if the state type (HARD/SOFT) is accepted
--- @return true|false (boolean)
+--- Check if the state type (HARD/SOFT) is accepted
+--- @return (boolean)
 function ScEvent:is_valid_event_state_type()
   if not self.sc_common:compare_numbers(self.event.state_type, self.params.hard_only, ">=") then
     self.sc_logger:warning("[sc_event:is_valid_event_state_type]: event is not in an valid state type. Event state type must be above or equal to " .. tostring(self.params.hard_only) 
@@ -460,8 +460,8 @@ function ScEvent:is_valid_event_state_type()
   return true
 end
 
---- is_valid_event_acknowledge_state: check if the acknowledge state of the event is valid
--- @return true|false (boolean)
+--- Check if the acknowledge state of the event is valid
+--- @return (boolean)
 function ScEvent:is_valid_event_acknowledge_state()
   -- compat patch bbdo 3 => bbdo 2
   if (not self.event.acknowledged and self.event.acknowledgement_type) then
@@ -481,8 +481,8 @@ function ScEvent:is_valid_event_acknowledge_state()
   return true
 end
 
---- is_valid_event_downtime_state: check if the event is in an accepted downtime state
--- @return true|false (boolean)
+--- Check if the event is in an accepted downtime state
+--- @return (boolean)
 function ScEvent:is_valid_event_downtime_state()
   -- patch compat bbdo 3 => bbdo 2 
   if (not self.event.scheduled_downtime_depth and self.event.downtime_depth) then 
@@ -498,8 +498,8 @@ function ScEvent:is_valid_event_downtime_state()
   return true
 end
 
---- is_valid_event_flapping_state: check if the event is in an accepted flapping state
--- @return true|false (boolean)
+--- Check if the event is in an accepted flapping state
+--- @return (boolean)
 function ScEvent:is_valid_event_flapping_state()
   if not self.sc_common:compare_numbers(self.params.flapping, self.sc_common:boolean_to_number(self.event.flapping), ">=") then
     self.sc_logger:warning("[sc_event:is_valid_event_flapping_state]: event is not in an valid flapping state. Event flapping state must be below or equal to " .. tostring(self.params.flapping) 
@@ -510,8 +510,8 @@ function ScEvent:is_valid_event_flapping_state()
   return true
 end
 
---- is_valid_hostgroup: check if the event is in an accepted hostgroup
--- @return true|false (boolean)
+--- Check if the event is in an accepted hostgroup
+--- @return (boolean)
 function ScEvent:is_valid_hostgroup()
   self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
 
@@ -560,10 +560,9 @@ function ScEvent:is_valid_hostgroup()
   return true
 end
 
---- find_hostgroup_in_list: compare accepted hostgroups from parameters with the event hostgroups
--- @param hostgroups_list (string) a coma separated list of hostgroup name
--- @return hostgroup_name (string) the name of the first matching hostgroup
--- @return false (boolean) if no matching hostgroup has been found
+--- Compare accepted hostgroups from parameters with the event hostgroups
+--- @param hostgroups_list (string) a coma separated list of hostgroup name
+--- @return (string|boolean) Name of the first matching hostgroup or false if no matching hostgroup has been found
 function ScEvent:find_hostgroup_in_list(hostgroups_list)
   if hostgroups_list == nil or hostgroups_list == "" then
     return false
@@ -579,8 +578,8 @@ function ScEvent:find_hostgroup_in_list(hostgroups_list)
   return false
 end
 
---- is_valid_servicegroup: check if the event is in an accepted servicegroup
--- @return true|false (boolean)
+--- Check if the event is in an accepted servicegroup
+--- @return (boolean)
 function ScEvent:is_valid_servicegroup()
   self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
 
@@ -629,9 +628,9 @@ function ScEvent:is_valid_servicegroup()
   return true
 end
 
---- find_servicegroup_in_list: compare accepted servicegroups from parameters with the event servicegroups
--- @param servicegroups_list (string) a coma separated list of servicegroup name
--- @return servicegroup_name or false (string|boolean) the name of the first matching servicegroup if found or false if not found
+--- Compare accepted servicegroups from parameters with the event servicegroups
+--- @param servicegroups_list (string) a coma separated list of servicegroup name
+--- @return (string|boolean) Name of the first matching servicegroup if found or false if not found
 function ScEvent:find_servicegroup_in_list(servicegroups_list)
   if servicegroups_list == nil or servicegroups_list == "" then
     return false
@@ -647,8 +646,8 @@ function ScEvent:find_servicegroup_in_list(servicegroups_list)
   return false
 end
 
---- is_valid_bam_event: check if the event is an accepted bam type event
--- @return true|false (boolean)
+--- Check if the event is an accepted bam type event
+--- @return (boolean)
 function ScEvent:is_valid_bam_event()
   -- return false if ba name is invalid or ba_id is nil 
   if not self:is_valid_ba() then
@@ -683,8 +682,8 @@ function ScEvent:is_valid_bam_event()
   return true
 end
 
---- is_valid_ba: check if ba name and/or id are valid
--- @return true|false (boolean)
+--- Check if ba name and/or id are valid
+--- @return (boolean)
 function ScEvent:is_valid_ba()
 
   -- return false if ba_id is nil
@@ -709,8 +708,8 @@ function ScEvent:is_valid_ba()
   return true
 end
 
---- is_valid_ba_status_event: check if the ba status event is an accepted one
--- @return true|false (boolean)
+--- Check if the ba status event is an accepted one
+--- @return (boolean)
 function ScEvent:is_valid_ba_status_event()
   if not self:is_valid_event_status(self.params.ba_status) then
     self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA status for BA id: " .. tostring(self.event.ba_id) .. ". State is: " 
@@ -721,8 +720,8 @@ function ScEvent:is_valid_ba_status_event()
   return true
 end
 
---- is_valid_ba_downtime_state: check if the ba downtime state is an accepted one
--- @return true|false (boolean)
+--- Check if the ba downtime state is an accepted one
+--- @return (boolean)
 function ScEvent:is_valid_ba_downtime_state()
   if not self.sc_common:compare_numbers(self.params.in_downtime, self.sc_common:boolean_to_number(self.event.in_downtime), ">=") then
     self.sc_logger:warning("[sc_event:is_valid_ba]: Invalid BA downtime state for BA id: " .. tostring(self.event.ba_id) .. " downtime state is : " .. tostring(self.event.in_downtime) 
@@ -733,8 +732,8 @@ function ScEvent:is_valid_ba_downtime_state()
   return true
 end
 
---- is_valid_ba_acknowledge_state: check if the ba acknowledge state is an accepted one
--- @return true|false (boolean)
+--- Check if the ba acknowledge state is an accepted one
+--- @return (boolean)
 function ScEvent:is_valid_ba_acknowledge_state()
   -- if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.in_downtime, '>=') then
   --   return false
@@ -743,8 +742,8 @@ function ScEvent:is_valid_ba_acknowledge_state()
   return true
 end
 
---- is_valid_bv: check if the event is in an accepted BV
--- @return true|false (boolean)
+--- Check if the event is in an accepted BV
+--- @return (boolean)
 function ScEvent:is_valid_bv()
   self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
 
@@ -788,10 +787,10 @@ function ScEvent:is_valid_bv()
   return true
 end
 
---- find_bv_in_list: compare accepted BVs from parameters with the event BVs
--- @param bvs_list (string) a coma separated list of BV name
--- @return bv_name (string) the name of the first matching BV
--- @return false (boolean) if no matching BV has been found
+--- Compare accepted BVs from parameters with the event BVs
+--- @param bvs_list (string) a coma separated list of BV name
+--- @return (string) Name of the first matching BV
+--- @return (boolean) false if no matching BV has been found
 function ScEvent:find_bv_in_list(bvs_list)
   if bvs_list == nil or bvs_list == "" then
     return false
@@ -807,8 +806,8 @@ function ScEvent:find_bv_in_list(bvs_list)
   return false
 end
 
---- is_valid_poller: check if the event is monitored from an accepted poller
--- @return true|false (boolean)
+--- Check if the event is monitored from an accepted poller
+--- @return (boolean)
 function ScEvent:is_valid_poller()
   -- return false if instance id is not found in cache
   if not self.event.cache.host.instance_id then
@@ -864,9 +863,9 @@ function ScEvent:is_valid_poller()
   return true
 end
 
---- find_poller_in_list: compare accepted pollers from parameters with the event poller
--- @param pollers_list (string) a coma separated list of poller name
--- @return poller_name or false (string|boolean) the name of the first matching poller if found or false if not found
+--- Compare accepted pollers from parameters with the event poller
+--- @param pollers_list (string) a coma separated list of poller name
+--- @return (string|boolean) Name of the first matching poller if found or false if not found
 function ScEvent:find_poller_in_list(pollers_list)
   if pollers_list == nil or pollers_list == "" then
     return false
@@ -880,8 +879,8 @@ function ScEvent:find_poller_in_list(pollers_list)
   return false
 end
 
---- is_valid_host_severity: checks if the host severity is accepted
--- @return true|false (boolean)
+--- Checks if the host severity is accepted
+--- @return (boolean)
 function ScEvent:is_valid_host_severity()
   -- initiate the severity table in the cache if it doesn't exist
   if not self.event.cache.severity then
@@ -908,8 +907,8 @@ function ScEvent:is_valid_host_severity()
   return true
 end
 
---- is_valid_service_severity: checks if the service severity is accepted
--- @return true|false (boolean)
+--- Checks if the service severity is accepted
+--- @return (boolean)
 function ScEvent:is_valid_service_severity()
   -- initiate the severity table in the cache if it doesn't exist
   if not self.event.cache.severity then
@@ -937,8 +936,8 @@ function ScEvent:is_valid_service_severity()
   return true
 end
 
----is_valid_acknowledgement_event: checks if the event is a valid acknowledge event 
--- @return true|false (boolean)
+--- Checks if the event is a valid acknowledge event
+--- @return (boolean)
 function ScEvent:is_valid_acknowledgement_event()
   -- return false if we can't get hostname or host id is nil
   if not self:is_valid_host() then
@@ -987,7 +986,7 @@ function ScEvent:is_valid_acknowledgement_event()
       return false
     end
 
-    -- use dedicated ack host status configuration or host_status configuration 
+    -- use dedicated ack service status configuration or service_status configuration
     event_status = self.sc_common:ifnil_or_empty(self.params.ack_service_status, self.params.service_status)
 
     -- return false if event status is not accepted
@@ -1021,8 +1020,8 @@ function ScEvent:is_valid_acknowledgement_event()
   return true
 end
 
---- is_vaid_downtime_event: check if the event is a valid downtime event
--- return true|false (boolean)
+--- Check if the event is a valid downtime event
+--- @return (boolean)
 function ScEvent:is_valid_downtime_event()
   -- return false if the event is one of all the "fake" start or end downtime event received from broker
   if not self:is_downtime_event_useless() then
@@ -1054,7 +1053,7 @@ function ScEvent:is_valid_downtime_event()
     -- store the result in the self.event.state because doing that allow us to use the is_valid_event_status method
     self.event.state = self:get_downtime_host_status()
     
-    -- checks if the current host downtime state is an accpeted status
+    -- checks if the current host downtime state is an accepted status
     if not self:is_valid_event_status(self.params.dt_host_status) then
       self.sc_logger:warning("[sc_event:is_valid_downtime_event]: host_id: " .. tostring(self.event.host_id) 
         .. " do not have a validated status. Status: " .. tostring(self.params.status_mapping[self.event.category][self.event.element][self.event.type][self.event.state])
@@ -1103,8 +1102,8 @@ function ScEvent:is_valid_downtime_event()
   return true
 end
 
---- is_valid_author: check if the author of a comment is valid based on contact alias in Centreon
--- return true|false (boolean)
+--- Check if the author of a comment is valid based on contact alias in Centreon
+--- @return (boolean)
 function ScEvent:is_valid_author()
     -- return true if options are not set or if both options are set
   local accepted_authors_isnotempty = self.params.accepted_authors ~= ""
@@ -1130,8 +1129,8 @@ function ScEvent:is_valid_author()
 end
 
 --- find_author_in_list: compare accepted authors from parameters with the event author
--- @param authors_list (string) a coma separeted list of author name
--- @return accepted_alias or false (string|boolean) the alias of the first matching author if found or false if not found
+--- @param authors_list (string) a coma separated list of author name
+--- @return (string|boolean) accepted_alias or false - the alias of the first matching author if found or false if not found
 function ScEvent:find_author_in_list(authors_list)
   if authors_list == nil or authors_list == "" then
     return false
@@ -1145,8 +1144,8 @@ function ScEvent:find_author_in_list(authors_list)
   return false
 end
 
---- get_downtime_host_status: retrieve the status of a host based on last_time_up/down dates found in cache (self.event.cache.host must be set)
--- return status (number) the status code of the host
+--- Retrieve the status of a host based on last_time_up/down dates found in cache (self.event.cache.host must be set)
+--- @return (number) the status code of the host
 function ScEvent:get_downtime_host_status()
   -- if cache is not filled we can't get the state of the host
   if not self.event.cache.host.last_time_up or not self.event.cache.host.last_time_down then
@@ -1162,8 +1161,8 @@ function ScEvent:get_downtime_host_status()
   return self:get_most_recent_status_code(timestamp)
 end
 
---- get_downtime_service_status: retrieve the status of a service based on last_time_ok/warning/critical/unknown dates found in cache (self.event.cache.host must be set)
--- return status (number) the status code of the service
+--- Retrieve the status of a service based on last_time_ok/warning/critical/unknown dates found in cache (self.event.cache.host must be set)
+--- @return (number) the status code of the service
 function ScEvent:get_downtime_service_status()
   -- if cache is not filled we can't get the state of the service
   if 
@@ -1186,9 +1185,9 @@ function ScEvent:get_downtime_service_status()
   return self:get_most_recent_status_code(timestamp)
 end
 
---- get_most_recent_status_code: retrieve the last status code from a list of status and timestamp 
--- @param timestamp (table) a table with the association of the last known timestamp of a status and its corresponding status code
--- @return status (number) the most recent status code of the object
+--- Retrieve the last status code from a list of status and timestamp
+--- @param timestamp (table) a table with the association of the last known timestamp of a status and its corresponding status code
+--- @return (number) the most recent status code of the object
 function ScEvent:get_most_recent_status_code(timestamp)
 
   -- prepare the table in wich the latest known status timestamp and status code will be stored
@@ -1209,7 +1208,7 @@ function ScEvent:get_most_recent_status_code(timestamp)
 end
 
 --- is_service_status_event_duplicated: check if the service event is the same than the last one (will not work for OK(H) -> CRITICAL(S) -> OK(H))
--- @return true|false (boolean)
+--- @return (boolean)
 function ScEvent:is_service_status_event_duplicated()
   -- return false if option is not activated
   if self.params.enable_service_status_dedup ~= 1 then
@@ -1248,7 +1247,7 @@ function ScEvent:is_service_status_event_duplicated()
 end
 
 --- is_host_status_event_duplicated: check if the host event is the same than the last one (will not work for UP(H) -> DOWN(S) -> UP(H))
--- @return true|false (boolean)
+--- @return (boolean)
 function ScEvent:is_host_status_event_duplicated()
   -- return false if option is not activated
   if self.params.enable_host_status_dedup ~= 1 then
@@ -1257,7 +1256,8 @@ function ScEvent:is_host_status_event_duplicated()
   end
 
   -- if last check is the same than last_hard_state_change (allowing a delta timestamp), it means the event just change its status so it cannot be a duplicated event
-  if math.abs(self.event.last_hard_state_change - self.event.last_check) <= self.params.delta_host_status_change_allow or (self.event.last_update ~= nil and math.abs(self.event.last_hard_state_change - self.event.last_update) <= self.params.delta_host_status_change_allow) then
+  if math.abs(self.event.last_hard_state_change - self.event.last_check) <= self.params.delta_host_status_change_allow
+      or (self.event.last_update ~= nil and math.abs(self.event.last_hard_state_change - self.event.last_update) <= self.params.delta_host_status_change_allow) then
     return false
   end
 
@@ -1285,9 +1285,9 @@ function ScEvent:is_host_status_event_duplicated()
 end
 
 
---- is_downtime_event_useless: the purpose of this method is to filter out unnecessary downtime event. It appears that broker
--- is sending many downtime events before sending the one we want
--- @return true|false (boolean)
+--- The purpose of this method is to filter out unnecessary downtime event. It appears that broker
+--- is sending many downtime events before sending the one we want
+--- @return (boolean)
 function ScEvent:is_downtime_event_useless()
   -- return false if downtime event is not a valid start of downtime event
   if self:is_valid_downtime_event_start() then
@@ -1302,8 +1302,8 @@ function ScEvent:is_downtime_event_useless()
   return false
 end
 
---- is_valid_downtime_event_start: make sure that the event is the one notifying us that a downtime has just started
--- @return true|false (boolean)
+--- Make sure that the event is the one notifying us that a downtime has just started
+--- @return (boolean)
 function ScEvent:is_valid_downtime_event_start()
   -- event is about the end of the downtime (actual_end_time key is not present in a start downtime bbdo2 event)
   -- with bbdo3 value is set to -1
@@ -1332,8 +1332,8 @@ function ScEvent:is_valid_downtime_event_start()
   return true
 end
 
---- is_valid_downtime_event_end: make sure that the event is the one notifying us that a downtime has just ended
--- @return true|false (boolean)
+--- Make sure that the event is the one notifying us that a downtime has just ended
+--- @return (boolean)
 function ScEvent:is_valid_downtime_event_end()
   -- event is about the end of the downtime (deletion_time key is only present in a end downtime event)
   if (self.bbdo_version == 2 and self.event.deletion_time) or (self.bbdo_version > 2 and self.event.deletion_time ~= -1) then
@@ -1355,7 +1355,8 @@ function ScEvent:is_valid_downtime_event_end()
   return false
 end
 
---- build_outputs: adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the use_longoutput param
+--- Adds short_output and long_output entries in the event table. output entry will be equal to one or another depending on the use_longoutput param
+--- @return void
 function ScEvent:build_outputs()
   -- build long output
   if self.event.long_output and self.event.long_output ~= "" then
@@ -1388,8 +1389,8 @@ function ScEvent:build_outputs()
 
 end
 
---- is_valid_storage: DEPRECATED method, use NEB category to get metric data instead
--- @return true (boolean)
+--- **DEPRECATED METHOD** use NEB category to get metric data instead
+--- @return (boolean) Returns always true
 function ScEvent:is_valid_storage_event()
   return true
 end
