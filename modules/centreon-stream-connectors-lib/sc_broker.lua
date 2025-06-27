@@ -1,9 +1,7 @@
 #!/usr/bin/lua
 
---- 
--- Module with Centreon broker related methods for easier usage
--- @module sc_broker
--- @alias sc_broker
+--- Module with Centreon broker related methods for easier usage
+--- @module sc_broker
 
 local sc_broker = {}
 
@@ -25,10 +23,10 @@ function sc_broker.new(logger)
 end
 
 
---- get_host_all_infos: retrieve all informations from a host 
--- @param host_id (number)
--- @return false (boolean) if host_id isn't valid or no information were found in broker cache
--- @return host_info (table) all the informations from the host
+--- Retrieve all information from a host
+--- @param host_id number ID of the host
+--- @return boolean false if host_id is not valid or no information was found in the broker cache
+--- @return table all information from the host
 function ScBroker:get_host_all_infos(host_id)
   -- return because host_id isn't valid
   if host_id == nil or host_id == "" then
@@ -48,11 +46,10 @@ function ScBroker:get_host_all_infos(host_id)
   return host_info
 end
 
---- get_service_all_infos: retrieve informations from a service
--- @param host_id (number)
--- @params service_id (number)
--- @return false (boolean) if host id or service id aren't valid
--- @return service (table) all the informations from the service
+--- Retrieve information from a service
+--- @param host_id (number) ID of the host
+--- @param service_id (number)
+--- @return (boolean|table) Table of all the information from the service. Returns false if host id or service id aren't valid.
 function ScBroker:get_service_all_infos(host_id, service_id)
   -- return because host_id or service_id isn't valid
   if host_id == nil or host_id == "" or service_id == nil or service_id == "" then
@@ -73,11 +70,10 @@ function ScBroker:get_service_all_infos(host_id, service_id)
   return service_info
 end
 
---- get_host_infos: retrieve the the desired host informations
--- @param host_id (number)
--- @params info (string|table) the name of the wanted host parameter or a table of all wanted host parameters
--- @return false (boolean) if host_id is nil or empty 
--- @return host (any) a table of all wanted host params if input param is a table. The single parameter if input param is a string 
+--- Retrieve the the desired host informations
+--- @param host_id (number) ID of the host
+--- @param info (string|table) Name of the wanted host parameter or a table of all wanted host parameters
+--- @return (boolean|table) Table of all wanted host params if input param is a table. The single parameter if input param is a string. Returns false if host_id is nil or empty.
 function ScBroker:get_host_infos(host_id, info)
   -- return because host_id isn't valid
   if host_id == nil or host_id == "" then
@@ -123,12 +119,11 @@ function ScBroker:get_host_infos(host_id, info)
   end
 end
 
---- get_service_infos: retrieve the the desired service informations
--- @param host_id (number)
--- @param service_id (number)
--- @params info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
--- @return false (boolean) if host_id and/or service_id are nil or empty 
--- @return service (any) a table of all wanted service params if input param is a table. A single parameter if input param is a string 
+--- Retrieve the the desired service informations
+--- @param host_id (number) ID of the host
+--- @param service_id (number) ID of the service
+--- @param info (string|table) the name of the wanted host parameter or a table of all wanted service parameters
+--- @return (boolean|table) Table of all wanted service params if input param is a table. A single parameter if input param is a string. Returns false if host_id and/or service_id are nil or empty
 function ScBroker:get_service_infos(host_id, service_id, info)
   -- return because host_id or service_id isn't valid
   if host_id == nil or host_id == "" or service_id == nil or service_id == "" then
@@ -176,10 +171,9 @@ function ScBroker:get_service_infos(host_id, service_id, info)
   end
 end
 
---- get_hostgroups: retrieve hostgroups from host_id
--- @param host_id (number)
--- @return false (boolean) if host id is invalid or no hostgroup found
--- @return hostgroups (table) a table of all hostgroups for the host 
+--- Retrieve hostgroups from host_id
+--- @param host_id (number) ID of the host
+--- @return (boolean|table) Table of all hostgroups of the host or false if host id is invalid or no hostgroup found
 function ScBroker:get_hostgroups(host_id)
   -- return false if host id is invalid
   if host_id == nil or host_id == "" then 
@@ -198,11 +192,31 @@ function ScBroker:get_hostgroups(host_id)
   return hostgroups
 end
 
---- get_servicegroups: retrieve servicegroups from service_id
--- @param host_id (number)
--- @param service_id (number)
--- @return false (boolean) if host_id or service_id are invalid or no service group found
--- @return servicegroups (table) a table of all servicegroups for the service
+--- Retrieve hostgroup alias from hostgroup_id
+--- @param hostgroup_id number ID of the host group
+--- @return (boolean|string)  Hostgroup alias or false if hostgroup ID is invalid
+function ScBroker:get_hostgroup_alias(hostgroup_id)
+  -- return false if host id is invalid
+  if hostgroup_id == nil or hostgroup_id == "" then
+    self.logger:warning("[sc_broker:get_hostgroup_alias]: hostgroup_id is nil or empty")
+    return false
+  end
+
+  -- get hostgroup alias
+  local alias = broker_cache:get_hostgroup_alias(hostgroup_id)
+
+  -- return false if no hostgroups were found
+  if not alias then
+    return false
+  end
+
+  return alias
+end
+
+--- Retrieve servicegroups from service_id
+--- @param host_id (number) ID of the host
+--- @param service_id (number) ID of the service
+--- @return (boolean|table) Table of all servicegroups of the service or false if host_id or service_id is invalid or no information are found in the broker_cache
 function ScBroker:get_servicegroups(host_id, service_id)
   -- return false if service id is invalid
   if host_id == nil or host_id == "" or service_id == nil or service_id == "" then 
@@ -221,11 +235,10 @@ function ScBroker:get_servicegroups(host_id, service_id)
   return servicegroups
 end
 
---- get_severity: retrieve severity from host or service
--- @param host_id (number)
--- @param [opt] service_id (number)
--- @return false (boolean) if host id is invalid or no severity were found
--- @return severity (table) all the severity from the host or the service 
+--- Retrieve severity from host or service
+--- @param host_id (number) ID of the host
+--- @param service_id (number) OPTIONAL: ID of the service (do not use for a host)
+--- @return (boolean|table) Severity of a host/service or false if host_id is invalid or no information are found in the broker_cache
 function ScBroker:get_severity(host_id, service_id)
   -- return false if host id is invalid
   if host_id == nil or host_id == "" then 
@@ -261,10 +274,9 @@ function ScBroker:get_severity(host_id, service_id)
   return severity
 end
 
---- get_instance: retrieve poller from instance_id
--- @param host_id (number)
--- @return false (boolean) if host_id is invalid or no instance found in cache
--- @return name (string) the name of the instance
+--- Retrieve poller from instance_id
+--- @param host_id (number) ID of the host
+--- @return (boolean|table) Name of the poller/instance or false if host_id is invalid or no information are found in the broker_cache
 function ScBroker:get_instance(instance_id)
   -- return false if instance_id is invalid
   if instance_id == nil or instance_id == "" then
@@ -284,10 +296,9 @@ function ScBroker:get_instance(instance_id)
   return name
 end
 
---- get_ba_info: retrieve ba name and description from ba id
--- @param ba_id (number)
--- @return false (boolean) if the ba_id is invalid or no information were found in the broker cache
--- @return ba_info (table) a table with the name and description of the ba
+--- Retrieve BA name and description from ba id
+--- @param ba_id (number) ID of the BA
+--- @return (boolean|table) Name and description of all the BA or false if ba_id is invalid or no information are found in the broker_cache
 function ScBroker:get_ba_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == "" then 
@@ -307,10 +318,9 @@ function ScBroker:get_ba_infos(ba_id)
   return ba_info
 end
 
---- get_bvs_infos: retrieve bv name and description from ba_id
--- @param ba_id (number) 
--- @param false (boolean) if ba_id is invalid or no information are found in the broker_cache
--- @return bvs (table) name and description of all the bvs 
+--- Retrieve bv name and description from ba_id
+--- @param ba_id (number)
+--- @return (boolean|table) Name and description of all the bvs or false if ba_id is invalid or no information are found in the broker_cache
 function ScBroker:get_bvs_infos(ba_id)
   -- return false if ba_id is invalid
   if ba_id == nil or ba_id == "" then 
