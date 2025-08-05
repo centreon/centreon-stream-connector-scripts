@@ -1150,7 +1150,7 @@ function ScParams:load_custom_code_file(custom_code_file)
   end
 
   -- can't properly check if syntax is done like it should with some kind of Lua pattern so we just log a reminder
-  self.sc_logger:notice("[sc_params:load_custom_code_file]: you are loading the " .. tostring(custom_code_file)
+  self.logger:notice("[sc_params:load_custom_code_file]: you are loading the " .. tostring(custom_code_file)
     .. " custom code file. Keep in mind that it must end with 'return self, true or return self, false")
   
   -- check if it is valid lua code
