@@ -103,11 +103,11 @@ function ScEvent:is_valid_event()
     self, is_validated_by_custom_code = self.params.custom_code(self)
   end
 
-  -- this value is only set to true by custom code or never set (nil).
-  -- its purpose is to allow some specific events that have been discarded because they were deemed invalid by standard filters.
   local steps = self.validation_steps[self.event.category][self.event.element].steps
   local step_order = self.validation_steps[self.event.category][self.event.element].step_order
-
+  
+  -- the value of self.is_event_validated_by_force is only set to true by custom code or never set (nil).
+  -- its purpose is to allow some specific events that have been discarded because they were deemed invalid by standard filters.
   if self.is_event_validated_by_force then
     for step_id, step_info in pairs(steps) do
       -- a filter has already been applied and refused the event. The custom code didn't change this outcome so we trash it
