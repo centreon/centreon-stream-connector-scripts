@@ -201,7 +201,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_generic_tags(metric)
   local event = self.sc_event.event
-  local tags = 'host.name=' .. event.cache.host.name .. ',poller=' .. self:escape_special_characters(event.cache.poller)
+  local tags = 'host.name=' .. self:escape_special_characters(event.cache.host.name) .. ',poller=' .. self:escape_special_characters(event.cache.poller)
 
   if self.sc_params.params.use_deprecated_metric_system == 1 then
     tags = tags .. ',metric.id=' .. event.metric_id
