@@ -81,7 +81,9 @@ function sc_params.new(common, logger)
 
     -- enable or disable dedup
     enable_host_status_dedup = 1,
+    force_send_host_status_list = "",
     enable_service_status_dedup = 1,
+    force_send_service_status_list = "",
     
     -- communication parameters
     max_buffer_size = 1,
@@ -1039,6 +1041,9 @@ function ScParams:check_params()
 
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
   self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
+
+  -- create a table of hosts and services status that will ignore the dedup option
+  self:build_ignore_event_dedup_table()
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -1240,6 +1245,71 @@ function ScParams:build_and_validate_filters_pattern(param_list)
       table.insert(self.params[param_name .. "_pattern_list"], self.params[param_name])
     end
   end
+end
+
+function ScParams:build_ignore_event_dedup_table()
+  self.params.dedup_ignore_list = {
+    [self.params.bbdo.categories.neb.id] = {
+      [self.params.bbdo.elements.host_status.id] = {},
+      [self.params.bbdo.elements.service_status.id] = {}
+    }
+  }
+
+  local force_host_status, force_service_status
+
+  if self.params.force_send_host_status_list ~= "" then
+    force_host_status = self.common:split(self.params.force_send_host_status_list)
+  end
+
+  if self.params.force_send_service_status_list ~= "" then
+    force_service_status = self.common:split(self.params.force_send_service_status_list)
+  end
+
+
+  -- we create the following structure if we have the below configuration
+  -- force_send_host_status_list = "1"
+  -- force_send_service_status_list = "1,2"
+  --[[
+    dedup_ignore_list = {
+      [1] = {
+        [32] = {
+          [1] = "DOWN"
+        },
+        [29] = {
+          [1] = "WARNING",
+          [2] = "CRITICAL"
+        } 
+      }
+    }
+  ]]
+  -- this is a bit overkill since we don't need status naming, but it facilitates the event validation to have the status as a key of a table + it allows us to validate that the status is a valid one during SC init
+  if type(force_host_status) == "table" then
+    for i, status in ipairs(force_host_status) do
+      status = tonumber(status)
+
+      if  self.params.status_mapping[self.params.bbdo.categories.neb.id][self.params.bbdo.elements.host_status.id][status] then
+        self.params.dedup_ignore_list[self.params.bbdo.categories.neb.id][self.params.bbdo.elements.host_status.id][status] = self.params.status_mapping[self.params.bbdo.categories.neb.id][self.params.bbdo.elements.host_status.id][status]
+      else
+        self.logger:error("[sc_params:build_ignore_event_dedup_table]: invalid host status value: " 
+          .. tostring(status) .. " found when parsing parameter 'force_send_host_status_list' with value: " 
+          .. tostring(self.params.force_send_host_status_list))
+      end
+    end
+  end
+
+  if type(force_service_status) == "table" then
+    for i, status in ipairs(force_service_status) do
+      status = tonumber(status)
+
+      if  self.params.status_mapping[self.params.bbdo.categories.neb.id][self.params.bbdo.elements.service_status.id][status] then
+        self.params.dedup_ignore_list[self.params.bbdo.categories.neb.id][self.params.bbdo.elements.service_status.id][status] = self.params.status_mapping[self.params.bbdo.categories.neb.id][self.params.bbdo.elements.service_status.id][status]
+      else
+        self.logger:error("[sc_params:build_ignore_event_dedup_table]: invalid service status value: " 
+          .. tostring(status) .. " found when parsing parameter 'force_send_service_status_list' with value: " 
+          .. tostring(self.params.force_send_service_status_list))
+      end
+    end
+  end 
 end
 
 return sc_params

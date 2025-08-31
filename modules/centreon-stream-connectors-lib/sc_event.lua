@@ -131,8 +131,10 @@ function ScEvent:is_valid_host_status_event()
     return false
   end
 
-  -- return false if event status is a duplicate and dedup is enabled 
-  if self:is_host_status_event_duplicated() then
+  -- return false if event status is a duplicate and dedup is enabled and status is not in the dedup ignore list
+  if self:is_host_status_event_duplicated() 
+    and not self.params.dedup_ignore_list[self.event.category][self.event.element][self.event.state] 
+  then
     self.sc_logger:warning("[sc_event:is_host_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
       .. " is sending a duplicated event. Dedup option (enable_host_status_dedup) is set to: " .. tostring(self.params.enable_host_status_dedup))
     return false
@@ -198,8 +200,10 @@ function ScEvent:is_valid_service_status_event()
     return false
   end
 
-  -- return false if event status is a duplicate and dedup is enabled 
-  if self:is_service_status_event_duplicated() then
+  -- return false if event status is a duplicate and dedup is enabled and status is not in the dedup ignore list
+  if self:is_service_status_event_duplicated() 
+    and not self.params.dedup_ignore_list[self.event.category][self.event.element][self.event.state] 
+  then
     self.sc_logger:warning("[sc_event:is_service_status_event_duplicated]: host_id: " .. tostring(self.event.host_id)
       .. " service_id: " .. tostring(self.event.service_id) .. " is sending a duplicated event. Dedup option (enable_service_status_dedup) is set to: " .. tostring(self.params.enable_service_status_dedup))
     return false
