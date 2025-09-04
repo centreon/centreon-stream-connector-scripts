@@ -87,7 +87,7 @@ end
 -- @return true|false (boolean) 
 function ScEvent:is_valid_event()
   local is_valid_event = false
-  local is_validated_by_custom_code = false
+  local is_validated_by_custom_code = true
   
   -- run validation tests depending on the category of the event
   if self.event.category == self.params.bbdo.categories.neb.id then
