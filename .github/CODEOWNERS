@@ -1,11 +1,13 @@
-*                   @centreon/owners-lua
+*                       @centreon/owners-lua
 
-*.md                @centreon/owners-doc
-*.mdx               @centreon/owners-doc
+*.md                    @centreon/owners-doc
+*.mdx                   @centreon/owners-doc
 
-.github/**          @centreon/owners-pipelines
-packaging/**        @centreon/owners-pipelines
-selinux/**          @centreon/owners-pipelines
+.github/**              @centreon/owners-pipelines
+packaging/**            @centreon/owners-pipelines
+selinux/**              @centreon/owners-pipelines
 
-.gitleaks.toml      @centreon/owners-security
-.gitleaksignore     @centreon/owners-security
+.gitleaks.toml          @centreon/owners-security
+.gitleaksignore         @centreon/owners-security
+**/security-checks.yml  @centreon/owners-security
+.githooks/pre-commit    @centreon/owners-security
