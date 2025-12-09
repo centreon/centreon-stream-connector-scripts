@@ -56,13 +56,13 @@
 
 ## Introduction
 
-The sc_storage_sqlite module provides methods to use sqlite as a storage backend. It has been made in OOP (object oriented programming)
+The sc_storage_sqlite module provides methods to use sqlite as a storage backend. It is made in OOP (object oriented programming).
 
 ## Prerequisites
 
 To be able to use this backend, you need to install luasqlite. Since this backend is not the standard one, the installation part will not explain every step nor cover every operating system.
 
-Example for enterprise linux
+Example for Enterprise Linux:
 
 ```bash
 dnf install lua-devel make gcc sqlite-devel epel-release
@@ -72,14 +72,14 @@ luarocks install lsqlite3
 
 ## Module initialization
 
-Since this is OOP, it is required to initiate your module
+Since this is OOP, it is required to initiate your module.
 
 ### Module constructor
 
-Constructor can be initialized with one parameter or it will use a default value.
+The constructor can be initialized with one parameter or it will use a default value.
 
 - sc_logger. This is an instance of the sc_logger module
-- a params table
+- a params table.
 
 ### constructor: Example
 
@@ -108,16 +108,16 @@ local test_storage_sqlite = sc_storage_sqlite.new(test_logger, params)
 
 ## get_query_result method
 
-The **get_query_result** method is a callback function. It is called for each row found by a sql query.
+The **get_query_result** method is a callback function. It is called for each row found by a SQL query.
 
-> This functions fills the `self.last_query_result` with the result from the query
+> This functions fills `self.last_query_result` with the result from the query.
 
 ### get_query_result: parameters
 
 | parameter                                                                                                                                    | type   | optional | default value |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------- | ------------- |
-| "udata", I'm sorry, I have no explanation apart from [this documentation](http://lua.sqlite.org/index.cgi/doc/tip/doc/lsqlite3.wiki#db_exec) | string | no       |               |
-| the number of columns from the sql query                                                                                                     | number | no       |               |
+| "udata": refer to [this documentation](http://lua.sqlite.org/index.cgi/doc/tip/doc/lsqlite3.wiki#db_exec) | string | no       |               |
+| the number of columns from the SQL query                                                                                                     | number | no       |               |
 | the value of a column                                                                                                                        | string | no       |               |
 | the name of the column                                                                                                                       | string | no       |               |
 
@@ -129,7 +129,7 @@ The **get_query_result** method is a callback function. It is called for each ro
 
 ### get_query_result: example
 
-there is no example. (that is on purpose)
+There is no example (that is on purpose).
 
 ## check_storage_table method
 
@@ -153,14 +153,14 @@ test_storage_sqlite:create_storage_table()
 
 ## run_query method
 
-The **run_query** method executes the given query
+The **run_query** method executes the given query.
 
 ### run_query: parameters
 
 | parameter                                                                                                                                  | type    | optional | default value |
 | ------------------------------------------------------------------------------------------------------------------------------------------ | ------- | -------- | ------------- |
 | the query that must be run                                                                                                                 | string  | no       |               |
-| When set to true, the query results will be stored in the self.last_query_result table. If set to false, no query result will be available | boolean | yes      | false         |
+| when set to true, the query results will be stored in the self.last_query_result table. If set to false, no query result will be available | boolean | yes      | false         |
 
 ### run_query: returns
 
@@ -196,7 +196,7 @@ local result = test_storage_sqlite:run_query(query, true)
 
 ## set method
 
-The **set** method inserts or updates an object property value in the sc_storage table
+The **set** method inserts or updates an object property value in the sc_storage table.
 
 ### set: parameters
 
@@ -225,7 +225,7 @@ local result = test_storage_sqlite:set(object_id, property, value)
 
 ## set_multiple method
 
-The **set_multiple** method sets multiple object properties in the storage
+The **set_multiple** method sets multiple object properties in the storage.
 
 ### set_multiple: parameters
 
@@ -255,7 +255,7 @@ local result = test_storage_sqlite:set_multiple(object_id, properties)
 
 ## get method
 
-The **get** method retrieves a single property value of an object
+The **get** method retrieves a single property value for an object.
 
 ### get: parameters
 
@@ -287,7 +287,7 @@ status, value = test_storage_sqlite:get(object_id, property)
 
 ## get_multiple method
 
-The **get_multiple** method retrieves a list of properties for an object
+The **get_multiple** method retrieves a list of properties for an object.
 
 ### get_multiple: parameters
 
@@ -322,7 +322,7 @@ local status, values = test_storage_sqlite:get_multiple(object_id, properties)
 
 ## delete method
 
-The **delete** method deletes an object property in the storage
+The **delete** method deletes an object property in the storage.
 
 ### delete: parameters
 
@@ -349,7 +349,7 @@ local status, value = test_storage_sqlite:delete(object_id, property)
 
 ## delete_multiple method
 
-The **delete_multiple** method deletes an object properties in the storage
+The **delete_multiple** method deletes object properties in the storage.
 
 ### delete_multiple: parameters
 
@@ -376,13 +376,13 @@ local status= test_storage_sqlite:delete_multiple(object_id, properties)
 
 ## show method
 
-The **show** method shows (in the log file) all stored properties of an object
+The **show** method shows (in the log file) all stored properties of an object.
 
 ### show: parameters
 
 | parameter                                         | type   | optional | default value |
 | ------------------------------------------------- | ------ | -------- | ------------- |
-| the object with the property that must be deleted | string | no       |               |
+| the object with the property that must be shown | string | no       |               |
 
 ### show: returns
 
@@ -401,7 +401,7 @@ local status = test_storage_sqlite:show(object_id)
 
 ## clear method
 
-The **clear** method deletes all stored information in storage
+The **clear** method deletes all stored information in storage.
 
 ### clear: returns
 
@@ -420,13 +420,13 @@ local status = test_storage_sqlite:clear()
 
 ## get_properties_for_object_type method
 
-The **get_properties_for_object_type** method retrieves a list of properties for a given object
+The **get_properties_for_object_type** method retrieves a list of properties for a given object.
 
 ### get_properties_for_object_type: parameters
 
 | parameter                                           | type   | optional | default value |
 | --------------------------------------------------- | ------ | -------- | ------------- |
-| the object type with the properties that must be retrieved (can be host, service, ba or metric) | string | no       |               |
+| the object type with the properties that must be retrieved (can be host, service, BA or metric) | string | no       |               |
 | a list of properties                                | table  | no       |               |
 
 ### get_properties_for_object_type: returns
