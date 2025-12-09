@@ -29,7 +29,7 @@
 | sc_flush                 | methods to help you handle queues of event       | when you want to flush queues of various kind of events                   | [Documentation](sc_flush.md)                 |
 | sc_metrics               | methods to help you handle metrics               | when you want to send metrics and not just events                         | [Documentation](sc_metrics.md)               |
 | sc_storage                 | methods to help you use the stream connectors internal storage mecanism | when you want to store data                                               | [Documentation](sc_storage.md)                       |
-| sc_storage_sqlite          | methods to use sqlite as a storage mecanisme                            | when you want to use sqlite as your storage backend                         | [Documentation](storage_backends/sc_storage_sqlite.md) |
+| sc_storage_sqlite          | methods to use sqlite as a storage mechanism                            | when you want to use sqlite as your storage backend                         | [Documentation](storage_backends/sc_storage_sqlite.md) |
 | google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
 | google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
 
