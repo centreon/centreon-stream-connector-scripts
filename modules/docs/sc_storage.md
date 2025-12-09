@@ -57,24 +57,24 @@
 
 ## Introduction
 
-The sc_storage module provides methods to help communicate with storage backends. It has been made in OOP (object oriented programming)
+The sc_storage module provides methods to help communicate with storage backends. It is made in OOP (object oriented programming).
 
 ## What can you store
 
-The storage mechanism will only allow to store valid objects. Valid objects are referred as **"storage_objects"** in the code and are defined within the code. They must match one of the following Lua pattern:
+The storage mechanism will only allow you to store valid objects. Valid objects are referred to as **"storage_objects"** in the code and are defined within the code. They must match one of the following Lua patterns:
 
 - "host_%d+",
 - "service_%d+_%d+",
 - "ba_%d+",
 - "metric_.*"
 
-The above pattern is then called an object_id (host_2712 is a storage object id)
+The above pattern is then called an object_id (host_2712 is a storage object id).
 This rule is here to enforce a readable storage and easily understand which data belongs to what.
 
 ## Memory table A.K.A magic table
 
 This feature is a kind of abstraction layer for the storage mechanism.
-When used, it will usually do something in memory but also do something with the persistent storage. (I rarely write sentences that meaningless but I will explain)
+When used, it will usually do something in memory but also do something with the persistent storage. (We will explain this later.)
 
 ### Use case
 
@@ -84,11 +84,11 @@ If you want some persistent storage you also need to use the appropriate functio
 The memory table is designed to avoid this double work.
 When you set a value inside the memory table, it is automatically going to also set it in the persistent storage.
 
-### How does it work
+### How does it work?
 
 #### First time adding data in the memory table
 
-First, you have access to a memory table after having initiated the sc_storage module
+First, you have access to a memory table after having initiated the sc_storage module.
 
 ```lua
 local test_storage = sc_storage.new(test_common, test_logger, params)
@@ -96,7 +96,7 @@ local test_storage = sc_storage.new(test_common, test_logger, params)
 -- test_storage.memory is the memory table
 ```
 
-Then you can store data inside it, let's do it for the first time
+Then you can store data inside it. Let's do it for the first time:
 
 ```lua
 local object_id = "host_2712"
@@ -106,7 +106,7 @@ local object_properties = {
 }
 
 test_storage.memory[object_id] = object_properties
---> test_storage.memory has now the following structure: 
+--> test_storage.memory now has the following structure: 
 --[[
   test_storage.memory = {
     host_2712 = {
@@ -118,20 +118,20 @@ test_storage.memory[object_id] = object_properties
 ]]
 ```
 
-As you can see, upon creation, a `_internal_object_id` index has been added in the memory table. This is because it is required by the mechanism in order to know how to store data in the persistent storage. Because while the memory table has been populated with some values, so does the persistent storage.
+As you can see, upon creation, an `_internal_object_id` index has been added to the memory table. This is because it is required by the mechanism in order to know how to store data in the persistent storage. Because while the memory table has been populated with some values, so has the persistent storage.
 
 #### Get data from the memory table
 
-This one is quite simple
+This one is quite simple:
 
 ```lua
 local best_town = test_storage.memory.host_2712.town
 --> best_town is bordeaux
 ```
 
-While it looks like you just get the value of an index from a table, it does in fact another action. If it can't get the value from memory (meaning from the memory table) it will look into the persistent storage for the value.
+While it looks like you just get the value of an index from a table, it does in fact do another action. If it can't get the value from memory (meaning from the memory table) it will look into the persistent storage for the value.
 
-This is to avoid having to write the below code:
+This is to avoid having to write the following code:
 
 ```lua
 local best_town = my_memory.host_2712.town
@@ -143,7 +143,7 @@ end
 
 #### Set a single property in the memory table
 
-As simple as to get one value
+As simple as to get one value:
 
 ```lua
 test_storage.memory.host_2712.country = "france"

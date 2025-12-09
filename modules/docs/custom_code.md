@@ -123,7 +123,7 @@ return self, true
 
 If your custom filters allow an event that is supposed to be dropped because of the standard filter, the event will be dropped. This behavior can be changed by setting up the **self.is_event_validated_by_force** variable to **true**.
 
-Let say we want to send events from hosts with notes even if they are in downtime. By default, we don't send such events because the parameter in_downtime is set to 0.
+Let's say we want to send events from hosts with notes even if they are in downtime. By default, we don't send such events because the parameter in_downtime is set to 0.
 
 ```lua
 local self = ...
@@ -155,7 +155,7 @@ For some reason, you may want to store data from an event to use it in another o
 
 At the time of writing, when a downtime is set on a service, we will always send an event when the downtime ends. This is useful when the service went critical during the downtime and still is critical after the end of the downtime. But it can also send unsollicited events. If a service was OK before the downtime and is still OK after the end, it will still send an event.
 
-Let say we only want to send events if their status has changed during the downtime and didn't came back to its previous state before the end of the downtime.
+Let's say we only want to send events if their status has changed during the downtime and didn't came back to its previous state before the end of the downtime.
 
 We will need to overrule the internal behavior of the stream connectors libraries and data caching will be mandatory.
 
@@ -163,16 +163,16 @@ We will need to overrule the internal behavior of the stream connectors librarie
 local self = ...
 
 -- this condition is quite simple because our example is using the parameter accepted_elements = host_status,service_status
--- therefore, if there is a service_id and that it is not in downtime, we want to work on said event
+-- therefore, if there is a service_id and it is not in downtime, we want to work on said event
 if self.event.service_id and self.event.scheduled_downtime_depth == 0 then
-  -- every data stored in the storage is linked to an object id
+  -- every data stored in the storage is linked to an object ID
   local object_id = "service_" .. self.event.host_id .. "_" .. self.event.service_id
 
   -- we use the storage to know what is its state before going in downtime
   local success, state_before_downtime = self.sc_storage:get(object_id, "state_before_downtime")
 
   -- this condition is here to avoid sending an event because this is the end of the downtime. This is what we wanted to achieve.
-  -- the first part of the condition is something that happens everytime a downtime ends. It makes us think that the status has changed during the downtime.
+  -- the first part of the condition is something that happens every time a downtime ends. It makes us think that the status has changed during the downtime.
   -- thanks to the storage, we can check if that is really the case or not
   if self.event.last_hard_state_change == self.event.last_check and self.event.state == state_before_downtime then
     -- normally, this event would have been sent. We don't want it, so we return false
