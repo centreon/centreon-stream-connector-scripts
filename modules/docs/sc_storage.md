@@ -149,36 +149,36 @@ As simple as to get one value
 test_storage.memory.host_2712.country = "france"
 ```
 
-Once again, not only does it put the value in the memory table, it also put it in the persistent storage. This is to avoid the below code:
+Once again, not only does it put the value in the memory table, it also puts it in the persistent storage. This is to avoid the following code:
 
 ```lua
 my_memory.host_2712.country = france
 test_storage:set("host_2712", "country", "france")
 ```
 
-#### delete a value
+#### Delete a value
 
-To remove an index from a Lua table, just set it to nil. Therefore it is done like below:
+To remove an index from a Lua table, just set it to nil, like in the example below:
 
 ```lua
 test_storage.memory.host_2712.country = nil
 ```
 
-Once again, it will remove the data from the memory table but also from the persistent storage. This is to avoid the below code:
+Once again, it will remove the data from the memory table but also from the persistent storage. This is to avoid the following code:
 
 ```lua
 my_memory.host_2712.country = nil
 test_storage:delete("host_2712", "country")
 ```
 
-#### use multiple functions (set, get, delete)
+#### Use multiple functions (set, get, delete)
 
 You can't set nor get nor delete properties in bulk with the memory table.
 
-#### what if I want to set or get in the memory table but not interact with the persistent storage
+#### What if I want to set or get in the memory table but not interact with the persistent storage?
 
 For some reason, you may want to use the memory table but for one specific property of an object you don't want it to trigger a communication with the persistent storage backend.
-You could totally store this data in another table but this will create confusion if sometime a property of an object is in the memory table and sometime not.
+You could totally store this data in another table but this will create confusion if sometimes a property of an object is in the memory table and sometimes not.
 In such situations, you can use `rawset` and `rawget` this will allow you to interact with the memory table without triggering the meta table functions that are linked to it.
 
 ```lua
@@ -193,17 +193,17 @@ local country = rawget(test_storage.memory.host_2712, "country") --> will only t
 
 ## Module initialization
 
-Since this is OOP, it is required to initiate your module
+Since this is OOP, it is required to initiate your module.
 
 ### Module constructor
 
-Constructor must be initialized with thres parameters 
+Constructor must be initialized with three parameters: 
 
 - sc_common. This is an instance of the sc_common module
 - sc_logger. This is an instance of the sc_logger module
-- a params table
+- a params table.
 
-### constructor: Example
+### Constructor: Example
 
 ```lua
 -- load modules
@@ -231,7 +231,7 @@ local test_storage = sc_storage.new(test_common, test_logger, params)
 
 ## is_valid_storage_object method
 
-The **is_valid_storage_object** method makes sure that the object that needs an interraction with the storage is an object that can have storage.
+The **is_valid_storage_object** method makes sure that the object that needs an interaction with the storage is an object that can have storage.
 
 ### is_valid_storage_object: parameters
 
@@ -289,7 +289,7 @@ local result = test_storage:set(object_id, property, value)
 
 ## set_multiple method
 
-The **set_multiple** method sets multiple object properties in the storage
+The **set_multiple** method sets multiple object properties in the storage.
 
 ### set_multiple: parameters
 
@@ -319,7 +319,7 @@ local result = test_storage:set_multiple(object_id, properties)
 
 ## get method
 
-The **get** method gets an object property in the storage
+The **get** method gets an object property in the storage.
 
 ### get: parameters
 
@@ -351,7 +351,7 @@ status, value = test_storage:get(object_id, property)
 
 ## get_multiple method
 
-The **get_multiple** method retrieves a list of properties for an object
+The **get_multiple** method retrieves a list of properties for an object.
 
 ### get_multiple: parameters
 
@@ -388,7 +388,7 @@ local status, values = test_storage:get_multiple(object_id, properties)
 
 ## delete method
 
-The **delete** method deletes an object property in the storage
+The **delete** method deletes an object property in the storage.
 
 ### delete: parameters
 
@@ -415,7 +415,7 @@ local status = test_storage:delete(object_id, property)
 
 ## delete_multiple method
 
-The **delete_multiple** method deletes an object properties in the storage
+The **delete_multiple** method deletes object properties in the storage.
 
 ### delete_multiple: parameters
 
@@ -442,13 +442,13 @@ local status = test_storage:delete_multiple(object_id, properties)
 
 ## show method
 
-The **show** method shows (in the log file) all stored properties of an object
+The **show** method shows (in the log file) all stored properties of an object.
 
 ### show: parameters
 
 | parameter                                         | type   | optional | default value |
 | ------------------------------------------------- | ------ | -------- | ------------- |
-| the object with the property that must be deleted | string | no       |               |
+| the object with the property that must be shown | string | no       |               |
 
 ### show: returns
 
@@ -486,13 +486,13 @@ local status = test_storage:clear()
 
 ## get_properties_for_object_type method
 
-The **get_properties_for_object_type** method retrieves a list of properties for a given object
+The **get_properties_for_object_type** method retrieves a list of properties for a given object.
 
 ### get_properties_for_object_type: parameters
 
 | parameter                                           | type   | optional | default value |
 | --------------------------------------------------- | ------ | -------- | ------------- |
-| the object type with the properties that must be retrieved (can be host, service, ba or metric) | string | no       |               |
+| the object type with the properties that must be retrieved (can be host, service, BA or metric) | string | no       |               |
 | a list of properties                                | table  | no       |               |
 
 ### get_properties_for_object_type: returns
