@@ -18,7 +18,11 @@ on:
       - ".github/docker/Dockerfile.packaging-*"
 
 jobs:
+  dependency-scan:
+    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
+
   dockerize:
+    needs: [dependency-scan]
     runs-on: ubuntu-22.04
 
     strategy:

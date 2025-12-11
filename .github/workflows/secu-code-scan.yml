@@ -1,4 +1,4 @@
-name: security-checks
+name: code-scan
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -7,21 +7,19 @@ concurrency:
 on:
   pull_request:
     branches:
-      - develop
       - master
+      - develop
   push:
     branches:
-      - develop
       - master
+      - develop
   workflow_dispatch:
   schedule:
     - cron: 0 1 * * 1-5
 
 jobs:
-  secrets_scan:
-    uses: centreon/security-tools/.github/workflows/gitleaks-analysis.yml@main
 
-  code_scan:
+  code-scan:
     uses: centreon/security-tools/.github/workflows/checkmarx-analysis.yml@main
     with:
       module_directory:
