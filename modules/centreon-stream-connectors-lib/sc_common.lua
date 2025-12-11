@@ -374,7 +374,7 @@ function ScCommon:sleep(seconds)
   if type(seconds) == "number" then
     os.execute("sleep " .. seconds)
   else
-    self.sc_logger:error("[sc_common:sleep]: given parameter is not a valid second value. Parameter value: " .. tostrin(seconds)
+    self.sc_logger:error("[sc_common:sleep]: given parameter is not a valid second value. Parameter value: " .. tostring(seconds)
       .. ". This will default to: " .. tostring(default_value))
     os.execute("sleep " .. default_value)
   end

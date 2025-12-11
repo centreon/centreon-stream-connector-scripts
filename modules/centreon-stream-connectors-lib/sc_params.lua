@@ -124,7 +124,7 @@ function sc_params.new(common, logger)
 
     -- logging parameters
     logfile = "",
-    log_level = "",
+    log_level = 1,
     log_curl_commands = 0,
 
     -- metric
@@ -1011,6 +1011,11 @@ function ScParams:check_params()
   -- self.params.allow_insecure_connection = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(not self.params.allow_insecure_connection, 0))
   self.params.verify_certificate = self.common:number_to_boolean(self.common:check_boolean_number_option_syntax(self.params.verify_certificate, 0))
   self.params.logfile = self.common:ifnil_or_empty(self.params.logfile, "/var/log/centreon-broker/stream-connector.log")
+
+  if type(self.params.log_level) ~= "number" then
+    self.logger:error("[sc_params:check_params]: log_level parameter given as a " .. type(self.params.log_level) .. " (" .. self.params.log_level .. ") instead of a number. Ignored.")
+  end
+
   self.params.log_level = self.common:ifnil_or_empty(self.params.log_level, 1)
   self.params.log_curl_commands = self.common:check_boolean_number_option_syntax(self.params.log_curl_commands, 0)
   self.params.use_long_output = self.common:check_boolean_number_option_syntax(self.params.use_longoutput, 1)
