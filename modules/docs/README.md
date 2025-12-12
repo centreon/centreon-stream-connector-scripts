@@ -10,6 +10,8 @@
   - [sc\_macros methods](#sc_macros-methods)
   - [sc\_flush methods](#sc_flush-methods)
   - [sc\_metrics methods](#sc_metrics-methods)
+  - [sc\_storage methods](#sc_storage-methods)
+  - [sc\_storage\_sqlite methods](#sc_storage_sqlite-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
   - [Additionnal documentations](#additionnal-documentations)
@@ -26,6 +28,8 @@
 | sc_macros                | methods to help you convert macros               | when you want to use macros in your stream connector                      | [Documentation](sc_macros.md)                |
 | sc_flush                 | methods to help you handle queues of event       | when you want to flush queues of various kind of events                   | [Documentation](sc_flush.md)                 |
 | sc_metrics               | methods to help you handle metrics               | when you want to send metrics and not just events                         | [Documentation](sc_metrics.md)               |
+| sc_storage                 | methods to help you use the stream connectors internal storage mechanism | when you want to store data                                               | [Documentation](sc_storage.md)                       |
+| sc_storage_sqlite          | methods to use sqlite as a storage mechanism                            | when you want to use sqlite as your storage backend                         | [Documentation](storage_backends/sc_storage_sqlite.md) |
 | google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
 | google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
 
@@ -182,6 +186,37 @@
 | is_valid_kpi_metric_event     | makes sure that the metric event is valid KPI metric event                                                | [Documentation](sc_metrics.md#is_valid_kpi_metric_event-method)     |
 | is_valid_perfdata             | makes sure that the performance data is valid                                                             | [Documentation](sc_metrics.md#is_valid_perfdata-method)             |
 | build_metric                  | use the stream connector format method to parse every metric in the event                                 | [Documentation](sc_metrics.md#build_metric-method)                  |
+
+## sc_storage methods
+
+| Method name           | Method description                                                                                     | Link                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| is_valid_storage_object | makes sure that the object that needs an interaction with the storage is an object that can have storage. | [Documentation](sc_storage.md#is_valid_storage_object-method) |
+| set                   | sets an object property in the storage                                                                   | [Documentation](sc_storage.md#set-method)                   |
+| set_multiple          | sets multiple object properties in the storage                                                           | [Documentation](sc_storage.md#set_multiple-method)          |
+| get                   | gets an object property in the storage                                                                   | [Documentation](sc_storage.md#get-method)                   |
+| get_multiple          | retrieves a list of properties for an object                                                           | [Documentation](sc_storage.md#get_multiple-method)          |
+| delete                | deletes an object property in the storage                                                                | [Documentation](sc_storage.md#delete-method)                |
+| delete_multiple       | deletes object properties in the storage                                                              | [Documentation](sc_storage.md#delete_multiple-method)       |
+| show                  | shows (in the log file) all stored properties of an object                                             | [Documentation](sc_storage.md#show-method)                  |
+| clear                 | deletes all stored information in storage                                                                | [Documentation](sc_storage.md#is_valid_perfdata-method)     |
+
+## sc_storage_sqlite methods
+
+| Method name        | Method description                                                  | Link                                                                         |
+| ------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| get_query_result   | a callback function. It is called for each row found by an SQL query | [Documentation](storage_backends/sc_storage_sqlite.md#get_query_result-method)   |
+| check_storage_table  | checks if the sc_storage table exists and, if not, create it          | [Documentation](storage_backends/sc_storage_sqlite.md#check_storage_table-method)  |
+| create_storage_table | creates the sc_storage table.                                         | [Documentation](storage_backends/sc_storage_sqlite.md#create_storage_table-method) |
+| run_query          | executes the given query                                            | [Documentation](storage_backends/sc_storage_sqlite.md#run_query-method)          |
+| set                | inserts or updates an object property value in the sc_storage table   | [Documentation](storage_backends/sc_storage_sqlite.md#set-method)                |
+| set_multiple       | sets multiple object properties in the storage                        | [Documentation](storage_backends/sc_storage_sqlite.md#set_multiple-method)       |
+| get                | retrieves a single property value of an object                      | [Documentation](storage_backends/sc_storage_sqlite.md#get-method)                |
+| get_multiple       | retrieves a list of properties for an object                        | [Documentation](storage_backends/sc_storage_sqlite.md#get_multiple-method)       |
+| delete             | deletes an object property in the storage                             | [Documentation](storage_backends/sc_storage_sqlite.md#delete-method)             |
+| delete_multiple    | deletes object properties in the storage                           | [Documentation](storage_backends/sc_storage_sqlite.md#delete_multiple-method)    |
+| show               | shows (in the log file) all stored properties of an object          | [Documentation](storage_backends/sc_storage_sqlite.md#show-method)               |
+| clear              | deletes all stored information in storage                             | [Documentation](storage_backends/sc_storage_sqlite.md#is_valid_perfdata-method)  |
 
 ## google.bigquery.bigquery methods
 
