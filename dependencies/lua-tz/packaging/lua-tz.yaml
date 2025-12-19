@@ -20,7 +20,7 @@ contents:
     packager: rpm
 
   - src: "../lua-tz"
-    dst: "/usr/share/lua/5.3/luatz"
+    dst: "/usr/share/lua/@luaver@/luatz"
     packager: deb
 
 overrides:
@@ -29,7 +29,7 @@ overrides:
       - lua
   deb:
     depends:
-      - "lua5.3"
+      - "lua@luaver@"
 
 rpm:
   summary: lua tz
