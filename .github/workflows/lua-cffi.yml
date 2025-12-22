@@ -69,10 +69,10 @@ jobs:
           else
             apt-get update
             apt-get install -y make gcc g++ meson cmake libffi-dev
-            if [ "${{ matrix.distrib }}" = "bookworm" ]; then
-              apt-get install -y libffi8
-            else
+            if [ "${{ matrix.distrib }}" = "bullseye" ]; then
               apt-get install -y libffi7
+            else
+              apt-get install -y libffi8
             fi
           fi
         shell: bash

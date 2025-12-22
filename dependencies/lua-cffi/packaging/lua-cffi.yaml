@@ -32,7 +32,7 @@ overrides:
   deb:
     depends:
       - "lua@luaver@"
-      - "libffi7 | libffi8 | libffi9"
+      - "libffi7 | libffi8"
       - "libffi-dev"
 
 rpm:
