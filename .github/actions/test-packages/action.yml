@@ -7,6 +7,9 @@ inputs:
   distrib:
     description: "The distribution name"
     required: true
+  cache_key:
+    description: "The cache key to restore packages"
+    required: true
 
 runs:
   using: "composite"
@@ -38,7 +41,7 @@ runs:
       uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ./*.${{ inputs.package_extension }}
-        key: ${{ github.sha }}-${{ github.run_id }}-${{ inputs.package_extension }}-${{ inputs.distrib }}
+        key: ${{ inputs.cache_key }}
         fail-on-cache-miss: true
 
     - if: ${{ inputs.package_extension == 'rpm' }}

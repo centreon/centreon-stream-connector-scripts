@@ -104,15 +104,6 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
-          - package_extension: deb
-            image: debian:bullseye
-            distrib: bullseye
-          - package_extension: deb
-            image: debian:bookworm
-            distrib: bookworm
-          - package_extension: deb
-            image: ubuntu:jammy
-            distrib: jammy
 
     runs-on: ubuntu-24.04
     container:
@@ -128,6 +119,7 @@ jobs:
         with:
           package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
 
       - name: Upload error log
         if: failure()
