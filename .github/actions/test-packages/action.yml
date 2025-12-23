@@ -44,7 +44,7 @@ runs:
     - if: ${{ inputs.package_extension == 'rpm' }}
       name: Check packages installation / uninstallation
       run: |
-        error_log="install_error_${{ inputs.distrib }}_${{ inputs.arch }}.log"
+        error_log="install_error_${{ inputs.distrib }}.log"
         for package in ./*.rpm; do
           echo "Installing package: $package"
           # Install package, then uninstall it with all his dependencies
@@ -73,12 +73,8 @@ runs:
     - if: ${{ inputs.package_extension == 'deb' }}
       name: Check packages installation / uninstallation
       run: |
-        error_log="install_error_${{ inputs.distrib }}_${{ inputs.arch }}.log"
+        error_log="install_error_${{ inputs.distrib }}.log"
         for package in ./*.deb; do
-          # If the debian package name ends with amd64 or arm64, we only install it if the tested architecture is the same, otherwise we skip it
-          if [[ $package == *amd64.deb && ${{ inputs.arch }} != "amd64" || $package == *arm64.deb && ${{ inputs.arch }} != "arm64" ]]; then
-            continue
-          fi
           echo "Installing package: $package"
           # Install package, then uninstall it with all his dependencies
           echo "Package installation..."
