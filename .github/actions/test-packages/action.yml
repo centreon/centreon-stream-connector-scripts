@@ -57,7 +57,7 @@ runs:
           pack_name=$(echo $package | sed 's/\.\///' | sed 's/-[0-9\.-]*.el[0-9]*..*.rpm//')
           if [[ -f ./tests/packaging/$pack_name.lua ]]; then
               echo "Testing package..."
-              error_output=$(perl tests/packaging/$pack_name.lua 2>&1) || { echo "$error_output" >> $error_log; echo "Error during the usage test of the package $package" >> $error_log; true; }
+              error_output=$(lua tests/packaging/$pack_name.lua 2>&1) || { echo "$error_output" >> $error_log; echo "Error during the usage test of the package $package" >> $error_log; true; }
               echo "Testing done."
           else
               echo "No test script found for the package $package"
@@ -92,7 +92,7 @@ runs:
               echo "No test script found for the package $package"
           fi
           echo "Package uninstallation..."
-          error_output=$(apt-get autoremove -y --purge $pack_name || { echo "$error_output" >> $error_log; echo "Error during autoremove of the package $package" >> $error_log; true; }
+          error_output=$(apt-get autoremove -y --purge $pack_name 2>&1) || { echo "$error_output" >> $error_log; echo "Error during autoremove of the package $package" >> $error_log; true; }
           echo "Package uninstallation done."
         done
         # If the file error_log exists and is not empty, the workflow is in error
