@@ -89,6 +89,51 @@ jobs:
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
           stability: ${{ needs.get-environment.outputs.stability }}
 
+  test-packages:
+    needs: [get-environment, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_extension: rpm
+            image: almalinux:8
+            distrib: el8
+          - package_extension: rpm
+            image: almalinux:9
+            distrib: el9
+          - package_extension: deb
+            image: debian:bullseye
+            distrib: bullseye
+          - package_extension: deb
+            image: debian:bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: ubuntu:jammy
+            distrib: jammy
+
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+
+    name: Test lua packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
+    steps:
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Test packaged libs
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          arch: ${{ matrix.arch }}
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: install_error_log_${{ matrix.distrib }}-${{ matrix.arch }}
+          path: install_error_${{ matrix.distrib }}_${{ matrix.arch }}.log
+
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
     needs: [get-environment, package]
