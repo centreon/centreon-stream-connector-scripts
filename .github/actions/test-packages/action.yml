@@ -83,7 +83,7 @@ runs:
           echo "Package installation..."
           error_output=$(apt-get install -y $package 2>&1) || { echo "$error_output" >> $error_log; echo "Error during installation of the package $package" >> $error_log; true; }
           echo "Package installation done."
-          pack_name=$(echo $package | sed 's/_[0-9\.-]*~[a-z]*_.*\.deb//')
+          pack_name=$(echo $package | sed 's/\.\///' | sed 's/_[0-9\.-]*~[a-z]*_.*\.deb//')
           if [[ -f ./tests/packaging/$pack_name.lua ]]; then
               echo "Testing package..."
               error_output=$(lua tests/packaging/$pack_name.lua 2>&1) || { echo "$error_output" >> $error_log; echo "Error during the usage test of the package $package" >> $error_log; true; }
