@@ -27,9 +27,11 @@ overrides:
   rpm:
     depends:
       - lua
+      - tzdata
   deb:
     depends:
       - "lua@luaver@"
+      - tzdata
 
 rpm:
   summary: lua tz
