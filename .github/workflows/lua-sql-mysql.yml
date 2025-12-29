@@ -15,6 +15,7 @@ on:
       - master
     paths:
       - dependencies/lua-sql-mysql/**
+      - .github/workflows/lua-sql-mysql.yml
 
 jobs:
   dependency-scan:

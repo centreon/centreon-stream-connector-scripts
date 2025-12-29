@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - dependencies/lua-cffi/**
+      - .github/workflows/lua-cffi.yml
   push:
     branches:
       - develop
