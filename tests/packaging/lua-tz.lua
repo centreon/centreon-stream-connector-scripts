@@ -1,78 +1,67 @@
 #!/usr/bin/env lua
 
--- Check if the module can be loaded
-local status, luatz = pcall(require, 'luatz')
+-- Examples from the luatz repository
 
-if not status then
-  print("ERROR: Unable to load luatz module")
-  print(luatz)
-  os.exit(1)
+local luatz = require "luatz"
+
+-- We do this a few times ==> Convert a timestamp to timetable and normalise
+local function ts2tt(ts)
+	return luatz.timetable.new_from_timestamp(ts)
 end
 
-print("✓ luatz module loaded successfully")
+-- Get the current time in UTC
+local utcnow = luatz.time()
+local now = ts2tt(utcnow)
+print(now, "now (UTC)")
 
--- Test basic functionality: get current time
-local ok, now = pcall(function()
-  return luatz.time()
-end)
+-- Get a new time object 6 months from now
+local x = now:clone()
+x.month = x.month + 6
+x:normalise()
+print(x, "6 months from now")
 
-if not ok then
-  print("ERROR: Unable to get current time")
-  print(now)
-  os.exit(1)
+-- Find out what time it is in Melbourne at the moment
+local melbourne = luatz.get_tz("Australia/Melbourne")
+local now_in_melbourne = ts2tt(melbourne:localise(utcnow))
+print(now_in_melbourne, "Melbourne")
+
+-- Six months from now in melbourne (so month is incremented; but still the same time)
+local m = now_in_melbourne:clone()
+m.month = m.month + 6
+m:normalise()
+print(m, "6 months from now in melbourne")
+
+-- Convert time back to utc; a daylight savings transition may have taken place!
+-- There may be 2 results, but for we'll ignore the second possibility
+local c, _ = melbourne:utctime(m:timestamp())
+print(ts2tt(c), "6 months from now in melbourne converted to utc")
+
+
+--[[
+Re-implementation of `os.date` from the standard lua library
+]]
+
+local gettime = require "luatz.gettime".gettime
+local new_from_timestamp = require "luatz.timetable".new_from_timestamp
+local get_tz = require "luatz.tzcache".get_tz
+
+local function os_date(format_string, timestamp)
+	format_string = format_string or "%c"
+	timestamp = timestamp or gettime()
+	if format_string:sub(1, 1) == "!" then -- UTC
+		format_string = format_string:sub(2)
+	else -- Localtime
+		timestamp = get_tz():localise(timestamp)
+	end
+	local tt = new_from_timestamp(timestamp)
+	if format_string == "*t" then
+		return tt
+	else
+		return tt:strftime(format_string)
+	end
 end
 
-print("✓ Current time retrieved successfully: " .. now)
-
--- Test timezone parsing
-local ok, tz = pcall(function()
-  return luatz.time_in(nil)
-end)
-
-if not ok then
-  print("ERROR: Unable to create time_in object")
-  print(tz)
-  os.exit(1)
-end
-
-print("✓ time_in object created successfully")
-
--- Test timestamp conversion
-local ok, ts = pcall(function()
-  local t = luatz.timetable()
-  t.year = 2024
-  t.month = 1
-  t.day = 1
-  t.hour = 0
-  t.min = 0
-  t.sec = 0
-  return t:timestamp()
-end)
-
-if not ok then
-  print("ERROR: Unable to convert timetable to timestamp")
-  print(ts)
-  os.exit(1)
-end
-
-print("✓ Timetable to timestamp conversion successful: " .. ts)
-
--- Test timestamp parsing
-local ok, tt = pcall(function()
-  return luatz.timetable.new_from_timestamp(ts)
-end)
-
-if not ok then
-  print("ERROR: Unable to parse timestamp")
-  print(tt)
-  os.exit(1)
-end
-
-if tt.year ~= 2024 or tt.month ~= 1 or tt.day ~= 1 then
-  print("ERROR: Parsed values do not match")
-  os.exit(1)
-end
-
-print("✓ Timestamp parsing successful")
-
-print("\nAll tests passed - lua-tz is working correctly!")
+print(os_date())
+print(os_date("%Y-%m-%d %H:%M:%S"))
+print(os_date("!%Y-%m-%d %H:%M:%S", utcnow))
+print(os_date("*t", utcnow + 3600 * 24 * 30))
