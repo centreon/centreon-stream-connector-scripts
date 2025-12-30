@@ -8,14 +8,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - dependencies/lua-cffi/**
-      - .github/workflows/lua-cffi.yml
+      - '.github/workflows/lua-cffi.yml'
+      - 'dependencies/lua-cffi/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - dependencies/lua-cffi/**
+      - '.github/workflows/lua-cffi.yml'
+      - 'dependencies/lua-cffi/**'
 
 jobs:
   dependency-scan:

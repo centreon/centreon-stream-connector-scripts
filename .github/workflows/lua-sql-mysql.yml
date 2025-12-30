@@ -8,14 +8,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - dependencies/lua-sql-mysql/**
+      - '.github/workflows/lua-sql-mysql.yml'
+      - 'dependencies/lua-sql-mysql/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - dependencies/lua-sql-mysql/**
-      - .github/workflows/lua-sql-mysql.yml
+      - '.github/workflows/lua-sql-mysql.yml'
+      - 'dependencies/lua-sql-mysql/**'
 
 jobs:
   dependency-scan:

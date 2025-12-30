@@ -8,16 +8,17 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - .github/workflows/stream-connectors-lib.yml
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
 
 jobs:
   dependency-scan:

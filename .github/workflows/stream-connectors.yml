@@ -8,14 +8,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - .github/workflows/stream-connectors.yml
-      - centreon-certified/**
+      - '.github/workflows/stream-connectors.yml'
+      - 'centreon-certified/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - centreon-certified/**
+      - '.github/workflows/stream-connectors.yml'
+      - 'centreon-certified/**'
 
 jobs:
   dependency-scan:

@@ -8,14 +8,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - dependencies/lua-tz/**
+      - '.github/workflows/lua-tz.yml'
+      - 'dependencies/lua-tz/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - dependencies/lua-tz/**
-      - .github/workflows/lua-tz.yml
+      - '.github/workflows/lua-tz.yml'
+      - 'dependencies/lua-tz/**'
 
 jobs:
   dependency-scan:
