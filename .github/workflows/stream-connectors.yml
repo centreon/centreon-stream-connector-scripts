@@ -10,6 +10,7 @@ on:
     paths:
       - '.github/workflows/stream-connectors.yml'
       - 'centreon-certified/**'
+      - 'packaging/connectors/**'
   push:
     branches:
       - develop
@@ -17,6 +18,7 @@ on:
     paths:
       - '.github/workflows/stream-connectors.yml'
       - 'centreon-certified/**'
+      - 'packaging/connectors/**'
 
 jobs:
   dependency-scan:
@@ -30,6 +32,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       connectors: ${{ steps.list-connectors.outputs.connectors }}
+      packaging: ${{ steps.filter.outputs.packaging }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -41,17 +44,25 @@ jobs:
           filters: |
             connectors:
               - added|modified: centreon-certified/**
+            packaging:
+              - modified: .github/workflows/stream-connectors.yml
+              - added|modified: packaging/connectors/**
 
-      - name: transform to directories
+      - name: Transform to directories
         id: list-connectors
         run: |
           folders=()
-          for f in ${{ steps.filter.outputs.connectors_files }}; do
-            DIR_NAME=($(dirname $f))
-            BASE_NAME=($(basename $DIR_NAME))
-            echo "Adding $BASE_NAME to folders"
-            folders+=($BASE_NAME)
-          done
+          if [ "${{ steps.filter.outputs.packaging }}" = "true" ]; then
+            echo "Packaging files changed, adding all connectors"
+            mapfile -t folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
+          else
+            for f in ${{ steps.filter.outputs.connectors_files }}; do
+              DIR_NAME=($(dirname $f))
+              BASE_NAME=($(basename $DIR_NAME))
+              echo "Adding $BASE_NAME to folders"
+              folders+=($BASE_NAME)
+            done
+          fi
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
         shell: bash
@@ -81,7 +92,7 @@ jobs:
             image: packaging-stream-connectors-nfpm-jammy
             package_extension: deb
 
-    name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    name: Package ${{ matrix.distrib }} ${{ matrix.connector_path }}
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
       credentials:
@@ -148,7 +159,7 @@ jobs:
       matrix:
         distrib: [el8, el9]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
       - name: Checkout sources
@@ -171,7 +182,7 @@ jobs:
       matrix:
         distrib: [bullseye, bookworm, jammy]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
       - name: Checkout sources
