@@ -1,11 +1,11 @@
-ARG REGISTRY_URL=docker.io
+ARG REGISTRY_URL=docker.centreon.com/centreon
 
 FROM ${REGISTRY_URL}/debian:bookworm
 
 RUN bash -e <<EOF
 
 apt-get update
-apt-get install -y git zstd ca-certificates lua5.4 liblua5.4-dev
+apt-get install -y git zstd ca-certificates lua5.3 liblua5.3-dev
 
 echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | tee /etc/apt/sources.list.d/goreleaser.list
 
