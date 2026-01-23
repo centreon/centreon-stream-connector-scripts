@@ -436,6 +436,14 @@ function write (event)
   -- initiate event object
   queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
 
+  -- Skip event if it is a service notification and the host is down based on event output
+  if event.element == queue.sc_params.params.bbdo.elements.service_status.id and event.output then
+    if string.match(event.output, "host .* is down") then
+      queue.sc_logger:info("Skipping service notification: host is down. OUTPUT=" .. tostring(event.output))
+      return false
+    end
+  end
+
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
       -- format event if it is validated
