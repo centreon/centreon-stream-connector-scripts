@@ -7,12 +7,16 @@ concurrency:
 on:
   pull_request:
     branches:
-      - master
       - develop
+      - master
+      - hotfix-*
+      - release-*
   push:
     branches:
-      - master
       - develop
+      - master
+      - hotfix-*
+      - release-*
   workflow_dispatch:
   schedule:
     - cron: 0 1 * * 1-5
