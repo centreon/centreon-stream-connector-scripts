@@ -3,11 +3,15 @@
 *.md                    @centreon/owners-doc
 *.mdx                   @centreon/owners-doc
 
-.github/**              @centreon/owners-pipelines
 packaging/**            @centreon/owners-pipelines
 selinux/**              @centreon/owners-pipelines
 
-.gitleaks.toml          @centreon/owners-security
-.gitleaksignore         @centreon/owners-security
-.githooks/pre-commit    @centreon/owners-security
-**/secu-*.yml           @centreon/owners-security
+# Pipelines Codeowners rules
+.github/**                    @centreon/owners-pipelines
+.yamlfix.toml                 @centreon/owners-pipelines
+
+# Security Codeowners rules
+.gitleaks.toml                @centreon/owners-security
+.gitleaksignore               @centreon/owners-security
+.githooks/pre-commit          @centreon/owners-security
+**/secu-*.yml                 @centreon/owners-security
