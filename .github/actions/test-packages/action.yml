@@ -46,8 +46,10 @@ runs:
 
     - if: ${{ inputs.package_extension == 'rpm' }}
       name: Check packages installation / uninstallation
+      env:
+        DISTRIB: ${{ inputs.distrib }}
       run: |
-        error_log="install_error_${{ inputs.distrib }}.log"
+        error_log="install_error_$DISTRIB.log"
         for package in ./*.rpm; do
           echo "Installing package: $package"
           # Install package, then uninstall it with all his dependencies
@@ -75,8 +77,10 @@ runs:
 
     - if: ${{ inputs.package_extension == 'deb' }}
       name: Check packages installation / uninstallation
+      env:
+        DISTRIB: ${{ inputs.distrib }}
       run: |
-        error_log="install_error_${{ inputs.distrib }}.log"
+        error_log="install_error_$DISTRIB.log"
         for package in ./*.deb; do
           echo "Installing package: $package"
           # Install package, then uninstall it with all his dependencies

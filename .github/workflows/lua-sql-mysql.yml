@@ -63,19 +63,22 @@ jobs:
           ref: "2.6.0"
 
       - name: Prepare packaging of lua-sql-mysql
+        env:
+          DISTRIB: ${{ matrix.distrib }}
+          LUA_VERSION: ${{ matrix.lua_version }}
         run: |
           dnf install -y dnf-plugins-core
-          if [ "${{ matrix.distrib }}" == "el8" ]; then
+          if [ "$DISTRIB" == "el8" ]; then
             dnf config-manager --set-enabled powertools
           else
             dnf config-manager --set-enabled crb
           fi
           dnf install -y make gcc lua lua-devel mysql mysql-devel
           cd lua-sql-src
-          make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER=${{ matrix.lua_version }}
+          make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER=$LUA_VERSION
           cd ..
 
-          sed -i "s/@luaver@/${{ matrix.lua_version }}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
+          sed -i "s/@luaver@/$LUA_VERSION/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
         shell: bash
 
       - name: Package

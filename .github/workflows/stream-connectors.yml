@@ -50,13 +50,16 @@ jobs:
 
       - name: Transform to directories
         id: list-connectors
+        env:
+          CONNECTOR_FILES: ${{ steps.filter.outputs.connectors_files }}
+          PACKAGING_CHANGED: ${{ steps.filter.outputs.packaging }}
         run: |
           folders=()
-          if [ "${{ steps.filter.outputs.packaging }}" = "true" ]; then
+          if [ "$PACKAGING_CHANGED" = "true" ]; then
             echo "Packaging files changed, adding all connectors"
             mapfile -t folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
           else
-            for f in ${{ steps.filter.outputs.connectors_files }}; do
+            for f in $CONNECTOR_FILES; do
               DIR_NAME=($(dirname $f))
               BASE_NAME=($(basename $DIR_NAME))
               echo "Adding $BASE_NAME to folders"
@@ -105,24 +108,28 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Replace package and connector name variables
+        env:
+          CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
-          package_name="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
+          package_name="centreon-stream-connector-$(basename "$CONNECTOR_PATH")"
           sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
-          connector_name="`basename ${{ matrix.connector_path }}`"
+          connector_name="$(basename "$CONNECTOR_PATH")"
           sed -i "s/@CONNECTOR_NAME@/$connector_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Add specific dependencies
+        env:
+          CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
-          if [ "${{ matrix.connector_path }}" = "kafka" ]; then
+          if [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
-          elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
+          elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
-          elif [ "${{ matrix.connector_path }}" = "splunk" ]; then
+          elif [ "$CONNECTOR_PATH" = "splunk" ]; then
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
           fi

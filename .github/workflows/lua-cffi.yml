@@ -65,13 +65,16 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install dependencies
+        env:
+          PACKAGE_EXTENSION: ${{ matrix.package_extension }}
+          DISTRIB: ${{ matrix.distrib }}
         run: |
-          if  [ "${{ matrix.package_extension }}" = "rpm" ]; then
+          if [ "$PACKAGE_EXTENSION" = "rpm" ]; then
             dnf install -y make gcc gcc-c++ meson cmake libffi libffi-devel
           else
             apt-get update
             apt-get install -y make gcc g++ meson cmake libffi-dev
-            if [ "${{ matrix.distrib }}" = "bullseye" ]; then
+            if [ "$DISTRIB" = "bullseye" ]; then
               apt-get install -y libffi7
             else
               apt-get install -y libffi8
@@ -87,11 +90,13 @@ jobs:
           ref: "v0.2.3"
 
       - name: Prepare packaging of lua-cffi
+        env:
+          DISTRIB: ${{ matrix.distrib }}
         run: |
           cd cffi-lua-src
           mkdir build
           cd build
-          if  [[ "${{ matrix.distrib }}" = "el9" ]]; then
+          if [ "$DISTRIB" = "el9" ]; then
             meson .. -Dlua_version=5.4
           else
             meson .. -Dlua_version=5.3
