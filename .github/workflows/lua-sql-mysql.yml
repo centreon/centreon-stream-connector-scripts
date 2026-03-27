@@ -76,7 +76,7 @@ jobs:
           dnf install -y make gcc lua lua-devel mysql mysql-devel
           cd lua-sql-src
           make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER="$LUA_VERSION"
-         cd ..
+          cd ..
 
           sed -i "s/@luaver@/${LUA_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
         shell: bash
