@@ -21,7 +21,7 @@ runs:
         dnf install -y zstd
         # Import Centreon GPG key
         GPG_KEY_URL="https://yum-gpg.centreon.com/RPM-GPG-KEY-CES"
-        curl -sSL $GPG_KEY_URL -o RPM-GPG-KEY-CES
+        curl -sSL "$GPG_KEY_URL" -o RPM-GPG-KEY-CES
         rpm --import RPM-GPG-KEY-CES
       shell: bash
 
@@ -54,23 +54,23 @@ runs:
           echo "Installing package: $package"
           # Install package, then uninstall it with all his dependencies
           echo "Package installation..."
-          error_output=$(dnf install -y $package 2>&1) || { echo "$error_output" >> $error_log; echo "Error during installation of the package $package" >> $error_log; true; }
+          error_output=$(dnf install -y "$package" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during installation of the package $package" >> "$error_log"; true; }
           echo "Package installation done."
-          pack_name=$(echo $package | sed 's/\.\///' | sed 's/-[0-9\.-]*.el[0-9]*..*.rpm//')
+          pack_name=$(echo "$package" | sed 's/\.\///' | sed 's/-[0-9\.-]*.el[0-9]*..*.rpm//')
           if [[ -f ./tests/packaging/$pack_name.lua ]]; then
               echo "Testing package..."
-              error_output=$(lua tests/packaging/$pack_name.lua 2>&1) || { echo "$error_output" >> $error_log; echo "Error during the usage test of the package $package" >> $error_log; true; }
+              error_output=$(lua "tests/packaging/${pack_name}.lua" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during the usage test of the package $package" >> "$error_log"; true; }
               echo "Testing done."
           else
               echo "No test script found for the package $package"
           fi
           echo "Package uninstallation..."
-          error_output=$(dnf autoremove --setopt=keepcache=True -y $pack_name 2>&1) || { echo "$error_output" >> $error_log; echo "Error during autoremove of the package $package" >> $error_log; true; }
+          error_output=$(dnf autoremove --setopt=keepcache=True -y "$pack_name" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during autoremove of the package $package" >> "$error_log"; true; }
           echo "Package uninstallation done."
         done
         # If the file error_log exists and is not empty, the workflow is in error
-        if [[ -s $error_log ]]; then
-            cat $error_log
+        if [[ -s "$error_log" ]]; then
+            cat "$error_log"
             exit 1
         fi
       shell: bash
@@ -80,28 +80,28 @@ runs:
       env:
         DISTRIB: ${{ inputs.distrib }}
       run: |
-        error_log="install_error_$DISTRIB.log"
+        error_log="install_error_${DISTRIB}.log"
         for package in ./*.deb; do
           echo "Installing package: $package"
           # Install package, then uninstall it with all his dependencies
           echo "Package installation..."
-          error_output=$(apt-get install -y $package 2>&1) || { echo "$error_output" >> $error_log; echo "Error during installation of the package $package" >> $error_log; true; }
+          error_output=$(apt-get install -y "$package" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during installation of the package $package" >> "$error_log"; true; }
           echo "Package installation done."
-          pack_name=$(echo $package | sed 's/\.\///' | sed 's/_[0-9\.-]*~[a-z]*_.*\.deb//')
-          if [[ -f ./tests/packaging/$pack_name.lua ]]; then
+          pack_name=$(echo "$package" | sed 's/\.\///' | sed 's/_[0-9\.-]*~[a-z]*_.*\.deb//')
+          if [[ -f "./tests/packaging/${pack_name}.lua" ]]; then
               echo "Testing package..."
-              error_output=$(lua tests/packaging/$pack_name.lua 2>&1) || { echo "$error_output" >> $error_log; echo "Error during the usage test of the package $package" >> $error_log; true; }
+              error_output=$(lua "tests/packaging/${pack_name}.lua" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during the usage test of the package $package" >> "$error_log"; true; }
               echo "Testing done."
           else
               echo "No test script found for the package $package"
           fi
           echo "Package uninstallation..."
-          error_output=$(apt-get autoremove -y --purge $pack_name 2>&1) || { echo "$error_output" >> $error_log; echo "Error during autoremove of the package $package" >> $error_log; true; }
+          error_output=$(apt-get autoremove -y --purge "$pack_name" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during autoremove of the package $package" >> "$error_log"; true; }
           echo "Package uninstallation done."
         done
         # If the file error_log exists and is not empty, the workflow is in error
-        if [[ -s $error_log ]]; then
-            cat $error_log
+        if [[ -s "$error_log" ]]; then
+            cat "$error_log"
             exit 1
         fi
       shell: bash

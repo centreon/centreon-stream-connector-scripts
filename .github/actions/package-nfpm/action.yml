@@ -70,13 +70,13 @@ runs:
         export ARCH="$INPUT_ARCH"
 
         if [ "$INPUT_PACKAGE_EXTENSION" = "rpm" ]; then
-          export DIST=".$INPUT_DISTRIB"
+          export DIST=".${INPUT_DISTRIB}"
         else
           export DIST=""
           if [ "$INPUT_STABILITY" = "unstable" ] || [ "$INPUT_STABILITY" = "canary" ]; then
-            export RELEASE="$RELEASE~$INPUT_DISTRIB"
+            export RELEASE="${RELEASE}~${INPUT_DISTRIB}"
           else
-            export RELEASE="1~$INPUT_DISTRIB"
+            export RELEASE="1~${INPUT_DISTRIB}"
           fi
         fi
 
@@ -96,8 +96,8 @@ runs:
           BASENAME=$(basename $FILE)
           cd $DIRNAME
           sed -i "s/@luaver@/$luaver/g" $BASENAME
-          sed -i "s/@COMMIT_HASH@/$INPUT_COMMIT_HASH/g" $BASENAME
-          nfpm package --config $BASENAME --packager $INPUT_PACKAGE_EXTENSION
+          sed -i "s/@COMMIT_HASH@/${INPUT_COMMIT_HASH}/g" $BASENAME
+          nfpm package --config "$BASENAME" --packager "$INPUT_PACKAGE_EXTENSION"
           cd -
           mv $DIRNAME/*.$INPUT_PACKAGE_EXTENSION ./
         done
@@ -118,9 +118,9 @@ runs:
         INPUT_DISTRIB: ${{ inputs.distrib }}
       run: |
         if [ -z "$INPUT_ARTIFACT_NAME" ]; then
-          echo "artifact_name=packages-$INPUT_DISTRIB" >> $GITHUB_OUTPUT
+          echo "artifact_name=packages-${INPUT_DISTRIB}" >> "$GITHUB_OUTPUT"
         else
-          echo "artifact_name=$INPUT_ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "artifact_name=${INPUT_ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
         fi
       shell: bash
 

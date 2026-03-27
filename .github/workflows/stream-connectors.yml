@@ -60,8 +60,8 @@ jobs:
             mapfile -t folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
           else
             for f in $CONNECTOR_FILES; do
-              DIR_NAME=($(dirname $f))
-              BASE_NAME=($(basename $DIR_NAME))
+              DIR_NAME="$(dirname "$f")"
+              BASE_NAME="$(basename "$DIR_NAME")"
               echo "Adding $BASE_NAME to folders"
               folders+=($BASE_NAME)
             done
@@ -112,9 +112,9 @@ jobs:
           CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
           package_name="centreon-stream-connector-$(basename "$CONNECTOR_PATH")"
-          sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@PACKAGE_NAME@/${package_name}/g" ./packaging/connectors/centreon-stream-connectors.yaml
           connector_name="$(basename "$CONNECTOR_PATH")"
-          sed -i "s/@CONNECTOR_NAME@/$connector_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          sed -i "s/@CONNECTOR_NAME@/${connector_name}/g" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Add specific dependencies
