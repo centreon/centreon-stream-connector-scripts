@@ -1,5 +1,5 @@
-name: "test-cpan-libs"
-description: "Test packaged CPAN libraries"
+name: "test-packages"
+description: "Test packaged Lua libraries"
 inputs:
   package_extension:
     description: "The package extension (deb or rpm)"
