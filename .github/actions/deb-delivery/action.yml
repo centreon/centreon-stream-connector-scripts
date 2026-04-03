@@ -36,10 +36,14 @@ runs:
 
     - if: ${{ ! (inputs.distrib == 'jammy' && inputs.stability == 'stable') }}
       name: Publish DEBs
+      env:
+        MODULE_NAME: ${{ inputs.module_name }}
+        DISTRIB: ${{ inputs.distrib }}
+        STABILITY: ${{ inputs.stability }}
       run: |
         FILES="*.deb"
 
-        if [[ "${{ inputs.distrib }}" == "jammy" ]]; then
+        if [[ "$DISTRIB" == "jammy" ]]; then
           REPO_PREFIX="ubuntu"
         else
           REPO_PREFIX="apt"
@@ -50,6 +54,6 @@ runs:
 
           ARCH=$(echo $FILE | cut -d '_' -f3 | cut -d '.' -f1)
 
-          jf rt upload "$FILE" "${REPO_PREFIX}-plugins-${{ inputs.stability }}/pool/${{ inputs.module_name }}/" --deb "${{ inputs.distrib }}/main/$ARCH"
+          jf rt upload "$FILE" "${REPO_PREFIX}-plugins-$STABILITY/pool/$MODULE_NAME/" --deb "$DISTRIB/main/$ARCH"
         done
       shell: bash

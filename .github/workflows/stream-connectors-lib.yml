@@ -8,15 +8,17 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
 
 jobs:
   dependency-scan:
@@ -50,7 +52,7 @@ jobs:
             image: packaging-stream-connectors-nfpm-jammy
             distrib: jammy
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
@@ -69,8 +71,8 @@ jobs:
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.7.0" # previous version:"3.6.1"
-          release: "2"
+          version: "3.8.0" # previous version:"3.7.0"
+          release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
           commit_hash: ${{ github.sha }}
@@ -79,11 +81,12 @@ jobs:
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          artifact_name: "package-stream-connectors-lib-${{ matrix.distrib }}"
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
     needs: [get-environment, package]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         distrib: [el8, el9]
@@ -105,7 +108,7 @@ jobs:
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
     needs: [get-environment, package]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         distrib: [bullseye, bookworm, jammy]

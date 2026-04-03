@@ -7,7 +7,7 @@ on:
 
 jobs:
   get-environment:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       stability: ${{ steps.get_environment.outputs.stability }}
 
