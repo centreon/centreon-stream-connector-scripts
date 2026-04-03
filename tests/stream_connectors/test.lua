@@ -126,11 +126,13 @@ function write (event)
       --- log why the event has been dropped
       else
         broker_log:info(0, 'is_not_valid_element')
+        broker_log:info(0, "dropping event because element is not valid. Event element is: " .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
         queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
         .. tostring(queue.sc_params.params.reverse_element_mapping[queue.sc_event.event.category][queue.sc_event.event.element]))
       end
     else
       broker_log:info(0, 'is_not_valid_category')
+      broker_log:info(0, "dropping event because category is not valid. Event category is: " .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
       queue.sc_logger:debug("dropping event because category is not valid. Event category is: "
       .. tostring(queue.sc_params.params.reverse_category_mapping[queue.sc_event.event.category]))
     end

@@ -67,7 +67,15 @@ end
 function ScEvent:is_valid_element()
   broker_log:info(0, 'ScEvent:is_valid_element()')
   broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
-  return self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
+  local is_valid_element = false
+  is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
+  broker_log:info(0, 'self.event.element: ' .. self.event.element)
+  broker_log:info(0, 'self.params.bbdo.elements.downtime.id: ' .. self.params.bbdo.elements.downtime.id)
+  if (self.event.element == self.params.bbdo.elements.downtime.id) then
+    broker_log:info(0, 'start time: ' .. self.event.actual_start_time)
+    broker_log:info(0, 'end time: ' .. self.event.actual_end_time)
+  end
+  return is_valid_element
 end
 
 --- find_in_mapping: check if item type is in the mapping and is accepted
@@ -92,6 +100,7 @@ end
 --- is_valid_event: check if the event is accepted depending on configured conditions
 -- @return true|false (boolean) 
 function ScEvent:is_valid_event()
+  broker_log:info(0, 'ScEvent:is_valid_event()')
   local is_valid_event = false
   local is_validated_by_custom_code = true
   
@@ -142,6 +151,7 @@ end
 --- is_valid_neb_event: check if the event is an accepted neb type event
 -- @return true|false (boolean)
 function ScEvent:is_valid_neb_event()
+  broker_log:info(0, 'ScEvent:is_valid_neb_event()')
   local is_valid_event = false
   
   -- run validation tests depending on the element type of the neb event
@@ -1621,12 +1631,10 @@ function ScEvent:is_downtime_event_useless()
   if self:is_valid_downtime_event_start() then
     return true
   end
-  
   -- return false if downtime event is not a valid end of downtime event
   if self:is_valid_downtime_event_end() then
     return true
   end
-
   return false
 end
 
