@@ -57,12 +57,16 @@ end
 --- is_valid_category: check if the event is in an accepted category
 -- @retun true|false (boolean)
 function ScEvent:is_valid_category()
+  broker_log:info(0, 'ScEvent:is_valid_category()')
+  broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_categories .. ', ' .. self.event.category .. ')')
   return self:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
 end
 
 --- is_valid_element: check if the event is an accepted element
 -- @return true|false (boolean)
 function ScEvent:is_valid_element()
+  broker_log:info(0, 'ScEvent:is_valid_element()')
+  broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
   return self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
 end
 
@@ -72,14 +76,16 @@ end
 -- @param item (string) the item we want to find in the mapping table and in the reference
 -- @return (boolean)
 function ScEvent:find_in_mapping(mapping, reference, item)
+  broker_log:info(0, 'ScEvent:find_in_mapping(reference: ' .. reference .. ' , item: ' .. item .. ')')
   for mapping_index, mapping_value in pairs(mapping) do
+    -- broker_log:info(0, 'mapping_index: ' .. mapping_index .. ', mapping_value: ' .. mapping_value)
     for reference_index, reference_value in pairs(self.sc_common:split(reference, ",")) do
+      -- broker_log:info(0, 'reference_index: ' .. reference_index .. ', reference_value: ' .. reference_value)
       if item == mapping_value and mapping_index == reference_value then
         return true
       end
     end
   end
-
   return false
 end
 
@@ -741,8 +747,8 @@ function ScEvent:is_valid_event_downtime_state()
     self.event.scheduled_downtime_depth = self.event.downtime_depth
   end
 
-  if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime) 
+  if (not self.params.in_downtime and self.event.scheduled_downtime_depth > 0) then
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in a valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime)
       .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
     return false
   end
@@ -1344,6 +1350,7 @@ end
 --- is_vaid_downtime_event: check if the event is a valid downtime event
 -- return true|false (boolean)
 function ScEvent:is_valid_downtime_event()
+  broker_log:info(0, 'ScEvent:is_valid_downtime_event()')
   -- return false if the event is one of all the "fake" start or end downtime event received from broker
   if not self:is_downtime_event_useless() then
     self.sc_logger:debug("[sc_event:is_valid_downtime_event]: dropping downtime event because it is not a start nor end of downtime event.")
@@ -1609,6 +1616,7 @@ end
 -- is sending many downtime events before sending the one we want
 -- @return true|false (boolean)
 function ScEvent:is_downtime_event_useless()
+  broker_log:info(0, 'ScEvent:is_downtime_event_useless()')
   -- return false if downtime event is not a valid start of downtime event
   if self:is_valid_downtime_event_start() then
     return true
