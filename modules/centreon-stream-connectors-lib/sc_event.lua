@@ -57,23 +57,25 @@ end
 --- is_valid_category: check if the event is in an accepted category
 -- @retun true|false (boolean)
 function ScEvent:is_valid_category()
-  broker_log:info(0, 'ScEvent:is_valid_category()')
-  broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_categories .. ', ' .. self.event.category .. ')')
+  --broker_log:info(0, 'ScEvent:is_valid_category()')
+  --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_categories .. ', ' .. self.event.category .. ')')
   return self:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
 end
 
 --- is_valid_element: check if the event is an accepted element
 -- @return true|false (boolean)
 function ScEvent:is_valid_element()
-  broker_log:info(0, 'ScEvent:is_valid_element()')
-  broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
+  --broker_log:info(0, 'ScEvent:is_valid_element()')
+  --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
-  broker_log:info(0, 'self.event.element: ' .. self.event.element)
-  broker_log:info(0, 'self.params.bbdo.elements.downtime.id: ' .. self.params.bbdo.elements.downtime.id)
   if (self.event.element == self.params.bbdo.elements.downtime.id) then
-    broker_log:info(0, 'start time: ' .. self.event.actual_start_time)
-    broker_log:info(0, 'end time: ' .. self.event.actual_end_time)
+    broker_log:info(0, 'actual start time: ' .. self.event.actual_start_time)
+    broker_log:info(0, 'actual end time: ' .. self.event.actual_end_time)
+    broker_log:info(0, 'start time: ' .. self.event.start_time)
+    broker_log:info(0, 'end time: ' .. self.event.end_time)
+    broker_log:info(0, 'entry time: ' .. self.event.entry_time)
+    broker_log:info(0, 'deletion time: ' .. self.event.deletion_time)
   end
   return is_valid_element
 end

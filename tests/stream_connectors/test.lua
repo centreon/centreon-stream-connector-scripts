@@ -115,9 +115,9 @@ function write (event)
     broker_log:info(0, 'configuration of ('.. event.host_id.. ','.. event.service_id.. ')')
 
     if queue.sc_event:is_valid_category() then
-      broker_log:info(0, 'is_valid_category')
+      --broker_log:info(0, 'is_valid_category')
       if queue.sc_event:is_valid_element() then
-        broker_log:info(0, 'is_valid_element')
+        --broker_log:info(0, 'is_valid_element')
         -- format event if it is validated
         if queue.sc_event:is_valid_event() then
           broker_log:info(0, 'is_valid_event')
