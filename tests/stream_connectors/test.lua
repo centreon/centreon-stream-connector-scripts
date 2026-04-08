@@ -100,15 +100,18 @@ function write (event)
 
     if event._type == 65541 or event._type == 65572 then
         broker_log:info(0, 'downtime event detected')
-        broker_log:info(0, 'event data: ' .. broker.json_encode(event))
+        broker_log:info(0, 'broker event data: ' .. broker.json_encode(event))
+        broker_log:info(0, 'queue.sc_event event data: ' .. broker.json_encode(queue.sc_event.event))
         --local svc = broker_cache:get_service(event.host_id,event.service_id)
         --broker_log:info(0, broker.json_encode(svc))
     elseif event._type == 65550 or event._type == 65538 then
         broker_log:info(0, 'host status event detected')
         broker_log:info(0, 'event data: ' .. broker.json_encode(event))
+        broker_log:info(0, 'queue.sc_event event data: ' .. broker.json_encode(queue.sc_event.event))
     elseif event._type == 65560 or event._type == 65565 then
         broker_log:info(0, 'service status event detected')
         broker_log:info(0, 'event data: ' .. broker.json_encode(event))
+        broker_log:info(0, 'queue.sc_event event data: ' .. broker.json_encode(queue.sc_event.event))
     else
         return true
     end

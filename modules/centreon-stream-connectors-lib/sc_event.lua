@@ -69,13 +69,29 @@ function ScEvent:is_valid_element()
   --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
-  if (self.event.element == self.params.bbdo.elements.downtime.id) then
-    broker_log:info(0, 'actual start time: ' .. self.event.actual_start_time)
-    broker_log:info(0, 'actual end time: ' .. self.event.actual_end_time)
-    broker_log:info(0, 'start time: ' .. self.event.start_time)
-    broker_log:info(0, 'end time: ' .. self.event.end_time)
-    broker_log:info(0, 'entry time: ' .. self.event.entry_time)
-    broker_log:info(0, 'deletion time: ' .. self.event.deletion_time)
+  if self.event.element == self.params.bbdo.elements.downtime.id then
+    if self.event.started and self.event.actual_start_time > 0 then
+      local type = 'unknown'
+      local severity = 0
+      if self.event.type == 1 then
+        type = 'service'
+        broker_log:info(0, 'event data: ' .. broker.json_encode(broker_cache:get_service(self.event.host_id, self.event.service_id)))
+      elseif self.event.type == 2 then
+        type = 'host'
+        broker_log:info(0, 'event data: ' .. broker.json_encode(broker_cache:get_host(self.event.host_id)))
+      end
+      if self.event.actual_end_time == -1 then
+        broker_log:info(0, 'DOWNTIME STARTED for ' .. type .. ' ' .. self.event.id)
+      else
+        broker_log:info(0, 'DOWNTIME ENDED for ' .. type .. ' ' .. self.event.id)
+      end
+    end
+    --broker_log:info(0, 'actual start time: ' .. self.event.actual_start_time)
+    --broker_log:info(0, 'actual end time: ' .. self.event.actual_end_time)
+    --broker_log:info(0, 'start time: ' .. self.event.start_time)
+    --broker_log:info(0, 'end time: ' .. self.event.end_time)
+    --broker_log:info(0, 'entry time: ' .. self.event.entry_time)
+    --broker_log:info(0, 'deletion time: ' .. self.event.deletion_time)
   end
   return is_valid_element
 end
