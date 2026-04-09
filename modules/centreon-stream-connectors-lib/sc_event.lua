@@ -69,21 +69,27 @@ function ScEvent:is_valid_element()
   --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
-  if self.event.element == self.params.bbdo.elements.downtime.id then
+  broker_log:info(0, 'self.params.in_downtime: ' .. self.params.in_downtime)
+  broker_log:info(0, 'self.params.in_downtime==0: ' .. self.params.in_downtime == 0)
+  if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
     if self.event.started and self.event.actual_start_time > 0 then
       local type = 'unknown'
-      local severity = 0
+      local status = -1
       if self.event.type == 1 then
         type = 'service'
-        broker_log:info(0, 'event data: ' .. broker.json_encode(broker_cache:get_service(self.event.host_id, self.event.service_id)))
+        local service = broker_cache:get_service(self.event.host_id, self.event.service_id)
+        status = service.state
+        --broker_log:info(0, 'event data: ' .. broker.json_encode(service))
       elseif self.event.type == 2 then
         type = 'host'
-        broker_log:info(0, 'event data: ' .. broker.json_encode(broker_cache:get_host(self.event.host_id)))
+        local host = broker_cache:get_host(self.event.host_id)
+        status = host.state
+        --broker_log:info(0, 'event data: ' .. broker.json_encode(host))
       end
       if self.event.actual_end_time == -1 then
-        broker_log:info(0, 'DOWNTIME STARTED for ' .. type .. ' ' .. self.event.id)
+        broker_log:info(0, 'DOWNTIME STARTED for ' .. type .. ' ' .. self.event.id .. ' in state ' .. status)
       else
-        broker_log:info(0, 'DOWNTIME ENDED for ' .. type .. ' ' .. self.event.id)
+        broker_log:info(0, 'DOWNTIME ENDED for ' .. type .. ' ' .. self.event.id .. ' in state ' .. status)
       end
     end
     --broker_log:info(0, 'actual start time: ' .. self.event.actual_start_time)
