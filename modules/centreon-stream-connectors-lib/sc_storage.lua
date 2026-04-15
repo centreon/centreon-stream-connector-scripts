@@ -12,7 +12,8 @@ local sc_common = require("centreon-stream-connectors-lib.sc_common")
 -- @param common (object) a sc_common instance 
 -- @param logger (object) a sc_logger instance 
 -- @param params (table) the params table of the stream connector
-function sc_storage.new(common, logger, params)
+-- @param storage_file (string) [optional] path with name but no extension to the storage file
+function sc_storage.new(common, logger, params, storage_file)
   local self = {}
 
   self.sc_common = common
@@ -30,7 +31,7 @@ function sc_storage.new(common, logger, params)
   -- make sure we are able to load the desired storage backend. If not, fall back to the one provided by broker
   if pcall(require, "centreon-stream-connectors-lib.storage_backends.sc_storage_" .. params.storage_backend) then
     local storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_" .. params.storage_backend)
-    self.storage_backend = storage_backend.new(self.sc_common, logger, params)
+    self.storage_backend = storage_backend.new(self.sc_common, logger, params, storage_file)
   else
     self.sc_logger:error("[sc_storage:new]: Couldn't load storage backend: " .. tostring(params.storage_backend)
       .. ". Make sure that the file sc_storage_" .. tostring(params.storage_backend) .. ".lua exists on your server."

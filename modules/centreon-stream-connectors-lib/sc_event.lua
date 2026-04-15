@@ -14,6 +14,8 @@ local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
+local downtimes_storage = nil
+local downtimes_storage_path = "/var/lib/centreon-broker/downtimes"
 
 function sc_event.new(broker_event, params, common, logger, broker, storage)
   local self = {}
@@ -42,12 +44,14 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
   self.validation_steps = {}
 
   for accepted_element, info in pairs(self.params.accepted_elements_info) do
-    if not self.validation_steps[info.category_id] then 
+    if not self.validation_steps[info.category_id] then
       self.validation_steps[info.category_id] = {}
     end
-    
+
     self.validation_steps[info.category_id][info.element_id] = {}
   end
+
+  self.downtimes_storage_path = params.downtimes_storage_path or downtimes_storage_path
 
   setmetatable(self, { __index = ScEvent })
   return self
@@ -55,7 +59,7 @@ end
 
 
 --- is_valid_category: check if the event is in an accepted category
--- @retun true|false (boolean)
+-- @return true|false (boolean)
 function ScEvent:is_valid_category()
   --broker_log:info(0, 'ScEvent:is_valid_category()')
   --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_categories .. ', ' .. self.event.category .. ')')
@@ -69,27 +73,48 @@ function ScEvent:is_valid_element()
   --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
-  broker_log:info(0, 'self.params.in_downtime: ' .. self.params.in_downtime)
-  broker_log:info(0, 'self.params.in_downtime==0: ' .. self.params.in_downtime == 0)
   if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
+    if not self.downtimes_storage then
+      self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params, self.downtimes_storage_path)
+    end
     if self.event.started and self.event.actual_start_time > 0 then
       local type = 'unknown'
       local status = -1
+      local object_id
       if self.event.type == 1 then
         type = 'service'
         local service = broker_cache:get_service(self.event.host_id, self.event.service_id)
         status = service.state
+        object_id = 'service_' .. self.event.host_id .. '_' .. self.event.service_id
         --broker_log:info(0, 'event data: ' .. broker.json_encode(service))
       elseif self.event.type == 2 then
         type = 'host'
         local host = broker_cache:get_host(self.event.host_id)
         status = host.state
+        object_id = 'host_' .. self.event.host_id
         --broker_log:info(0, 'event data: ' .. broker.json_encode(host))
       end
       if self.event.actual_end_time == -1 then
         broker_log:info(0, 'DOWNTIME STARTED for ' .. type .. ' ' .. self.event.id .. ' in state ' .. status)
+        storage_data = {
+          object_type = type,
+          status = status,
+          downtime_start = self.event.actual_start_time,
+          downtime_end = self.event.actual_end_time
+        }
+        local result = self.downtimes_storage:set_multiple(object_id, storage_data)
+        if result then
+            broker_log:info(0, 'OK')
+        else
+            broker_log:info(0, 'NOT OK')
+        end
       else
-        broker_log:info(0, 'DOWNTIME ENDED for ' .. type .. ' ' .. self.event.id .. ' in state ' .. status)
+        local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status"})
+        if ok then
+          broker_log:info(0, 'DOWNTIME ENDED for ' .. stored.object_type .. ' ' .. object_id .. ' in state ' .. tostring(stored.status))
+        else
+          broker_log:info(0, 'DOWNTIME ENDED (no storage) for ' .. type .. ' ' .. tostring(object_id) .. ' (no stored data found, connector may have restarted)')
+        end
       end
     end
     --broker_log:info(0, 'actual start time: ' .. self.event.actual_start_time)
