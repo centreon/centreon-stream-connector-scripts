@@ -115,9 +115,14 @@ function ScEvent:is_valid_element()
         broker_log:info(0, 'DOWNTIME ENDED stored.broker_event type=' .. type(stored.broker_event)
           .. ', pending_event_handler set=' .. tostring(pending_event_handler ~= nil))
         if stored.broker_event and pending_event_handler then
-          -- stored.broker_event is a fresh table decoded from JSON: safe to modify in-place
-          stored.broker_event.scheduled_downtime_depth = 0
-          pending_event_handler(stored.broker_event)
+          -- broker_event is stored as a JSON string: decode it explicitly
+          local broker_event = broker.json_decode(stored.broker_event)
+          if broker_event then
+            broker_event.scheduled_downtime_depth = 0
+            pending_event_handler(broker_event)
+          else
+            self.sc_logger:error("[sc_event:is_valid_element]: failed to decode stored broker_event")
+          end
         end
       else
         self.sc_logger:error("[sc_event:is_valid_element]: Cannot get downtime datas from storage.")
@@ -824,7 +829,8 @@ function ScEvent:is_valid_event_downtime_state()
     if ok then
       if stored.status ~= self.event.state then
         broker_log:info(0, '[is_valid_event_downtime_state] status changed (' .. tostring(stored.status) .. ' -> ' .. tostring(self.event.state) .. '): storing broker_event')
-        if not self.downtimes_storage:set(object_id, "broker_event", self.broker_event) then
+        -- store broker_event as explicit JSON string to avoid relying on storage backend type conversion
+        if not self.downtimes_storage:set(object_id, "broker_event", broker.json_encode(self.broker_event)) then
           self.sc_logger:error("[sc_event:is_valid_event_downtime_state]: event hasn't been stored in storage")
         else
           broker_log:info(0, '[is_valid_event_downtime_state] broker_event stored successfully')

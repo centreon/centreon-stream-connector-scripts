@@ -80,13 +80,7 @@ function ScStorageSqlite:get_query_result(convert_data, column_count, column_val
     and row[self.required_columns_for_data_type_conversion.value_column]
     and row[self.required_columns_for_data_type_conversion.type_column]
   then
-    local before = row.value
     row.value = self.convert_data_type[row.data_type](row.value)
-    if row.data_type == "table" then
-      self.sc_logger:warning("[sc_storage_sqlite:get_query_result] broker_event decode: property=" .. tostring(row.property or "?")
-        .. ", result type=" .. type(row.value)
-        .. ", raw value (first 100 chars)=" .. tostring(before):sub(1, 100))
-    end
   end
 
   -- store results in a "global" variable 
