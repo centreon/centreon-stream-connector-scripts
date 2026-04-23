@@ -112,6 +112,8 @@ function ScEvent:is_valid_element()
       local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
       if ok then
         broker_log:info(0, 'DOWNTIME ENDED for type ' .. stored.object_type .. ' ' .. object_id .. ' in state ' .. tostring(stored.status))
+        broker_log:info(0, 'DOWNTIME ENDED stored.broker_event type=' .. type(stored.broker_event)
+          .. ', pending_event_handler set=' .. tostring(pending_event_handler ~= nil))
         if stored.broker_event and pending_event_handler then
           -- stored.broker_event is a fresh table decoded from JSON: safe to modify in-place
           stored.broker_event.scheduled_downtime_depth = 0
