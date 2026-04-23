@@ -15,7 +15,6 @@ local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
 local downtimes_storage = nil
-local downtimes_storage_path = "/var/lib/centreon-broker/downtimes"
 
 function sc_event.new(broker_event, params, common, logger, broker, storage)
   local self = {}
@@ -51,8 +50,6 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
     self.validation_steps[info.category_id][info.element_id] = {}
   end
 
-  self.downtimes_storage_path = params.downtimes_storage_path or downtimes_storage_path
-
   setmetatable(self, { __index = ScEvent })
   return self
 end
@@ -75,7 +72,7 @@ function ScEvent:is_valid_element()
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
   if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
     if not self.downtimes_storage then
-      self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params, self.downtimes_storage_path)
+      self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params)
     end
     if self.event.started and self.event.actual_start_time > 0 then
       local type = 'unknown'
@@ -85,13 +82,13 @@ function ScEvent:is_valid_element()
         type = 'service'
         local service = broker_cache:get_service(self.event.host_id, self.event.service_id)
         status = service.state
-        object_id = 'service_' .. self.event.host_id .. '_' .. self.event.service_id
+        object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
         --broker_log:info(0, 'event data: ' .. broker.json_encode(service))
       elseif self.event.type == 2 then
         type = 'host'
         local host = broker_cache:get_host(self.event.host_id)
         status = host.state
-        object_id = 'host_' .. self.event.host_id
+        object_id = 'downtime_host_' .. self.event.host_id
         --broker_log:info(0, 'event data: ' .. broker.json_encode(host))
       end
       if self.event.actual_end_time == -1 then
@@ -103,16 +100,16 @@ function ScEvent:is_valid_element()
           downtime_end = self.event.actual_end_time
         }
         local result = self.downtimes_storage:set_multiple(object_id, storage_data)
-        if result then
-            broker_log:info(0, 'OK')
-        else
-            broker_log:info(0, 'NOT OK')
+        if not result then
+            self.sc_logger:error("[sc_event:is_valid_element]: Cannot register downtime datas in storage.")
         end
       else
-        local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status"})
+        local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
         if ok then
           broker_log:info(0, 'DOWNTIME ENDED for ' .. stored.object_type .. ' ' .. object_id .. ' in state ' .. tostring(stored.status))
+          local new_event = sc_event.new(stored.broker_event, self.sc_params.params, self.sc_common, self.sc_logger, self.sc_broker, self.sc_storage)
         else
+          self.sc_logger:error("[sc_event:is_valid_element]: Cannot get downtime datas from storage.")
           broker_log:info(0, 'DOWNTIME ENDED (no storage) for ' .. type .. ' ' .. tostring(object_id) .. ' (no stored data found, connector may have restarted)')
         end
       end
@@ -133,7 +130,6 @@ end
 -- @param item (string) the item we want to find in the mapping table and in the reference
 -- @return (boolean)
 function ScEvent:find_in_mapping(mapping, reference, item)
-  broker_log:info(0, 'ScEvent:find_in_mapping(reference: ' .. reference .. ' , item: ' .. item .. ')')
   for mapping_index, mapping_value in pairs(mapping) do
     -- broker_log:info(0, 'mapping_index: ' .. mapping_index .. ', mapping_value: ' .. mapping_value)
     for reference_index, reference_value in pairs(self.sc_common:split(reference, ",")) do
@@ -806,9 +802,23 @@ function ScEvent:is_valid_event_downtime_state()
     self.event.scheduled_downtime_depth = self.event.downtime_depth
   end
 
-  if (not self.params.in_downtime and self.event.scheduled_downtime_depth > 0) then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in a valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime)
-      .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
+  if self.params.in_downtime == 0 and self.event.scheduled_downtime_depth > 0 then
+    if not self.downtimes_storage then
+      self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params)
+    end
+    local object_id
+    if self.event.service_id and self.event.service_id ~= 0 then
+      object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
+    else
+      object_id = 'downtime_host_' .. self.event.host_id
+    end
+    local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status"})
+    if ok and stored.status ~= self.event.state then
+      self.downtimes_storage:set(object_id, "broker_event", self.broker_event)
+      return true
+    end
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in a valid downtime state. Event downtime depth must be equal to " .. tostring(self.params.in_downtime)
+      .. ". Current downtime depth value: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
     return false
   end
 
@@ -1308,8 +1318,6 @@ function ScEvent:is_valid_service_severity()
   if self.params.service_severity_threshold == nil then
     return true
   end
-
-
 
   -- return false if service severity doesn't match 
   if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.severity.service, self.params.service_severity_operator) then

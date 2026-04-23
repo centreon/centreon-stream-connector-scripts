@@ -13,21 +13,19 @@ local sc_common = require("centreon-stream-connectors-lib.sc_common")
 -- @param common (object) a sc_common instance
 -- @param logger (object) a sc_logger instance
 -- @param params (table) the params table of the stream connector
--- @param db_file (string) [optional] path to the sqlite database file. Overrides params["sc_storage.sqlite.db_file"] when provided
-function sc_storage_sqlite.new(common, logger, params, db_file)
+function sc_storage_sqlite.new(common, logger, params)
   local self = {}
 
   self.sc_common = common
   self.sc_logger = logger
   self.params = params
 
-  local db_path = (db_file and db_file .. ".sdb") or params["sc_storage.sqlite.db_file"]
-  self.sqlite = sqlite.open(db_path)
+  self.sqlite = sqlite.open(params["sc_storage.sqlite.db_file"])
 
   if not self.sqlite:isopen() then
-    self.sc_logger:error("[sc_storage_sqlite:new]: couldn't open sqlite database: " .. tostring(db_path))
+    self.sc_logger:error("[sc_storage_sqlite:new]: couldn't open sqlite database: " .. tostring(params["sc_storage.sqlite.db_file"]))
   else
-    self.sc_logger:notice("[sc_storage_sqlite:new]: successfully loaded sqlite storage database: " .. tostring(db_path)
+    self.sc_logger:notice("[sc_storage_sqlite:new]: successfully loaded sqlite storage database: " .. tostring(params["sc_storage.sqlite.db_file"])
       .. ". Status is: " .. tostring(self.sqlite:isopen()))
   end
 
