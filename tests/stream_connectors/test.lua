@@ -64,8 +64,10 @@ function EventQueue.new(params)
   self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
 
-  local categories = self.sc_params.params.bbdo.categories
-  local elements = self.sc_params.params.bbdo.elements
+  -- register handler called by the library when a downtime ends with a status change
+  sc_event.set_pending_event_handler(function(pending_sc_event)
+    broker_log:info(0, 'valid stored event detected and processed (downtime ended with status change)')
+  end)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })

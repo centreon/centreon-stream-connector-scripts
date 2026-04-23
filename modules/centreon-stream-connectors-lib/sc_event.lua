@@ -15,6 +15,15 @@ local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
 local downtimes_storage = nil
+local pending_event_handler = nil
+
+--- sc_event.set_pending_event_handler: register a callback called by the library when a stored event
+-- (saved during a downtime) is ready to be sent because the downtime ended with a status change.
+-- The callback receives an already-validated sc_event object.
+-- @param handler (function) function(sc_event_obj) called for each valid pending event
+function sc_event.set_pending_event_handler(handler)
+  pending_event_handler = handler
+end
 
 function sc_event.new(broker_event, params, common, logger, broker, storage)
   local self = {}
@@ -74,52 +83,44 @@ function ScEvent:is_valid_element()
     if not self.downtimes_storage then
       self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params)
     end
-    if self.event.started and self.event.actual_start_time > 0 then
-      local type = 'unknown'
+    local object_id
+    if self.event.type == 1 then
+      object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
+    elseif self.event.type == 2 then
+      object_id = 'downtime_host_' .. self.event.host_id
+    end
+    if self:is_valid_downtime_event_start() then
       local status = -1
-      local object_id
       if self.event.type == 1 then
-        type = 'service'
-        local service = broker_cache:get_service(self.event.host_id, self.event.service_id)
-        status = service.state
-        object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
-        --broker_log:info(0, 'event data: ' .. broker.json_encode(service))
+        status = broker_cache:get_service(self.event.host_id, self.event.service_id).state
       elseif self.event.type == 2 then
-        type = 'host'
-        local host = broker_cache:get_host(self.event.host_id)
-        status = host.state
-        object_id = 'downtime_host_' .. self.event.host_id
-        --broker_log:info(0, 'event data: ' .. broker.json_encode(host))
+        status = broker_cache:get_host(self.event.host_id).state
       end
-      if self.event.actual_end_time == -1 then
-        broker_log:info(0, 'DOWNTIME STARTED for ' .. type .. ' ' .. self.event.id .. ' in state ' .. status)
-        storage_data = {
-          object_type = type,
-          status = status,
-          downtime_start = self.event.actual_start_time,
-          downtime_end = self.event.actual_end_time
-        }
-        local result = self.downtimes_storage:set_multiple(object_id, storage_data)
-        if not result then
-            self.sc_logger:error("[sc_event:is_valid_element]: Cannot register downtime datas in storage.")
+      broker_log:info(0, 'DOWNTIME STARTED for type ' .. self.event.type .. ' ' .. self.event.id .. ' in state ' .. status)
+      local storage_data = {
+        object_type = self.event.type,
+        status = status,
+        downtime_start = self.event.actual_start_time,
+        downtime_end = self.event.actual_end_time
+      }
+      if not self.downtimes_storage:set_multiple(object_id, storage_data) then
+        self.sc_logger:error("[sc_event:is_valid_element]: Cannot register downtime datas in storage.")
+      end
+    elseif self:is_valid_downtime_event_end() then
+      local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
+      if ok then
+        broker_log:info(0, 'DOWNTIME ENDED for type ' .. stored.object_type .. ' ' .. object_id .. ' in state ' .. tostring(stored.status))
+        if stored.broker_event and pending_event_handler then
+          local pending_sc_event = sc_event.new(stored.broker_event, self.params, self.sc_common, self.sc_logger, self.sc_broker, self.sc_storage)
+          -- downtime has ended: reset depth so the event is not rejected by downtime checks if re-validated
+          pending_sc_event.event.scheduled_downtime_depth = 0
+          pending_event_handler(pending_sc_event)
         end
       else
-        local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
-        if ok then
-          broker_log:info(0, 'DOWNTIME ENDED for ' .. stored.object_type .. ' ' .. object_id .. ' in state ' .. tostring(stored.status))
-          local new_event = sc_event.new(stored.broker_event, self.sc_params.params, self.sc_common, self.sc_logger, self.sc_broker, self.sc_storage)
-        else
-          self.sc_logger:error("[sc_event:is_valid_element]: Cannot get downtime datas from storage.")
-          broker_log:info(0, 'DOWNTIME ENDED (no storage) for ' .. type .. ' ' .. tostring(object_id) .. ' (no stored data found, connector may have restarted)')
-        end
+        self.sc_logger:error("[sc_event:is_valid_element]: Cannot get downtime datas from storage.")
+        broker_log:info(0, 'DOWNTIME ENDED (no storage) for type ' .. tostring(self.event.type) .. ' ' .. tostring(object_id) .. ' (no stored data found, connector may have restarted)')
       end
     end
-    --broker_log:info(0, 'actual start time: ' .. self.event.actual_start_time)
-    --broker_log:info(0, 'actual end time: ' .. self.event.actual_end_time)
-    --broker_log:info(0, 'start time: ' .. self.event.start_time)
-    --broker_log:info(0, 'end time: ' .. self.event.end_time)
-    --broker_log:info(0, 'entry time: ' .. self.event.entry_time)
-    --broker_log:info(0, 'deletion time: ' .. self.event.deletion_time)
   end
   return is_valid_element
 end
