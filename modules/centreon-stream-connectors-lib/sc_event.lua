@@ -115,6 +115,9 @@ function ScEvent:is_valid_element()
         broker_log:info(0, 'DOWNTIME ENDED stored.broker_event type=' .. type(stored.broker_event)
           .. ', pending_event_handler set=' .. tostring(pending_event_handler ~= nil))
         if stored.broker_event and pending_event_handler then
+          -- delete broker_event from storage before sending to prevent duplicate dispatch
+          -- on the second downtime end event (cancellation + deletion both trigger this path)
+          self.downtimes_storage:delete(object_id, "broker_event")
           -- broker_event is stored as a JSON string: decode it explicitly
           local broker_event = broker.json_decode(stored.broker_event)
           if broker_event then
