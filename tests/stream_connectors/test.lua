@@ -65,8 +65,10 @@ function EventQueue.new(params)
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
 
   -- register handler called by the library when a downtime ends with a status change
-  sc_event.set_pending_event_handler(function(pending_sc_event)
-    broker_log:info(0, 'valid stored event detected and processed (downtime ended with status change)')
+  -- the library passes the raw broker_event with scheduled_downtime_depth reset to 0
+  sc_event.set_pending_event_handler(function(broker_event)
+    broker_log:info(0, '[handler] pending event detected (downtime ended with status change): calling write()')
+    write(broker_event)
   end)
 
   -- return EventQueue object
