@@ -66,16 +66,12 @@ end
 --- is_valid_category: check if the event is in an accepted category
 -- @return true|false (boolean)
 function ScEvent:is_valid_category()
-  --broker_log:info(0, 'ScEvent:is_valid_category()')
-  --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_categories .. ', ' .. self.event.category .. ')')
   return self:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
 end
 
 --- is_valid_element: check if the event is an accepted element
 -- @return true|false (boolean)
 function ScEvent:is_valid_element()
-  --broker_log:info(0, 'ScEvent:is_valid_element()')
-  --broker_log:info(0, 'find_in_mapping(' .. self.params.accepted_elements .. ', ' .. self.event.element .. ')')
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
   if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
@@ -98,7 +94,6 @@ function ScEvent:is_valid_element()
       elseif self.event.type == 2 then
         status = broker_cache:get_host(self.event.host_id).state
       end
-      broker_log:info(0, 'DOWNTIME STARTED for type ' .. self.event.type .. ' ' .. self.event.id .. ' in state ' .. status)
       local storage_data = {
         object_type = self.event.type,
         status = status,
@@ -111,9 +106,6 @@ function ScEvent:is_valid_element()
     elseif self:is_valid_downtime_event_end() then
       local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
       if ok then
-        broker_log:info(0, 'DOWNTIME ENDED for type ' .. stored.object_type .. ' ' .. object_id .. ' in state ' .. tostring(stored.status))
-        broker_log:info(0, 'DOWNTIME ENDED stored.broker_event type=' .. type(stored.broker_event)
-          .. ', pending_event_handler set=' .. tostring(pending_event_handler ~= nil))
         if stored.broker_event and pending_event_handler then
           -- delete broker_event from storage before sending to prevent duplicate dispatch
           -- on the second downtime end event (cancellation + deletion both trigger this path)
@@ -129,7 +121,6 @@ function ScEvent:is_valid_element()
         end
       else
         self.sc_logger:error("[sc_event:is_valid_element]: Cannot get downtime datas from storage.")
-        broker_log:info(0, 'DOWNTIME ENDED (no storage) for type ' .. tostring(self.event.type) .. ' ' .. tostring(object_id) .. ' (no stored data found, connector may have restarted)')
       end
     end
   end
@@ -143,9 +134,7 @@ end
 -- @return (boolean)
 function ScEvent:find_in_mapping(mapping, reference, item)
   for mapping_index, mapping_value in pairs(mapping) do
-    -- broker_log:info(0, 'mapping_index: ' .. mapping_index .. ', mapping_value: ' .. mapping_value)
     for reference_index, reference_value in pairs(self.sc_common:split(reference, ",")) do
-      -- broker_log:info(0, 'reference_index: ' .. reference_index .. ', reference_value: ' .. reference_value)
       if item == mapping_value and mapping_index == reference_value then
         return true
       end
@@ -157,7 +146,6 @@ end
 --- is_valid_event: check if the event is accepted depending on configured conditions
 -- @return true|false (boolean) 
 function ScEvent:is_valid_event()
-  broker_log:info(0, 'ScEvent:is_valid_event()')
   local is_valid_event = false
   local is_validated_by_custom_code = true
   
@@ -208,7 +196,6 @@ end
 --- is_valid_neb_event: check if the event is an accepted neb type event
 -- @return true|false (boolean)
 function ScEvent:is_valid_neb_event()
-  broker_log:info(0, 'ScEvent:is_valid_neb_event()')
   local is_valid_event = false
   
   -- run validation tests depending on the element type of the neb event
@@ -824,26 +811,16 @@ function ScEvent:is_valid_event_downtime_state()
     else
       object_id = 'downtime_host_' .. self.event.host_id
     end
-    broker_log:info(0, '[is_valid_event_downtime_state] get_multiple for: ' .. tostring(object_id))
     local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status"})
-    broker_log:info(0, '[is_valid_event_downtime_state] get_multiple ok=' .. tostring(ok)
-      .. ', stored.status=' .. tostring(ok and stored.status)
-      .. ', event.state=' .. tostring(self.event.state))
     if ok then
       if stored.status ~= self.event.state then
-        broker_log:info(0, '[is_valid_event_downtime_state] status changed (' .. tostring(stored.status) .. ' -> ' .. tostring(self.event.state) .. '): storing broker_event')
         -- store broker_event as explicit JSON string to avoid relying on storage backend type conversion
         if not self.downtimes_storage:set(object_id, "broker_event", broker.json_encode(self.broker_event)) then
           self.sc_logger:error("[sc_event:is_valid_event_downtime_state]: event hasn't been stored in storage")
-        else
-          broker_log:info(0, '[is_valid_event_downtime_state] broker_event stored successfully')
         end
       else
-        broker_log:info(0, '[is_valid_event_downtime_state] status unchanged (' .. tostring(stored.status) .. '): clearing stored broker_event')
         self.downtimes_storage:set(object_id, "broker_event", nil)
       end
-    else
-      broker_log:info(0, '[is_valid_event_downtime_state] get_multiple failed: no data found for ' .. tostring(object_id) .. ' (downtime may not have been registered)')
     end
     self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in a valid downtime state. Event downtime depth must be equal to " .. tostring(self.params.in_downtime)
       .. ". Current downtime depth value: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
@@ -1445,7 +1422,6 @@ end
 --- is_valid_downtime_event: check if the event is a valid downtime event
 -- return true|false (boolean)
 function ScEvent:is_valid_downtime_event()
-  broker_log:info(0, 'ScEvent:is_valid_downtime_event()')
   -- return false if the event is one of all the "fake" start or end downtime event received from broker
   if not self:is_downtime_event_useless() then
     self.sc_logger:debug("[sc_event:is_valid_downtime_event]: dropping downtime event because it is not a start nor end of downtime event.")
@@ -1711,7 +1687,6 @@ end
 -- is sending many downtime events before sending the one we want
 -- @return true|false (boolean)
 function ScEvent:is_downtime_event_useless()
-  broker_log:info(0, 'ScEvent:is_downtime_event_useless()')
   -- return false if downtime event is not a valid start of downtime event
   if self:is_valid_downtime_event_start() then
     return true
