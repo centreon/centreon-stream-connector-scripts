@@ -76,17 +76,17 @@ jobs:
           else
             dnf config-manager --set-enabled crb
           fi
-          dnf install -y make gcc lua lua-devel
+          MYSQL_VERSION=""
           if [ "$DISTRIB" == "el10" ]; then
-            dnf install -y mysql8.4 mysql8.4-devel
-          else
-            dnf install -y mysql mysql-devel
+            MYSQL_VERSION="8.4"
           fi
+          dnf install -y make gcc lua lua-devel mysql$MYSQL_VERSION mysql$MYSQL_VERSION-devel
           cd lua-sql-src
           make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER="$LUA_VERSION"
           cd ..
 
           sed -i "s/@luaver@/${LUA_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
+          sed -i "s/@mysql_version@/${MYSQL_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
         shell: bash
 
       - name: Package
