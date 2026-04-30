@@ -77,6 +77,11 @@ jobs:
             dnf config-manager --set-enabled crb
           fi
           dnf install -y make gcc lua lua-devel mysql mysql-devel
+          if [ "$DISTRIB" == "el10" ]; then
+            dnf install -y mysql8.4 mysql8.4-devel
+          else
+            dnf install -y mysql mysql-devel
+          fi
           cd lua-sql-src
           make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER="$LUA_VERSION"
           cd ..
@@ -141,7 +146,7 @@ jobs:
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
+    needs: [get-environment, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
