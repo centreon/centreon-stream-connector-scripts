@@ -43,7 +43,7 @@ runs:
       run: |
         FILES="*.deb"
 
-        if [[ "$DISTRIB" == "jammy" ]]; then
+        if [[ "$DISTRIB" == "jammy" || "$DISTRIB" == "noble" ]]; then
           REPO_PREFIX="ubuntu"
         else
           REPO_PREFIX="apt"

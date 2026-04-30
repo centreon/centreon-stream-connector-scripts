@@ -32,13 +32,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
         include:
           - image: packaging-stream-connectors-nfpm-alma8
             distrib: el8
             lua_version: 5.3
           - image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+            lua_version: 5.4
+          - image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
             lua_version: 5.4
 
     runs-on: ubuntu-24.04
@@ -60,7 +63,7 @@ jobs:
         with:
           repository: "lunarmodules/luasql"
           path: "lua-sql-src"
-          ref: "2.6.0"
+          ref: "2.7.0"
 
       - name: Prepare packaging of lua-sql-mysql
         env:
@@ -88,7 +91,7 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: rpm
           arch: amd64
-          version: "2.6.0"
+          version: "2.7.0"
           release: "1"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
@@ -110,6 +113,9 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
 
     runs-on: ubuntu-24.04
     container:
@@ -139,7 +145,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:

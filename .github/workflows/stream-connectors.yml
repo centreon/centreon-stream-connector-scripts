@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy]
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -85,14 +85,23 @@ jobs:
           - distrib: el9
             image: packaging-stream-connectors-nfpm-alma9
             package_extension: rpm
+          - distrib: el10
+            image: packaging-stream-connectors-nfpm-alma10
+            package_extension: rpm
           - distrib: bullseye
             image: packaging-stream-connectors-nfpm-bullseye
             package_extension: deb
           - distrib: bookworm
             image: packaging-stream-connectors-nfpm-bookworm
             package_extension: deb
+          - distrib: trixie
+            image: packaging-stream-connectors-nfpm-trixie
+            package_extension: deb
           - distrib: jammy
             image: packaging-stream-connectors-nfpm-jammy
+            package_extension: deb
+          - distrib: noble
+            image: packaging-stream-connectors-nfpm-noble
             package_extension: deb
 
     name: Package ${{ matrix.distrib }} ${{ matrix.connector_path }}
@@ -165,7 +174,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
@@ -188,7 +197,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy]
+        distrib: [bullseye, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 

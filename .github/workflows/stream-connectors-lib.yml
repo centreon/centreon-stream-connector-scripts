@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy]
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -42,6 +42,9 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
@@ -49,8 +52,14 @@ jobs:
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
           - package_extension: deb
+            image: packaging-stream-connectors-nfpm-trixie
+            distrib: trixie
+          - package_extension: deb
             image: packaging-stream-connectors-nfpm-jammy
             distrib: jammy
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-noble
+            distrib: noble
 
     runs-on: ubuntu-24.04
 
@@ -89,7 +98,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
@@ -111,7 +120,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy]
+        distrib: [bullseye, bookworm, trixie, jammy, noble]
     name: deliver ${{ matrix.distrib }}
 
     steps:
