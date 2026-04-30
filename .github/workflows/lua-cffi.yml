@@ -105,7 +105,7 @@ jobs:
           cd cffi-lua-src
           mkdir build
           cd build
-          if [ "$DISTRIB" = "el9" ]; then
+          if [[ "$DISTRIB" = "el9" || "$DISTRIB" = "el10" ]]; then
             meson .. -Dlua_version=5.4
           else
             meson .. -Dlua_version=5.3
