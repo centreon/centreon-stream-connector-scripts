@@ -76,7 +76,7 @@ jobs:
           else
             dnf config-manager --set-enabled crb
           fi
-          dnf install -y make gcc lua lua-devel mysql mysql-devel
+          dnf install -y make gcc lua lua-devel
           if [ "$DISTRIB" == "el10" ]; then
             dnf install -y mysql8.4 mysql8.4-devel
           else
