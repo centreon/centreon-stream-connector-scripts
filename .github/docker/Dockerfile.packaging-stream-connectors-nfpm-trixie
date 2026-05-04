@@ -1,6 +1,6 @@
 ARG REGISTRY_URL=docker.centreon.com/centreon
 
-FROM ${REGISTRY_URL}/debian:bookworm
+FROM ${REGISTRY_URL}/debian:trixie
 
 RUN bash -e <<EOF
 
