@@ -1,6 +1,6 @@
 ARG REGISTRY_URL=docker.centreon.com/centreon
 
-FROM ${REGISTRY_URL}/ubuntu:jammy
+FROM ${REGISTRY_URL}/ubuntu:noble
 
 RUN bash -e <<EOF
 
