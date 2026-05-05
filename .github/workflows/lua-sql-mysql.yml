@@ -32,13 +32,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
         include:
           - image: packaging-stream-connectors-nfpm-alma8
             distrib: el8
             lua_version: 5.3
           - image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+            lua_version: 5.4
+          - image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
             lua_version: 5.4
 
     runs-on: ubuntu-24.04
@@ -60,7 +63,7 @@ jobs:
         with:
           repository: "lunarmodules/luasql"
           path: "lua-sql-src"
-          ref: "2.6.0"
+          ref: "2.7.0"
 
       - name: Prepare packaging of lua-sql-mysql
         env:
@@ -73,12 +76,17 @@ jobs:
           else
             dnf config-manager --set-enabled crb
           fi
-          dnf install -y make gcc lua lua-devel mysql mysql-devel
+          MYSQL_VERSION=""
+          if [ "$DISTRIB" == "el10" ]; then
+            MYSQL_VERSION="8.4"
+          fi
+          dnf install -y make gcc lua lua-devel mysql$MYSQL_VERSION mysql$MYSQL_VERSION-devel
           cd lua-sql-src
           make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER="$LUA_VERSION"
           cd ..
 
           sed -i "s/@luaver@/${LUA_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
+          sed -i "s/@mysql_version@/${MYSQL_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
         shell: bash
 
       - name: Package
@@ -88,7 +96,7 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: rpm
           arch: amd64
-          version: "2.6.0"
+          version: "2.7.0"
           release: "1"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
@@ -110,6 +118,9 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
 
     runs-on: ubuntu-24.04
     container:
@@ -135,11 +146,11 @@ jobs:
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
+    needs: [get-environment, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
