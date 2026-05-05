@@ -24,7 +24,9 @@ function sc_storage.new(common, logger, params)
     "host_%d+",
     "service_%d+_%d+",
     "ba_%d+",
-    "metric_.*"
+    "metric_.*",
+    "downtime_host_%d+",
+    "downtime_service_%d+_%d+"
   }
 
   -- make sure we are able to load the desired storage backend. If not, fall back to the one provided by broker

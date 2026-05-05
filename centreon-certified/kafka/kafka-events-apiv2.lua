@@ -243,6 +243,9 @@ local queue
 
 function init(params)
   queue = EventQueue.new(params)
+  sc_event.set_pending_event_handler(function(pending_broker_event)
+    write(pending_broker_event)
+  end)
 end
 
 -- --------------------------------------------------------------------------------
