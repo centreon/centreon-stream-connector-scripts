@@ -88,26 +88,23 @@ jobs:
           LSQLITE3_VERSION: 0.9.7
         run: |
           if [ "$PACKAGE_EXTENSION" = "rpm" ]; then
-            dnf install -y make gcc lua-devel unzip wget
+            dnf install -y make gcc lua-devel unzip wget sqlite sqlite-devel
           else
             apt-get update
-            apt-get install -y make gcc liblua${LUA_VERSION}-dev unzip wget
+            apt-get install -y make gcc liblua${LUA_VERSION}-dev unzip wget sqlite3 libsqlite3-dev
           fi
-          
+
           wget -O lsqlite3.zip "https://lua.sqlite.org/home/zip/lsqlite3_v097.zip?uuid=v${LSQLITE3_VERSION}"
           unzip lsqlite3.zip
           mv lsqlite3_v097 lsqlite3_v${LSQLITE3_VERSION}
-          
+
           if [ "$PACKAGE_EXTENSION" = "rpm" ]; then
             LUA_INCDIR="/usr/include"
           else
             LUA_INCDIR="/usr/include/lua${LUA_VERSION}"
           fi
           cd lsqlite3_v${LSQLITE3_VERSION}
-          #gcc -O2 -shared -fPIC -o lsqlite3.so lsqlite3.c sqlite3.c -I"${LUA_INCDIR}" -ldl
-          #gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -I/usr/include -L/usr/lib64 -Wl,-rpath,/usr/lib64 -lsqlite3 -DLSQLITE_VERSION='"0.9.7"'
-          #gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -I/usr/include -DLSQLITE_VERSION='"0.9.7"' $(pkg-config --cflags --libs sqlite3)
-          gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -I"/usr/include/lua${LUA_VERSION}" -DLSQLITE_VERSION='"${LSQLITE3_VERSION}"' -L/usr/lib64 -L/usr/lib/x86_64-linux-gnu -L/usr/lib -lsqlite3
+          gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -DLSQLITE_VERSION='"${LSQLITE3_VERSION}"' $(pkg-config --cflags lua${LUA_VERSION}) $(pkg-config --cflags --libs sqlite3)
         shell: bash
 
       - name: Package
