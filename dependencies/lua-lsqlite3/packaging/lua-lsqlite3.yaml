@@ -15,11 +15,11 @@ homepage: "https://www.centreon.com"
 license: "MIT"
 
 contents:
-  - src: "../../../lsqlite3_v${VERSION}/lsqlite3.so"
+  - src: "../../../lsqlite3_v@VERSION@/lsqlite3.so"
     dst: "/usr/lib64/lua/@luaver@/lsqlite3.so"
     packager: rpm
 
-  - src: "../../../lsqlite3_v${VERSION}/lsqlite3.so"
+  - src: "../../../lsqlite3_v@VERSION@/lsqlite3.so"
     dst: "/usr/lib/x86_64-linux-gnu/lua/@luaver@/lsqlite3.so"
     packager: deb
 
