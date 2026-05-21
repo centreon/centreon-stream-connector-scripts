@@ -1,4 +1,4 @@
-name: lua-cffi
+name: lua-lsqlite3
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -8,15 +8,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - '.github/workflows/lua-cffi.yml'
-      - 'dependencies/lua-cffi/**'
+      - '.github/workflows/lua-lsqlite3.yml'
+      - 'dependencies/lua-lsqlite3/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - '.github/workflows/lua-cffi.yml'
-      - 'dependencies/lua-cffi/**'
+      - '.github/workflows/lua-lsqlite3.yml'
+      - 'dependencies/lua-lsqlite3/**'
 
 jobs:
   dependency-scan:
@@ -34,30 +34,38 @@ jobs:
       matrix:
         distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         include:
-          - package_extension: rpm
+          - distrib: el8
+            package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
-            distrib: el8
-          - package_extension: rpm
+            lua_version: 5.3
+          - distrib: el9
+            package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
-            distrib: el9
-          - package_extension: rpm
+            lua_version: 5.4
+          - distrib: el10
+            package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma10
-            distrib: el10
-          - package_extension: deb
+            lua_version: 5.4
+          - distrib: bullseye
+            package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
-            distrib: bullseye
-          - package_extension: deb
+            lua_version: 5.3
+          - distrib: bookworm
+            package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
-            distrib: bookworm
-          - package_extension: deb
+            lua_version: 5.3
+          - distrib: trixie
+            package_extension: deb
             image: packaging-stream-connectors-nfpm-trixie
-            distrib: trixie
-          - package_extension: deb
+            lua_version: 5.4
+          - distrib: jammy
+            package_extension: deb
             image: packaging-stream-connectors-nfpm-jammy
-            distrib: jammy
-          - package_extension: deb
+            lua_version: 5.3
+          - distrib: noble
+            package_extension: deb
             image: packaging-stream-connectors-nfpm-noble
-            distrib: noble
+            lua_version: 5.3
 
     runs-on: ubuntu-24.04
 
@@ -73,65 +81,50 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install dependencies
+      - name: Prepare packaging of lua-lsqlite3
         env:
           PACKAGE_EXTENSION: ${{ matrix.package_extension }}
-          DISTRIB: ${{ matrix.distrib }}
+          LUA_VERSION: ${{ matrix.lua_version }}
         run: |
           if [ "$PACKAGE_EXTENSION" = "rpm" ]; then
-            dnf install -y make gcc gcc-c++ meson cmake libffi libffi-devel
+            dnf install -y make gcc lua-devel unzip wget
           else
             apt-get update
-            apt-get install -y make gcc g++ meson cmake libffi-dev
-            if [ "$DISTRIB" = "bullseye" ]; then
-              apt-get install -y libffi7
-            else
-              apt-get install -y libffi8
-            fi
+            apt-get install -y make gcc liblua${LUA_VERSION}-dev unzip wget
           fi
-        shell: bash
-
-      - name: Checkout cffi-lua sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: "q66/cffi-lua"
-          path: "cffi-lua-src"
-          ref: "v0.2.3"
-
-      - name: Prepare packaging of lua-cffi
-        env:
-          DISTRIB: ${{ matrix.distrib }}
-        run: |
-          cd cffi-lua-src
-          mkdir build
-          cd build
-          if [[ "$DISTRIB" = "el9" || "$DISTRIB" = "el10" || "$DISTRIB" = "trixie" ]]; then
-            meson .. -Dlua_version=5.4
+          
+          wget -O lsqlite3.zip "https://lua.sqlite.org/home/zip/lsqlite3_v097.zip?uuid=v0.9.7"
+          unzip lsqlite3.zip
+          mv lsqlite3_v097 lsqlite3_v0.9.7
+          
+          if [ "$PACKAGE_EXTENSION" = "rpm" ]; then
+            LUA_INCDIR="/usr/include"
           else
-            meson .. -Dlua_version=5.3
+            LUA_INCDIR="/usr/include/lua${LUA_VERSION}"
           fi
-          ninja all
-          cd ../..
-          mkdir -p dependencies/lua-cffi/lua-cffi
-          mv cffi-lua-src/build/cffi.so dependencies/lua-cffi/lua-cffi/
+          cd lsqlite3_v097
+          #gcc -O2 -shared -fPIC -o lsqlite3.so lsqlite3.c sqlite3.c -I"${LUA_INCDIR}" -ldl
+          #gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -I/usr/include -L/usr/lib64 -Wl,-rpath,/usr/lib64 -lsqlite3 -DLSQLITE_VERSION='"0.9.7"'
+          #gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -I/usr/include -DLSQLITE_VERSION='"0.9.7"' $(pkg-config --cflags --libs sqlite3)
+          gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -I"/usr/include/lua${LUA_VERSION}" -DLSQLITE_VERSION='"0.9.7"' -L/usr/lib64 -L/usr/lib/x86_64-linux-gnu -L/usr/lib -lsqlite3
         shell: bash
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
-          nfpm_file_pattern: "dependencies/lua-cffi/packaging/*.yaml"
+          nfpm_file_pattern: "dependencies/lua-lsqlite3/packaging/*.yaml"
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: amd64
-          version: "0.2.4"
+          version: "0.9.7"
           release: "1"
           commit_hash: ${{ github.sha }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-cffi-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-lsqlite3-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
           stability: ${{ needs.get-environment.outputs.stability }}
-          artifact_name: "package-lua-cffi-${{ matrix.distrib }}"
+          artifact_name: "package-lua-lsqlite3-${{ matrix.distrib }}"
 
   test-packages:
     needs: [get-environment, package]
@@ -163,6 +156,7 @@ jobs:
           - package_extension: deb
             image: ubuntu:noble
             distrib: noble
+
     runs-on: ubuntu-24.04
     container:
       image: ${{ matrix.image }}
@@ -176,7 +170,7 @@ jobs:
         with:
           package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-cffi-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-lsqlite3-${{ matrix.distrib }}
 
       - name: Upload error log
         if: failure()
@@ -201,10 +195,10 @@ jobs:
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
         with:
-          module_name: lua-cffi
+          module_name: lua-lsqlite3
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-cffi-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-lsqlite3-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-deb:
@@ -223,8 +217,8 @@ jobs:
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
-          module_name: lua-cffi
+          module_name: lua-lsqlite3
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-cffi-${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-lsqlite3-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
