@@ -27,9 +27,11 @@ overrides:
   rpm:
     depends:
       - lua
+      - sqlite-libs
   deb:
     depends:
       - "lua@luaver@"
+      - libsqlite3-0
 
 rpm:
   summary: Lua SQLite3
