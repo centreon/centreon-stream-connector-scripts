@@ -22,14 +22,14 @@ runs:
   steps:
     - if: ${{ ! (inputs.distrib == 'jammy' && inputs.stability == 'stable') }}
       name: Use cache DEB files
-      uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ./*.deb
         key: ${{ inputs.cache_key }}
         fail-on-cache-miss: true
 
     - if: ${{ ! (inputs.distrib == 'jammy' && inputs.stability == 'stable') }}
-      uses: jfrog/setup-jfrog-cli@901bb9632db90821c2d3f076012bdeaf66598555 # v3.4.1
+      uses: jfrog/setup-jfrog-cli@1641575d87647fb969c0545f0b6a76873e328b7c # v5.0.0
       env:
         JF_URL: https://centreon.jfrog.io
         JF_ACCESS_TOKEN: ${{ inputs.artifactory_token }}
