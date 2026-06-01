@@ -92,9 +92,61 @@ jobs:
           stability: ${{ needs.get-environment.outputs.stability }}
           artifact_name: "package-stream-connectors-lib-${{ matrix.distrib }}"
 
+  test-packages:
+    needs: [get-environment, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_extension: rpm
+            image: almalinux:8
+            distrib: el8
+          - package_extension: rpm
+            image: almalinux:9
+            distrib: el9
+#          - package_extension: rpm
+#            image: almalinux:10
+#            distrib: el10
+          - package_extension: deb
+            image: debian:bullseye
+            distrib: bullseye
+          - package_extension: deb
+            image: debian:bookworm
+            distrib: bookworm
+#          - package_extension: deb
+#            image: debian:trixie
+#            distrib: trixie
+          - package_extension: deb
+            image: ubuntu:jammy
+            distrib: jammy
+          - package_extension: deb
+            image: ubuntu:noble
+            distrib: noble
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    name: test packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test packaged libs
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          test_type: library
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: install_error_log_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
+
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
+    needs: [get-environment, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -116,7 +168,7 @@ jobs:
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
+    needs: [get-environment, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:

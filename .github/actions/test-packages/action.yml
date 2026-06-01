@@ -10,29 +10,196 @@ inputs:
   cache_key:
     description: "The cache key to restore packages"
     required: true
+  test_type:
+    description: "The type of test to run: dependency, library or stream-connector"
+    required: true
 
 runs:
   using: "composite"
   steps:
     - if: ${{ inputs.package_extension == 'rpm' }}
-      name: Install zstd and Centreon GPG key
+      name: Install dependencies and configure Centreon repositories
+      env:
+        DISTRIB: ${{ inputs.distrib }}
       run: |
-        dnf install -y zstd
+        dnf install -y 'dnf-command(config-manager)' epel-release zstd
+        dnf install -y --allowerasing curl
+        # Enable additional repos depending on distrib
+        dnf config-manager --set-enabled powertools 2>/dev/null || true  # el8
+        dnf config-manager --set-enabled crb 2>/dev/null || true          # el9, el10
         # Import Centreon GPG key
-        GPG_KEY_URL="https://yum-gpg.centreon.com/RPM-GPG-KEY-CES"
-        curl -sSL "$GPG_KEY_URL" -o RPM-GPG-KEY-CES
+        curl -sSL "https://yum-gpg.centreon.com/RPM-GPG-KEY-CES" -o RPM-GPG-KEY-CES
         rpm --import RPM-GPG-KEY-CES
+        # Select the Centreon version based on distribution
+        if [[ "$DISTRIB" == "el8" || "$DISTRIB" == "el9" ]]; then
+          CENTREON_VERSION="25.10"
+        else
+          CENTREON_VERSION="26.10"  # el10 - repo not yet available
+        fi
+        # Add Centreon plugins and standard repositories
+        {
+          echo '[centreon-plugins-stable]'
+          echo 'name=centreon plugins stable x86_64'
+          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/stable/x86_64"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo ''
+          echo '[centreon-plugins-stable-noarch]'
+          echo 'name=centreon plugins stable noarch'
+          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/stable/noarch"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo ''
+          echo '[centreon-plugins-testing]'
+          echo 'name=centreon plugins testing x86_64'
+          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/testing/x86_64"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo ''
+          echo '[centreon-plugins-testing-noarch]'
+          echo 'name=centreon plugins testing noarch'
+          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/testing/noarch"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo ''
+          echo '[centreon-plugins-unstable]'
+          echo 'name=centreon plugins unstable x86_64'
+          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/unstable/x86_64"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo ''
+          echo '[centreon-plugins-unstable-noarch]'
+          echo 'name=centreon plugins unstable noarch'
+          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/unstable/noarch"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-stable]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/x86_64/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-stable-noarch]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/noarch/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-testing-release]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/x86_64/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-testing-release-noarch]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/noarch/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-testing-hotfix]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/x86_64/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-testing-hotfix-noarch]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/noarch/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-unstable]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/x86_64/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+          echo ''
+          echo "[centreon-${CENTREON_VERSION}-unstable-noarch]"
+          echo 'name=Centreon open source software repository.'
+          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/noarch/"
+          echo 'enabled=1'
+          echo 'gpgcheck=1'
+          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+          echo 'module_hotfixes=1'
+        } > /etc/yum.repos.d/centreon-plugins.repo
       shell: bash
 
     - if: ${{ inputs.package_extension == 'deb' }}
-      name: Install zstd and Centreon GPG key
+      name: Install dependencies and configure Centreon repositories
+      env:
+        DISTRIB: ${{ inputs.distrib }}
       run: |
         export DEBIAN_FRONTEND=noninteractive
+        # Avoid apt to clean packages cache directory
+        rm -f /etc/apt/apt.conf.d/docker-clean
         apt-get update
         apt-get install -y zstd wget gpg
         wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null 2>&1
-        # Avoid apt to clean packages cache directory
-        rm -f /etc/apt/apt.conf.d/docker-clean
+        # Select the correct repo and version depending on distrib
+        # Format <= 24.10: https://packages.centreon.com/{repo}-{stability}/ {distrib} main
+        # Format >= 25.10: https://packages.centreon.com/{repo}/ {distrib}-{version}-{stability} main
+        if [[ "$DISTRIB" == "jammy" ]]; then
+          standard_base="ubuntu-standard-24.04"
+          standard_distrib="$DISTRIB"
+          plugins_prefix="ubuntu-plugins"
+          new_repo_format=false
+        elif [[ "$DISTRIB" == "noble" ]]; then
+          standard_base="ubuntu-standard-24.10"
+          standard_distrib="$DISTRIB"
+          plugins_prefix="ubuntu-plugins"
+          new_repo_format=false
+        elif [[ "$DISTRIB" == "bullseye" ]]; then
+          standard_base="apt-standard-24.04"
+          standard_distrib="$DISTRIB"
+          plugins_prefix="apt-plugins"
+          new_repo_format=false
+        elif [[ "$DISTRIB" == "bookworm" ]]; then
+          standard_base="apt-standard"
+          standard_distrib="${DISTRIB}-25.10"
+          plugins_prefix="apt-plugins"
+          new_repo_format=true
+        elif [[ "$DISTRIB" == "trixie" ]]; then
+          standard_base="apt-standard"
+          standard_distrib="${DISTRIB}-26.10"  # repo not yet available
+          plugins_prefix="apt-plugins"
+          new_repo_format=true
+        fi
+        # Add Centreon standard repository (provides centreon-broker-core and other core packages)
+        if [[ "$new_repo_format" == "true" ]]; then
+          echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-stable main" | tee /etc/apt/sources.list.d/centreon-standard.list
+          echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+          echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-unstable main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+        else
+          echo "deb https://packages.centreon.com/${standard_base}-stable/ ${standard_distrib} main" | tee /etc/apt/sources.list.d/centreon-standard.list
+          echo "deb https://packages.centreon.com/${standard_base}-testing/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+          echo "deb https://packages.centreon.com/${standard_base}-unstable/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+        fi
+        # Add Centreon plugins repositories (stable, testing, unstable)
+        echo "deb https://packages.centreon.com/${plugins_prefix}-stable/ $DISTRIB main" | tee /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${plugins_prefix}-testing/ $DISTRIB main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
+        echo "deb https://packages.centreon.com/${plugins_prefix}-unstable/ $DISTRIB main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         apt-get update
       shell: bash
 
@@ -47,27 +214,47 @@ runs:
       name: Check packages installation / uninstallation
       env:
         DISTRIB: ${{ inputs.distrib }}
+        TEST_TYPE: ${{ inputs.test_type }}
       run: |
         error_log="install_error_$DISTRIB.log"
         for package in ./*.rpm; do
           echo "Installing package: $package"
-          # Install package, then uninstall it with all his dependencies
           echo "Package installation..."
           error_output=$(dnf install -y "$package" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during installation of the package $package" >> "$error_log"; true; }
           echo "Package installation done."
           pack_name=$(echo "$package" | sed 's/\.\///' | sed 's/-[0-9\.-]*.el[0-9]*..*.rpm//')
-          if [[ -f ./tests/packaging/$pack_name.lua ]]; then
-              echo "Testing package..."
-              error_output=$(lua "tests/packaging/${pack_name}.lua" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during the usage test of the package $package" >> "$error_log"; true; }
-              echo "Testing done."
-          else
-              echo "No test script found for the package $package"
-          fi
+          case "$TEST_TYPE" in
+            dependency)
+              test_dir="tests/packaging/dependencies"
+              if [[ -f "${test_dir}/${pack_name}.lua" ]]; then
+                echo "Testing package..."
+                error_output=$(lua "${test_dir}/${pack_name}.lua" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during the usage test of the package $package" >> "$error_log"; true; }
+                echo "Testing done."
+              else
+                echo "No test script found for the package $package"
+              fi
+              ;;
+            library)
+              test_dir="tests/packaging/library"
+              for test_script in "${test_dir}"/*.lua; do
+                [[ -f "$test_script" ]] || continue
+                echo "Running test: $test_script"
+                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              done
+              ;;
+            stream-connector)
+              test_dir="tests/packaging/stream-connectors"
+              for test_script in "${test_dir}"/*.lua; do
+                [[ -f "$test_script" ]] || continue
+                echo "Running test: $test_script"
+                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              done
+              ;;
+          esac
           echo "Package uninstallation..."
           error_output=$(dnf autoremove --setopt=keepcache=True -y "$pack_name" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during autoremove of the package $package" >> "$error_log"; true; }
           echo "Package uninstallation done."
         done
-        # If the file error_log exists and is not empty, the workflow is in error
         if [[ -s "$error_log" ]]; then
             cat "$error_log"
             exit 1
@@ -78,27 +265,47 @@ runs:
       name: Check packages installation / uninstallation
       env:
         DISTRIB: ${{ inputs.distrib }}
+        TEST_TYPE: ${{ inputs.test_type }}
       run: |
         error_log="install_error_${DISTRIB}.log"
         for package in ./*.deb; do
           echo "Installing package: $package"
-          # Install package, then uninstall it with all his dependencies
           echo "Package installation..."
           error_output=$(apt-get install -y "$package" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during installation of the package $package" >> "$error_log"; true; }
           echo "Package installation done."
           pack_name=$(echo "$package" | sed 's/\.\///' | sed 's/_[0-9\.-]*~[a-z]*_.*\.deb//')
-          if [[ -f "./tests/packaging/${pack_name}.lua" ]]; then
-              echo "Testing package..."
-              error_output=$(lua "tests/packaging/${pack_name}.lua" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during the usage test of the package $package" >> "$error_log"; true; }
-              echo "Testing done."
-          else
-              echo "No test script found for the package $package"
-          fi
+          case "$TEST_TYPE" in
+            dependency)
+              test_dir="tests/packaging/dependencies"
+              if [[ -f "${test_dir}/${pack_name}.lua" ]]; then
+                echo "Testing package..."
+                error_output=$(lua "${test_dir}/${pack_name}.lua" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during the usage test of the package $package" >> "$error_log"; true; }
+                echo "Testing done."
+              else
+                echo "No test script found for the package $package"
+              fi
+              ;;
+            library)
+              test_dir="tests/packaging/library"
+              for test_script in "${test_dir}"/*.lua; do
+                [[ -f "$test_script" ]] || continue
+                echo "Running test: $test_script"
+                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              done
+              ;;
+            stream-connector)
+              test_dir="tests/packaging/stream-connectors"
+              for test_script in "${test_dir}"/*.lua; do
+                [[ -f "$test_script" ]] || continue
+                echo "Running test: $test_script"
+                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              done
+              ;;
+          esac
           echo "Package uninstallation..."
           error_output=$(apt-get autoremove -y --purge "$pack_name" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during autoremove of the package $package" >> "$error_log"; true; }
           echo "Package uninstallation done."
         done
-        # If the file error_log exists and is not empty, the workflow is in error
         if [[ -s "$error_log" ]]; then
             cat "$error_log"
             exit 1
