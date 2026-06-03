@@ -156,7 +156,7 @@ end
 -- @param content_type (string) Content-Type header value (default: "application/json")
 function ScWebserver:send_response(client, status_code, status_text, body, content_type)
   content_type = content_type or "application/json"
-  body = body or ""
+  body = body .. "\n" or "\n"
   local response = table.concat({
     "HTTP/1.1 " .. tostring(status_code) .. " " .. tostring(status_text),
     "Content-Type: " .. content_type,
