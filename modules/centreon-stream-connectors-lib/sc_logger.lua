@@ -27,31 +27,31 @@ end
 --- error: write an error message
 -- @param message (string) the message that will be written
 function ScLogger:error(message)
-  self.logger_backend:error(1, message)
+  self.logger_backend:error(message)
 end
 
 --- warning: write a warning message
 -- @param message (string) the message that will be written
 function ScLogger:warning(message)
-  self.logger_backend:warning(2, message)
+  self.logger_backend:warning(message)
 end
 
 --- notice: write a notice message
 -- @param message (string) the message that will be written
 function ScLogger:notice(message)
-  self.logger_backend:info(1, message)
+  self.logger_backend:notice(message)
 end
 
 -- info: write an informational message
 -- @param message (string) the message that will be written
 function ScLogger:info(message)
-  self.logger_backend:info(2,message)
+  self.logger_backend:info(message)
 end
 
 --- debug: write a debug message
 -- @param message (string) the message that will be written
 function ScLogger:debug(message)
-  self.logger_backend:info(3, message)
+  self.logger_backend:debug(message)
 end
 
 --- log_curl_command: build a shell curl command based on given parameters and write it in the logfile

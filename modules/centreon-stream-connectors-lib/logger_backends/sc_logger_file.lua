@@ -17,7 +17,7 @@ function sc_logger_file.new(logger_params)
   end
 
   self.logfile = logger_params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  self.fh = io.open(self.logfile, "a")
+  self.fh = io.open(self.logfile, "a+")
 
   setmetatable(self, { __index = ScLoggerFile})
   return self
@@ -27,7 +27,7 @@ end
 -- @param message (string) the message to write
 function ScLoggerFile:write_message(message)
   local date = os.date("%a %b %d %H:%M:%S %Y")
-  io.write("[" .. date .. "]" .. message)
+  self.fh:write("[" .. date .. "]" .. message .. "\n")
 end
 
 --- error: write an error message
