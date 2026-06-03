@@ -168,60 +168,60 @@ jobs:
           stability: ${{ needs.get-environment.outputs.stability }}
           artifact_name: "package-${{ matrix.connector_path }}-${{ matrix.distrib }}"
 
-#  test-packages:
-#    if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
-#    needs: [get-environment, detect-changes, package]
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
-#        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-#        include:
-#          - distrib: el8
+  test-packages:
+    if: false
+    needs: [get-environment, detect-changes, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
+        include:
+          - distrib: el8
+            package_extension: rpm
+            image: almalinux:8
+          - distrib: el9
+            package_extension: rpm
+            image: almalinux:9
+#          - distrib: el10
 #            package_extension: rpm
-#            image: almalinux:8
-#          - distrib: el9
-#            package_extension: rpm
-#            image: almalinux:9
-##          - distrib: el10
-##            package_extension: rpm
-##            image: almalinux:10
-#          - distrib: bullseye
+#            image: almalinux:10
+          - distrib: bullseye
+            package_extension: deb
+            image: debian:bullseye
+          - distrib: bookworm
+            package_extension: deb
+            image: debian:bookworm
+#          - distrib: trixie
 #            package_extension: deb
-#            image: debian:bullseye
-#          - distrib: bookworm
-#            package_extension: deb
-#            image: debian:bookworm
-##          - distrib: trixie
-##            package_extension: deb
-##            image: debian:trixie
-#          - distrib: jammy
-#            package_extension: deb
-#            image: ubuntu:jammy
-#          - distrib: noble
-#            package_extension: deb
-#            image: ubuntu:noble
-#    runs-on: ubuntu-24.04
-#    container:
-#      image: ${{ matrix.image }}
-#    name: Test ${{ matrix.distrib }} ${{ matrix.connector_path }}
-#    steps:
-#      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-#
-#      - name: Test packaged connector
-#        uses: ./.github/actions/test-packages
-#        with:
-#          package_extension: ${{ matrix.package_extension }}
-#          distrib: ${{ matrix.distrib }}
-#          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
-#          test_type: stream-connector
-#
-#      - name: Upload error log
-#        if: failure()
-#        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-#        with:
-#          name: install_error_log_${{ matrix.connector_path }}_${{ matrix.distrib }}
-#          path: install_error_${{ matrix.distrib }}.log
+#            image: debian:trixie
+          - distrib: jammy
+            package_extension: deb
+            image: ubuntu:jammy
+          - distrib: noble
+            package_extension: deb
+            image: ubuntu:noble
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    name: Test ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test packaged connector
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          test_type: stream-connector
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: install_error_log_${{ matrix.connector_path }}_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
