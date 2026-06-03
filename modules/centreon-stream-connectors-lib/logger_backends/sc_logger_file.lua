@@ -28,6 +28,7 @@ end
 function ScLoggerFile:write_message(message)
   local date = os.date("%a %b %d %H:%M:%S %Y")
   self.fh:write("[" .. date .. "]" .. message .. "\n")
+  self.fh:flush()
 end
 
 --- error: write an error message
