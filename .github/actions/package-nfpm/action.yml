@@ -96,6 +96,7 @@ runs:
           BASENAME=$(basename $FILE)
           cd $DIRNAME
           sed -i "s/@luaver@/$luaver/g" $BASENAME
+          sed -i "s/@VERSION@/${INPUT_VERSION}/g" $BASENAME
           sed -i "s/@COMMIT_HASH@/${INPUT_COMMIT_HASH}/g" $BASENAME
           nfpm package --config "$BASENAME" --packager "$INPUT_PACKAGE_EXTENSION"
           cd -
