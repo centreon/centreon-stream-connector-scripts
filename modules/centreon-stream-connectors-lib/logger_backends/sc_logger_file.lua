@@ -10,10 +10,10 @@ local ScLoggerFile = {}
 function sc_logger_file.new(logger_params)
   local self = {}
 
-  self.severity = logger_params.severity
+  self.log_level = logger_params.log_level
 
-  if type(severity) ~= "number" then
-    self.severity = 1
+  if type(self.log_level) ~= "number" then
+    self.log_level = 1
   end
 
   self.logfile = logger_params.logfile or "/var/log/centreon-broker/stream-connector.log"
@@ -40,7 +40,7 @@ end
 --- warning: write a warning message
 -- @param message (string) the message that will be written
 function ScLoggerFile:warning(message)
-  if self.severity >= 2 then
+  if self.log_level >= 2 then
     self:write_message("[WARNING] " .. message)
   end
 end
@@ -54,7 +54,7 @@ end
 --- info: write an info message
 -- @param message (string) the message that will be written
 function ScLoggerFile:info(message)
-  if self.severity >= 2 then
+  if self.log_level >= 2 then
     self:write_message("[INFO] " .. message)
   end
 end
@@ -62,7 +62,7 @@ end
 --- debug: write an debug message
 -- @param message (string) the message that will be written
 function ScLoggerFile:debug(message)
-  if self.severity >= 3 then
+  if self.log_level >= 3 then
     self:write_message("[DEBUG] " .. message)
   end
 end

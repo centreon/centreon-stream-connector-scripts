@@ -11,14 +11,14 @@ local ScLoggerBroker = {}
 function sc_logger_broker.new(logger_params)
   local self = {}
 
-  self.severity = logger_params.severity
+  self.log_level = logger_params.log_level
 
-  if type(severity) ~= "number" then
-    self.severity = 1
+  if type(self.log_level) ~= "number" then
+    self.log_level = 1
   end
 
   self.logfile = logger_params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  broker_log:set_parameters(self.severity, self.logfile)
+  broker_log:set_parameters(self.log_level, self.logfile)
 
   setmetatable(self, { __index = ScLoggerBroker})
   return self
