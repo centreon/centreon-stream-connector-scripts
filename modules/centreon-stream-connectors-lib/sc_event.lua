@@ -39,6 +39,11 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
   local event_meta = { __index = function (tbl, key) return self.broker_event[key] end}
   setmetatable(self.event, event_meta)
 
+  -- in standalone mode, a cache table is supposed to be shipped with the event. We put it in self.event "table"
+  if self.broker_event.cache and self.params.execution_mode == "standalone" then
+    self.event.cache = self.broker_event.cache
+  end
+
   self.validation_steps = {}
 
   for accepted_element, info in pairs(self.params.accepted_elements_info) do
@@ -520,7 +525,11 @@ function ScEvent:is_valid_host()
     return false
   end
 
-  self.event.cache.host = self.sc_broker:get_host_all_infos(self.event.host_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.host = self.event.cache.host
+  else
+    self.event.cache.host = self.sc_broker:get_host_all_infos(self.event.host_id)
+  end
 
   -- return false if we can't get hostname
   if (not self.event.cache.host and self.params.skip_anon_events == 1) then
@@ -579,7 +588,11 @@ function ScEvent:is_valid_service()
     return false
   end
 
-  self.event.cache.service = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.service = self.event.cache.service
+  else
+    self.event.cache.service = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
+  end
 
   -- return false if we can't get service description
   if (not self.event.cache.service and self.params.skip_anon_events == 1) then
@@ -765,7 +778,11 @@ end
 --- is_valid_hostgroup: check if the event is in an accepted hostgroup
 -- @return true|false (boolean)
 function ScEvent:is_valid_hostgroup()
-  self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.hostgroups = self.event.cache.hostgroups
+  else
+    self.event.cache.hostgroups = self.sc_broker:get_hostgroups(self.event.host_id)
+  end
 
   -- return true if options are not set or if both options are set
   local accepted_hostgroups_isnotempty = self.params.accepted_hostgroups ~= ""
@@ -834,7 +851,11 @@ end
 --- is_valid_servicegroup: check if the event is in an accepted servicegroup
 -- @return true|false (boolean)
 function ScEvent:is_valid_servicegroup()
-  self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.servicegroups = self.event.cache.servicegroups
+  else
+    self.event.cache.servicegroups = self.sc_broker:get_servicegroups(self.event.host_id, self.event.service_id)
+  end
 
   -- return true if options are not set or if both options are set
   local accepted_servicegroups_isnotempty = self.params.accepted_servicegroups ~= ""
@@ -1013,7 +1034,11 @@ function ScEvent:is_valid_ba()
     return false
   end
 
-  self.event.cache.ba = self.sc_broker:get_ba_infos(self.event.ba_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.ba = self.event.cache.ba
+  else
+    self.event.cache.ba = self.sc_broker:get_ba_infos(self.event.ba_id)
+  end
   
   -- return false if we can't get ba name
   if (not self.event.cache.ba.ba_name and self.params.skip_anon_events == 1) then
@@ -1066,7 +1091,11 @@ end
 --- is_valid_bv: check if the event is in an accepted BV
 -- @return true|false (boolean)
 function ScEvent:is_valid_bv()
-  self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.bvs = self.event.cache.bvs
+  else
+    self.event.cache.bvs = self.sc_broker:get_bvs_infos(self.event.host_id)
+  end
 
   -- return true if options are not set or if both options are set
   local accepted_bvs_isnotempty = self.params.accepted_bvs ~= ""
@@ -1136,7 +1165,11 @@ function ScEvent:is_valid_poller()
     return false
   end
 
-  self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.poller = self.event.cache.poller
+  else
+    self.event.cache.poller = self.sc_broker:get_instance(self.event.cache.host.instance_id)
+  end
 
   -- required if we want to easily have access to poller name with macros {cache.instance.name}
   self.event.cache.instance = {
@@ -1208,8 +1241,12 @@ function ScEvent:is_valid_host_severity()
     self.event.cache.severity = {}
   end
 
-  -- get severity of the host from broker cache
-  self.event.cache.severity.host = self.sc_broker:get_severity(self.event.host_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.severity.host = self.event.cache.severity.host
+  else
+    -- get severity of the host from broker cache
+    self.event.cache.severity.host = self.sc_broker:get_severity(self.event.host_id)
+  end
 
   -- return true if there is no severity filter
   if self.params.host_severity_threshold == nil then
@@ -1236,8 +1273,12 @@ function ScEvent:is_valid_service_severity()
     self.event.cache.severity = {}
   end
 
-  -- get severity of the host from broker cache
-  self.event.cache.severity.service = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+  if self.params.execution_mode == "standalone" then
+    self.event.cache.severity.service = self.event.cache.severity.service
+  else
+    -- get severity of the host from broker cache
+    self.event.cache.severity.service = self.sc_broker:get_severity(self.event.host_id, self.event.service_id)
+  end
 
   -- return true if there is no severity filter
   if self.params.service_severity_threshold == nil then
