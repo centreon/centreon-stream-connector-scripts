@@ -61,8 +61,8 @@ function ScWebserver:start()
   local try = 1
   local err
 
-  -- address may still be bound from previous execution. We do 10 retry before giving up
-  while not ok and try < 10 do
+  -- address may still be bound from previous execution. We do 60 retry before giving up
+  while not ok and try < 60 do
     err = "sc_webserver: failed to bind to " .. self.params.webserver_listen_address .. ":" .. tostring(self.params.webserver_port) .. " - " .. tostring(bind_err)
     self.sc_logger:error("[sc_webserver:start]: " .. err)
     self.sc_common:sleep(1)
