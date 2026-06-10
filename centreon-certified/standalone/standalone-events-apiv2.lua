@@ -128,13 +128,53 @@ function EventQueue:format_accepted_event()
 end
 
 function EventQueue:format_event_host()
-  -- nothing to do
-  return true
+  self:fix_cache_tables()
 end
 
 function EventQueue:format_event_service()
-  -- nothing to do
-  return true
+  self:fix_cache_tables()
+end
+
+--[[
+  depending on the broker version and probably bbdo protocol, some cache data are not tables but userdata
+  need to convert them into table to make sure that this stream connector will be able to json encode the cache part of the event
+]]
+function EventQueue:fix_cache_tables()
+  local event_cache = self.sc_event.event.cache
+
+  if event_cache.host then
+    self:rebuild_cache("host")
+  end
+
+  if event_cache.service then
+    self:rebuild_cache("service")
+  end
+
+  if event_cache.hostgroups then
+    self:rebuild_cache("hostgroups")
+  end
+
+  if event_cache.servicegroups then
+    self:rebuild_cache("servicegroups")
+  end
+
+  if event_cache.ba then
+    self:rebuild_cache("ba")
+  end
+
+  if event_cache.bvs then
+    self:rebuild_cache("bvs")
+  end
+end
+
+function EventQueue:rebuild_cache(cache_type)
+  if type(self.sc_event.event.cache[cache_type]) == "userdata" then
+    local temp_cache_table = {[cache_type] = {}}
+    for index, value in pairs(self.sc_event.event.cache[cache_type]) do
+      temp_cache_table[cache_type][index] = value
+    end
+    self.sc_event.event.cache[cache_type] = temp_cache_table[cache_type]
+  end
 end
 
 --------------------------------------------------------------------------------
