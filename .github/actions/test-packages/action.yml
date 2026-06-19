@@ -21,6 +21,7 @@ runs:
       name: Install dependencies and configure Centreon repositories
       env:
         DISTRIB: ${{ inputs.distrib }}
+        TEST_TYPE: ${{ inputs.test_type }}
       run: |
         dnf install -y 'dnf-command(config-manager)' epel-release zstd
         dnf install -y --allowerasing curl
@@ -187,14 +188,16 @@ runs:
           new_repo_format=true
         fi
         # Add Centreon standard repository (provides centreon-broker-core and other core packages)
-        if [[ "$new_repo_format" == "true" ]]; then
-          echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-stable main" | tee /etc/apt/sources.list.d/centreon-standard.list
-          echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
-          echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-unstable main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
-        else
-          echo "deb https://packages.centreon.com/${standard_base}-stable/ ${standard_distrib} main" | tee /etc/apt/sources.list.d/centreon-standard.list
-          echo "deb https://packages.centreon.com/${standard_base}-testing/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
-          echo "deb https://packages.centreon.com/${standard_base}-unstable/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+        if [[ "$TEST_TYPE" != "dependency" ]]; then
+          if [[ "$new_repo_format" == "true" ]]; then
+            echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-stable main" | tee /etc/apt/sources.list.d/centreon-standard.list
+            echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-unstable main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+          else
+            echo "deb https://packages.centreon.com/${standard_base}-stable/ ${standard_distrib} main" | tee /etc/apt/sources.list.d/centreon-standard.list
+            echo "deb https://packages.centreon.com/${standard_base}-testing/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            echo "deb https://packages.centreon.com/${standard_base}-unstable/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+          fi
         fi
         # Add Centreon plugins repositories (stable, testing, unstable)
         echo "deb https://packages.centreon.com/${plugins_prefix}-stable/ $DISTRIB main" | tee /etc/apt/sources.list.d/centreon-plugins.list

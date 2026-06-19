@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9, el10]
+        distrib: [el8, el9] #, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
@@ -172,7 +172,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, trixie, jammy, noble]
+        distrib: [bullseye, bookworm, jammy, noble] #, trixie, jammy, noble]
     name: deliver ${{ matrix.distrib }}
 
     steps:

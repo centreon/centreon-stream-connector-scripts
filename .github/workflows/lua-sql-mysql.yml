@@ -118,9 +118,9 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
-#          - package_extension: rpm
-#            image: almalinux:10
-#            distrib: el10
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
 
     runs-on: ubuntu-24.04
     container:

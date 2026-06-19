@@ -113,18 +113,18 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
-#          - package_extension: rpm
-#            image: almalinux:10
-#            distrib: el10
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
           - package_extension: deb
             image: debian:bullseye
             distrib: bullseye
           - package_extension: deb
             image: debian:bookworm
             distrib: bookworm
-#          - package_extension: deb
-#            image: debian:trixie
-#            distrib: trixie
+          - package_extension: deb
+            image: debian:trixie
+            distrib: trixie
           - package_extension: deb
             image: ubuntu:jammy
             distrib: jammy
