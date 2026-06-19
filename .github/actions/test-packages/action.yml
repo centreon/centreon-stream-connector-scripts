@@ -80,70 +80,72 @@ runs:
           echo 'enabled=1'
           echo 'gpgcheck=1'
           echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-stable]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/x86_64/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-stable-noarch]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/noarch/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-testing-release]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/x86_64/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-testing-release-noarch]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/noarch/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-testing-hotfix]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/x86_64/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-testing-hotfix-noarch]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/noarch/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-unstable]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/x86_64/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
-          echo ''
-          echo "[centreon-${CENTREON_VERSION}-unstable-noarch]"
-          echo 'name=Centreon open source software repository.'
-          echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/noarch/"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo 'module_hotfixes=1'
+          if [[ "$TEST_TYPE" != "dependency" ]]; then
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-stable]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/x86_64/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-stable-noarch]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/noarch/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-testing-release]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/x86_64/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-testing-release-noarch]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/noarch/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-testing-hotfix]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/x86_64/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-testing-hotfix-noarch]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/noarch/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-unstable]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/x86_64/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+            echo ''
+            echo "[centreon-${CENTREON_VERSION}-unstable-noarch]"
+            echo 'name=Centreon open source software repository.'
+            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/noarch/"
+            echo 'enabled=1'
+            echo 'gpgcheck=1'
+            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
+            echo 'module_hotfixes=1'
+          fi
         } > /etc/yum.repos.d/centreon-plugins.repo
       shell: bash
 
@@ -151,6 +153,7 @@ runs:
       name: Install dependencies and configure Centreon repositories
       env:
         DISTRIB: ${{ inputs.distrib }}
+        TEST_TYPE: ${{ inputs.test_type }}
       run: |
         export DEBIAN_FRONTEND=noninteractive
         # Avoid apt to clean packages cache directory
