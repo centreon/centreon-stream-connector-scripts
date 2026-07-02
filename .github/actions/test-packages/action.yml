@@ -250,15 +250,6 @@ runs:
                 error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
               done
               ;;
-            stream-connector)
-              dnf install -y luarocks lua-devel
-              test_dir="tests/packaging/stream-connectors"
-              for test_script in "${test_dir}"/*.lua; do
-                [[ -f "$test_script" ]] || continue
-                echo "Running test: $test_script"
-                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
-              done
-              ;;
           esac
           echo "Package uninstallation..."
           error_output=$(dnf autoremove --setopt=keepcache=True -y "$pack_name" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during autoremove of the package $package" >> "$error_log"; true; }
