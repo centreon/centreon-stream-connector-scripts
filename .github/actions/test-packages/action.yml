@@ -250,6 +250,14 @@ runs:
                 error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
               done
               ;;
+            stream-connector)
+              stream_connectors_dir="/usr/share/centreon-broker/lua"
+              for stream_connector in "${stream_connectors_dir}"/*.lua; do
+                [[ -f "$stream_connector" ]] || continue
+                echo "Running test: $stream_connector"
+                error_output=$(lua "$stream_connector" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              done
+              ;;
           esac
           echo "Package uninstallation..."
           error_output=$(dnf autoremove --setopt=keepcache=True -y "$pack_name" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during autoremove of the package $package" >> "$error_log"; true; }
@@ -294,14 +302,11 @@ runs:
               done
               ;;
             stream-connector)
-              apt-get install -y luarocks
-              lua_ver=$(lua -e "print(_VERSION)" | grep -oP '\d+\.\d+')
-              apt-get install -y "liblua${lua_ver}-dev"
-              test_dir="tests/packaging/stream-connectors"
-              for test_script in "${test_dir}"/*.lua; do
-                [[ -f "$test_script" ]] || continue
-                echo "Running test: $test_script"
-                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              stream_connectors_dir="/usr/share/centreon-broker/lua"
+              for stream_connector in "${stream_connectors_dir}"/*.lua; do
+                [[ -f "$stream_connector" ]] || continue
+                echo "Running test: $stream_connector"
+                error_output=$(lua "$stream_connector" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
               done
               ;;
           esac

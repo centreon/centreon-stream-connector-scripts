@@ -132,7 +132,13 @@ jobs:
         run: |
           DEB_DEPENDENCIES=""
           RPM_DEPENDENCIES=""
-          if [ "$CONNECTOR_PATH" = "kafka" ]; then
+          if [ "$CONNECTOR_PATH" = "canopsis" ]; then
+            DEB_DEPENDENCIES="libcurl4"
+            RPM_DEPENDENCIES="libcurl"
+          elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
+            DEB_DEPENDENCIES="lua-sec"
+            RPM_DEPENDENCIES="lua-sec"
+          elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
