@@ -130,20 +130,32 @@ jobs:
         env:
           CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
-          DEB_DEPENDENCIES=""
-          RPM_DEPENDENCIES=""
-          if [ "$CONNECTOR_PATH" = "canopsis" ]; then
-            DEB_DEPENDENCIES="libcurl4"
-            RPM_DEPENDENCIES="libcurl"
+          DEB_DEPENDENCIES="libcurl4"
+          RPM_DEPENDENCIES="libcurl"
+          if [ "$CONNECTOR_PATH" = "bigquery" ]; then
+            DEB_DEPENDENCIES=""
+            RPM_DEPENDENCIES=""
+          elif [ "$CONNECTOR_PATH" = "bsm" ]; then
+            DEB_DEPENDENCIES=""
+            RPM_DEPENDENCIES=""
+          elif [ "$CONNECTOR_PATH" = "elastic" ]; then
+            DEB_DEPENDENCIES=""
+            RPM_DEPENDENCIES=""
           elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
             DEB_DEPENDENCIES="lua-sec"
             RPM_DEPENDENCIES="lua-sec"
           elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
+          elif [ "$CONNECTOR_PATH" = "ndo" ]; then
+            DEB_DEPENDENCIES=""
+            RPM_DEPENDENCIES=""
           elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
+          elif [ "$CONNECTOR_PATH" = "prometheus" ]; then
+            DEB_DEPENDENCIES=""
+            RPM_DEPENDENCIES=""
           elif [ "$CONNECTOR_PATH" = "splunk" ]; then
             DEB_DEPENDENCIES="lua-tz"
             RPM_DEPENDENCIES="lua-tz"
