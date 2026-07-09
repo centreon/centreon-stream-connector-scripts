@@ -305,8 +305,12 @@ runs:
               stream_connectors_dir="/usr/share/centreon-broker/lua"
               for stream_connector in "${stream_connectors_dir}"/*.lua; do
                 [[ -f "$stream_connector" ]] || continue
-                echo "Running test: $stream_connector"
-                error_output=$(lua "$stream_connector" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+                if grep -qE "require \"ndo\"" "$stream_connector"; then
+                  echo "Needs broker runtime, skip test"
+                else
+                  echo "Running test: $stream_connector"
+                  error_output=$(lua "$stream_connector" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+                fi
               done
               ;;
           esac
