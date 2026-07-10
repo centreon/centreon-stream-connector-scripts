@@ -109,12 +109,12 @@ jobs:
           else
             lua_version=5.3
           fi
-          mkdir build && cd build
-          cmake . -DLUA_VERSION=${lua_version}
+          mkdir -p build && cd build
+          cmake .. -DLUA_VERSION=${lua_version}
           make
-          cd ..
+          cd ../..
           mkdir -p dependencies/lua-openssl/lua-openssl
-          cp lua-openssl-src/openssl.so dependencies/lua-openssl/lua-openssl/
+          cp lua-openssl-src/build/openssl.so dependencies/lua-openssl/lua-openssl/
         shell: bash
 
       - name: Package
