@@ -133,30 +133,21 @@ jobs:
         run: |
           DEB_DEPENDENCIES="libcurl4"
           RPM_DEPENDENCIES="libcurl"
-          if [ "$CONNECTOR_PATH" = "bsm" ]; then
-            DEB_DEPENDENCIES="lua-LuaXML"
-            RPM_DEPENDENCIES="lua-LuaXML"
-          elif [ "$CONNECTOR_PATH" = "elastic" ]; then
+          if [ "$CONNECTOR_PATH" = "elastic" ]; then
             DEB_DEPENDENCIES="lua-sec"
             RPM_DEPENDENCIES="lua-sec"
-          elif [ "$CONNECTOR_PATH" = "google" ]; then
-            DEB_DEPENDENCIES="lua-crypto"
-            RPM_DEPENDENCIES="lua-crypto"
           elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
-            DEB_DEPENDENCIES="lua-sec"
-            RPM_DEPENDENCIES="lua-sec"
+            DEB_DEPENDENCIES="libcurl4,lua-sec"
+            RPM_DEPENDENCIES="libcurl,lua-sec"
           elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
-          elif [ "$CONNECTOR_PATH" = "prometheus" ]; then
-            DEB_DEPENDENCIES="lua-base64"
-            RPM_DEPENDENCIES="lua-base64"
+            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           elif [ "$CONNECTOR_PATH" = "splunk" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
+            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           fi
           sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
           sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
