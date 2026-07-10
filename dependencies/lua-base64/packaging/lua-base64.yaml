@@ -16,11 +16,11 @@ license: "Apache-2.0"
 
 contents:
   - src: "../lbase64/base64.lua"
-    dst: "/usr/share/lua/@luaver@/base64/base64.lua"
+    dst: "/usr/share/lua/@luaver@/base64.lua"
     packager: rpm
 
   - src: "../lbase64/base64.lua"
-    dst: "/usr/share/lua/@luaver@/base64/base64.lua"
+    dst: "/usr/share/lua/@luaver@/base64.lua"
     packager: deb
 
 overrides:
