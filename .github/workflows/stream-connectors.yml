@@ -139,6 +139,9 @@ jobs:
           elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
             DEB_DEPENDENCIES="libcurl4,lua-sec"
             RPM_DEPENDENCIES="libcurl,lua-sec"
+          elif [ "$CONNECTOR_PATH" = "google" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-openssl"
+            RPM_DEPENDENCIES="libcurl,lua-openssl"
           elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
