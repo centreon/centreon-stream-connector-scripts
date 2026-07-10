@@ -81,7 +81,9 @@ jobs:
           ref: "v1.5.3"
 
       - name: Prepare packaging of lua-base64
-        run: cp -r base64-src/lbase64 dependencies/lua-base64/lbase64
+        run: |
+          mkdir -p dependencies/lua-base64/lbase64
+          cp base64-src/base64.lua dependencies/lua-base64/lbase64/base64.lua
         shell: bash
 
       - name: Package
