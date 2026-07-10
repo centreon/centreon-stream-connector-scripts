@@ -75,6 +75,7 @@ jobs:
     needs: [get-environment, detect-changes]
     runs-on: ubuntu-24.04
     strategy:
+      max-parallel: 25
       matrix:
         distrib: [el8, el9, bullseye, bookworm, jammy, noble] # ,el10, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
@@ -187,6 +188,7 @@ jobs:
     needs: [get-environment, detect-changes, package]
     strategy:
       fail-fast: false
+      max-parallel: 25
       matrix:
         distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
