@@ -1,0 +1,233 @@
+name: lua-openssl
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/lua-openssl.yml'
+      - 'dependencies/lua-openssl/**'
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - '.github/workflows/lua-openssl.yml'
+      - 'dependencies/lua-openssl/**'
+
+jobs:
+  dependency-scan:
+    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
+
+  get-environment:
+    needs: [dependency-scan]
+    uses: ./.github/workflows/get-environment.yml
+
+  package:
+    needs: [get-environment]
+
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        include:
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma8
+            distrib: el8
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma9
+            distrib: el9
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bullseye
+            distrib: bullseye
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-trixie
+            distrib: trixie
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-jammy
+            distrib: jammy
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-noble
+            distrib: noble
+
+    runs-on: ubuntu-24.04
+
+    container:
+      image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
+      credentials:
+        username: ${{ secrets.HARBOR_CENTREON_PULL_USERNAME }}
+        password: ${{ secrets.HARBOR_CENTREON_PULL_TOKEN }}
+
+    name: package ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        env:
+          PACKAGE_EXTENSION: ${{ matrix.package_extension }}
+          DISTRIB: ${{ matrix.distrib }}
+        run: |
+          if [ "$PACKAGE_EXTENSION" = "rpm" ]; then
+            dnf install -y cmake gcc openssl-devel lua-devel
+          else
+            apt-get update
+            apt-get install -y cmake gcc libssl-dev
+            if [ "$DISTRIB" = "trixie" ]; then
+              apt-get install -y liblua5.4-dev
+            else
+              apt-get install -y liblua5.3-dev
+            fi
+          fi
+        shell: bash
+
+      - name: Checkout lua-openssl sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: "zhaozg/lua-openssl"
+          path: "lua-openssl-src"
+          ref: "0.11.1-1"
+          submodules: true
+
+      - name: Prepare packaging of lua-openssl
+        env:
+          DISTRIB: ${{ matrix.distrib }}
+        run: |
+          cd lua-openssl-src
+          if [[ "$DISTRIB" = "el9" || "$DISTRIB" = "el10" || "$DISTRIB" = "trixie" ]]; then
+            lua_version=5.4
+          else
+            lua_version=5.3
+          fi
+          mkdir build && cd build
+          cmake . -DLUA_VERSION=${lua_version}
+          make
+          cd ..
+          mkdir -p dependencies/lua-openssl/lua-openssl
+          cp lua-openssl-src/openssl.so dependencies/lua-openssl/lua-openssl/
+        shell: bash
+
+      - name: Package
+        uses: ./.github/actions/package-nfpm
+        with:
+          nfpm_file_pattern: "dependencies/lua-openssl/packaging/*.yaml"
+          distrib: ${{ matrix.distrib }}
+          package_extension: ${{ matrix.package_extension }}
+          arch: amd64
+          version: "0.9.2"
+          release: "1"
+          commit_hash: ${{ github.sha }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-openssl-${{ matrix.distrib }}
+          rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
+          rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
+          rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+          artifact_name: "package-lua-openssl-${{ matrix.distrib }}"
+
+  test-packages:
+    needs: [get-environment, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_extension: rpm
+            image: almalinux:8
+            distrib: el8
+          - package_extension: rpm
+            image: almalinux:9
+            distrib: el9
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
+          - package_extension: deb
+            image: debian:bullseye
+            distrib: bullseye
+          - package_extension: deb
+            image: debian:bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: debian:trixie
+            distrib: trixie
+          - package_extension: deb
+            image: ubuntu:jammy
+            distrib: jammy
+          - package_extension: deb
+            image: ubuntu:noble
+            distrib: noble
+
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+
+    name: Test lua packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test packaged libs
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-openssl-${{ matrix.distrib }}
+          test_type: dependency
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: install_error_log_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
+
+  deliver-rpm:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package, test-packages]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        distrib: [el8, el9, el10]
+    name: deliver ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Publish RPM packages
+        uses: ./.github/actions/rpm-delivery
+        with:
+          module_name: lua-openssl
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-openssl-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+
+  deliver-deb:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package, test-packages]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        distrib: [bullseye, bookworm, trixie, jammy, noble]
+    name: deliver ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Publish DEB packages
+        uses: ./.github/actions/deb-delivery
+        with:
+          module_name: lua-openssl
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-openssl-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
