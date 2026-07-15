@@ -9,14 +9,14 @@ on:
   pull_request:
     paths:
       - '.github/workflows/lua-base64.yml'
-      - '../../dependencies/lua-base64/**'
+      - 'dependencies/lua-base64/**'
   push:
     branches:
       - develop
       - master
     paths:
       - '.github/workflows/lua-base64.yml'
-      - '../../dependencies/lua-base64/**'
+      - 'dependencies/lua-base64/**'
 
 jobs:
   dependency-scan:
@@ -78,7 +78,7 @@ jobs:
         with:
           repository: "iskolbin/lbase64"
           path: "base64-src"
-          ref: "v1.5.3"
+          ref: "c261320edbdf82c16409d893a96c28c704aa0ab8" # v1.5.3
 
       - name: Prepare packaging of lua-base64
         run: |
@@ -93,8 +93,8 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
-          version: "1.5"
-          release: "3"
+          version: "1.5.3"
+          release: "1"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-base64-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
@@ -195,7 +195,7 @@ jobs:
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
         with:
-          module_name: lua-tz
+          module_name: lua-base64
           distrib: ${{ matrix.distrib }}
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-base64-${{ matrix.distrib }}
