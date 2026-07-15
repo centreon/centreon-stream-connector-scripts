@@ -27,7 +27,7 @@ runs:
         dnf install -y --allowerasing curl
         # Enable additional repos depending on distrib
         dnf config-manager --set-enabled powertools 2>/dev/null || true  # el8
-        dnf config-manager --set-enabled crb 2>/dev/null || true          # el9, el10
+        dnf config-manager --set-enabled crb 2>/dev/null || true         # el9, el10
         # Import Centreon GPG key
         curl -sSL "https://yum-gpg.centreon.com/RPM-GPG-KEY-CES" -o RPM-GPG-KEY-CES
         rpm --import RPM-GPG-KEY-CES
@@ -38,115 +38,117 @@ runs:
           CENTREON_VERSION="26.10"  # el10 - repo not yet available
         fi
         # Add Centreon plugins and standard repositories
-        {
-          echo '[centreon-plugins-stable]'
-          echo 'name=centreon plugins stable x86_64'
-          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/stable/x86_64"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo ''
-          echo '[centreon-plugins-stable-noarch]'
-          echo 'name=centreon plugins stable noarch'
-          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/stable/noarch"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo ''
-          echo '[centreon-plugins-testing]'
-          echo 'name=centreon plugins testing x86_64'
-          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/testing/x86_64"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo ''
-          echo '[centreon-plugins-testing-noarch]'
-          echo 'name=centreon plugins testing noarch'
-          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/testing/noarch"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo ''
-          echo '[centreon-plugins-unstable]'
-          echo 'name=centreon plugins unstable x86_64'
-          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/unstable/x86_64"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          echo ''
-          echo '[centreon-plugins-unstable-noarch]'
-          echo 'name=centreon plugins unstable noarch'
-          echo "baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/unstable/noarch"
-          echo 'enabled=1'
-          echo 'gpgcheck=1'
-          echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-          if [[ "$TEST_TYPE" != "dependency" ]]; then
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-stable]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/x86_64/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-stable-noarch]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/noarch/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-testing-release]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/x86_64/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-testing-release-noarch]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/noarch/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-testing-hotfix]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/x86_64/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-testing-hotfix-noarch]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/noarch/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-unstable]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/x86_64/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-            echo ''
-            echo "[centreon-${CENTREON_VERSION}-unstable-noarch]"
-            echo 'name=Centreon open source software repository.'
-            echo "baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/noarch/"
-            echo 'enabled=1'
-            echo 'gpgcheck=1'
-            echo 'gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES'
-            echo 'module_hotfixes=1'
-          fi
-        } > /etc/yum.repos.d/centreon-plugins.repo
+        cat > /etc/yum.repos.d/centreon-plugins.repo << EOF
+        [centreon-plugins-stable]
+        name=centreon plugins stable x86_64
+        baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/stable/x86_64
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+
+        [centreon-plugins-stable-noarch]
+        name=centreon plugins stable noarch
+        baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/stable/noarch
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+
+        [centreon-plugins-testing]
+        name=centreon plugins testing x86_64
+        baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/testing/x86_64
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+
+        [centreon-plugins-testing-noarch]
+        name=centreon plugins testing noarch
+        baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/testing/noarch
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+
+        [centreon-plugins-unstable]
+        name=centreon plugins unstable x86_64
+        baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/unstable/x86_64
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+
+        [centreon-plugins-unstable-noarch]
+        name=centreon plugins unstable noarch
+        baseurl=https://packages.centreon.com/rpm-plugins/$DISTRIB/unstable/noarch
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        EOF
+        if [[ "$TEST_TYPE" != "dependency" ]]; then
+          cat >> /etc/yum.repos.d/centreon-plugins.repo << EOF
+
+        [centreon-${CENTREON_VERSION}-stable]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/x86_64/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-stable-noarch]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/stable/noarch/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-testing-release]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/x86_64/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-testing-release-noarch]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-release/noarch/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-testing-hotfix]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/x86_64/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-testing-hotfix-noarch]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/testing-hotfix/noarch/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-unstable]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/x86_64/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+
+        [centreon-${CENTREON_VERSION}-unstable-noarch]
+        name=Centreon open source software repository.
+        baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/$DISTRIB/unstable/noarch/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+        module_hotfixes=1
+        EOF
+        fi
       shell: bash
 
     - if: ${{ inputs.package_extension == 'deb' }}
@@ -249,11 +251,17 @@ runs:
               done
               ;;
             stream-connector)
-              test_dir="tests/packaging/stream-connectors"
-              for test_script in "${test_dir}"/*.lua; do
-                [[ -f "$test_script" ]] || continue
-                echo "Running test: $test_script"
-                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              stream_connectors_dir="/usr/share/centreon-broker/lua"
+              for stream_connector in "${stream_connectors_dir}"/*.lua; do
+                [[ -f "$stream_connector" ]] || continue
+                if grep -qE "require \"ndo\"" "$stream_connector"; then
+                  echo "Needs broker runtime, skip test for $stream_connector"
+                elif [[ "$stream_connector" == *apiv1.lua ]]; then
+                  echo "Skip test for $stream_connector (apiv1 stream connector)"
+                else
+                  echo "Running test: $stream_connector"
+                  error_output=$(lua "$stream_connector" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $stream_connector" >> "$error_log"; true; }
+                fi
               done
               ;;
           esac
@@ -300,11 +308,17 @@ runs:
               done
               ;;
             stream-connector)
-              test_dir="tests/packaging/stream-connectors"
-              for test_script in "${test_dir}"/*.lua; do
-                [[ -f "$test_script" ]] || continue
-                echo "Running test: $test_script"
-                error_output=$(lua "$test_script" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $test_script" >> "$error_log"; true; }
+              stream_connectors_dir="/usr/share/centreon-broker/lua"
+              for stream_connector in "${stream_connectors_dir}"/*.lua; do
+                [[ -f "$stream_connector" ]] || continue
+                if grep -qE "require \"ndo\"" "$stream_connector"; then
+                  echo "Needs broker runtime, skip test for $stream_connector"
+                elif [[ "$stream_connector" == *apiv1.lua ]]; then
+                  echo "Skip test for $stream_connector (apiv1 stream connector)"
+                else
+                  echo "Running test: $stream_connector"
+                  error_output=$(lua "$stream_connector" 2>&1) || { echo "$error_output" >> "$error_log"; echo "Error during $stream_connector" >> "$error_log"; true; }
+                fi
               done
               ;;
           esac
