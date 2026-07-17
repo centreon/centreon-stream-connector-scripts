@@ -43,6 +43,20 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
                                                                      --> logfile
 ```
 
+### What each file is
+
+| File | Purpose |
+|---|---|
+| `config/engine/centengine.cfg` | Engine's main config: which `cfg_file`s to load below, the `broker_module`/`broker_module_cfg_file` directives that wire it to broker (see below), the external command file path, logging. |
+| `config/engine/hosts.cfg` | Defines `host_1` — passive-only (`active_checks_enabled 0`), `max_check_attempts 1` (see the gotcha below). |
+| `config/engine/services.cfg` | Defines `service_1` and `service_2` on `host_1` — same passive-only, `max_check_attempts 1` pattern. |
+| `config/engine/commands.cfg` | One dummy `check_dummy` command (`/bin/true`), referenced by the host/services above because engine requires every object to have a `check_command` — it's never actually executed since checks are passive-only. |
+| `config/engine/timeperiods.cfg` | A single `24x7` timeperiod, referenced by the host/services (engine requires a valid `check_period`). |
+| `config/engine/resource.cfg` | Engine's global macros (`$USER1$`, ...) — present because `centengine.cfg` references it via `resource_file`, effectively empty for our purposes. |
+| `config/engine/hostgroups.cfg`, `config/engine/connectors.cfg` | Empty, but referenced by `cfg_file` in `centengine.cfg` — the files must exist even with nothing in them. |
+| `config/broker/central-module.json` | Broker config *embedded in the engine process* (see below). |
+| `config/broker/central-broker.json` | The standalone `cbd` daemon's config, including the `lua` output under test (see below). |
+
 - **`config/broker/central-module.json`** is the broker config *embedded in the engine
   process*: it has no `input`, only an `output` that opens a plain BBDO/TCP connection
   to `127.0.0.1:5669` (no TLS — everything runs in the same container). Engine loads it
@@ -126,19 +140,39 @@ install `libcurl4` explicitly too.
 
 ```bash
 cd tests/robot
-docker compose build            # builds every distro's image
+
+# Build one distro at a time (only rebuilds what changed) ...
+docker compose build robot-tests-bookworm
+docker compose build robot-tests-jammy
+
+# ... or build every distro in one shot (skips el10/trixie - see "Supported
+# distributions" above; explicitly naming them still builds them on their own).
+docker compose build
+
+# Run just one distro's suite:
 docker compose run --rm robot-tests            # AlmaLinux 9 (default/reference)
 docker compose run --rm robot-tests-bookworm    # or any other service from the table above
+
+# Run every distro's suite at once, in parallel, from already-built images:
+docker compose up
 ```
 
-Reports (`report.html`, `log.html`, `output.xml`) are written to `tests/robot/results/`
-(shared across distros — rerun a suite before reading the report if you just switched
-distro).
+`docker compose up` starts every default-profile service (el10/trixie excluded, same
+as `build`), each running its image's default command (the full `connectors/` suite),
+interleaving their logs prefixed by container name; it exits once they all finish, one
+exit code per service. It does **not** rebuild images first — run `docker compose build`
+beforehand if you've changed anything.
 
-To iterate on a suite without rebuilding the image, edit files under `tests/robot/` —
-they are mounted as a volume — then re-run `docker compose run --rm <service>`. If you
-change `modules/centreon-stream-connectors-lib` itself, rebuild the image
-(`docker compose build`), since the library is copied into the Lua path at build time.
+Reports (`report.html`, `log.html`, `output.xml`) are written to
+`tests/robot/results/<distro>/` — a separate directory per distro (`el9`, `el8`,
+`bullseye`, ...) specifically so parallel `docker compose up` runs don't overwrite each
+other's output.
+
+To iterate on a suite without rebuilding the image, edit files under
+`tests/robot/{config,connectors,resources}/` — they are mounted as volumes — then
+re-run `docker compose run --rm <service>` (or `up`). If you change
+`modules/centreon-stream-connectors-lib` or `centreon-certified/` themselves, rebuild
+the image(s) first, since those are copied in at build time, not mounted.
 
 ## Writing a new test
 

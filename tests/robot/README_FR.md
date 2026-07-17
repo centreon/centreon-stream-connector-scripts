@@ -44,6 +44,20 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
                                                                      --> logfile
 ```
 
+### Le rôle de chaque fichier
+
+| Fichier | Rôle |
+|---|---|
+| `config/engine/centengine.cfg` | Config principale d'engine : quels `cfg_file` charger ci-dessous, les directives `broker_module`/`broker_module_cfg_file` qui le relient à broker (voir plus bas), le chemin du fichier de commandes externes, la journalisation. |
+| `config/engine/hosts.cfg` | Définit `host_1` — uniquement passif (`active_checks_enabled 0`), `max_check_attempts 1` (voir le piège plus bas). |
+| `config/engine/services.cfg` | Définit `service_1` et `service_2` sur `host_1` — même schéma passif, `max_check_attempts 1`. |
+| `config/engine/commands.cfg` | Une commande factice `check_dummy` (`/bin/true`), référencée par le host/les services ci-dessus car engine exige qu'un `check_command` soit défini pour chaque objet — jamais réellement exécutée puisque les checks sont passifs. |
+| `config/engine/timeperiods.cfg` | Une seule plage horaire `24x7`, référencée par le host/les services (engine exige un `check_period` valide). |
+| `config/engine/resource.cfg` | Macros globales d'engine (`$USER1$`, ...) — présent car `centengine.cfg` le référence via `resource_file`, effectivement vide pour nos besoins. |
+| `config/engine/hostgroups.cfg`, `config/engine/connectors.cfg` | Vides, mais référencés via `cfg_file` dans `centengine.cfg` — les fichiers doivent exister même sans rien dedans. |
+| `config/broker/central-module.json` | Config broker *embarquée dans le processus engine* (voir plus bas). |
+| `config/broker/central-broker.json` | Config du démon `cbd` autonome, y compris l'output `lua` testé (voir plus bas). |
+
 - **`config/broker/central-module.json`** est la config broker *embarquée dans le
   processus engine* : elle n'a pas d'`input`, uniquement un `output` qui ouvre une
   connexion BBDO/TCP en clair vers `127.0.0.1:5669` (pas de TLS — tout tourne dans le
@@ -135,21 +149,42 @@ plus — installer `libcurl4` explicitement aussi.
 
 ```bash
 cd tests/robot
-docker compose build              # construit l'image de chaque distribution
+
+# Construire une distribution à la fois (ne reconstruit que ce qui a changé) ...
+docker compose build robot-tests-bookworm
+docker compose build robot-tests-jammy
+
+# ... ou construire toutes les distributions d'un coup (el10/trixie exclus - voir
+# « Distributions supportées » ci-dessus ; les nommer explicitement les construit
+# quand même individuellement).
+docker compose build
+
+# Lancer la suite d'une seule distribution :
 docker compose run --rm robot-tests             # AlmaLinux 9 (défaut/référence)
 docker compose run --rm robot-tests-bookworm     # ou tout autre service du tableau ci-dessus
+
+# Lancer toutes les distributions d'un coup, en parallèle, à partir des images déjà construites :
+docker compose up
 ```
 
+`docker compose up` démarre chaque service du profil par défaut (el10/trixie exclus,
+comme pour `build`), chacun exécutant la commande par défaut de son image (la suite
+complète sous `connectors/`), en entrelaçant leurs logs préfixés par le nom du
+conteneur ; il se termine quand tous ont fini, avec un code de sortie par service. Il
+**ne** reconstruit **pas** les images au préalable — lancez `docker compose build`
+avant si vous avez modifié quelque chose.
+
 Les rapports (`report.html`, `log.html`, `output.xml`) sont écrits dans
-`tests/robot/results/` (partagé entre distributions — relancez une suite avant de lire
-le rapport si vous venez de changer de distribution).
+`tests/robot/results/<distribution>/` — un dossier séparé par distribution (`el9`,
+`el8`, `bullseye`, ...), justement pour que des lancements parallèles via
+`docker compose up` n'écrasent pas les résultats les uns des autres.
 
 Pour itérer sur une suite sans reconstruire l'image, modifiez les fichiers sous
-`tests/robot/` — ils sont montés en volume — puis relancez
-`docker compose run --rm <service>`. Si vous modifiez
-`modules/centreon-stream-connectors-lib` lui-même, reconstruisez l'image
-(`docker compose build`), car la bibliothèque est copiée dans le chemin Lua au moment du
-build.
+`tests/robot/{config,connectors,resources}/` — ils sont montés en volume — puis
+relancez `docker compose run --rm <service>` (ou `up`). Si vous modifiez
+`modules/centreon-stream-connectors-lib` ou `centreon-certified/` eux-mêmes,
+reconstruisez d'abord l'image (ou les images), car ils sont copiés dans l'image au
+moment du build, pas montés.
 
 ## Écrire un nouveau test
 
