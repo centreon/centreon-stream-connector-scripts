@@ -1,71 +1,125 @@
-x-robot-test: &robot-test
-  volumes:
-    # Reflect local edits to the robot suites/config without rebuilding the image.
-    # (The lua library baked into /usr/share/lua at build time is not affected by
-    # this mount; rebuild the image if you change modules/centreon-stream-connectors-lib.)
-    - ../../tests/robot:/opt/centreon-stream-connector-scripts/tests/robot
-    - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
-  privileged: false
+# Every service shares this pattern: build one distro's image and run its default
+# CMD (the robot suite). `docker compose build <service>` builds a single image;
+# plain `docker compose build` builds every service NOT in the "not-ready" profile
+# (el10/trixie, whose upstream repo doesn't exist yet - see their comments below).
+# `docker compose up` runs every default-profile service's tests in parallel from
+# already-built images (each writes its own results/<distro>/ so they don't clobber
+# each other); `docker compose run --rm <service> ...` still runs just one.
+#
+# Volumes are listed out per service (rather than shared via a YAML anchor) because
+# each needs its own results/<distro> mount - anchors merge maps, not list items, so
+# there's no clean way to splice "the 4 shared mounts" into a per-service list that
+# also needs one extra, service-specific entry.
 
 services:
   # AlmaLinux 9 (rpm, Centreon 25.10 line) - default/reference distrib.
   robot-tests:
-    <<: *robot-test
+    privileged: false
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.el9
-
-  robot-tests-el9:
-    <<: *robot-test
-    build:
-      context: ../..
-      dockerfile: tests/robot/docker/Dockerfile.el9
+    volumes:
+      # Reflect local edits to the robot suites/config without rebuilding the image.
+      # (The lua library baked into /usr/share/lua at build time is not affected by
+      # this mount; rebuild the image if you change modules/centreon-stream-connectors-lib.)
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/el9:/opt/centreon-stream-connector-scripts/tests/robot/results
 
   robot-tests-el8:
-    <<: *robot-test
+    privileged: false
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.el8
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/el8:/opt/centreon-stream-connector-scripts/tests/robot/results
 
-  # el10/26.10's Centreon repo does not exist yet (404 as of this writing) - this
-  # build will fail until Centreon publishes it. Kept here so it's ready to use then.
+  # el10/26.10's Centreon repo does not exist yet (404 as of this writing), so this
+  # build will fail until Centreon publishes it. The "not-ready" profile keeps it out
+  # of the default `docker compose build`/`up` (no args) so that command still builds
+  # /runs everything else cleanly - explicitly naming this service (build/run/up
+  # robot-tests-el10) still works regardless of the active profile.
   robot-tests-el10:
-    <<: *robot-test
+    privileged: false
+    profiles: ["not-ready"]
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.el10
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/el10:/opt/centreon-stream-connector-scripts/tests/robot/results
 
   # Debian (deb). bullseye/jammy/noble track Centreon's 24.04/24.10 line, bookworm
   # tracks 25.10 - see README_EN.md/README_FR.md for why that changes the engine config.
   robot-tests-bullseye:
-    <<: *robot-test
+    privileged: false
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.bullseye
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/bullseye:/opt/centreon-stream-connector-scripts/tests/robot/results
 
   robot-tests-bookworm:
-    <<: *robot-test
+    privileged: false
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.bookworm
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/bookworm:/opt/centreon-stream-connector-scripts/tests/robot/results
 
-  # trixie-26.10's Centreon repo does not exist yet (404 as of this writing) - this
-  # build will fail until Centreon publishes it. Kept here so it's ready to use then.
+  # trixie-26.10's Centreon repo does not exist yet (404 as of this writing) - see the
+  # robot-tests-el10 comment above, same "not-ready" profile treatment.
   robot-tests-trixie:
-    <<: *robot-test
+    privileged: false
+    profiles: ["not-ready"]
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.trixie
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/trixie:/opt/centreon-stream-connector-scripts/tests/robot/results
 
   # Ubuntu (deb, Centreon 24.04/24.10 line).
   robot-tests-jammy:
-    <<: *robot-test
+    privileged: false
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.jammy
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/jammy:/opt/centreon-stream-connector-scripts/tests/robot/results
 
   robot-tests-noble:
-    <<: *robot-test
+    privileged: false
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.noble
+    volumes:
+      - ../../tests/robot/config:/opt/centreon-stream-connector-scripts/tests/robot/config
+      - ../../tests/robot/connectors:/opt/centreon-stream-connector-scripts/tests/robot/connectors
+      - ../../tests/robot/resources:/opt/centreon-stream-connector-scripts/tests/robot/resources
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+      - ../../tests/robot/results/noble:/opt/centreon-stream-connector-scripts/tests/robot/results
