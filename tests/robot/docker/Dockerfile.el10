@@ -1,8 +1,11 @@
-FROM almalinux:9
+# NOTE: as of this writing, Centreon's rpm-standard repo for el10/26.10 does not
+# exist yet (404) - this Dockerfile is ready for when it is published, but will fail
+# to build until then. See tests/robot/README_EN.md / README_FR.md.
+FROM almalinux:10
 
-ARG CENTREON_VERSION=25.10
+ARG CENTREON_VERSION=26.10
 ARG CENTREON_CHANNEL=unstable
-ARG DISTRIB=el9
+ARG DISTRIB=el10
 
 RUN dnf install -y 'dnf-command(config-manager)' epel-release zstd \
     && dnf install -y --allowerasing curl \
@@ -32,15 +35,6 @@ EOF
 
 # centreon-engine-daemon / centreon-broker-cbd pull in centreon-engine, centreon-broker,
 # centreon-broker-core, centreon-clib and lua as dependencies.
-#
-# NOTE: the downtime-replay feature (modules/centreon-stream-connectors-lib/sc_event.lua)
-# needs storage_backend=sqlite, which needs the lua-lsqlite3 package
-# (storage_backends/sc_storage_sqlite.lua does `require("lsqlite3")`) - the default
-# "broker" backend is an intentional no-op placeholder (storage_backends/sc_storage_broker.lua),
-# every read/write silently succeeds without persisting anything. As of this writing
-# `dnf search lsqlite3` finds NOTHING in any enabled repo (Centreon unstable included) -
-# the package this feature depends on isn't published yet, so it can't be installed
-# here. See tests/robot/README_EN.md/README_FR.md "Writing a new test" section.
 RUN dnf install -y \
         centreon-engine-daemon \
         centreon-broker-cbd \

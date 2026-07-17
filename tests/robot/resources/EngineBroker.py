@@ -11,6 +11,7 @@ external command file, and read that logfile back for assertions.
 import json
 import os
 import re
+import socket
 import stat
 import subprocess
 import time
@@ -18,6 +19,7 @@ import time
 ENGINE_BIN = "/usr/sbin/centengine"
 ENGINE_CFG = "/etc/centreon-engine/centengine.cfg"
 BROKER_BIN = "/usr/sbin/cbd"
+BROKER_BBDO_PORT = 5669
 BROKER_CFG = "/etc/centreon-broker/central-broker.json"
 COMMAND_FILE = "/var/lib/centreon-engine/rw/centengine.cmd"
 CONNECTOR_LOGFILE = "/var/log/centreon-broker/splunk-events-test.log"
@@ -43,7 +45,7 @@ def start_engine_and_broker(startup_timeout=30):
         os.mkfifo(COMMAND_FILE, 0o660)
 
     _broker_process = subprocess.Popen([BROKER_BIN, BROKER_CFG])
-    _wait_until_fifo_readable(startup_timeout)
+    _wait_until_broker_listening(startup_timeout)
 
     _engine_process = subprocess.Popen([ENGINE_BIN, ENGINE_CFG])
     _wait_until_command_file_writable(startup_timeout)
@@ -103,6 +105,35 @@ def schedule_service_downtime(host_name, service_description, duration_seconds=1
     )
 
 
+def schedule_host_downtime(host_name, duration_seconds=120, author="robot", comment="downtime from robot test"):
+    """Schedule a fixed downtime on a host starting now."""
+    start = int(time.time())
+    end = start + int(duration_seconds)
+    _write_external_command(
+        f"SCHEDULE_HOST_DOWNTIME;{host_name};{start};{end};1;0;{duration_seconds};{author};{comment}"
+    )
+
+
+def delete_service_downtime(host_name, service_description):
+    """Delete every scheduled downtime matching this host/service.
+
+    Uses DEL_SVC_DOWNTIME_FULL rather than DEL_SVC_DOWNTIME, which needs the numeric
+    downtime_id engine assigned when the downtime was scheduled (not something we
+    track). DEL_SVC_DOWNTIME_FULL instead matches on criteria - host and service here,
+    every other field (start/end/fixed/triggered_by/duration/author/comment) left
+    empty means "don't filter on this field", so this deletes all downtimes for that
+    service regardless of when/how they were scheduled.
+    """
+    criteria = [host_name, service_description, "", "", "", "", "", "", ""]
+    _write_external_command("DEL_SVC_DOWNTIME_FULL;" + ";".join(criteria))
+
+
+def delete_host_downtime(host_name):
+    """Delete every scheduled downtime matching this host (see `Delete Service Downtime`)."""
+    criteria = [host_name, "", "", "", "", "", "", ""]
+    _write_external_command("DEL_HOST_DOWNTIME_FULL;" + ";".join(criteria))
+
+
 def wait_for_sent_event(timeout=10, since_line=0):
     """Wait for the next `[send_data]: <json>` line appended to the connector logfile.
 
@@ -150,14 +181,24 @@ def _write_external_command(command):
     raise AssertionError(f"Could not write external command '{command}': {last_error}")
 
 
-def _wait_until_fifo_readable(timeout):
+def _wait_until_broker_listening(timeout):
+    # A fixed sleep here is not enough: cbd can take a variable amount of time to
+    # bind its BBDO/TCP input depending on machine load, and engine's embedded broker
+    # module does not retry gracefully - a first "Connection refused" sends it into an
+    # exponential backoff (1s, 2s, 4s, ...) that alone can burn through a test's whole
+    # event-wait timeout. Poll the actual port instead of guessing a sleep duration.
     deadline = time.time() + timeout
     while time.time() < deadline:
         if _broker_process.poll() is not None:
             raise AssertionError(f"cbd exited early with code {_broker_process.returncode}")
-        time.sleep(0.5)
-        return
-    raise AssertionError("cbd did not start in time")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.settimeout(0.5)
+            try:
+                probe.connect(("127.0.0.1", BROKER_BBDO_PORT))
+                return
+            except OSError:
+                time.sleep(0.2)
+    raise AssertionError(f"cbd never started listening on port {BROKER_BBDO_PORT}")
 
 
 def _wait_until_command_file_writable(timeout):

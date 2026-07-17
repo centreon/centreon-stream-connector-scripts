@@ -79,7 +79,7 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
   qui fait qu'engine écoute réellement sur le pipe de commandes externes ;
   `broker_module_cfg_file` (qui pointe vers `central-module.json`) est la directive
   séparée qui lui fait transmettre les événements BBDO vers broker — **uniquement sur
-  la branche 25.10/26.10** (el9, bookworm, trixie). Voir « Distributions supportées »
+  la branche 25.10/26.10** (el8, el9, bookworm, trixie). Voir « Distributions supportées »
   ci-dessous : la branche 24.04/24.10 (bullseye, jammy, noble) a besoin d'une ligne
   `broker_module` supplémentaire à la place.
 
@@ -91,6 +91,8 @@ combinaisons OS/version Centreon packagées par ce repo (voir le `CLAUDE.md` rac
 | Distribution | Dockerfile | Branche Centreon | Statut |
 |---|---|---|---|
 | AlmaLinux 9 (el9) | `Dockerfile.el9` | 25.10 | référence, service `docker compose` par défaut |
+| AlmaLinux 8 (el8) | `Dockerfile.el8` | 25.10 | fonctionnel |
+| AlmaLinux 10 (el10) | `Dockerfile.el10` | 26.10 | **pas encore utilisable** — le repo rpm Centreon correspondant n'existe pas (404) à l'heure où ces lignes sont écrites |
 | Debian 11 (bullseye) | `Dockerfile.bullseye` | 24.04 | fonctionnel |
 | Debian 12 (bookworm) | `Dockerfile.bookworm` | 25.10 | fonctionnel |
 | Debian 13 (trixie) | `Dockerfile.trixie` | 26.10 | **pas encore utilisable** — le repo apt Centreon correspondant n'existe pas (404) à l'heure où ces lignes sont écrites |
@@ -104,7 +106,7 @@ la branche associée à chaque distribution est décidée par les repos de paque
 Centreon eux-mêmes, pas par nous. Cette différence de version compte ici car les deux
 branches câblent engine → broker différemment :
 
-- **Branche 25.10/26.10** (el9, bookworm, trixie) : une simple directive
+- **Branche 25.10/26.10** (el8, el9, bookworm, trixie) : une simple directive
   `broker_module_cfg_file` dans `centengine.cfg` suffit ; il n'y a pas de paquet cbmod
   séparé.
 - **Branche 24.04/24.10** (bullseye, jammy, noble) : la transmission des événements
@@ -119,7 +121,7 @@ branches câblent engine → broker différemment :
   dupliquer le fichier de config lui-même.
 
 Deux autres pièges spécifiques à apt, rencontrés seulement en construisant les images
-Debian/Ubuntu (corrigés dans les quatre Dockerfiles, gardés ici car faciles à
+Debian/Ubuntu (corrigés dans les cinq Dockerfiles concernés, gardés ici car faciles à
 réintroduire en copiant-collant) : le `70-lua.so` de `centreon-broker-core` charge
 dynamiquement `liblua<ver>.so.0` à l'exécution mais ne déclare comme dépendance que
 l'interpréteur `lua<ver>` (pas le paquet de bibliothèque partagée) — il faut installer
@@ -149,6 +151,132 @@ Pour itérer sur une suite sans reconstruire l'image, modifiez les fichiers sous
 (`docker compose build`), car la bibliothèque est copiée dans le chemin Lua au moment du
 build.
 
+## Écrire un nouveau test
+
+### Recette générale
+
+1. **Choisir le scénario** : quel(s) événement(s) BBDO il lui faut (statut host/service,
+   acquittement, downtime, ...), sur quel connecteur.
+2. **Vérifier dans `tests/robot/resources/EngineBroker.py`** si le mot-clé dont vous
+   avez besoin existe déjà. Sinon, l'ajouter : chaque mot-clé n'est qu'un fin wrapper
+   qui écrit une ligne dans le pipe de commandes externes d'engine
+   (`_write_external_command`). Trouver le nom exact de la commande et l'ordre des
+   arguments dans `engine/src/commands/processing.cc` de centreon-collect (la table
+   `"NOM_COMMANDE"` -> `CMD_XXX`) et `engine/src/commands/commands.cc` (la fonction
+   `cmd_xxx` qui parse les arguments séparés par des points-virgules — lisez-la plutôt
+   que de deviner l'ordre/le nombre d'arguments).
+3. **Écrire le fichier `.robot`** : `Suite Setup    Start Engine And Broker` /
+   `Suite Teardown    Stop Engine And Broker`, `Test Setup    Clear Connector Log`,
+   puis pour chaque événement : l'envoyer, `Wait For Sent Event` (ou
+   `Run Keyword And Expect Error` si vous vous attendez à ce qu'il soit supprimé),
+   vérifier `${event}[payload][...]`. Passez `since_line=${evenement_precedent}[line]`
+   pour qu'un `Wait For Sent Event` ultérieur dans le même test ne re-matche pas une
+   ligne déjà vue.
+4. **Itérer** : `docker compose build` une fois, puis
+   `docker compose run --rm robot-tests robot --outputdir /opt/centreon-stream-connector-scripts/tests/robot/results /opt/centreon-stream-connector-scripts/tests/robot/connectors/votre_fichier.robot`
+   pour ne lancer que votre nouveau fichier (plus rapide que tout le dossier
+   `connectors/`). Un rebuild n'est nécessaire que si vous changez quelque chose sous
+   `modules/` ou `centreon-certified/` (copié dans l'image au build) — modifier les
+   fichiers `.robot`/`.py` eux-mêmes n'en a pas besoin, ils sont montés en volume.
+
+### Technique de débogage quand un test ne se comporte pas comme prévu
+
+Le timeout de `Wait For Sent Event` (10s par défaut) est un signal trop grossier pour
+déboguer un nouveau scénario — il vous dit juste « rien n'est arrivé », pas pourquoi.
+Passez plutôt par un shell manuel dans la même image, pour piloter engine/broker pas à
+pas et lire les deux logs directement :
+
+```bash
+docker compose run --rm --entrypoint bash robot-tests -c '
+/usr/sbin/cbd /etc/centreon-broker/central-broker.json &
+sleep 2
+/usr/sbin/centengine /etc/centreon-engine/centengine.cfg &
+sleep 3
+ts=$(date +%s)
+echo "[$ts] VOTRE_COMMANDE;des;arguments;ici" > /var/lib/centreon-engine/rw/centengine.cmd
+sleep 3
+cat /var/log/centreon-engine/centengine.log
+cat /var/log/centreon-broker/splunk-events-test.log
+'
+```
+
+Ce qu'il faut chercher :
+- `centengine.log` : `EXTERNAL COMMAND: ...` (votre commande a été parsée et acceptée —
+  si absent, le nom de commande ou le nombre d'arguments est faux),
+  `SERVICE ALERT`/`HOST ALERT` (un vrai changement d'état a eu lieu ; un check passif
+  qui ne change pas l'état peut ne pas logguer cette ligne), `PASSIVE SERVICE CHECK`.
+- le logfile propre au connecteur : les lignes `[EventQueue:xxx]` tracent le pipeline
+  du connecteur ; `dropping event because element is not valid` et les lignes
+  `WARNING`/`INFO` de `sc_event:is_valid_*` tracent les décisions de filtrage de
+  `sc_event` — ce sont les lignes les plus utiles quand un événement statut/downtime/ack
+  ne se comporte pas comme prévu, car elles disent précisément quel test l'a rejeté et
+  pourquoi.
+
+Si vous avez besoin de visibilité *à l'intérieur* de
+`modules/centreon-stream-connectors-lib` lui-même (pas seulement de ce qu'il logue déjà),
+ajoutez temporairement une ligne du type
+`self.sc_logger:error("[TEMP DEBUG]: valeur=" .. tostring(ma_valeur))` exactement où
+vous en avez besoin — `error()` est toujours loggué quel que soit `log_level`.
+**Retirez-la avant de committer quoi que ce soit** — c'est du vrai code de bibliothèque
+partagée, pas du code de test.
+
+### Exemple travaillé : le test de rejeu après downtime (`connectors/downtime_replay.robot`)
+
+Construit pour tester le mécanisme de `sc_event.lua` « ne pas envoyer immédiatement un
+changement de statut survenu pendant un downtime ; le garder et le rejouer une fois le
+downtime terminé ». `config/broker/central-broker.json` ne définit délibérément **pas**
+`storage_backend` (donc il reste sur la valeur par défaut, et les quatre autres tests ne
+sont pas affectés) — trois choses non évidentes ont été mises au jour en utilisant la
+technique ci-dessus pour comprendre pourquoi le rejeu ne se produisait jamais, toutes
+utiles à savoir si vous reprenez ce test :
+
+1. **Le `storage_backend` compte.** Le backend par défaut
+   (`storage_backends/sc_storage_broker.lua`) est un placeholder no-op explicite :
+   chaque appel `set`/`get` « réussit » sans rien persister, silencieusement. La
+   logique de rejeu a besoin que les données survivent entre l'événement de début de
+   downtime et les événements ultérieurs (changement de statut/fin de downtime), il lui
+   faut donc `storage_backend=sqlite` (`lua_parameter` de
+   `config/broker/central-broker.json`), porté par
+   `storage_backends/sc_storage_sqlite.lua`. Confirmé avec une ligne de debug
+   temporaire (voir ci-dessus) montrant que `get_multiple` renvoie toujours une table
+   vide.
+2. **`sqlite` a besoin du paquet `lua-lsqlite3`**, et à l'heure où ces lignes sont
+   écrites ce paquet n'existe dans aucun repo accessible à ces images
+   (`dnf search lsqlite3` ne trouve rien, y compris dans le repo unstable de Centreon
+   lui-même) — alors même que
+   `packaging/connectors-lib/centreon-stream-connectors-lib.yaml` le liste déjà comme
+   dépendance.
+3. **Le chemin de repli de `sc_storage.lua` a lui-même un bug** (découvert en mettant
+   réellement `storage_backend=sqlite` dans la config de test pour voir ce qui se passe
+   sans le paquet) : quand le backend demandé ne peut pas être chargé, il logue « going
+   to use the sqlite storage backend » puis ré-exécute inconditionnellement un
+   `require` sur `storage_backends.sc_storage_sqlite` — exactement le même `require`
+   qui vient d'échouer, mais cette fois sans `pcall` autour, donc c'est une erreur Lua
+   non rattrapée qui plante entièrement le `init()` du connecteur (pas seulement la
+   fonctionnalité downtime — tous les tests de la suite échouent, broker retentant tout
+   l'endpoint). Le repli a presque certainement besoin de `require` `sc_storage_broker`
+   à la place (ce que le message d'erreur *disait* avant que ceci ne devienne un bug —
+   voir l'historique git/blame de ce fichier pour le contexte). **Ne corrigez pas ça
+   vous-même sans vérifier avec la personne qui porte cette fonctionnalité en cours —
+   c'est du travail en cours non committé, pas une cible stable.**
+
+Le test échoue donc actuellement pour la raison simple et sans risque (2) plutôt que de
+tomber sur (3). Une fois `lua-lsqlite3` publié *et* (3) ci-dessus corrigé : remettre
+`storage_backend=sqlite` dans le `lua_parameter` de
+`config/broker/central-broker.json`, ajouter `lua-lsqlite3` à la liste de paquets de
+`tests/robot/docker/Dockerfile.el9` (à côté de `lua-curl`), reconstruire, puis relancer
+`docker compose run --rm robot-tests robot --outputdir /opt/centreon-stream-connector-scripts/tests/robot/results /opt/centreon-stream-connector-scripts/tests/robot/connectors/downtime_replay.robot` —
+vérifier que les quatre autres tests passent toujours aussi, et vérifier de même pour
+les autres distributions avant d'activer ce test en CI.
+
+`tests/robot/resources/EngineBroker.py` a aussi gagné `Schedule Host Downtime`,
+`Delete Service Downtime` et `Delete Host Downtime` pendant la construction de ce test —
+`Delete Service Downtime`/`Delete Host Downtime` utilisent `DEL_SVC_DOWNTIME_FULL`/
+`DEL_HOST_DOWNTIME_FULL` (basés sur des critères : host/service, et tout le reste laissé
+vide matche n'importe quel downtime pour ce host/service) plutôt que
+`DEL_SVC_DOWNTIME`/`DEL_HOST_DOWNTIME`, qui ont besoin du `downtime_id` numérique
+interne d'engine — quelque chose que ce harnais ne suit jamais.
+
 ## Ce qui n'est pas encore couvert
 
 - L'intégration CI (un workflow GitHub Actions) est volontairement une étape ultérieure,
@@ -161,3 +289,5 @@ build.
   que `host_status,service_status` — ces événements sont donc reçus puis filtrés avant
   d'atteindre `send_data` (voir le test « Acknowledging A Service Does Not Produce A
   Splunk Event »).
+- `connectors/downtime_replay.robot` échoue actuellement, en attendant que le paquet
+  `lua-lsqlite3` soit publié (voir « Écrire un nouveau test » ci-dessus).
