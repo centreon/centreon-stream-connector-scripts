@@ -1,0 +1,68 @@
+FROM almalinux:9
+
+ARG CENTREON_VERSION=25.10
+ARG CENTREON_CHANNEL=unstable
+ARG DISTRIB=el9
+
+RUN dnf install -y 'dnf-command(config-manager)' epel-release zstd \
+    && dnf install -y --allowerasing curl \
+    && dnf config-manager --set-enabled crb \
+    && curl -sSL "https://yum-gpg.centreon.com/RPM-GPG-KEY-CES" -o /tmp/RPM-GPG-KEY-CES \
+    && rpm --import /tmp/RPM-GPG-KEY-CES
+
+# Same repo layout as .github/actions/test-packages/action.yml, restricted to the
+# channel needed to run a real engine+broker pair (default: unstable).
+RUN cat > /etc/yum.repos.d/centreon-standard.repo << EOF
+[centreon-${CENTREON_VERSION}-${CENTREON_CHANNEL}]
+name=Centreon open source software repository.
+baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/${DISTRIB}/${CENTREON_CHANNEL}/x86_64/
+enabled=1
+gpgcheck=1
+gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+module_hotfixes=1
+
+[centreon-${CENTREON_VERSION}-${CENTREON_CHANNEL}-noarch]
+name=Centreon open source software repository.
+baseurl=https://packages.centreon.com/rpm-standard/${CENTREON_VERSION}/${DISTRIB}/${CENTREON_CHANNEL}/noarch/
+enabled=1
+gpgcheck=1
+gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+module_hotfixes=1
+EOF
+
+# centreon-engine-daemon / centreon-broker-cbd pull in centreon-engine, centreon-broker,
+# centreon-broker-core, centreon-clib and lua as dependencies.
+RUN dnf install -y \
+        centreon-engine-daemon \
+        centreon-broker-cbd \
+        lua-curl \
+        python3 \
+        python3-pip \
+    && dnf clean all
+
+RUN pip3 install --no-cache-dir robotframework
+
+# Install the shared stream-connector lua library at the same path used by the
+# real .deb/.rpm package (packaging/connectors-lib/centreon-stream-connectors-lib.yaml),
+# so `require("centreon-stream-connectors-lib.xxx")` resolves through Lua's default package.path.
+RUN luaver=$(lua -e "print(string.sub(_VERSION, 5))") \
+    && mkdir -p "/usr/share/lua/${luaver}" \
+    && echo "${luaver}" > /etc/centreon-stream-connectors-lib-luaver
+
+COPY . /opt/centreon-stream-connector-scripts
+
+RUN luaver=$(cat /etc/centreon-stream-connectors-lib-luaver) \
+    && rm -rf "/usr/share/lua/${luaver}/centreon-stream-connectors-lib" \
+    && cp -r /opt/centreon-stream-connector-scripts/modules/centreon-stream-connectors-lib \
+        "/usr/share/lua/${luaver}/centreon-stream-connectors-lib"
+
+RUN cp /opt/centreon-stream-connector-scripts/tests/robot/config/engine/*.cfg /etc/centreon-engine/ \
+    && cp /opt/centreon-stream-connector-scripts/tests/robot/config/broker/*.json /etc/centreon-broker/ \
+    && mkdir -p /var/lib/centreon-engine/rw /var/lib/centreon-broker \
+        /var/log/centreon-engine /var/log/centreon-broker \
+        /opt/centreon-stream-connector-scripts/tests/robot/results \
+    && touch /var/log/centreon-engine/retention.dat
+
+WORKDIR /opt/centreon-stream-connector-scripts
+
+CMD ["robot", "--outputdir", "/opt/centreon-stream-connector-scripts/tests/robot/results", "/opt/centreon-stream-connector-scripts/tests/robot/connectors"]

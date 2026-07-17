@@ -1,0 +1,12 @@
+services:
+  robot-tests:
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile
+    volumes:
+      # Reflect local edits to the robot suites/config without rebuilding the image.
+      # (The lua library baked into /usr/share/lua at build time is not affected by
+      # this mount; rebuild the image if you change modules/centreon-stream-connectors-lib.)
+      - ../../tests/robot:/opt/centreon-stream-connector-scripts/tests/robot
+      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+    privileged: false
