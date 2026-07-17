@@ -1,12 +1,57 @@
+x-robot-test: &robot-test
+  volumes:
+    # Reflect local edits to the robot suites/config without rebuilding the image.
+    # (The lua library baked into /usr/share/lua at build time is not affected by
+    # this mount; rebuild the image if you change modules/centreon-stream-connectors-lib.)
+    - ../../tests/robot:/opt/centreon-stream-connector-scripts/tests/robot
+    - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
+  privileged: false
+
 services:
+  # AlmaLinux 9 (rpm, Centreon 25.10 line) - default/reference distrib.
   robot-tests:
+    <<: *robot-test
     build:
       context: ../..
-      dockerfile: tests/robot/docker/Dockerfile
-    volumes:
-      # Reflect local edits to the robot suites/config without rebuilding the image.
-      # (The lua library baked into /usr/share/lua at build time is not affected by
-      # this mount; rebuild the image if you change modules/centreon-stream-connectors-lib.)
-      - ../../tests/robot:/opt/centreon-stream-connector-scripts/tests/robot
-      - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
-    privileged: false
+      dockerfile: tests/robot/docker/Dockerfile.el9
+
+  robot-tests-el9:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.el9
+
+  # Debian (deb). bullseye/jammy/noble track Centreon's 24.04/24.10 line, bookworm
+  # tracks 25.10 - see README_EN.md/README_FR.md for why that changes the engine config.
+  robot-tests-bullseye:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.bullseye
+
+  robot-tests-bookworm:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.bookworm
+
+  # trixie-26.10's Centreon repo does not exist yet (404 as of this writing) - this
+  # build will fail until Centreon publishes it. Kept here so it's ready to use then.
+  robot-tests-trixie:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.trixie
+
+  # Ubuntu (deb, Centreon 24.04/24.10 line).
+  robot-tests-jammy:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.jammy
+
+  robot-tests-noble:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.noble
