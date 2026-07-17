@@ -1,0 +1,74 @@
+FROM ubuntu:noble
+
+ARG CENTREON_APT_BASE=ubuntu-standard
+ARG CENTREON_APT_DISTRIB=noble-24.10
+ARG CENTREON_CHANNEL=unstable
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget gnupg zstd python3 python3-pip \
+    && wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null
+
+# Same repo layout as .github/actions/test-packages/action.yml, restricted to the
+# channel needed to run a real engine+broker pair (default: unstable).
+RUN echo "deb https://packages.centreon.com/${CENTREON_APT_BASE}/ ${CENTREON_APT_DISTRIB}-${CENTREON_CHANNEL} main" \
+        > /etc/apt/sources.list.d/centreon-standard.list \
+    && apt-get update
+
+# centreon-engine-daemon / centreon-broker-cbd pull in centreon-engine, centreon-broker,
+# centreon-broker-core, centreon-clib and lua<ver> (the interpreter) as dependencies.
+# libcurl4 is needed too: lua-curl's lcurl.so links against libcurl.so.4 at runtime but
+# only depends on lua<ver> at the package level, so apt won't pull it in on its own.
+RUN apt-get install -y --no-install-recommends \
+        centreon-engine-daemon \
+        centreon-broker-cbd \
+        lua-curl \
+        libcurl4 \
+    && apt-get clean
+
+# --break-system-packages is required on newer pip (PEP 668) but unknown to older
+# ones (e.g. bullseye/jammy); try it first and fall back if pip rejects the flag.
+RUN pip3 install --no-cache-dir --break-system-packages robotframework 2>/dev/null \
+    || pip3 install --no-cache-dir robotframework
+
+# broker's 70-lua.so dynamically loads liblua<ver>.so.0 at runtime, but
+# centreon-broker-core does not declare liblua<ver>-0 as a package dependency (only
+# lua<ver>, the interpreter, comes in transitively) - without it cbd fails to load the
+# lua module with "cannot open shared object file". The lua<ver> package registers
+# /usr/bin/lua via update-alternatives, so this is the same `lua -e ...` trick used on
+# AlmaLinux to also install the shared library and figure out where to put
+# centreon-stream-connectors-lib (packaging/connectors-lib/centreon-stream-connectors-lib.yaml
+# installs it under /usr/share/lua/<ver>, matching Lua's default package.path).
+RUN luaver=$(lua -e "print(string.sub(_VERSION, 5))") \
+    && apt-get install -y --no-install-recommends "liblua${luaver}-0" \
+    && apt-get clean \
+    && mkdir -p "/usr/share/lua/${luaver}" \
+    && echo "${luaver}" > /etc/centreon-stream-connectors-lib-luaver
+
+COPY . /opt/centreon-stream-connector-scripts
+
+RUN luaver=$(cat /etc/centreon-stream-connectors-lib-luaver) \
+    && rm -rf "/usr/share/lua/${luaver}/centreon-stream-connectors-lib" \
+    && cp -r /opt/centreon-stream-connector-scripts/modules/centreon-stream-connectors-lib \
+        "/usr/share/lua/${luaver}/centreon-stream-connectors-lib"
+
+RUN cp /opt/centreon-stream-connector-scripts/tests/robot/config/engine/*.cfg /etc/centreon-engine/ \
+    && cp /opt/centreon-stream-connector-scripts/tests/robot/config/broker/*.json /etc/centreon-broker/ \
+    && mkdir -p /var/lib/centreon-engine/rw /var/lib/centreon-broker \
+        /var/log/centreon-engine /var/log/centreon-broker \
+        /opt/centreon-stream-connector-scripts/tests/robot/results \
+    && touch /var/log/centreon-engine/retention.dat
+
+# This distrib tracks Centreon's 24.04/24.10 line (see the version mapping in
+# README_EN.md/README_FR.md), where forwarding BBDO events to broker is a separate
+# loadable module (package centreon-broker-cbmod) that must be wired explicitly - the
+# `broker_module_cfg_file` directive alone (used by tests/robot/config/engine/centengine.cfg,
+# sufficient on the 25.10/26.10 line used by el9/bookworm) has no effect here and
+# engine's embedded broker module never even initializes without this extra line.
+RUN echo "broker_module=/usr/lib64/nagios/cbmod.so /etc/centreon-broker/central-module.json" \
+        >> /etc/centreon-engine/centengine.cfg
+
+WORKDIR /opt/centreon-stream-connector-scripts
+
+CMD ["robot", "--outputdir", "/opt/centreon-stream-connector-scripts/tests/robot/results", "/opt/centreon-stream-connector-scripts/tests/robot/connectors"]

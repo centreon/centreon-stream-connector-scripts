@@ -78,22 +78,73 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
 - `broker_module=/usr/lib64/centreon-engine/externalcmd.so` dans `centengine.cfg` est ce
   qui fait qu'engine écoute réellement sur le pipe de commandes externes ;
   `broker_module_cfg_file` (qui pointe vers `central-module.json`) est la directive
-  séparée qui lui fait transmettre les événements BBDO vers broker.
+  séparée qui lui fait transmettre les événements BBDO vers broker — **uniquement sur
+  la branche 25.10/26.10** (el9, bookworm, trixie). Voir « Distributions supportées »
+  ci-dessous : la branche 24.04/24.10 (bullseye, jammy, noble) a besoin d'une ligne
+  `broker_module` supplémentaire à la place.
+
+## Distributions supportées
+
+Un Dockerfile par distribution sous `tests/robot/docker/`, correspondant aux
+combinaisons OS/version Centreon packagées par ce repo (voir le `CLAUDE.md` racine) :
+
+| Distribution | Dockerfile | Branche Centreon | Statut |
+|---|---|---|---|
+| AlmaLinux 9 (el9) | `Dockerfile.el9` | 25.10 | référence, service `docker compose` par défaut |
+| Debian 11 (bullseye) | `Dockerfile.bullseye` | 24.04 | fonctionnel |
+| Debian 12 (bookworm) | `Dockerfile.bookworm` | 25.10 | fonctionnel |
+| Debian 13 (trixie) | `Dockerfile.trixie` | 26.10 | **pas encore utilisable** — le repo apt Centreon correspondant n'existe pas (404) à l'heure où ces lignes sont écrites |
+| Ubuntu 22.04 (jammy) | `Dockerfile.jammy` | 24.04 | fonctionnel |
+| Ubuntu 24.04 (noble) | `Dockerfile.noble` | 24.10 | fonctionnel |
+
+Toutes installent de vrais paquets `centreon-engine`/`centreon-broker` depuis le repo
+`unstable` de Centreon (même schéma de repo que
+`.github/actions/test-packages/action.yml`), mais **pas la même version de Centreon** —
+la branche associée à chaque distribution est décidée par les repos de paquets de
+Centreon eux-mêmes, pas par nous. Cette différence de version compte ici car les deux
+branches câblent engine → broker différemment :
+
+- **Branche 25.10/26.10** (el9, bookworm, trixie) : une simple directive
+  `broker_module_cfg_file` dans `centengine.cfg` suffit ; il n'y a pas de paquet cbmod
+  séparé.
+- **Branche 24.04/24.10** (bullseye, jammy, noble) : la transmission des événements
+  BBDO vers broker est un module chargeable distinct, fourni par le paquet
+  `centreon-broker-cbmod` (`/usr/lib64/nagios/cbmod.so`), qui ne fait silencieusement
+  rien tant que `centengine.cfg` n'a pas aussi une ligne explicite
+  `broker_module=/usr/lib64/nagios/cbmod.so /etc/centreon-broker/central-module.json`
+  — sans elle, engine démarre proprement et traite les commandes externes, mais aucun
+  événement n'atteint jamais broker et chaque test finit simplement par un timeout en
+  attendant un événement. Chacun de ces trois Dockerfiles ajoute cette ligne après
+  avoir copié le `tests/robot/config/engine/centengine.cfg` partagé, plutôt que de
+  dupliquer le fichier de config lui-même.
+
+Deux autres pièges spécifiques à apt, rencontrés seulement en construisant les images
+Debian/Ubuntu (corrigés dans les quatre Dockerfiles, gardés ici car faciles à
+réintroduire en copiant-collant) : le `70-lua.so` de `centreon-broker-core` charge
+dynamiquement `liblua<ver>.so.0` à l'exécution mais ne déclare comme dépendance que
+l'interpréteur `lua<ver>` (pas le paquet de bibliothèque partagée) — il faut installer
+`liblua<ver>-0` explicitement, en utilisant la version renvoyée par
+`lua -e "print(string.sub(_VERSION, 5))"` (fonctionne partout ici car le paquet
+`lua<ver>` enregistre `/usr/bin/lua` via `update-alternatives`). De même, le
+`lcurl.so` de `lua-curl` est lié à `libcurl.so.4` sans le déclarer comme dépendance non
+plus — installer `libcurl4` explicitement aussi.
 
 ## Lancer les tests en local (Docker)
 
 ```bash
 cd tests/robot
-docker compose build
-docker compose run --rm robot-tests
+docker compose build              # construit l'image de chaque distribution
+docker compose run --rm robot-tests             # AlmaLinux 9 (défaut/référence)
+docker compose run --rm robot-tests-bookworm     # ou tout autre service du tableau ci-dessus
 ```
 
 Les rapports (`report.html`, `log.html`, `output.xml`) sont écrits dans
-`tests/robot/results/`.
+`tests/robot/results/` (partagé entre distributions — relancez une suite avant de lire
+le rapport si vous venez de changer de distribution).
 
 Pour itérer sur une suite sans reconstruire l'image, modifiez les fichiers sous
 `tests/robot/` — ils sont montés en volume — puis relancez
-`docker compose run --rm robot-tests`. Si vous modifiez
+`docker compose run --rm <service>`. Si vous modifiez
 `modules/centreon-stream-connectors-lib` lui-même, reconstruisez l'image
 (`docker compose build`), car la bibliothèque est copiée dans le chemin Lua au moment du
 build.
