@@ -21,6 +21,20 @@ services:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.el9
 
+  robot-tests-el8:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.el8
+
+  # el10/26.10's Centreon repo does not exist yet (404 as of this writing) - this
+  # build will fail until Centreon publishes it. Kept here so it's ready to use then.
+  robot-tests-el10:
+    <<: *robot-test
+    build:
+      context: ../..
+      dockerfile: tests/robot/docker/Dockerfile.el10
+
   # Debian (deb). bullseye/jammy/noble track Centreon's 24.04/24.10 line, bookworm
   # tracks 25.10 - see README_EN.md/README_FR.md for why that changes the engine config.
   robot-tests-bullseye:
