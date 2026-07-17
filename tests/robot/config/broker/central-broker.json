@@ -51,7 +51,8 @@
                     {"name": "http_server_url", "type": "string", "value": "http://dummy.invalid/services/collector"},
                     {"name": "splunk_token", "type": "string", "value": "dummy-test-token"},
                     {"name": "accepted_categories", "type": "string", "value": "neb"},
-                    {"name": "accepted_elements", "type": "string", "value": "host_status,service_status"}
+                    {"name": "accepted_elements", "type": "string", "value": "host_status,service_status"},
+                    {"name": "storage_backend", "type": "string", "value": "sqlite"}
                 ]
             }
         ],

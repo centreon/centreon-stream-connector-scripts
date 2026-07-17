@@ -224,50 +224,29 @@ partagée, pas du code de test.
 
 Construit pour tester le mécanisme de `sc_event.lua` « ne pas envoyer immédiatement un
 changement de statut survenu pendant un downtime ; le garder et le rejouer une fois le
-downtime terminé ». `config/broker/central-broker.json` ne définit délibérément **pas**
-`storage_backend` (donc il reste sur la valeur par défaut, et les quatre autres tests ne
-sont pas affectés) — trois choses non évidentes ont été mises au jour en utilisant la
-technique ci-dessus pour comprendre pourquoi le rejeu ne se produisait jamais, toutes
-utiles à savoir si vous reprenez ce test :
+downtime terminé ». Il passe sur les six distributions fonctionnelles. Deux choses
+utiles à savoir ont été mises au jour en y arrivant, si vous touchez à ce test ou à la
+fonctionnalité qu'il couvre :
 
 1. **Le `storage_backend` compte.** Le backend par défaut
    (`storage_backends/sc_storage_broker.lua`) est un placeholder no-op explicite :
-   chaque appel `set`/`get` « réussit » sans rien persister, silencieusement. La
-   logique de rejeu a besoin que les données survivent entre l'événement de début de
-   downtime et les événements ultérieurs (changement de statut/fin de downtime), il lui
-   faut donc `storage_backend=sqlite` (`lua_parameter` de
-   `config/broker/central-broker.json`), porté par
-   `storage_backends/sc_storage_sqlite.lua`. Confirmé avec une ligne de debug
-   temporaire (voir ci-dessus) montrant que `get_multiple` renvoie toujours une table
-   vide.
-2. **`sqlite` a besoin du paquet `lua-lsqlite3`**, et à l'heure où ces lignes sont
-   écrites ce paquet n'existe dans aucun repo accessible à ces images
-   (`dnf search lsqlite3` ne trouve rien, y compris dans le repo unstable de Centreon
-   lui-même) — alors même que
-   `packaging/connectors-lib/centreon-stream-connectors-lib.yaml` le liste déjà comme
-   dépendance.
-3. **Le chemin de repli de `sc_storage.lua` a lui-même un bug** (découvert en mettant
-   réellement `storage_backend=sqlite` dans la config de test pour voir ce qui se passe
-   sans le paquet) : quand le backend demandé ne peut pas être chargé, il logue « going
-   to use the sqlite storage backend » puis ré-exécute inconditionnellement un
-   `require` sur `storage_backends.sc_storage_sqlite` — exactement le même `require`
-   qui vient d'échouer, mais cette fois sans `pcall` autour, donc c'est une erreur Lua
-   non rattrapée qui plante entièrement le `init()` du connecteur (pas seulement la
-   fonctionnalité downtime — tous les tests de la suite échouent, broker retentant tout
-   l'endpoint). Le repli a presque certainement besoin de `require` `sc_storage_broker`
-   à la place (ce que le message d'erreur *disait* avant que ceci ne devienne un bug —
-   voir l'historique git/blame de ce fichier pour le contexte). **Ne corrigez pas ça
-   vous-même sans vérifier avec la personne qui porte cette fonctionnalité en cours —
-   c'est du travail en cours non committé, pas une cible stable.**
-
-Le test échoue donc actuellement pour la raison simple et sans risque (2) plutôt que de
-tomber sur (3). Une fois `lua-lsqlite3` publié *et* (3) ci-dessus corrigé : remettre
-`storage_backend=sqlite` dans le `lua_parameter` de
-`config/broker/central-broker.json`, ajouter `lua-lsqlite3` à la liste de paquets de
-`tests/robot/docker/Dockerfile.el9` (à côté de `lua-curl`), reconstruire, puis relancer
-`docker compose run --rm robot-tests robot --outputdir /opt/centreon-stream-connector-scripts/tests/robot/results /opt/centreon-stream-connector-scripts/tests/robot/connectors/downtime_replay.robot` —
-vérifier que les quatre autres tests passent toujours aussi, et vérifier de même pour
-les autres distributions avant d'activer ce test en CI.
+   chaque appel `set`/`get` « réussit » sans rien persister, silencieusement (confirmé
+   avec une ligne de debug temporaire, voir ci-dessus, montrant que `get_multiple`
+   renvoie toujours une table vide). La logique de rejeu a besoin que les données
+   survivent entre l'événement de début de downtime et les événements ultérieurs
+   (changement de statut/fin de downtime), donc `config/broker/central-broker.json`
+   met `storage_backend=sqlite` spécifiquement sur cet output (porté par
+   `storage_backends/sc_storage_sqlite.lua`), laissant tous les autres connecteurs sur
+   la valeur par défaut.
+2. **`sqlite` a besoin du paquet `lua-lsqlite3`**, publié dans les repos `rpm-plugins`/
+   `apt-plugins` de Centreon — *pas* `rpm-standard`/`apt-standard`/`ubuntu-standard`,
+   d'où viennent tous les autres paquets installés par ce harnais. Chaque Dockerfile
+   configure les deux repos et installe `lua-lsqlite3` à côté de `lua-curl`. (Avant que
+   ce paquet ne soit publié, mettre `storage_backend=sqlite` sans lui avait aussi mis
+   au jour un bug dans le chemin de repli de `sc_storage.lua` lui-même : il essayait de
+   `require` le même module manquant une seconde fois hors `pcall`, plantant tout le
+   `init()` du connecteur au lieu de se dégrader proprement. Utile à savoir si un
+   connecteur plante juste après un changement de `storage_backend`.)
 
 `tests/robot/resources/EngineBroker.py` a aussi gagné `Schedule Host Downtime`,
 `Delete Service Downtime` et `Delete Host Downtime` pendant la construction de ce test —
@@ -289,5 +268,3 @@ interne d'engine — quelque chose que ce harnais ne suit jamais.
   que `host_status,service_status` — ces événements sont donc reçus puis filtrés avant
   d'atteindre `send_data` (voir le test « Acknowledging A Service Does Not Produce A
   Splunk Event »).
-- `connectors/downtime_replay.robot` échoue actuellement, en attendant que le paquet
-  `lua-lsqlite3` soit publié (voir « Écrire un nouveau test » ci-dessus).

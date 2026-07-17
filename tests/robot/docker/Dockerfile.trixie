@@ -5,6 +5,7 @@ FROM debian:trixie
 
 ARG CENTREON_APT_BASE=apt-standard
 ARG CENTREON_APT_DISTRIB=trixie-26.10
+ARG CENTREON_APT_PLUGINS_PREFIX=apt-plugins
 ARG CENTREON_CHANNEL=unstable
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -14,20 +15,28 @@ RUN apt-get update \
     && wget -O- https://apt-key.centreon.com | gpg --dearmor | tee /etc/apt/trusted.gpg.d/centreon.gpg > /dev/null
 
 # Same repo layout as .github/actions/test-packages/action.yml, restricted to the
-# channel needed to run a real engine+broker pair (default: unstable).
+# channel needed to run a real engine+broker pair (default: unstable). The plugins repo
+# (still on the old, unversioned URL scheme, unlike apt-standard) is needed too:
+# lua-lsqlite3 (see below) is published there, not in apt-standard.
 RUN echo "deb https://packages.centreon.com/${CENTREON_APT_BASE}/ ${CENTREON_APT_DISTRIB}-${CENTREON_CHANNEL} main" \
         > /etc/apt/sources.list.d/centreon-standard.list \
+    && echo "deb https://packages.centreon.com/${CENTREON_APT_PLUGINS_PREFIX}-${CENTREON_CHANNEL}/ trixie main" \
+        > /etc/apt/sources.list.d/centreon-plugins.list \
     && apt-get update
 
 # centreon-engine-daemon / centreon-broker-cbd pull in centreon-engine, centreon-broker,
 # centreon-broker-core, centreon-clib and lua<ver> (the interpreter) as dependencies.
 # libcurl4 is needed too: lua-curl's lcurl.so links against libcurl.so.4 at runtime but
 # only depends on lua<ver> at the package level, so apt won't pull it in on its own.
+# lua-lsqlite3 is needed by storage_backends/sc_storage_sqlite.lua (`require("lsqlite3")`),
+# itself needed by the downtime-replay feature's storage_backend=sqlite - see
+# tests/robot/README_EN.md/README_FR.md "Writing a new test" section for the whole story.
 RUN apt-get install -y --no-install-recommends \
         centreon-engine-daemon \
         centreon-broker-cbd \
         lua-curl \
         libcurl4 \
+        lua-lsqlite3 \
     && apt-get clean
 
 # --break-system-packages is required on newer pip (PEP 668) but unknown to older

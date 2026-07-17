@@ -11,7 +11,8 @@ RUN dnf install -y 'dnf-command(config-manager)' epel-release zstd \
     && rpm --import /tmp/RPM-GPG-KEY-CES
 
 # Same repo layout as .github/actions/test-packages/action.yml, restricted to the
-# channel needed to run a real engine+broker pair (default: unstable).
+# channel needed to run a real engine+broker pair (default: unstable). rpm-plugins is
+# needed too: lua-lsqlite3 (see below) is published there, not in rpm-standard.
 RUN cat > /etc/yum.repos.d/centreon-standard.repo << EOF
 [centreon-${CENTREON_VERSION}-${CENTREON_CHANNEL}]
 name=Centreon open source software repository.
@@ -28,23 +29,33 @@ enabled=1
 gpgcheck=1
 gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
 module_hotfixes=1
+
+[centreon-plugins-${CENTREON_CHANNEL}]
+name=centreon plugins ${CENTREON_CHANNEL} x86_64
+baseurl=https://packages.centreon.com/rpm-plugins/${DISTRIB}/${CENTREON_CHANNEL}/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
+
+[centreon-plugins-${CENTREON_CHANNEL}-noarch]
+name=centreon plugins ${CENTREON_CHANNEL} noarch
+baseurl=https://packages.centreon.com/rpm-plugins/${DISTRIB}/${CENTREON_CHANNEL}/noarch
+enabled=1
+gpgcheck=1
+gpgkey=https://yum-gpg.centreon.com/RPM-GPG-KEY-CES
 EOF
 
 # centreon-engine-daemon / centreon-broker-cbd pull in centreon-engine, centreon-broker,
-# centreon-broker-core, centreon-clib and lua as dependencies.
-#
-# NOTE: the downtime-replay feature (modules/centreon-stream-connectors-lib/sc_event.lua)
-# needs storage_backend=sqlite, which needs the lua-lsqlite3 package
-# (storage_backends/sc_storage_sqlite.lua does `require("lsqlite3")`) - the default
-# "broker" backend is an intentional no-op placeholder (storage_backends/sc_storage_broker.lua),
-# every read/write silently succeeds without persisting anything. As of this writing
-# `dnf search lsqlite3` finds NOTHING in any enabled repo (Centreon unstable included) -
-# the package this feature depends on isn't published yet, so it can't be installed
-# here. See tests/robot/README_EN.md/README_FR.md "Writing a new test" section.
+# centreon-broker-core, centreon-clib and lua as dependencies. lua-lsqlite3 is needed by
+# storage_backends/sc_storage_sqlite.lua (`require("lsqlite3")`), itself needed by the
+# downtime-replay feature's storage_backend=sqlite - see tests/robot/README_EN.md/README_FR.md
+# "Writing a new test" section for the whole story (default "broker" backend is a no-op
+# placeholder; this package used to not exist in any repo, now published in rpm-plugins).
 RUN dnf install -y \
         centreon-engine-daemon \
         centreon-broker-cbd \
         lua-curl \
+        lua-lsqlite3 \
         python3 \
         python3-pip \
     && dnf clean all
