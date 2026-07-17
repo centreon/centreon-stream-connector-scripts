@@ -29,15 +29,15 @@ function sc_storage.new(common, logger, params)
     "downtime_service_%d+_%d+"
   }
 
-  -- make sure we are able to load the desired storage backend. If not, fall back to the one provided by broker
+  -- make sure we are able to load the desired storage backend. If not, fall back to the one provided by sqlite
   if pcall(require, "centreon-stream-connectors-lib.storage_backends.sc_storage_" .. params.storage_backend) then
     local storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_" .. params.storage_backend)
     self.storage_backend = storage_backend.new(self.sc_common, logger, params)
   else
     self.sc_logger:error("[sc_storage:new]: Couldn't load storage backend: " .. tostring(params.storage_backend)
       .. ". Make sure that the file sc_storage_" .. tostring(params.storage_backend) .. ".lua exists on your server."
-      .. " The stream connector is going to use the broker storage backend.")
-    self.storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_broker")
+      .. " The stream connector is going to use the sqlite storage backend.")
+    self.storage_backend = require("centreon-stream-connectors-lib.storage_backends.sc_storage_sqlite")
   end
 
   setmetatable(self, { __index = ScStorage})

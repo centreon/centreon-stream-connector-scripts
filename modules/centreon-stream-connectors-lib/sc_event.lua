@@ -75,9 +75,6 @@ function ScEvent:is_valid_element()
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
   if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
-    if not self.downtimes_storage then
-      self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params)
-    end
     local object_id
     if self.event.type == 1 then
       object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
@@ -100,16 +97,16 @@ function ScEvent:is_valid_element()
         downtime_start = self.event.actual_start_time,
         downtime_end = self.event.actual_end_time
       }
-      if not self.downtimes_storage:set_multiple(object_id, storage_data) then
+      if not self.sc_storage:set_multiple(object_id, storage_data) then
         self.sc_logger:error("[sc_event:is_valid_element]: Cannot register downtime datas in storage.")
       end
     elseif self:is_valid_downtime_event_end() then
-      local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
+      local ok, stored = self.sc_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
       if ok then
         if stored.broker_event and pending_event_handler then
           -- delete broker_event from storage before sending to prevent duplicate dispatch
           -- on the second downtime end event (cancellation + deletion both trigger this path)
-          self.downtimes_storage:delete(object_id, "broker_event")
+          self.sc_storage:delete(object_id, "broker_event")
           -- broker_event is stored as a JSON string: decode it explicitly
           local broker_event = broker.json_decode(stored.broker_event)
           if broker_event then
@@ -802,24 +799,21 @@ function ScEvent:is_valid_event_downtime_state()
   end
 
   if self.params.in_downtime == 0 and self.event.scheduled_downtime_depth > 0 then
-    if not self.downtimes_storage then
-      self.downtimes_storage = sc_storage.new(self.sc_common, self.sc_logger, self.params)
-    end
     local object_id
     if self.event.service_id and self.event.service_id ~= 0 then
       object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
     else
       object_id = 'downtime_host_' .. self.event.host_id
     end
-    local ok, stored = self.downtimes_storage:get_multiple(object_id, {"object_type", "status"})
+    local ok, stored = self.sc_storage:get_multiple(object_id, {"object_type", "status"})
     if ok then
       if stored.status ~= self.event.state then
         -- store broker_event as explicit JSON string to avoid relying on storage backend type conversion
-        if not self.downtimes_storage:set(object_id, "broker_event", broker.json_encode(self.broker_event)) then
+        if not self.sc_storage:set(object_id, "broker_event", broker.json_encode(self.broker_event)) then
           self.sc_logger:error("[sc_event:is_valid_event_downtime_state]: event hasn't been stored in storage")
         end
       else
-        self.downtimes_storage:set(object_id, "broker_event", nil)
+        self.sc_storage:set(object_id, "broker_event", nil)
       end
     end
     self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in a valid downtime state. Event downtime depth must be equal to " .. tostring(self.params.in_downtime)

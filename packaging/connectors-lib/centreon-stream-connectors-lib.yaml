@@ -26,16 +26,18 @@ contents:
 overrides:
   rpm:
     depends:
-      - lua-socket >= 3.0
       - centreon-broker-core >= 24.04.0
-      - lua-curl >= 0.3.13-10
       - lua
+      - lua-curl >= 0.3.13-10
+      - lua-lsqlite3 >= 0.9.7
+      - lua-socket >= 3.0
   deb:
     depends:
       - "centreon-broker-core (>= 24.04.0)"
-      - "lua-socket (>= 3.0~)"
-      - "lua-curl (>= 0.3.13-10)"
       - "lua@luaver@"
+      - "lua-curl (>= 0.3.13-10)"
+      - "lua-lsqlite3 (>= 0.9.7)"
+      - "lua-socket (>= 3.0~)"
 
 rpm:
   summary: Centreon stream connectors lua modules
