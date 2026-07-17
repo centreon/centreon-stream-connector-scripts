@@ -142,6 +142,15 @@ def wait_for_sent_event(timeout=10, since_line=0):
     `payload` is that inner dict, `envelope` is the full outer one. Returns a dict
     with both plus the 1-based line number it was found at (pass that number back as
     `since_line` to only look for later events in the same test case).
+
+    Some status changes make the connector (or the engine/broker pipeline feeding it)
+    emit more than one identical `send_data` for what looks like a single command -
+    e.g. a host recovering to UP has been observed sending the same event twice in a
+    row, milliseconds apart. Once a match is found, this briefly polls for more lines
+    with the exact same envelope immediately after it and coalesces them into one
+    logical event, returning the *last* duplicate's line number - otherwise a caller
+    using this event's `line` as a later `since_line` would mistake the unconsumed
+    duplicate for a genuinely new, later event.
     """
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -150,11 +159,51 @@ def wait_for_sent_event(timeout=10, since_line=0):
             match = _SEND_DATA_LINE.search(lines[index])
             if match:
                 envelope = json.loads(match.group(1))
-                return {"line": index + 1, "envelope": envelope, "payload": envelope["event"]}
+                last_line = index + 1
+                settle_deadline = time.time() + 1
+                while time.time() < settle_deadline:
+                    time.sleep(0.2)
+                    more_lines = _read_connector_log()
+                    if len(more_lines) <= last_line:
+                        continue
+                    next_match = _SEND_DATA_LINE.search(more_lines[last_line])
+                    if not next_match or json.loads(next_match.group(1)) != envelope:
+                        break
+                    last_line += 1
+                    settle_deadline = time.time() + 1
+                return {"line": last_line, "envelope": envelope, "payload": envelope["event"]}
         time.sleep(0.2)
     raise AssertionError(
         f"No event sent by the connector within {timeout}s (logfile: {CONNECTOR_LOGFILE})"
     )
+
+
+def assert_no_status_change_after(since_line, expected_state, timeout=8):
+    """Consume every event arriving within `timeout`; pass if none arrive, or if every
+    one that does still reports `expected_state` (a harmless same-state echo - see
+    `Wait For Event With State`). Fail immediately if any event reports a different
+    state - that would be a real status-change event that should have been held back
+    while the object was in downtime.
+    """
+    expected_state = int(expected_state)
+    deadline = time.time() + timeout
+    line = since_line
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            return
+        try:
+            event = wait_for_sent_event(timeout=remaining, since_line=line)
+        except AssertionError:
+            return
+        actual_state = int(event["payload"].get("state"))
+        if actual_state != expected_state:
+            raise AssertionError(
+                "Unexpected status-change event sent after the downtime ended: "
+                f"state={actual_state} (expected only harmless echoes of {expected_state}, "
+                "if anything at all)"
+            )
+        line = event["line"]
 
 
 def _read_connector_log():
