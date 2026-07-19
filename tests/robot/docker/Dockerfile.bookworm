@@ -34,6 +34,8 @@ RUN apt-get install -y --no-install-recommends \
         lua-curl \
         libcurl4 \
         lua-lsqlite3 \
+        lua-socket \
+        luarocks \
     && apt-get clean
 
 # --break-system-packages is required on newer pip (PEP 668) but unknown to older
@@ -50,10 +52,15 @@ RUN pip3 install --no-cache-dir --break-system-packages robotframework 2>/dev/nu
 # centreon-stream-connectors-lib (packaging/connectors-lib/centreon-stream-connectors-lib.yaml
 # installs it under /usr/share/lua/<ver>, matching Lua's default package.path).
 RUN luaver=$(lua -e "print(string.sub(_VERSION, 5))") \
-    && apt-get install -y --no-install-recommends "liblua${luaver}-0" \
+    && apt-get install -y --no-install-recommends "liblua${luaver}-0" "liblua${luaver}-dev" \
     && apt-get clean \
     && mkdir -p "/usr/share/lua/${luaver}" \
     && echo "${luaver}" > /etc/centreon-stream-connectors-lib-luaver
+
+# pagerduty-events-apiv2.lua requires "luatz" (RFC 3339 timestamps) - a pure-Lua library not
+# packaged by any distro repo here, only installable via luarocks (needs liblua<ver>-dev's
+# headers to build against, even though luatz itself has no C parts to compile).
+RUN luarocks install luatz
 
 COPY . /opt/centreon-stream-connector-scripts
 

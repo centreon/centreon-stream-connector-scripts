@@ -10,9 +10,21 @@ exactement comme en production : le module de sortie `lua` de broker charge le s
 connecteur et lui transmet de vrais événements BBDO.
 
 Périmètre actuel : uniquement les connecteurs « apiv2 » (le pattern moderne basé sur
-`modules/centreon-stream-connectors-lib`). Deux connecteurs sont couverts pour l'instant :
-`centreon-certified/splunk/splunk-events-apiv2.lua` (la suite pilote) et
-`centreon-certified/canopsis/canopsis2x-events-apiv2.lua`.
+`modules/centreon-stream-connectors-lib`), et uniquement la famille `*-events-apiv2.lua`
+(statut host/service, acquittement, downtime) — pas la famille `*-metrics-apiv2.lua`
+(clickhouse, datadog-metrics, elastic-metrics, influxdb2, splunk-metrics), qui reçoit des
+données de performance plutôt que des changements de statut et nécessiterait un
+mécanisme d'injection différent ; reporté à une itération future. 12 connecteurs events
+sont couverts pour l'instant : splunk (la suite pilote), canopsis, datadog,
+elasticsearch, keep, logstash, omi, opsgenie, pagerduty, servicenow (les deux variantes
+`-em-` et `-incident-`) et signl4 — voir « Connecteurs couverts » ci-dessous pour les
+spécificités de chacun. Trois sont explicitement exclus : `bigquery-events-apiv2.lua` ne
+supporte pas `send_data_test` ; `kafka-events-apiv2.lua` a besoin du module `ffi` de
+LuaJIT (via son binding `rdkafka` embarqué), qui n'existe pas sous le runtime Lua réel de
+centreon-broker ici (Lua 5.4 PUC-Rio standard — confirmé avec
+`lua -e 'print(pcall(require, "ffi"))'`) ; `bsm-events-apiv2.lua` n'est pas encore dans
+git (encore un travail local en cours de quelqu'un d'autre), donc ce harnais n'y touche
+pas.
 
 ## Comment la sortie est capturée
 
@@ -50,6 +62,34 @@ brut à un seul élément. La fonction utilitaire `_extract_payload` de
 `wait_for_sent_event` gère les deux formes, si bien que `${event}[payload][...]`
 fonctionne pareil quel que soit le connecteur testé.
 
+### Connecteurs couverts
+
+Chaque ligne correspond à `tests/robot/config/broker/central-broker-<nom>.json` +
+`tests/robot/connectors/<nom>_events_apiv2.robot` ; `splunk`/`canopsis` utilisent
+`central-broker.json`/`central-broker-canopsis.json` (sans suffixe `-events`, étant les
+deux premières suites écrites). « Recovery ? » = est-ce que renvoyer l'objet à OK/UP
+produit un événement.
+
+| Connecteur | Ack ? | Recovery ? | Format du payload | Piège notable |
+|---|---|---|---|---|
+| splunk | non (filtré) | oui | `{"event": {...}}` | suite pilote |
+| canopsis | oui | oui | tableau JSON brut `[{...}]` | downtime non testé (voir plus bas) |
+| datadog | non (pas de formateur) | oui | objet brut | — |
+| elasticsearch | non (pas de formateur) | oui | NDJSON bulk, 2 valeurs JSON par message | payload multi-lignes |
+| keep | oui | oui | objet brut | bug de `flush()`, voir plus bas |
+| logstash | non (pas de formateur) | oui | objet brut | — |
+| omi | non (pas de formateur) | n/a (service uniquement) | **XML**, pas du JSON | aucun support host du tout |
+| opsgenie | non (pas de formateur) | oui | objet brut | — |
+| pagerduty | non (pas de formateur) | oui | objet brut, avec sa propre clé `"payload"` imbriquée | a besoin de `luatz` (voir plus bas) |
+| servicenow-em | non (pas de formateur) | oui | `{"records": [{...}]}` | texte après le JSON sur la ligne de log |
+| servicenow-incident | non (pas de formateur) | **non, volontairement** | objet brut | texte après le JSON ; recovery filtré par les params `host_status`/`service_status` |
+| signl4 | non (pas de formateur) | oui | objet brut | bug de `flush()`, voir plus bas |
+
+Chaque connecteur sans formateur d'acquittement a un test négatif correspondant
+(« Acknowledging A Service Does Not Produce A `<X>` Event ») confirmant que rien n'est
+envoyé, à l'image du test équivalent de splunk — pas un oubli, c'est volontairement
+vérifié par connecteur plutôt que supposé à la lecture du code source.
+
 ## Configuration engine et broker
 
 La configuration statique se trouve sous `tests/robot/config/` et est copiée dans
@@ -79,7 +119,7 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
 | `config/engine/hostgroups.cfg`, `config/engine/connectors.cfg` | Vides, mais référencés via `cfg_file` dans `centengine.cfg` — les fichiers doivent exister même sans rien dedans. |
 | `config/broker/central-module.json` | Config broker *embarquée dans le processus engine* (voir plus bas). |
 | `config/broker/central-broker.json` | Config du démon `cbd` autonome pour la suite splunk, y compris l'output `lua` testé (voir plus bas). |
-| `config/broker/central-broker-canopsis.json` | Pareil, mais pour la suite canopsis — son propre output/logfile `lua` et ses paramètres obligatoires spécifiques (`canopsis_host`, `canopsis_authkey`, ...). Voir « Tester plusieurs connecteurs » ci-dessus. |
+| `config/broker/central-broker-canopsis.json`, `central-broker-<nom>.json` (un par connecteur) | Pareil, un par connecteur testé — son propre output/logfile `lua` et ses paramètres obligatoires spécifiques. Voir « Tester plusieurs connecteurs » et « Connecteurs couverts » ci-dessus. |
 
 - **`config/broker/central-module.json`** est la config broker *embarquée dans le
   processus engine* : elle n'a pas d'`input`, uniquement un `output` qui ouvre une
@@ -168,6 +208,14 @@ l'interpréteur `lua<ver>` (pas le paquet de bibliothèque partagée) — il fau
 `lcurl.so` de `lua-curl` est lié à `libcurl.so.4` sans le déclarer comme dépendance non
 plus — installer `libcurl4` explicitement aussi.
 
+Deux dépendances natives supplémentaires, nécessaires à des connecteurs spécifiques et
+installées dans chaque Dockerfile à côté de `lua-curl`/`lua-lsqlite3` : `lua-socket`
+(elasticsearch et omi font `require("socket.http")`/`require("ltn12")`/`require("mime")`)
+et `luatz` (pagerduty a besoin d'horodatages RFC 3339) — ce dernier n'est packagé par
+aucun repo de distribution ici, donc installé via `luarocks install luatz`, qui a
+lui-même besoin des en-têtes Lua (`lua-devel` / `liblua<ver>-dev`) pour compiler, même si
+`luatz` lui-même n'a aucune partie en C.
+
 ## Lancer les tests en local (Docker)
 
 ```bash
@@ -239,7 +287,9 @@ moment du build, pas montés.
 
 ### Technique de débogage quand un test ne se comporte pas comme prévu
 
-Le timeout de `Wait For Sent Event` (10s par défaut) est un signal trop grossier pour
+Le timeout de `Wait For Sent Event` (15s par défaut — remonté depuis 10s une fois
+découvert que quelques connecteurs ont une latence de flush inhérente de quelques
+secondes, voir « Pièges transversaux » plus bas) est un signal trop grossier pour
 déboguer un nouveau scénario — il vous dit juste « rien n'est arrivé », pas pourquoi.
 Passez plutôt par un shell manuel dans la même image, pour piloter engine/broker pas à
 pas et lire les deux logs directement :
@@ -370,18 +420,97 @@ ci-dessus (config broker propre, logfile propre). Deux choses utiles à savoir :
    conteneur — même principe que la réinitialisation déjà existante du fichier de
    commandes, juste pour ces deux éléments d'état en plus.
 
+### Pièges transversaux (de datadog à signl4)
+
+Dix connecteurs ajoutés d'un coup après canopsis ont mis au jour des schémas utiles à
+connaître avant d'y toucher :
+
+1. **Un off-by-one systémique dans le `flush()` propre de la plupart des connecteurs.**
+   Contrairement à splunk/canopsis (qui appellent le `flush_all_queues` partagé de
+   `sc_flush.lua`, avec `>=`), la plupart de ces dix connecteurs codent leur propre
+   `flush()` avec
+   `if queues_size > self.sc_params.params.max_buffer_size then ...` — avec `>` au lieu
+   de `>=`. Combiné à `max_buffer_size` qui vaut par défaut (ou, pour keep/pagerduty/
+   signl4/servicenow-em/servicenow-incident, est forcé à) `1`, un seul événement en
+   attente ne peut jamais satisfaire `1 > 1`, donc il n'est flushé que par l'*autre*
+   branche (`if last_global_flush < os.time() - max_all_queues_age`, 5s par défaut) — et
+   comme `last_global_flush` n'est fixé qu'une fois à la construction du connecteur et
+   que `flush()` n'est réinvoqué que quand un *nouvel* événement arrive (il n'y a pas de
+   minuteur indépendant), un seul événement envoyé à un connecteur tout juste démarré
+   peut rester en attente indéfiniment : rien ne déclenche un second appel à `flush()`
+   pour revérifier la condition d'âge. Confirmé comme un vrai bug (pas un accident de
+   timing) en observant `keep-events-test.log` rester bloqué à « queue size is now: 1,
+   max is: 1 » pendant 15+ secondes d'affilée. **Corrigé dans chaque
+   `central-broker-<nom>.json` concerné en mettant `max_all_queues_age=0`**, pour que la
+   branche basée sur l'âge soit satisfaite dès le tout premier `flush()` de ce
+   connecteur, indépendamment du timing réel. Datadog/opsgenie/logstash sont passés sans
+   ce correctif lors des premiers essais purement parce qu'assez de temps s'était déjà
+   écoulé depuis la construction du connecteur (overhead de démarrage de broker) au
+   moment où leur premier test envoyait un événement — une coïncidence, pas une
+   correction ; ils ont reçu le même correctif quand même, pour la stabilité. C'est un
+   vrai bug dans le code de chaque connecteur, non corrigé ici (hors périmètre, comme le
+   bug `canopsis_version` de canopsis) — seulement contourné dans la config de test.
+2. **Le format du payload est un vrai zoo**, entièrement géré par les fonctions
+   `_parse_send_data_block`/`_decode_all_json_values`/`_extract_payload` d'`EngineBroker.py`
+   plutôt que par chaque fichier `.robot` : objet JSON brut (la plupart des
+   connecteurs), tableau brut à un élément (canopsis), dict enveloppant l'événement sous
+   une clé `"event"` (splunk) ou une clé `"records"` contenant un tableau à un élément
+   (servicenow-em), NDJSON bulk d'Elasticsearch — deux valeurs JSON logguées comme un
+   seul message multi-lignes, métadonnées d'index puis le véritable événement (elastic ;
+   `_decode_all_json_values` décode chaque valeur trouvée et garde la *dernière*, ce qui
+   gère aussi bien ce cas que le #3 ci-dessous avec le même code), du **XML** plat non
+   imbriqué à la place du JSON (omi ; `_parse_xml_flat` se rabat sur une regex de tags
+   quand le décodage JSON ne trouve rien, après avoir retiré le tag englobant — une
+   regex de tags naïve matche ce tag englobant en premier et consomme goulûment tout
+   avant qu'un tag interne n'ait sa chance, puisque c'est le *seul* match valide pour sa
+   propre référence arrière).
+3. **Du texte après le JSON sur la même ligne de log.** Les deux connecteurs servicenow
+   logguent `"[send_data]: " .. tostring(data) .. " to endpoint: " .. tostring(endpoint)`
+   — un simple `json.loads` sur toute la ligne capturée échouerait sur ce texte final.
+   `_decode_all_json_values` utilise `json.JSONDecoder().raw_decode`, qui s'arrête
+   proprement à la fin de la première valeur JSON valide et ignore ce qui suit.
+4. **servicenow-incident n'envoie jamais de recovery, volontairement**, pas un bug : il
+   surcharge les paramètres génériques `host_status`/`service_status` (qui filtrent
+   quels *états bruts* sont même considérés valides — distinct du filtrage par type
+   d'élément de `accepted_elements`) à `"1,2"` et `"1,2,3"` respectivement, excluant
+   entièrement l'état `0` (UP/OK). Logique pour un système de gestion d'incidents :
+   seuls les problèmes ouvrent un incident.
+5. **omi n'a aucun support host du tout** — son `accepted_elements` par défaut est
+   `"service_status"` seul (même pas `host_status`), et il n'y a pas de fonction
+   `format_event_host` pour le rajouter sans un `format_file` personnalisé. Sa suite n'a
+   que des tests basés sur les services.
+
 ## Ce qui n'est pas encore couvert
 
 - L'intégration CI (un workflow GitHub Actions) est volontairement une étape ultérieure,
   hors périmètre de cette première itération.
+- Les connecteurs `*-metrics-apiv2.lua` (clickhouse, datadog-metrics, elastic-metrics,
+  influxdb2, splunk-metrics) — catégorie BBDO différente (données de performance, pas
+  des changements de statut), nécessite son propre mécanisme d'injection, reporté à une
+  itération future.
 - `bigquery-events-apiv2.lua` ne supporte pas `send_data_test` et nécessitera une autre
   stratégie de capture.
+- `kafka-events-apiv2.lua` ne peut pas tourner sous ce runtime Lua de centreon-broker (ni
+  semble-t-il sous aucun runtime réel) — son binding `rdkafka` embarqué nécessite le
+  module `ffi` de LuaJIT, et broker utilise ici du Lua 5.4 PUC-Rio standard, qui n'a pas
+  ce module (confirmé empiriquement, voir « Ce qui est testé » ci-dessus).
+- `bsm-events-apiv2.lua` n'est pas encore suivi par git — ce harnais n'y touche pas tant
+  qu'il n'est pas committé.
 - Seuls les événements host/service status sont réellement vérifiables pour splunk
   aujourd'hui : broker délivre bien l'acquittement/downtime en tant qu'élément BBDO à
   part entière, mais `accepted_elements` de ce connecteur ne liste que
   `host_status,service_status` — ces événements sont donc reçus puis filtrés avant
   d'atteindre `send_data` (voir le test « Acknowledging A Service Does Not Produce A
   Splunk Event »).
-- Le downtime n'est pas testé pour canopsis — son `format_event_downtime()` plante sur
-  un `canopsis_version` booléen sous `send_data_test=1` (voir l'exemple travaillé
-  canopsis ci-dessus) ; le tester nécessite de corriger ce bug d'abord.
+- Le downtime n'est testé que pour les deux connecteurs d'origine (splunk le filtre
+  implicitement ; la suite downtime-replay exerce le mécanisme de rejeu de
+  `sc_event.lua` à travers splunk). Il n'est pas testé pour canopsis — son
+  `format_event_downtime()` plante sur un `canopsis_version` booléen sous
+  `send_data_test=1` (voir l'exemple travaillé canopsis ci-dessus) — ni pour aucun des
+  dix connecteurs ajoutés après lui : aucun n'a de fonction `format_event_downtime` du
+  tout, donc il n'y a rien de spécifique au downtime à vérifier au-delà de « aucun
+  événement n'est envoyé », ce que le `accepted_elements` existant (aucun d'entre eux
+  n'inclut `"downtime"`) garantit déjà sans test dédié.
+- omi n'a pas non plus de support pour l'acquittement ou le downtime (pas de fonctions
+  `format_event_*` correspondantes), en plus de n'avoir aucun support host du tout (voir
+  « Pièges transversaux » ci-dessus).
