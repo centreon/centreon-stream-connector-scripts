@@ -20,23 +20,53 @@ ENGINE_BIN = "/usr/sbin/centengine"
 ENGINE_CFG = "/etc/centreon-engine/centengine.cfg"
 BROKER_BIN = "/usr/sbin/cbd"
 BROKER_BBDO_PORT = 5669
-BROKER_CFG = "/etc/centreon-broker/central-broker.json"
 COMMAND_FILE = "/var/lib/centreon-engine/rw/centengine.cmd"
-CONNECTOR_LOGFILE = "/var/log/centreon-broker/splunk-events-test.log"
+
+# Every tests/robot/config/broker/*.json sets storage_backend=sqlite without overriding
+# sc_storage.sqlite.db_file, so they all default (sc_params.lua) to this same path. All
+# suites also reuse the same host_1/service_1/service_2 test entities, so state one suite
+# writes here (e.g. a downtime marker) would otherwise leak into whatever suite starts next
+# in the same container - only reproduces when multiple suites run in one `robot` invocation
+# (the Dockerfiles' default CMD), not when each suite gets its own fresh `docker compose run`.
+STORAGE_DB_FILE = "/var/lib/centreon-broker/stream-connector-storage.sdb"
+
+# Engine writes current host/service states here (retention_update_interval and on
+# shutdown) and loads it back as each object's *starting* state on the next startup -
+# regardless of use_retained_program_state/use_retained_scheduling_info in centengine.cfg,
+# which only gate program-wide settings and check scheduling, not object state. Without
+# wiping this, a suite that leaves e.g. service_1 CRITICAL (canopsis_events_apiv2.robot's
+# last test does) makes the next suite's engine boot with service_1 already CRITICAL
+# instead of the config's OK default, silently turning that suite's baseline-setting
+# checks into no-op "transitions" that never fire a SERVICE ALERT/BBDO event.
+RETENTION_FILE = "/var/log/centreon-engine/retention.dat"
+
+# Defaults match the pilot splunk suite's config, so existing suites calling
+# `Start Engine And Broker` with no arguments keep working unchanged. A suite testing
+# a different connector passes its own `broker_config`/`connector_logfile` (its own
+# dedicated tests/robot/config/broker/*.json, with its own lua output and logfile).
+DEFAULT_BROKER_CFG = "/etc/centreon-broker/central-broker.json"
+DEFAULT_CONNECTOR_LOGFILE = "/var/log/centreon-broker/splunk-events-test.log"
 
 _SEND_DATA_LINE = re.compile(r"\[send_data\]:\s*(.*)")
 
 _engine_process = None
 _broker_process = None
+_broker_cfg = DEFAULT_BROKER_CFG
+_connector_logfile = DEFAULT_CONNECTOR_LOGFILE
 
 
-def start_engine_and_broker(startup_timeout=30):
+def start_engine_and_broker(startup_timeout=30, broker_config=None, connector_logfile=None):
     """Start a real cbd and centengine using the static config under tests/robot/config.
 
     Broker is started first so it is already listening on its BBDO input port when
-    engine's embedded broker module tries to connect to it.
+    engine's embedded broker module tries to connect to it. `broker_config` selects
+    which tests/robot/config/broker/*.json cbd loads (which connector's lua output is
+    under test); `connector_logfile` must match that config's `send_data_test` logfile.
     """
-    global _engine_process, _broker_process
+    global _engine_process, _broker_process, _broker_cfg, _connector_logfile
+
+    _broker_cfg = broker_config or DEFAULT_BROKER_CFG
+    _connector_logfile = connector_logfile or DEFAULT_CONNECTOR_LOGFILE
 
     os.makedirs(os.path.dirname(COMMAND_FILE), exist_ok=True)
     if os.path.exists(COMMAND_FILE) and not stat.S_ISFIFO(os.stat(COMMAND_FILE).st_mode):
@@ -44,7 +74,12 @@ def start_engine_and_broker(startup_timeout=30):
     if not os.path.exists(COMMAND_FILE):
         os.mkfifo(COMMAND_FILE, 0o660)
 
-    _broker_process = subprocess.Popen([BROKER_BIN, BROKER_CFG])
+    if os.path.exists(STORAGE_DB_FILE):
+        os.remove(STORAGE_DB_FILE)
+    if os.path.exists(RETENTION_FILE):
+        os.remove(RETENTION_FILE)
+
+    _broker_process = subprocess.Popen([BROKER_BIN, _broker_cfg])
     _wait_until_broker_listening(startup_timeout)
 
     _engine_process = subprocess.Popen([ENGINE_BIN, ENGINE_CFG])
@@ -71,7 +106,7 @@ def stop_engine_and_broker():
 
 def clear_connector_log():
     """Truncate the stream connector's own logfile, so each test starts from a clean slate."""
-    open(CONNECTOR_LOGFILE, "w").close()
+    open(_connector_logfile, "w").close()
 
 
 def send_host_check_result(host_name, state, output):
@@ -134,14 +169,28 @@ def delete_host_downtime(host_name):
     _write_external_command("DEL_HOST_DOWNTIME_FULL;" + ";".join(criteria))
 
 
+def _extract_payload(envelope):
+    """Different connectors wrap the actual formatted event differently: Splunk's HEC
+    payload nests it under an "event" key alongside Splunk-specific metadata (index,
+    source, sourcetype, host, time); Canopsis just JSON-encodes a one-element array
+    (`build_payload` does `table.insert(payload, event)`, which is a bare Lua array).
+    `payload` is always the inner, connector-formatted event dict either way.
+    """
+    if isinstance(envelope, list):
+        return envelope[0] if envelope else {}
+    if isinstance(envelope, dict) and "event" in envelope:
+        return envelope["event"]
+    return envelope
+
+
 def wait_for_sent_event(timeout=10, since_line=0):
     """Wait for the next `[send_data]: <json>` line appended to the connector logfile.
 
-    Splunk's HEC payload wraps the actual connector-formatted event under an "event"
-    key alongside Splunk-specific metadata (index, source, sourcetype, host, time);
-    `payload` is that inner dict, `envelope` is the full outer one. Returns a dict
-    with both plus the 1-based line number it was found at (pass that number back as
-    `since_line` to only look for later events in the same test case).
+    Returns a dict with `payload` (the connector-formatted event - see
+    `_extract_payload`) and `envelope` (the raw decoded JSON, useful for
+    connector-specific metadata `payload` doesn't carry) plus the 1-based line number
+    it was found at (pass that number back as `since_line` to only look for later
+    events in the same test case).
 
     Some status changes make the connector (or the engine/broker pipeline feeding it)
     emit more than one identical `send_data` for what looks like a single command -
@@ -171,10 +220,10 @@ def wait_for_sent_event(timeout=10, since_line=0):
                         break
                     last_line += 1
                     settle_deadline = time.time() + 1
-                return {"line": last_line, "envelope": envelope, "payload": envelope["event"]}
+                return {"line": last_line, "envelope": envelope, "payload": _extract_payload(envelope)}
         time.sleep(0.2)
     raise AssertionError(
-        f"No event sent by the connector within {timeout}s (logfile: {CONNECTOR_LOGFILE})"
+        f"No event sent by the connector within {timeout}s (logfile: {_connector_logfile})"
     )
 
 
@@ -207,9 +256,9 @@ def assert_no_status_change_after(since_line, expected_state, timeout=8):
 
 
 def _read_connector_log():
-    if not os.path.exists(CONNECTOR_LOGFILE):
+    if not os.path.exists(_connector_logfile):
         return []
-    with open(CONNECTOR_LOGFILE, "r") as handle:
+    with open(_connector_logfile, "r") as handle:
         return handle.readlines()
 
 

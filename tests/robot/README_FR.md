@@ -10,8 +10,9 @@ exactement comme en production : le module de sortie `lua` de broker charge le s
 connecteur et lui transmet de vrais événements BBDO.
 
 Périmètre actuel : uniquement les connecteurs « apiv2 » (le pattern moderne basé sur
-`modules/centreon-stream-connectors-lib`). La suite pilote couvre
-`centreon-certified/splunk/splunk-events-apiv2.lua`.
+`modules/centreon-stream-connectors-lib`). Deux connecteurs sont couverts pour l'instant :
+`centreon-certified/splunk/splunk-events-apiv2.lua` (la suite pilote) et
+`centreon-certified/canopsis/canopsis2x-events-apiv2.lua`.
 
 ## Comment la sortie est capturée
 
@@ -27,6 +28,27 @@ Les événements sont injectés en écrivant des lignes dans le fichier de comma
 de centreon-engine (`PROCESS_HOST_CHECK_RESULT`, `PROCESS_SERVICE_CHECK_RESULT`,
 `ACKNOWLEDGE_SVC_PROBLEM`, `SCHEDULE_SVC_DOWNTIME`, ...) — le même mécanisme que celui
 utilisé en production, sans avoir à réimplémenter un client BBDO.
+
+### Tester plusieurs connecteurs
+
+Chaque connecteur testé a sa propre config `tests/robot/config/broker/*.json` (son
+propre output `lua`, son logfile `send_data_test`, ses paramètres obligatoires
+spécifiques), et sa suite passe les deux à `Start Engine And Broker` :
+
+```robotframework
+Suite Setup    Start Engine And Broker    broker_config=/etc/centreon-broker/central-broker-canopsis.json
+...            connector_logfile=/var/log/centreon-broker/canopsis-events-test.log
+```
+
+L'appeler sans arguments garde la config/le logfile de la suite pilote splunk (les deux
+valeurs par défaut pointent dessus), donc les suites existantes n'ont pas eu besoin
+d'être touchées quand le second connecteur a été ajouté. `EngineBroker.py` normalise
+aussi la façon dont un payload est extrait : le format HEC de Splunk imbrique
+l'événement formaté par le connecteur sous une clé `"event"`, alors que le
+`build_payload` de Canopsis fait juste `table.insert(payload, event)` — un tableau JSON
+brut à un seul élément. La fonction utilitaire `_extract_payload` de
+`wait_for_sent_event` gère les deux formes, si bien que `${event}[payload][...]`
+fonctionne pareil quel que soit le connecteur testé.
 
 ## Configuration engine et broker
 
@@ -56,7 +78,8 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
 | `config/engine/resource.cfg` | Macros globales d'engine (`$USER1$`, ...) — présent car `centengine.cfg` le référence via `resource_file`, effectivement vide pour nos besoins. |
 | `config/engine/hostgroups.cfg`, `config/engine/connectors.cfg` | Vides, mais référencés via `cfg_file` dans `centengine.cfg` — les fichiers doivent exister même sans rien dedans. |
 | `config/broker/central-module.json` | Config broker *embarquée dans le processus engine* (voir plus bas). |
-| `config/broker/central-broker.json` | Config du démon `cbd` autonome, y compris l'output `lua` testé (voir plus bas). |
+| `config/broker/central-broker.json` | Config du démon `cbd` autonome pour la suite splunk, y compris l'output `lua` testé (voir plus bas). |
+| `config/broker/central-broker-canopsis.json` | Pareil, mais pour la suite canopsis — son propre output/logfile `lua` et ses paramètres obligatoires spécifiques (`canopsis_host`, `canopsis_authkey`, ...). Voir « Tester plusieurs connecteurs » ci-dessus. |
 
 - **`config/broker/central-module.json`** est la config broker *embarquée dans le
   processus engine* : elle n'a pas d'`input`, uniquement un `output` qui ouvre une
@@ -291,15 +314,74 @@ vide matche n'importe quel downtime pour ce host/service) plutôt que
 `DEL_SVC_DOWNTIME`/`DEL_HOST_DOWNTIME`, qui ont besoin du `downtime_id` numérique
 interne d'engine — quelque chose que ce harnais ne suit jamais.
 
+### Exemple travaillé : le test canopsis (`connectors/canopsis_events_apiv2.robot`)
+
+Deuxième connecteur ajouté au harnais, suivant globalement le même schéma que splunk
+ci-dessus (config broker propre, logfile propre). Deux choses utiles à savoir :
+
+1. **`accepted_elements` exclut volontairement `"downtime"`.** Le `EventQueue.new()` de
+   `canopsis2x-events-apiv2.lua` fait de vrais appels HTTP bloquants à l'initialisation
+   pour résoudre les IDs de raison/type de pbehavior et la version de Canopsis — mais
+   seulement quand `canopsis_downtime_send_pbh ~= 0` (défaut `1`) **et** que
+   `"downtime"` fait partie de `accepted_elements` (par défaut oui). Sous
+   `send_data_test=1` ces appels s'interrompent proprement (ils ne bloquent pas et ne
+   plantent pas), mais `canopsis_version` finit avec la valeur booléenne `false` (la
+   valeur de retour du court-circuit) au lieu d'une vraie chaîne de version — et
+   `format_event_downtime()` fait ensuite
+   `string.find(canopsis_version, "22.10.")`, qui plante sur un booléen dès qu'un
+   véritable événement downtime est formaté. La config de test
+   (`central-broker-canopsis.json`) laisse `"downtime"` hors de `accepted_elements`
+   (seulement host_status/service_status/acknowledgement) et met
+   `canopsis_downtime_send_pbh=0` pour plus de clarté — ce qui évite tout le bloc
+   d'appels API à l'initialisation et le crash, au prix de ne pas tester le downtime
+   pour ce connecteur pour l'instant (voir « Ce qui n'est pas encore couvert »
+   ci-dessous).
+2. **Fuite d'état entre suites, visible uniquement quand plusieurs suites tournent
+   dans le même conteneur.** Chaque `docker compose run --rm <service>` démarre un
+   conteneur neuf, donc lancer une suite à la fois (ou via `docker compose up`, une
+   suite par service) ne rencontre jamais ce problème. Mais le `CMD` par défaut de
+   chaque Dockerfile lance *tout* le dossier `connectors/` en une seule invocation
+   `robot` — le système de fichiers du même conteneur persiste à travers chaque cycle
+   `Start Engine And Broker`/`Stop Engine And Broker` de chaque suite au sein de ce
+   lancement. Deux fichiers sous `/var/lib/` survivent à une suite individuelle et
+   fuient vers la suite suivante :
+   - `/var/lib/centreon-broker/stream-connector-storage.sdb` — le fichier de base du
+     backend de stockage sqlite (voir l'exemple travaillé downtime-replay ci-dessus) ;
+     chaque config broker ici met `storage_backend=sqlite` sans surcharger
+     `sc_storage.sqlite.db_file`, donc elles pointent toutes par défaut vers ce même
+     chemin (`sc_params.lua`).
+   - `/var/log/centreon-engine/retention.dat` — engine le recharge comme état *de
+     départ* de chaque objet au démarrage suivant, indépendamment de
+     `use_retained_program_state`/`use_retained_scheduling_info` dans
+     `centengine.cfg` (ces réglages ne contrôlent que les paramètres globaux du
+     programme et la planification des checks, pas l'état des objets). Une suite qui
+     laisse par exemple `service_1` en CRITICAL (le dernier test de canopsis le fait)
+     faisait démarrer l'engine de la suite suivante avec `service_1` déjà en CRITICAL
+     au lieu du OK par défaut de la config, transformant silencieusement les checks de
+     mise en base de cette suite en « transitions » no-op qui ne déclenchaient jamais
+     de `SERVICE ALERT`/événement BBDO — ce qui se manifestait par des échecs parasites
+     des tests service de `downtime_replay.robot` (« No event sent... ») qui ne se
+     reproduisaient que quand la suite canopsis tournait en premier dans la même
+     invocation `robot`.
+
+   Corrigé en faisant supprimer ces deux fichiers par `Start Engine And Broker`, sans
+   condition, avant de démarrer broker/engine, pour que chaque suite reparte toujours
+   de la même ardoise vierge quel que soit ce qui a tourné avant elle dans le même
+   conteneur — même principe que la réinitialisation déjà existante du fichier de
+   commandes, juste pour ces deux éléments d'état en plus.
+
 ## Ce qui n'est pas encore couvert
 
 - L'intégration CI (un workflow GitHub Actions) est volontairement une étape ultérieure,
   hors périmètre de cette première itération.
 - `bigquery-events-apiv2.lua` ne supporte pas `send_data_test` et nécessitera une autre
   stratégie de capture.
-- Seuls les événements host/service status sont réellement vérifiables pour ce
-  connecteur aujourd'hui : broker délivre bien l'acquittement/downtime en tant
-  qu'élément BBDO à part entière, mais `accepted_elements` de ce connecteur ne liste
-  que `host_status,service_status` — ces événements sont donc reçus puis filtrés avant
+- Seuls les événements host/service status sont réellement vérifiables pour splunk
+  aujourd'hui : broker délivre bien l'acquittement/downtime en tant qu'élément BBDO à
+  part entière, mais `accepted_elements` de ce connecteur ne liste que
+  `host_status,service_status` — ces événements sont donc reçus puis filtrés avant
   d'atteindre `send_data` (voir le test « Acknowledging A Service Does Not Produce A
   Splunk Event »).
+- Le downtime n'est pas testé pour canopsis — son `format_event_downtime()` plante sur
+  un `canopsis_version` booléen sous `send_data_test=1` (voir l'exemple travaillé
+  canopsis ci-dessus) ; le tester nécessite de corriger ce bug d'abord.
