@@ -9,19 +9,25 @@ pair** and drive a stream connector exactly as it runs in production: broker's `
 module loads the connector script and dispatches real BBDO events to it.
 
 Scope for now: only "apiv2" connectors (the modern pattern built on
-`modules/centreon-stream-connectors-lib`), and only the `*-events-apiv2.lua` ones (host/
-service status, acknowledgement, downtime) — not the `*-metrics-apiv2.lua` family
-(clickhouse, datadog-metrics, elastic-metrics, influxdb2, splunk-metrics), which receive
-performance data rather than status changes and need a different injection mechanism;
-that's deferred to a future iteration. 12 events connectors are covered so far: splunk
-(the pilot suite), canopsis, datadog, elasticsearch, keep, logstash, omi, opsgenie,
-pagerduty, servicenow (both `-em-` and `-incident-` variants) and signl4 — see
-"Connectors covered" below for each one's specifics. Three are explicitly out: `bigquery-
-events-apiv2.lua` doesn't support `send_data_test`; `kafka-events-apiv2.lua` needs
-LuaJIT's `ffi` module (via its bundled `rdkafka` binding), which doesn't exist under
-centreon-broker's actual Lua runtime here (plain PUC-Rio Lua 5.4 — confirmed with
-`lua -e 'print(pcall(require, "ffi"))'`); `bsm-events-apiv2.lua` isn't in git yet (still
-someone's local work in progress) so it isn't touched by this harness.
+`modules/centreon-stream-connectors-lib`) — both the `*-events-apiv2.lua` family (host/
+service status, acknowledgement, downtime) and the `*-metrics-apiv2.lua` family
+(performance data). 17 connectors are covered so far: 12 events connectors — splunk (the
+pilot suite), canopsis, datadog, elasticsearch, keep, logstash, omi, opsgenie, pagerduty,
+servicenow (both `-em-` and `-incident-` variants) and signl4 — plus all 5 metrics
+connectors — clickhouse, datadog-metrics, elasticsearch-metrics, influxdb2, splunk-metrics
+— see "Connectors covered" below for each one's specifics. Three connectors are
+explicitly out: `bigquery-events-apiv2.lua` doesn't support `send_data_test`;
+`kafka-events-apiv2.lua` needs LuaJIT's `ffi` module (via its bundled `rdkafka`
+binding), which doesn't exist under centreon-broker's actual Lua runtime here (plain
+PUC-Rio Lua 5.4 — confirmed with `lua -e 'print(pcall(require, "ffi"))'`);
+`bsm-events-apiv2.lua` isn't in git yet (still someone's local work in progress) so it
+isn't touched by this harness.
+
+Metrics connectors turned out to need no new BBDO plumbing at all: they read
+performance data out of the exact same host_status/service_status events the events
+connectors use (via `broker.parse_perfdata()` in
+`modules/centreon-stream-connectors-lib/sc_metrics.lua`), not a separate "storage"
+category — see "Testing metrics connectors" below.
 
 ## How output is captured
 
@@ -84,6 +90,55 @@ Every connector without an acknowledgement formatter has a matching negative tes
 ("Acknowledging A Service Does Not Produce A `<X>` Event") confirming nothing is sent,
 mirroring splunk's own such test — not just an oversight, this is deliberately verified
 per connector rather than assumed from reading the source.
+
+### Testing metrics connectors
+
+The `*-metrics-apiv2.lua` family turned out to need **no new BBDO plumbing**: they read
+Nagios-style perfdata straight out of the same host_status/service_status events the
+events connectors use, via `sc_metrics.lua`'s `build_metric` (`broker.parse_perfdata()`
+on `event.perfdata`) — there is no separate "storage"/"metric" BBDO category involved,
+and `accepted_categories`/`accepted_elements` default to the exact same `"neb"`/
+`"host_status,service_status"` as every events connector. The one extra requirement:
+`process_performance_data=1` in `centengine.cfg` (flipped from the default `0` — harmless
+for the events suites, which never set perfdata). `Send Host/Service Check Result` both
+take an optional `perfdata` argument, appended to the check's output after a `|`:
+
+```robotframework
+Send Service Check Result    host_1    service_1    2    CRITICAL - disk full    perfdata=used=95;80;90;0;100
+```
+
+Each metric found in one perfdata string produces its own, separately-flushed event
+(confirmed with a two-metric perfdata string in `splunk_metrics_apiv2.robot`) —
+`sc_metrics:build_metric` loops over every parsed metric and calls the connector's
+`format_metric` once per metric.
+
+| Connector | Payload shape | Notable gotcha |
+|---|---|---|
+| splunk-metrics | `{"fields": {...}}`, dynamic `"metric_name:<name>"` key | — |
+| clickhouse | raw SQL `INSERT ... VALUES (...)` string | not JSON/XML at all |
+| datadog-metrics | `{"series": [{host, metric, points:[[ts,value]], tags}]}` | **crashes on host metrics** (see below) |
+| elasticsearch-metrics | bulk NDJSON, fixed field names (`metric_name`, `metric_value`, ...) | same multi-line shape as elastic-events |
+| influxdb2 | raw InfluxDB line-protocol text | not JSON/XML at all |
+
+`_extract_payload` (`tests/robot/resources/EngineBroker.py`) gained two more recognized
+wrapper keys for these — `"fields"` (splunk-metrics) and `"series"` (datadog-metrics) —
+and `_parse_send_data_block` falls back to the **raw string itself** (rather than
+raising) when a block parses as neither JSON nor XML, covering clickhouse's SQL and
+influxdb2's line-protocol text without needing a third dedicated parser: those suites'
+assertions use `Should Contain` on `${event}[payload]` directly instead of dict-key
+access.
+
+**datadog-metrics-apiv2.lua crashes on every host-level metric** — a real, previously
+unexercised bug, not a test-config workaround like the others. `format_metric_event`
+(shared by `format_metric_host`/`format_metric_service`) calls `build_metadata`, which
+unconditionally does `if self.sc_event.event.cache.service.description then` to add a
+`"service:..."` tag. But `event.cache.service` is only ever populated by
+`sc_event.lua`'s `is_valid_service()`, which `sc_metrics.lua`'s
+`is_valid_host_metric_event` never calls (only `is_valid_service_metric_event` does).
+For a host metric, `event.cache.service` is `nil`, so this line crashes with `attempt to
+index a nil value (field 'service')` — confirmed via `central-broker.log`'s `[lua]
+[error]` output, not just a timeout. `datadog_metrics_apiv2.robot` has no host metric
+test as a result (see "What's not covered yet").
 
 ## Engine and broker configuration
 
@@ -448,9 +503,8 @@ touching any of them:
 
 - CI integration (a GitHub Actions workflow) is a deliberate follow-up, not part of this
   first iteration.
-- The `*-metrics-apiv2.lua` connectors (clickhouse, datadog-metrics, elastic-metrics,
-  influxdb2, splunk-metrics) — different BBDO category (performance data, not status
-  changes), needs its own injection mechanism, deferred to a future iteration.
+- Host-level metrics for datadog-metrics-apiv2.lua — the connector crashes on them (see
+  "Testing metrics connectors" above), a real bug, not a coverage gap in this harness.
 - `bigquery-events-apiv2.lua` does not support `send_data_test` and needs a different
   capture strategy.
 - `kafka-events-apiv2.lua` can't run under this (or, seemingly, any real) centreon-broker

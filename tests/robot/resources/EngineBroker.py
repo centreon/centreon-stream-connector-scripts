@@ -118,7 +118,12 @@ def _parse_send_data_block(lines, start_index):
     stripped = text.strip()
     if stripped.startswith("<"):
         return _parse_xml_flat(stripped), end_index
-    raise AssertionError(f"Could not decode connector payload as JSON or XML: {text!r}")
+    # clickhouse-metrics-apiv2.lua's payload is a raw SQL "INSERT INTO ... VALUES (...)"
+    # string - neither JSON nor XML. Rather than special-case every non-JSON/XML shape a
+    # future connector might use, fall back to the raw string itself as the envelope;
+    # `_extract_payload` passes strings through unchanged, so Robot suites just assert
+    # with `Should Contain` instead of dict-key access.
+    return stripped, end_index
 
 _engine_process = None
 _broker_process = None
@@ -180,18 +185,32 @@ def clear_connector_log():
     open(_connector_logfile, "w").close()
 
 
-def send_host_check_result(host_name, state, output):
-    """Inject a passive host check result, e.g. `Send Host Check Result    host_1    1    DOWN`."""
-    _write_external_command(f"PROCESS_HOST_CHECK_RESULT;{host_name};{state};{output}")
+def send_host_check_result(host_name, state, output, perfdata=""):
+    """Inject a passive host check result, e.g. `Send Host Check Result    host_1    1    DOWN`.
+
+    `perfdata` is a Nagios-style perfdata string (e.g. `load=0.5;1;2;0;5`), appended to
+    `output` after a `|` - the same syntax engine expects at the end of any check result
+    line. Needed for the `*-metrics-apiv2.lua` connectors: metrics_events-apiv2 stream
+    connectors read perfdata straight out of the same host_status/service_status BBDO
+    event used for host/service-status connectors (via `broker.parse_perfdata`,
+    `modules/centreon-stream-connectors-lib/sc_metrics.lua`) - there is no separate BBDO
+    category for metrics. `process_performance_data=1` in centengine.cfg is required for
+    this to reach broker at all.
+    """
+    result = f"{output}|{perfdata}" if perfdata else output
+    _write_external_command(f"PROCESS_HOST_CHECK_RESULT;{host_name};{state};{result}")
 
 
-def send_service_check_result(host_name, service_description, state, output):
+def send_service_check_result(host_name, service_description, state, output, perfdata=""):
     """Inject a passive service check result.
 
     | Send Service Check Result | host_1 | service_1 | 2 | CRITICAL - disk full |
+
+    See `Send Host Check Result` for `perfdata`.
     """
+    result = f"{output}|{perfdata}" if perfdata else output
     _write_external_command(
-        f"PROCESS_SERVICE_CHECK_RESULT;{host_name};{service_description};{state};{output}"
+        f"PROCESS_SERVICE_CHECK_RESULT;{host_name};{service_description};{state};{result}"
     )
 
 
@@ -247,16 +266,27 @@ def _extract_payload(envelope):
     (`build_payload` does `table.insert(payload, event)`, which is a bare Lua array).
     servicenow-em-events-apiv2.lua wraps it in a ServiceNow-specific bulk-import envelope
     instead (`'{"records":[' .. payload .. ']}'`) - a dict with a "records" key holding a
-    one-element array. `payload` is always the inner, connector-formatted event dict
-    either way.
+    one-element array. splunk-metrics-apiv2.lua uses yet another Splunk HEC variant,
+    nesting under `"fields"` instead of `"event"` (its formatted metric dict has dynamic
+    `"metric_name:<name>"` keys rather than the events connector's fixed field set).
+    `payload` is always the inner, connector-formatted event dict either way. Non-JSON/XML
+    payloads (clickhouse-metrics' raw SQL, influxdb2-metrics' line-protocol text) are left
+    as plain strings by `_parse_send_data_block` and pass through here unchanged.
     """
     if isinstance(envelope, list):
         return envelope[0] if envelope else {}
     if isinstance(envelope, dict) and "event" in envelope:
         return envelope["event"]
+    if isinstance(envelope, dict) and "fields" in envelope:
+        return envelope["fields"]
     if isinstance(envelope, dict) and "records" in envelope:
         records = envelope["records"]
         return records[0] if records else {}
+    if isinstance(envelope, dict) and "series" in envelope:
+        # datadog-metrics-apiv2.lua's payload matches Datadog's real /api/v1/series shape:
+        # {"series": [{host, metric, points:[[ts,value]], tags:[...]}, ...]}.
+        series = envelope["series"]
+        return series[0] if series else {}
     return envelope
 
 

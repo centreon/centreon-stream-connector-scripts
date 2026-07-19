@@ -1,0 +1,51 @@
+{
+    "centreonBroker": {
+        "broker_id": 1,
+        "broker_name": "central-broker-master",
+        "poller_id": 1,
+        "poller_name": "Central",
+        "module_directory": "/usr/share/centreon/lib/centreon-broker",
+        "log_timestamp": true,
+        "log_thread_id": false,
+        "bbdo_version": "3.0.0",
+        "event_queue_max_size": 100000,
+        "cache_directory": "/var/lib/centreon-broker",
+        "log": {
+            "directory": "/var/log/centreon-broker",
+            "filename": "central-broker.log",
+            "max_size": 0,
+            "loggers": {
+                "core": "info", "config": "info", "processing": "info",
+                "bbdo": "error", "tcp": "error", "tls": "error",
+                "lua": "info", "neb": "error"
+            }
+        },
+        "input": [
+            {
+                "name": "central-broker-master-input",
+                "port": "5669", "buffering_timeout": "0", "retry_interval": "10",
+                "protocol": "bbdo", "tls": "no", "negotiation": "yes",
+                "one_peer_retention_mode": "no", "compression": "no", "type": "ipv4"
+            }
+        ],
+        "output": [
+            {
+                "name": "elastic-metrics-apiv2-test",
+                "path": "/opt/centreon-stream-connector-scripts/centreon-certified/elasticsearch/elastic-metrics-apiv2.lua",
+                "type": "lua",
+                "lua_parameter": [
+                    {"name": "send_data_test", "type": "number", "value": "1"},
+                    {"name": "logfile", "type": "string", "value": "/var/log/centreon-broker/elastic-metrics-test.log"},
+                    {"name": "log_level", "type": "number", "value": "3"},
+                    {"name": "http_server_url", "type": "string", "value": "http://dummy.invalid:9200"},
+                    {"name": "max_buffer_size", "type": "number", "value": "1"},
+                    {"name": "max_all_queues_age", "type": "number", "value": "0"}
+                ]
+            }
+        ],
+        "stats": [
+            {"type": "stats", "name": "central-broker-master-stats", "json_fifo": "/var/lib/centreon-broker/central-broker-master-stats.json"}
+        ],
+        "grpc": {"port": 51001}
+    }
+}
