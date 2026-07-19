@@ -9,8 +9,9 @@ pair** and drive a stream connector exactly as it runs in production: broker's `
 module loads the connector script and dispatches real BBDO events to it.
 
 Scope for now: only "apiv2" connectors (the modern pattern built on
-`modules/centreon-stream-connectors-lib`). The pilot suite covers
-`centreon-certified/splunk/splunk-events-apiv2.lua`.
+`modules/centreon-stream-connectors-lib`). Two connectors are covered so far:
+`centreon-certified/splunk/splunk-events-apiv2.lua` (the pilot suite) and
+`centreon-certified/canopsis/canopsis2x-events-apiv2.lua`.
 
 ## How output is captured
 
@@ -26,6 +27,25 @@ Events are injected by writing lines to centreon-engine's external command file
 (`PROCESS_HOST_CHECK_RESULT`, `PROCESS_SERVICE_CHECK_RESULT`, `ACKNOWLEDGE_SVC_PROBLEM`,
 `SCHEDULE_SVC_DOWNTIME`, ...), the same mechanism engine's own command pipe uses in
 production — no BBDO client had to be reimplemented.
+
+### Testing more than one connector
+
+Each connector under test gets its own `tests/robot/config/broker/*.json` (its own `lua`
+output, `send_data_test` logfile, and connector-specific mandatory params) and its own
+suite passes both to `Start Engine And Broker`:
+
+```robotframework
+Suite Setup    Start Engine And Broker    broker_config=/etc/centreon-broker/central-broker-canopsis.json
+...            connector_logfile=/var/log/centreon-broker/canopsis-events-test.log
+```
+
+Calling it with no arguments keeps using the pilot splunk config/logfile (both default
+to that), so existing suites didn't need touching when the second connector was added.
+`EngineBroker.py` also normalizes how a payload is unwrapped: Splunk's HEC format nests
+the connector-formatted event under an `"event"` key, while Canopsis's `build_payload`
+just does `table.insert(payload, event)` — a bare one-element JSON array. `wait_for_sent_event`'s
+`_extract_payload` helper handles both shapes so `${event}[payload][...]` works the same
+way regardless of which connector is under test.
 
 ## Engine and broker configuration
 
@@ -55,7 +75,8 @@ centengine  --(cbmod, BBDO/TCP :5669)-->  cbd
 | `config/engine/resource.cfg` | Engine's global macros (`$USER1$`, ...) — present because `centengine.cfg` references it via `resource_file`, effectively empty for our purposes. |
 | `config/engine/hostgroups.cfg`, `config/engine/connectors.cfg` | Empty, but referenced by `cfg_file` in `centengine.cfg` — the files must exist even with nothing in them. |
 | `config/broker/central-module.json` | Broker config *embedded in the engine process* (see below). |
-| `config/broker/central-broker.json` | The standalone `cbd` daemon's config, including the `lua` output under test (see below). |
+| `config/broker/central-broker.json` | The standalone `cbd` daemon's config for the splunk suite, including the `lua` output under test (see below). |
+| `config/broker/central-broker-canopsis.json` | Same as above, but for the canopsis suite — its own `lua` output/logfile and canopsis-specific mandatory params (`canopsis_host`, `canopsis_authkey`, ...). See "Testing more than one connector" above. |
 
 - **`config/broker/central-module.json`** is the broker config *embedded in the engine
   process*: it has no `input`, only an `output` that opens a plain BBDO/TCP connection
@@ -272,14 +293,65 @@ blank matches any downtime for that host/service) rather than `DEL_SVC_DOWNTIME`
 `DEL_HOST_DOWNTIME`, which need engine's internal numeric `downtime_id` — something
 this harness never tracks.
 
+### Worked example: the canopsis test (`connectors/canopsis_events_apiv2.robot`)
+
+Second connector added to the harness, mostly following the splunk pattern above (own
+broker config, own logfile). Two things worth knowing:
+
+1. **`accepted_elements` deliberately excludes `"downtime"`.** `canopsis2x-events-apiv2.lua`'s
+   `EventQueue.new()` makes real blocking HTTP calls at init time to resolve pbehavior
+   reason/type IDs and the Canopsis version — but only when
+   `canopsis_downtime_send_pbh ~= 0` (default `1`) **and** `"downtime"` is in
+   `accepted_elements` (default yes). Under `send_data_test=1` these calls short-circuit
+   safely (they don't hang or error), but `canopsis_version` ends up as boolean `false`
+   (the short-circuit's return value) instead of a real version string — and
+   `format_event_downtime()` later does `string.find(canopsis_version, "22.10.")`, which
+   crashes on a boolean the moment an actual downtime event is formatted. The test config
+   (`central-broker-canopsis.json`) leaves `"downtime"` out of `accepted_elements`
+   (host_status/service_status/acknowledgement only) and sets
+   `canopsis_downtime_send_pbh=0` for extra clarity — this sidesteps the whole
+   init-time API-lookup block and the crash, at the cost of not testing downtime for this
+   connector yet (see "What's not covered yet" below).
+2. **Cross-suite state leak, only visible when multiple suites run in the same
+   container.** Every `docker compose run --rm <service>` starts a fresh container, so
+   running one suite at a time (or via `docker compose up`, one suite per service) never
+   hits this. But each Dockerfile's default `CMD` runs the *whole* `connectors/`
+   directory as a single `robot` invocation — the same container's filesystem persists
+   across every suite's `Start Engine And Broker`/`Stop Engine And Broker` cycle within
+   that one run. Two files under `/var/lib/` outlive an individual suite and leak into
+   whichever suite starts next:
+   - `/var/lib/centreon-broker/stream-connector-storage.sdb` — the sqlite storage
+     backend's db file (see the downtime-replay worked example above); every broker
+     config here sets `storage_backend=sqlite` without overriding
+     `sc_storage.sqlite.db_file`, so they all default to this same path
+     (`sc_params.lua`).
+   - `/var/log/centreon-engine/retention.dat` — engine loads this back as each object's
+     *starting* state on the next startup, regardless of `use_retained_program_state`/
+     `use_retained_scheduling_info` in `centengine.cfg` (those only gate program-wide
+     settings and check scheduling, not object state). A suite that leaves e.g.
+     `service_1` CRITICAL (canopsis's last test does) made the next suite's engine boot
+     with `service_1` already CRITICAL instead of the config's OK default, silently
+     turning that suite's baseline-setting checks into no-op "transitions" that never
+     fired a `SERVICE ALERT`/BBDO event — surfaced as spurious `downtime_replay.robot`
+     service-test failures ("No event sent...") that only reproduced when canopsis's
+     suite ran first in the same `robot` invocation.
+
+   Fixed by having `Start Engine And Broker` delete both files unconditionally before
+   starting broker/engine, so every suite always starts from the same clean slate
+   regardless of what ran before it in the same container — same idea as the existing
+   command-file reset, just for these two extra pieces of state.
+
 ## What's not covered yet
 
 - CI integration (a GitHub Actions workflow) is a deliberate follow-up, not part of this
   first iteration.
 - `bigquery-events-apiv2.lua` does not support `send_data_test` and needs a different
   capture strategy.
-- Only host/service status events are meaningfully assertable for this connector today:
-  broker does deliver acknowledgement/downtime as their own BBDO element, but this
-  connector's `accepted_elements` only lists `host_status,service_status`, so those are
-  received and filtered out before reaching `send_data` (see the
-  "Acknowledging A Service Does Not Produce A Splunk Event" test case).
+- Only host/service status events are meaningfully assertable for splunk today: broker
+  does deliver acknowledgement/downtime as their own BBDO element, but this connector's
+  `accepted_elements` only lists `host_status,service_status`, so those are received and
+  filtered out before reaching `send_data` (see the "Acknowledging A Service Does Not
+  Produce A Splunk Event" test case).
+- Downtime is not tested for canopsis — its `format_event_downtime()` crashes on a
+  boolean `canopsis_version` under `send_data_test=1` (see the canopsis worked example
+  above); testing it needs that bug fixed first.
