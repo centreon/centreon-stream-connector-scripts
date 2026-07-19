@@ -52,6 +52,7 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_params:build_accepted_elements_info()
 
   self.sc_params.params.__internal_ts_host_last_flush = os.time()
   self.sc_params.params.__internal_ts_service_last_flush = os.time()
@@ -324,6 +325,13 @@ end
 -- @return true (boolean)
 --------------------------------------------------------------------------------
 function EventQueue:call (data, table_name)
+  -- write payload in the logfile for test purpose instead of sending it, so no real
+  -- OAuth token exchange or BigQuery API call ever happens under this parameter
+  if self.sc_params.params.send_data_test == 1 then
+    self.sc_logger:notice("[send_data]: " .. tostring(data))
+    return true
+  end
+
   local res = ""
   local headers = {
     "Authorization: Bearer " .. self.sc_oauth:get_access_token(),
