@@ -287,6 +287,13 @@ def _extract_payload(envelope):
         # {"series": [{host, metric, points:[[ts,value]], tags:[...]}, ...]}.
         series = envelope["series"]
         return series[0] if series else {}
+    if isinstance(envelope, dict) and "rows" in envelope:
+        # bigquery-events-apiv2.lua matches BigQuery's real insertAll shape:
+        # {"rows": [{"json": {...columns...}}, ...]} - one level short of the actual
+        # column dict (the "json" key is BigQuery's own wire format, not unwrapped
+        # further here, same as pagerduty's own nested "payload" key).
+        rows = envelope["rows"]
+        return rows[0] if rows else {}
     return envelope
 
 

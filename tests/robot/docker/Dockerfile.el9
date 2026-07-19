@@ -57,6 +57,7 @@ RUN dnf install -y \
         lua-curl \
         lua-lsqlite3 \
         lua-socket \
+        lua-openssl \
         lua-devel \
         luarocks \
         python3 \

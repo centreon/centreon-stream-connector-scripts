@@ -12,18 +12,25 @@ connecteur et lui transmet de vrais événements BBDO.
 Périmètre actuel : uniquement les connecteurs « apiv2 » (le pattern moderne basé sur
 `modules/centreon-stream-connectors-lib`) — à la fois la famille `*-events-apiv2.lua`
 (statut host/service, acquittement, downtime) et la famille `*-metrics-apiv2.lua`
-(données de performance). 17 connecteurs sont couverts pour l'instant : 12 connecteurs
+(données de performance). 18 connecteurs sont couverts pour l'instant : 13 connecteurs
 events — splunk (la suite pilote), canopsis, datadog, elasticsearch, keep, logstash, omi,
-opsgenie, pagerduty, servicenow (les deux variantes `-em-` et `-incident-`) et signl4 —
-plus les 5 connecteurs metrics — clickhouse, datadog-metrics, elasticsearch-metrics,
-influxdb2, splunk-metrics — voir « Connecteurs couverts » ci-dessous pour les
-spécificités de chacun. Trois connecteurs sont explicitement exclus :
-`bigquery-events-apiv2.lua` ne supporte pas `send_data_test` ; `kafka-events-apiv2.lua` a
-besoin du module `ffi` de LuaJIT (via son binding `rdkafka` embarqué), qui n'existe pas
-sous le runtime Lua réel de centreon-broker ici (Lua 5.4 PUC-Rio standard — confirmé avec
-`lua -e 'print(pcall(require, "ffi"))'`) ; `bsm-events-apiv2.lua` n'est pas encore dans
-git (encore un travail local en cours de quelqu'un d'autre), donc ce harnais n'y touche
-pas.
+opsgenie, pagerduty, servicenow (les deux variantes `-em-` et `-incident-`), signl4 et
+bigquery — plus les 5 connecteurs metrics — clickhouse, datadog-metrics,
+elasticsearch-metrics, influxdb2, splunk-metrics — voir « Connecteurs couverts »
+ci-dessous pour les spécificités de chacun. Deux connecteurs restent explicitement
+exclus : `kafka-events-apiv2.lua` a besoin du module `ffi` de LuaJIT (via son binding
+`rdkafka` embarqué), qui n'existe pas sous le runtime Lua réel de centreon-broker ici
+(Lua 5.4 PUC-Rio standard — confirmé avec `lua -e 'print(pcall(require, "ffi"))'`) — une
+limitation d'environnement, pas quelque chose qu'un changement de code peut contourner ;
+`bsm-events-apiv2.lua` n'est pas encore dans git (encore un travail local en cours de
+quelqu'un d'autre), donc ce harnais n'y touche pas.
+
+`bigquery-events-apiv2.lua` est la seule exception à « ne jamais modifier un connecteur,
+seulement le contourner dans la config de test » : il n'avait aucun support de
+`send_data_test` et deux vrais bugs jamais exercés auparavant (l'un le rendait non
+fonctionnel en production, pas seulement non testable) — voir « Exemple travaillé : le
+test bigquery » ci-dessous pour toute l'histoire et pourquoi celui-ci justifiait de
+vrais changements de code plutôt qu'un contournement.
 
 Les connecteurs metrics se sont avérés ne nécessiter aucune nouvelle tuyauterie BBDO : ils
 lisent les données de performance directement dans les mêmes événements host_status/
@@ -89,6 +96,7 @@ produit un événement.
 | servicenow-em | non (pas de formateur) | oui | `{"records": [{...}]}` | texte après le JSON sur la ligne de log |
 | servicenow-incident | non (pas de formateur) | **non, volontairement** | objet brut | texte après le JSON ; recovery filtré par les params `host_status`/`service_status` |
 | signl4 | non (pas de formateur) | oui | objet brut | bug de `flush()`, voir plus bas |
+| bigquery | oui | oui | `{"rows": [{"json": {...}}]}` | code du connecteur modifié, voir plus bas |
 
 Chaque connecteur sans formateur d'acquittement a un test négatif correspondant
 (« Acknowledging A Service Does Not Produce A `<X>` Event ») confirmant que rien n'est
@@ -478,6 +486,66 @@ ci-dessus (config broker propre, logfile propre). Deux choses utiles à savoir :
    conteneur — même principe que la réinitialisation déjà existante du fichier de
    commandes, juste pour ces deux éléments d'état en plus.
 
+### Exemple travaillé : le test bigquery (`connectors/bigquery_events_apiv2.robot`)
+
+Le seul connecteur de ce harnais où le tester a nécessité de **vrais changements du
+connecteur lui-même**, pas juste un contournement dans la config de test — utile à
+comprendre avant de suivre ce précédent ailleurs.
+
+1. **Aucun support de `send_data_test`, et un vrai échange OAuth sur le chemin.**
+   Le `EventQueue:call` de `bigquery-events-apiv2.lua` construisait sans condition un
+   en-tête `Authorization: Bearer <token>` via `self.sc_oauth:get_access_token()` — un
+   JWT signé (via le binding Lua `openssl`) échangé via un vrai appel HTTPS vers Google —
+   *avant* même d'atteindre l'appel curl qui enverrait réellement les données à
+   BigQuery. Impossible d'observer le payload formaté sans identifiants GCP réels ou un
+   changement de code. Ajouté le même court-circuit `send_data_test` que tous les autres
+   connecteurs ont déjà, tout en haut de `EventQueue:call`, journalisant le payload et
+   retournant `true` avant que l'appel OAuth soit jamais atteint — reproduisant
+   exactement la convention existante, sans en inventer une nouvelle.
+   (Le `self.sc_bq:get_tables_schema()` de `EventQueue.new()`, qui tourne sans condition
+   à l'initialisation, n'est *pas* un appel réseau — il ne fait que construire les
+   schémas à partir de tables Lua locales puisque ce connecteur force
+   `_sc_gbq_use_default_schemas=1` — donc aucun contournement à l'initialisation n'a été
+   nécessaire là, contrairement à canopsis.)
+2. **Un second bug réel, sans rapport, mis au jour juste après avoir corrigé le
+   premier** : ce connecteur n'appelait jamais
+   `self.sc_params:build_accepted_elements_info()` (que tous les autres connecteurs
+   appellent, juste après `check_params()`), donc le constructeur de `sc_event.lua`
+   plantait sur *chaque événement* avec `bad argument #1 to 'for iterator' (table
+   expected, got nil)` à la ligne
+   `for accepted_element, info in pairs(self.params.accepted_elements_info) do`. Ce
+   connecteur était complètement non fonctionnel en production, pas seulement non
+   testable — confirmé via la sortie `[lua] [error]` de `central-broker.log`. Corrigé
+   avec l'appel manquant, en une ligne, reproduisant ce que tous les autres connecteurs
+   apiv2 font déjà — une correction mécanique, pas un choix de conception à remettre en
+   question.
+3. **A besoin du paquet `lua-openssl`** (`oauth.lua` fait `require("openssl")` sans
+   condition au chargement, indépendamment de `send_data_test`) — publié dans le même
+   repo `rpm-plugins`/`centreon-plugins-unstable` que `lua-lsqlite3`, ajouté au
+   Dockerfile à côté.
+4. **Une troisième inexactitude mineure (qui ne plante pas), laissée non corrigée dans
+   le code mais documentée dans le test** : `default_ack_table_schema()` associe la
+   colonne `output` à la macro `{output}`, mais les vrais événements BBDO
+   d'acquittement portent le commentaire dans `event.comment_data`, pas
+   `event.output` — donc cette macro ne se résout jamais et ressort telle quelle,
+   `"{output}"`, non substituée. Tous les autres champs de l'ack (author, host, service,
+   horodatages) se résolvent correctement. Non corrigé, même raisonnement que le bug de
+   plantage sur les métriques host de datadog-metrics : réel, mais au-delà de ce qui est
+   nécessaire pour rendre ce connecteur testable.
+5. Contrairement à la plupart des connecteurs ajoutés après canopsis,
+   `accepted_categories`/`accepted_elements` sont ici codés en dur par le connecteur
+   lui-même (`params.accepted_categories = "neb,bam"`, pas de `or` de repli) — toute
+   surcharge par lua_parameter dans la config broker est silencieusement ignorée. Cela
+   signifie aussi que l'acquittement (et le downtime, non testé ici mais probablement
+   fonctionnel) marche vraiment, puisqu'il y a un seul `format_event()` générique piloté
+   par une table de schéma par catégorie/élément plutôt que des fonctions séparées par
+   élément qui pourraient chacune avoir leur propre risque de plantage (comme le code
+   spécifique au downtime de canopsis).
+6. La propre vérification de flush basée sur la taille de ce connecteur utilise déjà
+   `>=` dans son propre `write()` (pas le `sc_flush.lua` partagé) — contrairement à la
+   plupart des connecteurs ajoutés après canopsis, aucun contournement
+   `max_all_queues_age` n'a été nécessaire.
+
 ### Pièges transversaux (de datadog à signl4)
 
 Dix connecteurs ajoutés d'un coup après canopsis ont mis au jour des schémas utiles à
@@ -545,8 +613,9 @@ connaître avant d'y toucher :
 - Les métriques de niveau host pour datadog-metrics-apiv2.lua — le connecteur plante
   dessus (voir « Tester les connecteurs metrics » ci-dessus), un vrai bug, pas un trou
   de couverture de ce harnais.
-- `bigquery-events-apiv2.lua` ne supporte pas `send_data_test` et nécessitera une autre
-  stratégie de capture.
+- Le downtime pour bigquery-events-apiv2.lua — accepted_elements l'inclut et le
+  format_event() générique a un schéma pour ça, mais ce n'est pas encore exercé par un
+  test dédié (voir « Exemple travaillé : le test bigquery » ci-dessus).
 - `kafka-events-apiv2.lua` ne peut pas tourner sous ce runtime Lua de centreon-broker (ni
   semble-t-il sous aucun runtime réel) — son binding `rdkafka` embarqué nécessite le
   module `ffi` de LuaJIT, et broker utilise ici du Lua 5.4 PUC-Rio standard, qui n'a pas
