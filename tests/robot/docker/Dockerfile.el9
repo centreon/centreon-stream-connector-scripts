@@ -56,11 +56,19 @@ RUN dnf install -y \
         centreon-broker-cbd \
         lua-curl \
         lua-lsqlite3 \
+        lua-socket \
+        lua-devel \
+        luarocks \
         python3 \
         python3-pip \
     && dnf clean all
 
 RUN pip3 install --no-cache-dir robotframework
+
+# pagerduty-events-apiv2.lua requires "luatz" (RFC 3339 timestamps) - a pure-Lua library not
+# packaged by any distro repo here, only installable via luarocks (needs lua-devel's headers
+# to build against, even though luatz itself has no C parts to compile).
+RUN luarocks install luatz
 
 # Install the shared stream-connector lua library at the same path used by the
 # real .deb/.rpm package (packaging/connectors-lib/centreon-stream-connectors-lib.yaml),

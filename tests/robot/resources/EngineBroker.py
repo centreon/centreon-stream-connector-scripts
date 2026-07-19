@@ -49,6 +49,77 @@ DEFAULT_CONNECTOR_LOGFILE = "/var/log/centreon-broker/splunk-events-test.log"
 
 _SEND_DATA_LINE = re.compile(r"\[send_data\]:\s*(.*)")
 
+# Marks the start of a genuine new sc_logger line (e.g. "Sun Jul 19 11:06:27 2026: INFO: ..."),
+# as opposed to a continuation line that's part of the *same* logged message - some connectors'
+# payloads contain literal embedded newlines (elastic-events-apiv2.lua's send_data logs Elasticsearch
+# bulk NDJSON: an index-action line, the event JSON, and a trailing blank line, all in one
+# `sc_logger:notice(...)` call). Used to know where one `[send_data]:` message's text really ends.
+_LOG_LINE_START = re.compile(r"^[A-Za-z]{3} [A-Za-z]{3}\s+\d{1,2} \d{2}:\d{2}:\d{2} \d{4}: ")
+
+# Some connectors' send_data logs trailing text after the JSON on the same line (servicenow's
+# `"[send_data]: " .. tostring(data) .. " to endpoint: " .. tostring(endpoint)`) - a plain
+# json.loads on the whole captured text would fail on that trailing garbage. Decoding with
+# raw_decode from position 0 and stopping at the first successfully parsed value sidesteps it
+# automatically, and doubles as elastic's NDJSON handling: decode every JSON value found in the
+# block and keep the *last* one - for a single-object payload that's the only value found; for
+# elastic's two-line bulk NDJSON (index metadata, then the real event) it's the real event.
+def _decode_all_json_values(text):
+    decoder = json.JSONDecoder()
+    values = []
+    pos, length = 0, len(text)
+    while True:
+        while pos < length and text[pos].isspace():
+            pos += 1
+        if pos >= length:
+            break
+        try:
+            value, pos = decoder.raw_decode(text, pos)
+        except json.JSONDecodeError:
+            break
+        values.append(value)
+    return values
+
+
+# omi_events-apiv2.lua's payload isn't JSON at all - build_payload produces a flat, non-nested
+# XML string ("<event_data>\t<title>...</title>\t<node>...</node>\t</event_data>"). Turned into a
+# dict so Robot assertions can use the same `${event}[payload][field]` access pattern as every
+# JSON-based connector.
+_XML_TAG = re.compile(r"<(\w+)>(.*?)</\1>", re.DOTALL)
+# re.findall matches leftmost-first: without stripping it first, the outer <event_data>...
+# </event_data> wrapper itself matches (non-greedily consuming everything up to the only
+# </event_data> in the string, since that's the sole valid match for backreference \1), and
+# findall never gets to the inner tags at all - "event_data" ends up as the only extracted key.
+_XML_OUTER_WRAPPER = re.compile(r"^<(\w+)>(.*)</\1>$", re.DOTALL)
+
+
+def _parse_xml_flat(text):
+    outer = _XML_OUTER_WRAPPER.match(text)
+    if outer:
+        text = outer.group(2)
+    return dict(_XML_TAG.findall(text))
+
+
+def _parse_send_data_block(lines, start_index):
+    """Decode the `[send_data]:` message starting at lines[start_index], which may spill
+    across following lines that aren't themselves a new sc_logger entry (see
+    `_LOG_LINE_START`). Returns (envelope, end_index) where end_index is the index of the
+    first line *not* part of this message (a new log line, or len(lines) at EOF).
+    """
+    text = _SEND_DATA_LINE.search(lines[start_index]).group(1)
+    end_index = start_index + 1
+    while end_index < len(lines) and not _LOG_LINE_START.match(lines[end_index]):
+        text += lines[end_index]
+        end_index += 1
+
+    values = _decode_all_json_values(text)
+    if values:
+        return values[-1], end_index
+
+    stripped = text.strip()
+    if stripped.startswith("<"):
+        return _parse_xml_flat(stripped), end_index
+    raise AssertionError(f"Could not decode connector payload as JSON or XML: {text!r}")
+
 _engine_process = None
 _broker_process = None
 _broker_cfg = DEFAULT_BROKER_CFG
@@ -174,16 +245,22 @@ def _extract_payload(envelope):
     payload nests it under an "event" key alongside Splunk-specific metadata (index,
     source, sourcetype, host, time); Canopsis just JSON-encodes a one-element array
     (`build_payload` does `table.insert(payload, event)`, which is a bare Lua array).
-    `payload` is always the inner, connector-formatted event dict either way.
+    servicenow-em-events-apiv2.lua wraps it in a ServiceNow-specific bulk-import envelope
+    instead (`'{"records":[' .. payload .. ']}'`) - a dict with a "records" key holding a
+    one-element array. `payload` is always the inner, connector-formatted event dict
+    either way.
     """
     if isinstance(envelope, list):
         return envelope[0] if envelope else {}
     if isinstance(envelope, dict) and "event" in envelope:
         return envelope["event"]
+    if isinstance(envelope, dict) and "records" in envelope:
+        records = envelope["records"]
+        return records[0] if records else {}
     return envelope
 
 
-def wait_for_sent_event(timeout=10, since_line=0):
+def wait_for_sent_event(timeout=15, since_line=0):
     """Wait for the next `[send_data]: <json>` line appended to the connector logfile.
 
     Returns a dict with `payload` (the connector-formatted event - see
@@ -205,22 +282,21 @@ def wait_for_sent_event(timeout=10, since_line=0):
     while time.time() < deadline:
         lines = _read_connector_log()
         for index in range(since_line, len(lines)):
-            match = _SEND_DATA_LINE.search(lines[index])
-            if match:
-                envelope = json.loads(match.group(1))
-                last_line = index + 1
+            if not _SEND_DATA_LINE.search(lines[index]):
+                continue
+            envelope, last_line = _parse_send_data_block(lines, index)
+            settle_deadline = time.time() + 1
+            while time.time() < settle_deadline:
+                time.sleep(0.2)
+                more_lines = _read_connector_log()
+                if len(more_lines) <= last_line or not _SEND_DATA_LINE.search(more_lines[last_line]):
+                    break
+                next_envelope, next_last_line = _parse_send_data_block(more_lines, last_line)
+                if next_envelope != envelope:
+                    break
+                last_line = next_last_line
                 settle_deadline = time.time() + 1
-                while time.time() < settle_deadline:
-                    time.sleep(0.2)
-                    more_lines = _read_connector_log()
-                    if len(more_lines) <= last_line:
-                        continue
-                    next_match = _SEND_DATA_LINE.search(more_lines[last_line])
-                    if not next_match or json.loads(next_match.group(1)) != envelope:
-                        break
-                    last_line += 1
-                    settle_deadline = time.time() + 1
-                return {"line": last_line, "envelope": envelope, "payload": _extract_payload(envelope)}
+            return {"line": last_line, "envelope": envelope, "payload": _extract_payload(envelope)}
         time.sleep(0.2)
     raise AssertionError(
         f"No event sent by the connector within {timeout}s (logfile: {_connector_logfile})"
