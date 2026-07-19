@@ -35,6 +35,7 @@ RUN apt-get install -y --no-install-recommends \
         libcurl4 \
         lua-lsqlite3 \
         lua-socket \
+        lua-openssl \
         luarocks \
     && apt-get clean
 
