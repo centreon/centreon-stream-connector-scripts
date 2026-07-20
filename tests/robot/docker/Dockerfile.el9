@@ -51,6 +51,11 @@ EOF
 # downtime-replay feature's storage_backend=sqlite - see tests/robot/README_EN.md/README_FR.md
 # "Writing a new test" section for the whole story (default "broker" backend is a no-op
 # placeholder; this package used to not exist in any repo, now published in rpm-plugins).
+# lua-cffi + librdkafka are needed by kafka-events-apiv2.lua's bundled rdkafka binding
+# (modules/.../rdkafka/librdkafka.lua): it does `pcall(require, "ffi")` (LuaJIT-only, absent
+# under broker's plain PUC-Rio Lua here) and falls back to `require("cffi")` - lua-cffi
+# provides that as a compatible shim (same function set: cast/cdef/errno/gc/load/new/string).
+# librdkafka is the real native C client library ffi.load()s at runtime.
 RUN dnf install -y \
         centreon-engine-daemon \
         centreon-broker-cbd \
@@ -58,6 +63,8 @@ RUN dnf install -y \
         lua-lsqlite3 \
         lua-socket \
         lua-openssl \
+        lua-cffi \
+        librdkafka \
         lua-devel \
         luarocks \
         python3 \

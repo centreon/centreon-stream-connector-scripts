@@ -11,17 +11,20 @@ module loads the connector script and dispatches real BBDO events to it.
 Scope for now: only "apiv2" connectors (the modern pattern built on
 `modules/centreon-stream-connectors-lib`) — both the `*-events-apiv2.lua` family (host/
 service status, acknowledgement, downtime) and the `*-metrics-apiv2.lua` family
-(performance data). 18 connectors are covered so far: 13 events connectors — splunk (the
+(performance data). 19 connectors are covered so far: 14 events connectors — splunk (the
 pilot suite), canopsis, datadog, elasticsearch, keep, logstash, omi, opsgenie, pagerduty,
-servicenow (both `-em-` and `-incident-` variants), signl4 and bigquery — plus all 5
-metrics connectors — clickhouse, datadog-metrics, elasticsearch-metrics, influxdb2,
-splunk-metrics — see "Connectors covered" below for each one's specifics. Two connectors
-remain explicitly out: `kafka-events-apiv2.lua` needs LuaJIT's `ffi` module (via its
-bundled `rdkafka` binding), which doesn't exist under centreon-broker's actual Lua
-runtime here (plain PUC-Rio Lua 5.4 — confirmed with
-`lua -e 'print(pcall(require, "ffi"))'`) — an environment limitation, not something a
-code change can work around; `bsm-events-apiv2.lua` isn't in git yet (still someone's
-local work in progress) so it isn't touched by this harness.
+servicenow (both `-em-` and `-incident-` variants), signl4, bigquery and kafka — plus all
+5 metrics connectors — clickhouse, datadog-metrics, elasticsearch-metrics, influxdb2,
+splunk-metrics — see "Connectors covered" below for each one's specifics. Only
+`bsm-events-apiv2.lua` remains out: it isn't in git yet (still someone's local work in
+progress) so it isn't touched by this harness.
+
+kafka was initially (and wrongly) assumed untestable — its bundled `rdkafka` binding
+does `pcall(require, "ffi")` (LuaJIT-only, absent under centreon-broker's actual plain
+PUC-Rio Lua 5.4 runtime here), and that check alone was mistaken for a hard blocker. It
+isn't: the same file already falls back to `require("cffi")`, and the `lua-cffi` package
+(a LuaJIT-ffi-compatible shim) makes that fallback work with no code changes at all —
+see "Worked example: the kafka test" below for the full story and how this got caught.
 
 `bigquery-events-apiv2.lua` is the one exception to "never modify a connector, only work
 around it in test config": it had no `send_data_test` support at all and two real,
@@ -92,6 +95,7 @@ produces an event.
 | servicenow-incident | no (no formatter) | **no, by design** | bare object | trailing text after JSON; recovery filtered by `host_status`/`service_status` params |
 | signl4 | no (no formatter) | yes | bare object | `flush()` bug, see below |
 | bigquery | yes | yes | `{"rows": [{"json": {...}}]}` | connector code modified, see below |
+| kafka | no (no formatter) | yes | bare object | needs `lua-cffi`/`librdkafka`, see below |
 
 Every connector without an acknowledgement formatter has a matching negative test
 ("Acknowledging A Service Does Not Produce A `<X>` Event") confirming nothing is sent,
@@ -257,13 +261,15 @@ package registers `/usr/bin/lua` via `update-alternatives`). Likewise `lua-curl`
 `lcurl.so` links against `libcurl.so.4` without declaring it as a dependency either —
 install `libcurl4` explicitly too.
 
-Two more native dependencies, needed by specific connectors and installed in every
+More native dependencies, needed by specific connectors and installed in every
 Dockerfile alongside `lua-curl`/`lua-lsqlite3`: `lua-socket` (elasticsearch and omi
-`require("socket.http")`/`require("ltn12")`/`require("mime")`) and `luatz` (pagerduty
-needs RFC 3339 timestamps) — the latter isn't packaged by any distro repo here, so it's
-installed via `luarocks install luatz`, which in turn needs the Lua headers
-(`lua-devel` / `liblua<ver>-dev`) to build against even though `luatz` itself has no C
-parts to compile.
+`require("socket.http")`/`require("ltn12")`/`require("mime")`), `luatz` (pagerduty needs
+RFC 3339 timestamps — not packaged by any distro repo here, so it's installed via
+`luarocks install luatz`, which in turn needs the Lua headers (`lua-devel` /
+`liblua<ver>-dev`) to build against even though `luatz` itself has no C parts to
+compile), `lua-openssl` (bigquery's OAuth module), and `lua-cffi` + `librdkafka`
+(kafka — see "Worked example: the kafka test" below for why the `ffi`-vs-`cffi`
+distinction matters here).
 
 ## Running locally (Docker)
 
@@ -503,6 +509,45 @@ following this precedent elsewhere.
    (not the shared `sc_flush.lua`) - unlike most of the connectors added after canopsis,
    no `max_all_queues_age` workaround was needed.
 
+### Worked example: the kafka test (`connectors/kafka_events_apiv2.robot`)
+
+Initially assumed untestable, wrongly - worth understanding exactly why the first
+conclusion was mistaken, since the same false-blocker shape could reappear elsewhere.
+
+1. **The `ffi` check alone isn't the full story.**
+   `modules/centreon-stream-connectors-lib/rdkafka/librdkafka.lua` does
+   `local status, ffi = pcall(require, 'ffi')`, and *if that fails*, falls back to
+   `ffi = require 'cffi'` - a fallback already written into the file (added in a past
+   commit, "patch for el8 compatibility"). The first pass here only tested
+   `require("ffi")` directly (correctly fails - LuaJIT-only, absent under centreon-broker's
+   plain PUC-Rio Lua 5.4 runtime), saw that fail, and stopped there without checking
+   whether the fallback path the code *already has* would actually work. It does: the
+   `lua-cffi` package (published in the same `centreon-plugins-unstable`/
+   `apt-plugins-unstable` repo as `lua-lsqlite3`/`lua-openssl`) exposes exactly the
+   function set this file needs (`cast`/`cdef`/`errno`/`gc`/`load`/`new`/`string`) as a
+   LuaJIT-ffi-compatible shim - confirmed by installing it and diffing its exported
+   function names against every `ffi.*` call in `librdkafka.lua`. **No connector code
+   changes were needed at all**, unlike bigquery.
+2. The only other missing piece was `librdkafka` itself - the real native C client
+   library that `ffi.load("librdkafka.so.1")` loads at runtime, from each distro's base
+   repo (`appstream` on el8/el9, `librdkafka1` on Debian/Ubuntu) - no special repo
+   configuration needed, unlike the Centreon-specific packages.
+3. **`EventQueue.new()` unconditionally constructs a real `kafka_producer`/`kafka_topic`**
+   (calling `producer:brokers_add()` with the config's dummy, unreachable `brokers`
+   value) - confirmed safe empirically: librdkafka connects to brokers asynchronously in
+   a background thread, so construction never blocks or errors even with an unreachable
+   address (just logs a background "Connection refused" - cosmetic noise, not a test
+   failure), and `send_data_test=1` short-circuits before the actual `produce()` call
+   later, so a real broker is never actually needed.
+4. No acknowledgement or downtime: no `format_event_acknowledgement`/
+   `format_event_downtime` exists in this connector at all - same "no event sent"
+   pattern as most connectors in this harness. `accepted_categories`/`accepted_elements`
+   aren't overridden by the connector itself (sc_params.lua's generic defaults are
+   `"neb,bam"`/`"host_status,service_status,ba_status"`) - restricted to `"neb"`/
+   `"host_status,service_status"` in the test config to match every other suite.
+5. Same `>` vs `>=` flush() off-by-one as most other connectors in this harness - worked
+   around with `max_all_queues_age=0`, same as usual.
+
 ### Cross-connector gotchas (adding datadog through signl4)
 
 Ten connectors added in one batch after canopsis surfaced patterns worth knowing before
@@ -567,10 +612,6 @@ touching any of them:
 - Downtime for bigquery-events-apiv2.lua — accepted_elements includes it and the generic
   format_event() has a schema for it, but it isn't exercised by a dedicated test yet
   (see "Worked example: the bigquery test" above).
-- `kafka-events-apiv2.lua` can't run under this (or, seemingly, any real) centreon-broker
-  Lua runtime — its bundled `rdkafka` binding requires LuaJIT's `ffi` module, and broker
-  here uses plain PUC-Rio Lua 5.4, which has no such module (confirmed empirically, see
-  "What this tests" above).
 - `bsm-events-apiv2.lua` isn't tracked in git yet — not touched by this harness until
   it's committed.
 - Only host/service status events are meaningfully assertable for splunk today: broker

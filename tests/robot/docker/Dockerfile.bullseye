@@ -36,6 +36,8 @@ RUN apt-get install -y --no-install-recommends \
         lua-lsqlite3 \
         lua-socket \
         lua-openssl \
+        lua-cffi \
+        librdkafka1 \
         luarocks \
     && apt-get clean
 
