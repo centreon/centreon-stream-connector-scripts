@@ -174,8 +174,6 @@ runs:
           standard_distrib="$DISTRIB"
           plugins_prefix="ubuntu-plugins"
           new_repo_format=false
-          use_standard_testing=false
-          use_standard_unstable=false
         elif [[ "$DISTRIB" == "noble" ]]; then
           standard_base="ubuntu-standard-24.10"
           standard_distrib="$DISTRIB"
