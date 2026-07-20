@@ -57,6 +57,8 @@ RUN dnf install -y \
         lua-lsqlite3 \
         lua-socket \
         lua-openssl \
+        lua-cffi \
+        librdkafka \
         lua-devel \
         luarocks \
         python3 \

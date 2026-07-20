@@ -12,18 +12,23 @@ connecteur et lui transmet de vrais événements BBDO.
 Périmètre actuel : uniquement les connecteurs « apiv2 » (le pattern moderne basé sur
 `modules/centreon-stream-connectors-lib`) — à la fois la famille `*-events-apiv2.lua`
 (statut host/service, acquittement, downtime) et la famille `*-metrics-apiv2.lua`
-(données de performance). 18 connecteurs sont couverts pour l'instant : 13 connecteurs
+(données de performance). 19 connecteurs sont couverts pour l'instant : 14 connecteurs
 events — splunk (la suite pilote), canopsis, datadog, elasticsearch, keep, logstash, omi,
-opsgenie, pagerduty, servicenow (les deux variantes `-em-` et `-incident-`), signl4 et
-bigquery — plus les 5 connecteurs metrics — clickhouse, datadog-metrics,
+opsgenie, pagerduty, servicenow (les deux variantes `-em-` et `-incident-`), signl4,
+bigquery et kafka — plus les 5 connecteurs metrics — clickhouse, datadog-metrics,
 elasticsearch-metrics, influxdb2, splunk-metrics — voir « Connecteurs couverts »
-ci-dessous pour les spécificités de chacun. Deux connecteurs restent explicitement
-exclus : `kafka-events-apiv2.lua` a besoin du module `ffi` de LuaJIT (via son binding
-`rdkafka` embarqué), qui n'existe pas sous le runtime Lua réel de centreon-broker ici
-(Lua 5.4 PUC-Rio standard — confirmé avec `lua -e 'print(pcall(require, "ffi"))'`) — une
-limitation d'environnement, pas quelque chose qu'un changement de code peut contourner ;
-`bsm-events-apiv2.lua` n'est pas encore dans git (encore un travail local en cours de
-quelqu'un d'autre), donc ce harnais n'y touche pas.
+ci-dessous pour les spécificités de chacun. Seul `bsm-events-apiv2.lua` reste exclu : il
+n'est pas encore dans git (encore un travail local en cours de quelqu'un d'autre), donc
+ce harnais n'y touche pas.
+
+kafka a d'abord été supposé (à tort) non testable — son binding `rdkafka` embarqué fait
+`pcall(require, "ffi")` (LuaJIT uniquement, absent du runtime Lua réel de
+centreon-broker ici, du Lua 5.4 PUC-Rio standard), et cette seule vérification a été
+prise à tort pour un blocage définitif. Ce n'en est pas un : le même fichier se rabat
+déjà sur `require("cffi")`, et le paquet `lua-cffi` (un shim compatible avec l'API ffi de
+LuaJIT) fait fonctionner ce repli sans aucun changement de code — voir « Exemple
+travaillé : le test kafka » ci-dessous pour toute l'histoire et comment ça a été
+rattrapé.
 
 `bigquery-events-apiv2.lua` est la seule exception à « ne jamais modifier un connecteur,
 seulement le contourner dans la config de test » : il n'avait aucun support de
@@ -97,6 +102,7 @@ produit un événement.
 | servicenow-incident | non (pas de formateur) | **non, volontairement** | objet brut | texte après le JSON ; recovery filtré par les params `host_status`/`service_status` |
 | signl4 | non (pas de formateur) | oui | objet brut | bug de `flush()`, voir plus bas |
 | bigquery | oui | oui | `{"rows": [{"json": {...}}]}` | code du connecteur modifié, voir plus bas |
+| kafka | non (pas de formateur) | oui | objet brut | a besoin de `lua-cffi`/`librdkafka`, voir plus bas |
 
 Chaque connecteur sans formateur d'acquittement a un test négatif correspondant
 (« Acknowledging A Service Does Not Produce A `<X>` Event ») confirmant que rien n'est
@@ -274,13 +280,15 @@ l'interpréteur `lua<ver>` (pas le paquet de bibliothèque partagée) — il fau
 `lcurl.so` de `lua-curl` est lié à `libcurl.so.4` sans le déclarer comme dépendance non
 plus — installer `libcurl4` explicitement aussi.
 
-Deux dépendances natives supplémentaires, nécessaires à des connecteurs spécifiques et
-installées dans chaque Dockerfile à côté de `lua-curl`/`lua-lsqlite3` : `lua-socket`
-(elasticsearch et omi font `require("socket.http")`/`require("ltn12")`/`require("mime")`)
-et `luatz` (pagerduty a besoin d'horodatages RFC 3339) — ce dernier n'est packagé par
-aucun repo de distribution ici, donc installé via `luarocks install luatz`, qui a
-lui-même besoin des en-têtes Lua (`lua-devel` / `liblua<ver>-dev`) pour compiler, même si
-`luatz` lui-même n'a aucune partie en C.
+D'autres dépendances natives, nécessaires à des connecteurs spécifiques et installées
+dans chaque Dockerfile à côté de `lua-curl`/`lua-lsqlite3` : `lua-socket` (elasticsearch
+et omi font `require("socket.http")`/`require("ltn12")`/`require("mime")`), `luatz`
+(pagerduty a besoin d'horodatages RFC 3339 — pas packagé par aucun repo de distribution
+ici, donc installé via `luarocks install luatz`, qui a lui-même besoin des en-têtes Lua
+(`lua-devel` / `liblua<ver>-dev`) pour compiler même si `luatz` lui-même n'a aucune
+partie en C), `lua-openssl` (le module OAuth de bigquery), et `lua-cffi` + `librdkafka`
+(kafka — voir « Exemple travaillé : le test kafka » plus bas pour pourquoi la
+distinction `ffi`/`cffi` compte ici).
 
 ## Lancer les tests en local (Docker)
 
@@ -546,6 +554,51 @@ comprendre avant de suivre ce précédent ailleurs.
    plupart des connecteurs ajoutés après canopsis, aucun contournement
    `max_all_queues_age` n'a été nécessaire.
 
+### Exemple travaillé : le test kafka (`connectors/kafka_events_apiv2.robot`)
+
+Supposé non testable au départ, à tort — utile de comprendre précisément pourquoi cette
+première conclusion était erronée, puisque le même faux blocage pourrait réapparaître
+ailleurs.
+
+1. **La vérification de `ffi` seule ne raconte pas toute l'histoire.**
+   `modules/centreon-stream-connectors-lib/rdkafka/librdkafka.lua` fait
+   `local status, ffi = pcall(require, 'ffi')`, et *si ça échoue*, se rabat sur
+   `ffi = require 'cffi'` — un repli déjà écrit dans le fichier (ajouté dans un commit
+   passé, « patch for el8 compatibility »). Le premier passage ici n'a testé que
+   `require("ffi")` directement (échoue correctement — LuaJIT uniquement, absent du
+   runtime Lua PUC-Rio standard de centreon-broker ici), a vu que ça échouait, et s'est
+   arrêté là sans vérifier si le chemin de repli que le code a *déjà* fonctionnerait
+   réellement. C'est le cas : le paquet `lua-cffi` (publié dans le même repo
+   `centreon-plugins-unstable`/`apt-plugins-unstable` que `lua-lsqlite3`/`lua-openssl`)
+   expose exactement l'ensemble de fonctions dont ce fichier a besoin (`cast`/`cdef`/
+   `errno`/`gc`/`load`/`new`/`string`) en tant que shim compatible avec l'API ffi de
+   LuaJIT — confirmé en l'installant et en comparant ses noms de fonctions exportées à
+   chaque appel `ffi.*` dans `librdkafka.lua`. **Aucun changement de code du connecteur
+   n'a été nécessaire**, contrairement à bigquery.
+2. La seule autre pièce manquante était `librdkafka` lui-même — la vraie bibliothèque
+   cliente C native que `ffi.load("librdkafka.so.1")` charge à l'exécution, depuis le
+   repo de base de chaque distribution (`appstream` sur el8/el9, `librdkafka1` sur
+   Debian/Ubuntu) — aucune configuration de repo spéciale nécessaire, contrairement aux
+   paquets spécifiques à Centreon.
+3. **`EventQueue.new()` construit sans condition un vrai `kafka_producer`/`kafka_topic`**
+   (en appelant `producer:brokers_add()` avec la valeur `brokers` factice et
+   injoignable de la config) — confirmé sûr empiriquement : librdkafka se connecte aux
+   brokers de façon asynchrone dans un thread d'arrière-plan, donc la construction ne
+   bloque ni ne plante jamais même avec une adresse injoignable (ça loggue juste un
+   « Connection refused » en arrière-plan — du bruit cosmétique, pas un échec de test),
+   et `send_data_test=1` court-circuite avant le vrai appel `produce()` plus tard, donc
+   un vrai broker n'est en fait jamais nécessaire.
+4. Pas d'acquittement ni de downtime : aucune fonction `format_event_acknowledgement`/
+   `format_event_downtime` n'existe dans ce connecteur du tout — même schéma « aucun
+   événement envoyé » que la plupart des connecteurs de ce harnais.
+   `accepted_categories`/`accepted_elements` ne sont pas surchargés par le connecteur
+   lui-même (les défauts génériques de sc_params.lua sont `"neb,bam"`/
+   `"host_status,service_status,ba_status"`) — restreints à `"neb"`/
+   `"host_status,service_status"` dans la config de test pour correspondre à toutes les
+   autres suites.
+5. Même off-by-one `>` vs `>=` de `flush()` que la plupart des autres connecteurs de ce
+   harnais — contourné avec `max_all_queues_age=0`, comme d'habitude.
+
 ### Pièges transversaux (de datadog à signl4)
 
 Dix connecteurs ajoutés d'un coup après canopsis ont mis au jour des schémas utiles à
@@ -616,10 +669,6 @@ connaître avant d'y toucher :
 - Le downtime pour bigquery-events-apiv2.lua — accepted_elements l'inclut et le
   format_event() générique a un schéma pour ça, mais ce n'est pas encore exercé par un
   test dédié (voir « Exemple travaillé : le test bigquery » ci-dessus).
-- `kafka-events-apiv2.lua` ne peut pas tourner sous ce runtime Lua de centreon-broker (ni
-  semble-t-il sous aucun runtime réel) — son binding `rdkafka` embarqué nécessite le
-  module `ffi` de LuaJIT, et broker utilise ici du Lua 5.4 PUC-Rio standard, qui n'a pas
-  ce module (confirmé empiriquement, voir « Ce qui est testé » ci-dessus).
 - `bsm-events-apiv2.lua` n'est pas encore suivi par git — ce harnais n'y touche pas tant
   qu'il n'est pas committé.
 - Seuls les événements host/service status sont réellement vérifiables pour splunk
