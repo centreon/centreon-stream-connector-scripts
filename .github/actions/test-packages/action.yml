@@ -166,8 +166,11 @@ runs:
         # Select the correct repo and version depending on distrib
         # Format <= 24.10: https://packages.centreon.com/{repo}-{stability}/ {distrib} main
         # Format >= 25.10: https://packages.centreon.com/{repo}/ {distrib}-{version}-{stability} main
+        use_standard_stable=true
+        use_standard_testing=true
+        use_standard_unstable=true
         if [[ "$DISTRIB" == "jammy" ]]; then
-          standard_base="ubuntu-standard-24.04"
+          standard_base="ubuntu-standard-24.10"
           standard_distrib="$DISTRIB"
           plugins_prefix="ubuntu-plugins"
           new_repo_format=false
@@ -181,6 +184,8 @@ runs:
           standard_distrib="$DISTRIB"
           plugins_prefix="apt-plugins"
           new_repo_format=false
+          use_standard_testing=false
+          use_standard_unstable=false
         elif [[ "$DISTRIB" == "bookworm" ]]; then
           standard_base="apt-standard"
           standard_distrib="${DISTRIB}-25.10"
@@ -195,13 +200,25 @@ runs:
         # Add Centreon standard repository (provides centreon-broker-core and other core packages)
         if [[ "$TEST_TYPE" != "dependency" ]]; then
           if [[ "$new_repo_format" == "true" ]]; then
-            echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-stable main" | tee /etc/apt/sources.list.d/centreon-standard.list
-            echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
-            echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-unstable main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            if [[ "$use_standard_stable" == "true" ]]; then
+              echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-stable main" | tee /etc/apt/sources.list.d/centreon-standard.list
+            fi
+            if [[ "$use_standard_testing" == "true" ]]; then
+              echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            fi
+            if [[ "$use_standard_unstable" == "true" ]]; then
+              echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-unstable main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            fi
           else
-            echo "deb https://packages.centreon.com/${standard_base}-stable/ ${standard_distrib} main" | tee /etc/apt/sources.list.d/centreon-standard.list
-            echo "deb https://packages.centreon.com/${standard_base}-testing/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
-            echo "deb https://packages.centreon.com/${standard_base}-unstable/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            if [[ "$use_standard_stable" == "true" ]]; then
+              echo "deb https://packages.centreon.com/${standard_base}-stable/ ${standard_distrib} main" | tee /etc/apt/sources.list.d/centreon-standard.list
+            fi
+            if [[ "$use_standard_testing" == "true" ]]; then
+              echo "deb https://packages.centreon.com/${standard_base}-testing/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            fi
+            if [[ "$use_standard_unstable" == "true" ]]; then
+              echo "deb https://packages.centreon.com/${standard_base}-unstable/ ${standard_distrib} main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+            fi
           fi
         fi
         # Add Centreon plugins repositories (stable, testing, unstable)
