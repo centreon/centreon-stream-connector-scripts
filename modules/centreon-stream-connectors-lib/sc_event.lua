@@ -1590,7 +1590,7 @@ function ScEvent:get_most_recent_status_code(timestamp)
   }
   
   -- compare all status timestamp and keep the most recent one and the corresponding status code
-  for status_code, status_timestamp in ipairs(timestamp) do
+  for status_code, status_timestamp in pairs(timestamp) do
     if status_timestamp > status_info.highest_timestamp then
       status_info.highest_timestamp = status_timestamp
       status_info.status = status_code
