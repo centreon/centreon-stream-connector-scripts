@@ -14,6 +14,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
+local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -90,6 +91,7 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -201,7 +203,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:build_generic_tags(metric)
   local event = self.sc_event.event
-  local tags = 'host.name=' .. event.cache.host.name .. ',poller=' .. self:escape_special_characters(event.cache.poller)
+  local tags = 'host.name=' .. self:escape_special_characters(event.cache.host.name) .. ',poller=' .. self:escape_special_characters(event.cache.poller)
 
   if self.sc_params.params.use_deprecated_metric_system == 1 then
     tags = tags .. ',metric.id=' .. event.metric_id
@@ -405,7 +407,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_logger)
+  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_storage, queue.sc_logger)
   queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then

@@ -38,6 +38,9 @@ inputs:
   stability:
     description: "Branch stability (stable, testing, unstable, canary)"
     required: true
+  artifact_name:
+    description: The name of the uploaded artifact
+    required: false
 
 runs:
   using: composite
@@ -53,19 +56,27 @@ runs:
       env:
         RPM_GPG_SIGNING_KEY_ID: ${{ inputs.rpm_gpg_signing_key_id }}
         RPM_GPG_SIGNING_PASSPHRASE: ${{ inputs.rpm_gpg_signing_passphrase }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_RELEASE: ${{ inputs.release }}
+        INPUT_ARCH: ${{ inputs.arch }}
+        INPUT_PACKAGE_EXTENSION: ${{ inputs.package_extension }}
+        INPUT_DISTRIB: ${{ inputs.distrib }}
+        INPUT_STABILITY: ${{ inputs.stability }}
+        INPUT_NFPM_FILE_PATTERN: ${{ inputs.nfpm_file_pattern }}
+        INPUT_COMMIT_HASH: ${{ inputs.commit_hash }}
       run: |
-        export VERSION="${{ inputs.version }}"
-        export RELEASE="${{ inputs.release }}"
-        export ARCH="${{ inputs.arch }}"
+        export VERSION="$INPUT_VERSION"
+        export RELEASE="$INPUT_RELEASE"
+        export ARCH="$INPUT_ARCH"
 
-        if  [ "${{ inputs.package_extension }}" = "rpm" ]; then
-          export DIST=".${{ inputs.distrib }}"
+        if [ "$INPUT_PACKAGE_EXTENSION" = "rpm" ]; then
+          export DIST=".${INPUT_DISTRIB}"
         else
           export DIST=""
-          if [ "${{ inputs.stability }}" = "unstable" ] || [ "${{ inputs.stability }}" = "canary" ]; then
-            export RELEASE="$RELEASE~${{ inputs.distrib }}"
+          if [ "$INPUT_STABILITY" = "unstable" ] || [ "$INPUT_STABILITY" = "canary" ]; then
+            export RELEASE="${RELEASE}~${INPUT_DISTRIB}"
           else
-            export RELEASE="1~${{ inputs.distrib }}"
+            export RELEASE="1~${INPUT_DISTRIB}"
           fi
         fi
 
@@ -80,29 +91,44 @@ runs:
         export RPM_SIGNING_KEY_ID="$RPM_GPG_SIGNING_KEY_ID"
         export NFPM_RPM_PASSPHRASE="$RPM_GPG_SIGNING_PASSPHRASE"
 
-        for FILE in ${{ inputs.nfpm_file_pattern }}; do
+        for FILE in $INPUT_NFPM_FILE_PATTERN; do
           DIRNAME=$(dirname $FILE)
           BASENAME=$(basename $FILE)
           cd $DIRNAME
           sed -i "s/@luaver@/$luaver/g" $BASENAME
-          sed -i "s/@COMMIT_HASH@/${{ inputs.commit_hash }}/g" $BASENAME
-          nfpm package --config $BASENAME --packager ${{ inputs.package_extension }}
+          sed -i "s/@VERSION@/${INPUT_VERSION}/g" $BASENAME
+          sed -i "s/@COMMIT_HASH@/${INPUT_COMMIT_HASH}/g" $BASENAME
+          nfpm package --config "$BASENAME" --packager "$INPUT_PACKAGE_EXTENSION"
           cd -
-          mv $DIRNAME/*.${{ inputs.package_extension }} ./
+          mv $DIRNAME/*.$INPUT_PACKAGE_EXTENSION ./
         done
       shell: bash
 
     - name: Cache packages
-      uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
       with:
         path: ./*.${{ inputs.package_extension }}
         key: ${{ inputs.cache_key }}
 
-    # Update if condition to true to get packages as artifacts
-    - if: ${{ false }}
+    # Add to your PR the label upload-artifacts to get packages as artifacts
+    - if: ${{ contains(github.event.pull_request.labels.*.name, 'upload-artifacts') }}
+      name: Get artifact name
+      id: get-artifact-name
+      env:
+        INPUT_ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        INPUT_DISTRIB: ${{ inputs.distrib }}
+      run: |
+        if [ -z "$INPUT_ARTIFACT_NAME" ]; then
+          echo "artifact_name=packages-${INPUT_DISTRIB}" >> "$GITHUB_OUTPUT"
+        else
+          echo "artifact_name=${INPUT_ARTIFACT_NAME}" >> "$GITHUB_OUTPUT"
+        fi
+      shell: bash
+
+    - if: ${{ contains(github.event.pull_request.labels.*.name, 'upload-artifacts') }}
       name: Upload package artifacts
       uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.3.0
       with:
-        name: packages-${{ inputs.distrib }}
+        name: ${{ steps.get-artifact-name.outputs.artifact_name }}
         path: ./*.${{ inputs.package_extension}}
         retention-days: 1

@@ -8,26 +8,35 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - centreon-certified/**
+      - '.github/workflows/stream-connectors.yml'
+      - 'centreon-certified/**'
+      - 'packaging/connectors/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - centreon-certified/**
+      - '.github/workflows/stream-connectors.yml'
+      - 'centreon-certified/**'
+      - 'packaging/connectors/**'
 
 jobs:
+  dependency-scan:
+    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
+
   get-environment:
+    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   detect-changes:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       connectors: ${{ steps.list-connectors.outputs.connectors }}
+      packaging: ${{ steps.filter.outputs.packaging }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           base: ${{ github.ref }}
@@ -35,17 +44,28 @@ jobs:
           filters: |
             connectors:
               - added|modified: centreon-certified/**
+            packaging:
+              - modified: .github/workflows/stream-connectors.yml
+              - added|modified: packaging/connectors/**
 
-      - name: transform to directories
+      - name: Transform to directories
         id: list-connectors
+        env:
+          CONNECTOR_FILES: ${{ steps.filter.outputs.connectors_files }}
+          PACKAGING_CHANGED: ${{ steps.filter.outputs.packaging }}
         run: |
           folders=()
-          for f in ${{ steps.filter.outputs.connectors_files }}; do
-            DIR_NAME=($(dirname $f))
-            BASE_NAME=($(basename $DIR_NAME))
-            echo "Adding $BASE_NAME to folders"
-            folders+=($BASE_NAME)
-          done
+          if [ "$PACKAGING_CHANGED" = "true" ]; then
+            echo "Packaging files changed, adding all connectors"
+            mapfile -t folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
+          else
+            for f in $CONNECTOR_FILES; do
+              DIR_NAME="$(dirname "$f")"
+              BASE_NAME="$(basename "$DIR_NAME")"
+              echo "Adding $BASE_NAME to folders"
+              folders+=($BASE_NAME)
+            done
+          fi
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
         shell: bash
@@ -53,10 +73,11 @@ jobs:
   package:
     if: ${{ needs.detect-changes.outputs.connectors != '[]' }}
     needs: [get-environment, detect-changes]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
+      max-parallel: 25
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy]
+        distrib: [el8, el9, bullseye, bookworm, jammy, noble] # ,el10, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -65,17 +86,26 @@ jobs:
           - distrib: el9
             image: packaging-stream-connectors-nfpm-alma9
             package_extension: rpm
+#          - distrib: el10
+#            image: packaging-stream-connectors-nfpm-alma10
+#            package_extension: rpm
           - distrib: bullseye
             image: packaging-stream-connectors-nfpm-bullseye
             package_extension: deb
           - distrib: bookworm
             image: packaging-stream-connectors-nfpm-bookworm
             package_extension: deb
+#          - distrib: trixie
+#            image: packaging-stream-connectors-nfpm-trixie
+#            package_extension: deb
           - distrib: jammy
             image: packaging-stream-connectors-nfpm-jammy
             package_extension: deb
+          - distrib: noble
+            image: packaging-stream-connectors-nfpm-noble
+            package_extension: deb
 
-    name: package ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    name: Package ${{ matrix.distrib }} ${{ matrix.connector_path }}
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
       credentials:
@@ -85,29 +115,42 @@ jobs:
     steps:
 
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Replace package and connector name variables
+        env:
+          CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
-          package_name="centreon-stream-connector-`basename ${{ matrix.connector_path }}`"
-          sed -i "s/@PACKAGE_NAME@/$package_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
-          connector_name="`basename ${{ matrix.connector_path }}`"
-          sed -i "s/@CONNECTOR_NAME@/$connector_name/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          package_name="centreon-stream-connector-$(basename "$CONNECTOR_PATH")"
+          sed -i "s/@PACKAGE_NAME@/${package_name}/g" ./packaging/connectors/centreon-stream-connectors.yaml
+          connector_name="$(basename "$CONNECTOR_PATH")"
+          sed -i "s/@CONNECTOR_NAME@/${connector_name}/g" ./packaging/connectors/centreon-stream-connectors.yaml
         shell: bash
 
       - name: Add specific dependencies
+        env:
+          CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
-          DEB_DEPENDENCIES=""
-          RPM_DEPENDENCIES=""
-          if [ "${{ matrix.connector_path }}" = "kafka" ]; then
+          DEB_DEPENDENCIES="libcurl4"
+          RPM_DEPENDENCIES="libcurl"
+          if [ "$CONNECTOR_PATH" = "elastic" ]; then
+            DEB_DEPENDENCIES="lua-sec"
+            RPM_DEPENDENCIES="lua-sec"
+          elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-sec"
+            RPM_DEPENDENCIES="libcurl,lua-sec"
+          elif [ "$CONNECTOR_PATH" = "google" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-openssl"
+            RPM_DEPENDENCIES="libcurl,lua-openssl"
+          elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
-          elif [ "${{ matrix.connector_path }}" = "pagerduty" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
-          elif [ "${{ matrix.connector_path }}" = "splunk" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
+          elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
+          elif [ "$CONNECTOR_PATH" = "splunk" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           fi
           sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
           sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
@@ -133,20 +176,76 @@ jobs:
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          artifact_name: "package-${{ matrix.connector_path }}-${{ matrix.distrib }}"
+
+  test-packages:
+    needs: [get-environment, detect-changes, package]
+    strategy:
+      fail-fast: false
+      max-parallel: 25
+      matrix:
+        distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
+        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
+        include:
+          - distrib: el8
+            package_extension: rpm
+            image: almalinux:8
+          - distrib: el9
+            package_extension: rpm
+            image: almalinux:9
+#          - distrib: el10     # Centreon 26.10 repo not yet available
+#            package_extension: rpm
+#            image: almalinux:10
+          - distrib: bullseye
+            package_extension: deb
+            image: debian:bullseye
+          - distrib: bookworm
+            package_extension: deb
+            image: debian:bookworm
+#          - distrib: trixie    # Centreon 26.10 repo not yet available
+#            package_extension: deb
+#            image: debian:trixie
+          - distrib: jammy
+            package_extension: deb
+            image: ubuntu:jammy
+          - distrib: noble
+            package_extension: deb
+            image: ubuntu:noble
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    name: Test ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test packaged connector
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          test_type: stream-connector
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: install_error_log_${{ matrix.connector_path }}_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, detect-changes, package]
-    runs-on: ubuntu-22.04
+    needs: [get-environment, detect-changes, package, test-packages]
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9] #, el10]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -159,17 +258,17 @@ jobs:
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, detect-changes, package]
-    runs-on: ubuntu-22.04
+    needs: [get-environment, detect-changes, package, test-packages]
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy]
+        distrib: [bullseye, bookworm, jammy, noble] #, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
+    name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery

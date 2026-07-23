@@ -8,18 +8,24 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
   push:
     branches:
       - develop
       - master
     paths:
-      - packaging/connectors-lib/**
-      - modules/centreon-stream-connectors-lib/**
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
 
 jobs:
+  dependency-scan:
+    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
+
   get-environment:
+    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   package:
@@ -28,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy]
+        distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -36,17 +42,26 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+#          - package_extension: rpm
+#            image: packaging-stream-connectors-nfpm-alma10
+#            distrib: el10
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
+#          - package_extension: deb
+#            image: packaging-stream-connectors-nfpm-trixie
+#            distrib: trixie
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-jammy
             distrib: jammy
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-noble
+            distrib: noble
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     container:
       image: ${{ vars.DOCKER_INTERNAL_REGISTRY_URL }}/${{ matrix.image }}:latest
@@ -58,15 +73,15 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.7.0" # previous version:"3.6.1"
-          release: "2"
+          version: "3.8.0" # previous version:"3.7.0"
+          release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
           commit_hash: ${{ github.sha }}
@@ -75,19 +90,72 @@ jobs:
           rpm_gpg_signing_key_id: ${{ secrets.RPM_GPG_SIGNING_KEY_ID }}
           rpm_gpg_signing_passphrase: ${{ secrets.RPM_GPG_SIGNING_PASSPHRASE }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          artifact_name: "package-stream-connectors-lib-${{ matrix.distrib }}"
+
+  test-packages:
+    needs: [get-environment, package]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_extension: rpm
+            image: almalinux:8
+            distrib: el8
+          - package_extension: rpm
+            image: almalinux:9
+            distrib: el9
+#          - package_extension: rpm   # Centreon 26.10 repo not yet available
+#            image: almalinux:10
+#            distrib: el10
+          - package_extension: deb
+            image: debian:bullseye
+            distrib: bullseye
+          - package_extension: deb
+            image: debian:bookworm
+            distrib: bookworm
+#          - package_extension: deb   # Centreon 26.10 repo not yet available
+#            image: debian:trixie
+#            distrib: trixie
+          - package_extension: deb
+            image: ubuntu:jammy
+            distrib: jammy
+          - package_extension: deb
+            image: ubuntu:noble
+            distrib: noble
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    name: test packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Test packaged libs
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          test_type: library
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: install_error_log_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
-    runs-on: ubuntu-22.04
+    needs: [get-environment, package, test-packages]
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9] #, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -100,16 +168,16 @@ jobs:
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
-    runs-on: ubuntu-22.04
+    needs: [get-environment, package, test-packages]
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy]
+        distrib: [bullseye, bookworm, jammy, noble] #, trixie]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery

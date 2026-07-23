@@ -20,7 +20,7 @@ contents:
     packager: rpm
 
   - src: "../lua-cffi/cffi.so"
-    dst: "/usr/lib/x86_64-linux-gnu/lua/5.3/cffi.so"
+    dst: "/usr/lib/x86_64-linux-gnu/lua/@luaver@/cffi.so"
     packager: deb
 
 overrides:
@@ -31,8 +31,8 @@ overrides:
       - libffi-devel
   deb:
     depends:
-      - "lua5.3"
-      - "libffi7"
+      - "lua@luaver@"
+      - "libffi7 | libffi8"
       - "libffi-dev"
 
 rpm:
