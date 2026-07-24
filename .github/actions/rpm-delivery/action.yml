@@ -21,29 +21,33 @@ runs:
   using: "composite"
   steps:
     - name: Use cache RPM files
-      uses: actions/cache/restore@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ./*.rpm
         key: ${{ inputs.cache_key }}
         fail-on-cache-miss: true
 
-    - uses: jfrog/setup-jfrog-cli@901bb9632db90821c2d3f076012bdeaf66598555 # v3.4.1
+    - uses: jfrog/setup-jfrog-cli@1641575d87647fb969c0545f0b6a76873e328b7c # v5.0.0
       env:
         JF_URL: https://centreon.jfrog.io
         JF_ACCESS_TOKEN: ${{ inputs.artifactory_token }}
 
     - name: Publish RPMs
+      env:
+        MODULE_NAME: ${{ inputs.module_name }}
+        DISTRIB: ${{ inputs.distrib }}
+        STABILITY: ${{ inputs.stability }}
       run: |
         FILES="*.rpm"
 
-        echo "[DEBUG] - Distrib: ${{ inputs.distrib }}"
+        echo "[DEBUG] - Distrib: $DISTRIB"
 
-        if [ -z "${{ inputs.module_name }}" ]; then
+        if [ -z "$MODULE_NAME" ]; then
           echo "module name is required"
           exit 1
         fi
 
-        if [ -z "${{ inputs.distrib }}" ]; then
+        if [ -z "$DISTRIB" ]; then
           echo "distrib is required"
           exit 1
         fi
@@ -62,10 +66,10 @@ runs:
 
         for ARCH in "noarch" "x86_64"; do
           if [ "$(ls -A $ARCH)" ]; then
-            if [ "${{ inputs.stability }}" == "stable" ]; then
-              jf rt upload "$ARCH/*.rpm" "rpm-plugins/${{ inputs.distrib }}/${{ inputs.stability }}/$ARCH/RPMS/${{ inputs.module_name }}/" --flat
+            if [ "$STABILITY" == "stable" ]; then
+              jf rt upload "${ARCH}/*.rpm" "rpm-plugins/${DISTRIB}/${STABILITY}/${ARCH}/RPMS/${MODULE_NAME}/" --flat
             else
-              jf rt upload "$ARCH/*.rpm" "rpm-plugins/${{ inputs.distrib }}/${{ inputs.stability }}/$ARCH/${{ inputs.module_name }}/" --flat
+              jf rt upload "${ARCH}/*.rpm" "rpm-plugins/${DISTRIB}/${STABILITY}/${ARCH}/${MODULE_NAME}/" --flat
             fi
           fi
         done

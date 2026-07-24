@@ -1,4 +1,4 @@
-ARG REGISTRY_URL
+ARG REGISTRY_URL=docker.centreon.com/centreon
 
 FROM ${REGISTRY_URL}/almalinux:8
 

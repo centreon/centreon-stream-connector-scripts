@@ -1,5 +1,7 @@
 #!/usr/bin/lua
 
+broker_api_version = 2
+
 --- 
 -- Module to help initiate a stream connector with all paramaters
 -- @module sc_params
@@ -124,6 +126,14 @@ function sc_params.new(common, logger)
     logfile = "",
     log_level = "",
     log_curl_commands = 0,
+
+    -- storage parameters
+    load_host_properties_from_storage = "",
+    load_service_properties_from_storage = "",
+    load_ba_properties_from_storage = "",
+    load_metric_properties_from_storage = "",
+    storage_backend = "broker",
+    ["sc_storage.sqlite.db_file"] = "/var/lib/centreon-broker/stream-connector-storage.sdb",
 
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",
@@ -964,7 +974,7 @@ function ScParams:param_override(user_params)
       end
       self.logger:notice("[sc_params:param_override]: overriding parameter: " .. tostring(param_name_verified) .. " with value: " .. tostring(logged_param_value))
     else
-      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name_verified) .. " is not handled by this stream connector")
+      self.logger:notice("[sc_params:param_override]: User parameter: " .. tostring(param_name) .. " is not handled by this stream connector")
     end
   end
 end
@@ -1139,18 +1149,9 @@ function ScParams:load_custom_code_file(custom_code_file)
     return false
   end
 
-  -- get content of the file
-  local file_content = file:read("*a")
-  io.close(file)
-
-  -- check if it returns self, true or self, false
-  for return_value in string.gmatch(file_content, "return (.-)\n") do
-    if return_value ~= "self, true" and return_value ~= "self, false" then
-      self.logger:error("[sc_params:load_custom_code_file]: your custom code file: " .. tostring(custom_code_file)
-        .. " is returning wrong values (" .. tostring(return_value) .. "). It must only return 'self, true' or 'self, false'")
-      return false
-    end
-  end
+  -- can't properly check if syntax is done like it should with some kind of Lua pattern so we just log a reminder
+  self.logger:notice("[sc_params:load_custom_code_file]: you are loading the " .. tostring(custom_code_file)
+    .. " custom code file. Keep in mind that it must end with 'return self, true or return self, false")
   
   -- check if it is valid lua code
   local custom_code, error = loadfile(custom_code_file)

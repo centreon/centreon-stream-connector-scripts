@@ -20,25 +20,24 @@ contents:
     packager: rpm
 
   - src: "../../modules/centreon-stream-connectors-lib"
-    dst: "/usr/share/lua/5.3/centreon-stream-connectors-lib"
-    packager: deb
-  - src: "../../modules/centreon-stream-connectors-lib"
-    dst: "/usr/share/lua/5.4/centreon-stream-connectors-lib"
+    dst: "/usr/share/lua/@luaver@/centreon-stream-connectors-lib"
     packager: deb
 
 overrides:
   rpm:
     depends:
-      - lua-socket >= 3.0
-      - centreon-broker-core >= 22.04.0
-      - lua-curl >= 0.3.13-10
+      - centreon-broker-core >= 24.04.0
       - lua
+      - lua-curl >= 0.3.13-10
+      - lua-lsqlite3 >= 0.9.7
+      - lua-socket >= 3.0
   deb:
     depends:
-      - "centreon-broker-core (>= 22.04.0)"
-      - "lua-socket (>= 3.0~)"
+      - "centreon-broker-core (>= 24.04.0)"
+      - "lua@luaver@"
       - "lua-curl (>= 0.3.13-10)"
-      - "lua5.3"
+      - "lua-lsqlite3 (>= 0.9.7)"
+      - "lua-socket (>= 3.0~)"
 
 rpm:
   summary: Centreon stream connectors lua modules

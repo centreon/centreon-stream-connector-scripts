@@ -7,6 +7,7 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
+local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 local kafka_config = require("centreon-stream-connectors-lib.rdkafka.config")
 local kafka_producer = require("centreon-stream-connectors-lib.rdkafka.producer")
 local kafka_topic_config = require("centreon-stream-connectors-lib.rdkafka.topic_config")
@@ -86,6 +87,7 @@ function EventQueue.new(params)
 
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -241,6 +243,9 @@ local queue
 
 function init(params)
   queue = EventQueue.new(params)
+  sc_event.set_pending_event_handler(function(pending_broker_event)
+    write(pending_broker_event)
+  end)
 end
 
 -- --------------------------------------------------------------------------------
@@ -256,7 +261,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
