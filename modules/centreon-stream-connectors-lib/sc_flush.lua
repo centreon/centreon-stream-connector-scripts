@@ -53,6 +53,58 @@ function sc_flush.new(params, logger)
   return self
 end
 
+-- create_new_virtual_queue: this will create a virtual queue. Normally queues are created for accepted elements from the known BBDO elements. You can extend this mecanism with virtual queues
+-- @param category_id (number) the ID of the bbdo category to which you want your virtual queue to be associated
+-- @param virtual_element_id (number) a virtual element ID. It must not be an already existing BBDO element ID in your BBDO category
+-- @param virtual_element_name (string) a name for your virtual element
+-- @return true|false (boolean) true if the virtual queue has been created, false otherwise
+function ScFlush:create_new_virtual_queue(category_id, virtual_element_id, virtual_element_name)
+  if self.params.reverse_element_mapping[category_id][virtual_element_id] then
+    self.sc_logger:error("[sc_flush:create_new_queue]: You are trying to create a new virtual queue using an already existing element_id."
+      .. " element_id used is: " .. tostring(virtual_element_id) .. ", with category_id: " .. tostring(category_id) 
+      .. ". This is already used by element: " .. tostring(self.params.reverse_element_mapping[category_id][virtual_element_id])
+      .. ". You should change the element_id used for your virtual queue")
+    return false
+  end
+
+  if not virtual_element_name then
+    self.sc_logger:error("[sc_flush:create_new_queue]: No element name provided for your virtual queue")
+    return false
+  end
+
+  -- add a prefix for the element name to have it is easily identified as being a virtual queue
+  virtual_element_name = "_virtual_" .. virtual_element_name
+
+  if self.params.accepted_elements_info[virtual_element_name] then
+    self.sc_logger:error("[sc_flush:create_new_virtual_queue]: virtual element name already exists: " .. tostring(virtual_element_name)
+      .. ". You must change it. (the _virtual_ prefix is automatically added by stream connectors libraries)")
+    return false
+  end
+
+  -- create queue
+  self.queues[category_id][virtual_element_id] = {
+    events = {},
+    queue_metadata = {
+      category_id = category_id,
+      element_id = virtual_element_id
+    }
+  }
+
+  -- need to add this virtual element to the list of accepted elements. This is not for filter purpose.
+  -- This is because we only flush queues from accepted elements
+  self.params.accepted_elements_info[virtual_element_name] = {
+    category_id = category_id,
+    category_name = self.params.reverse_category_mapping[category_id],
+    element_id = virtual_element_id,
+    element_name = virtual_element_name
+  }
+
+  self.sc_logger:debug("[sc_flush:create_new_virtual_queue]: created new virtual queue: " .. tostring(virtual_element_name) 
+    .. " for category: " .. self.params.reverse_category_mapping[category_id] .. " with virtual element id: " .. tostring(virtual_element_id))
+
+  return true
+end
+
 --- add_queue_metadata: add specific metadata to a queue
 -- @param category_id (number) the id of the bbdo category
 -- @param element_id (number) the id of the bbdo element

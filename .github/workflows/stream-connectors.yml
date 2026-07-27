@@ -75,8 +75,9 @@ jobs:
     needs: [get-environment, detect-changes]
     runs-on: ubuntu-24.04
     strategy:
+      max-parallel: 25
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, bullseye, bookworm, jammy, noble] # ,el10, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -85,18 +86,18 @@ jobs:
           - distrib: el9
             image: packaging-stream-connectors-nfpm-alma9
             package_extension: rpm
-          - distrib: el10
-            image: packaging-stream-connectors-nfpm-alma10
-            package_extension: rpm
+#          - distrib: el10
+#            image: packaging-stream-connectors-nfpm-alma10
+#            package_extension: rpm
           - distrib: bullseye
             image: packaging-stream-connectors-nfpm-bullseye
             package_extension: deb
           - distrib: bookworm
             image: packaging-stream-connectors-nfpm-bookworm
             package_extension: deb
-          - distrib: trixie
-            image: packaging-stream-connectors-nfpm-trixie
-            package_extension: deb
+#          - distrib: trixie
+#            image: packaging-stream-connectors-nfpm-trixie
+#            package_extension: deb
           - distrib: jammy
             image: packaging-stream-connectors-nfpm-jammy
             package_extension: deb
@@ -130,17 +131,26 @@ jobs:
         env:
           CONNECTOR_PATH: ${{ matrix.connector_path }}
         run: |
-          DEB_DEPENDENCIES=""
-          RPM_DEPENDENCIES=""
-          if [ "$CONNECTOR_PATH" = "kafka" ]; then
+          DEB_DEPENDENCIES="libcurl4"
+          RPM_DEPENDENCIES="libcurl"
+          if [ "$CONNECTOR_PATH" = "elastic" ]; then
+            DEB_DEPENDENCIES="lua-sec"
+            RPM_DEPENDENCIES="lua-sec"
+          elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-sec"
+            RPM_DEPENDENCIES="libcurl,lua-sec"
+          elif [ "$CONNECTOR_PATH" = "google" ]; then
+            DEB_DEPENDENCIES="libcurl4,lua-openssl"
+            RPM_DEPENDENCIES="libcurl,lua-openssl"
+          elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
+            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           elif [ "$CONNECTOR_PATH" = "splunk" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
+            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           fi
           sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
           sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
@@ -169,12 +179,12 @@ jobs:
           artifact_name: "package-${{ matrix.connector_path }}-${{ matrix.distrib }}"
 
   test-packages:
-    if: false
     needs: [get-environment, detect-changes, package]
     strategy:
       fail-fast: false
+      max-parallel: 25
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -183,7 +193,7 @@ jobs:
           - distrib: el9
             package_extension: rpm
             image: almalinux:9
-#          - distrib: el10
+#          - distrib: el10     # Centreon 26.10 repo not yet available
 #            package_extension: rpm
 #            image: almalinux:10
           - distrib: bullseye
@@ -192,7 +202,7 @@ jobs:
           - distrib: bookworm
             package_extension: deb
             image: debian:bookworm
-#          - distrib: trixie
+#          - distrib: trixie    # Centreon 26.10 repo not yet available
 #            package_extension: deb
 #            image: debian:trixie
           - distrib: jammy
@@ -252,7 +262,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy, noble] #, trixie, jammy, noble]
+        distrib: [bullseye, bookworm, jammy, noble] #, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 

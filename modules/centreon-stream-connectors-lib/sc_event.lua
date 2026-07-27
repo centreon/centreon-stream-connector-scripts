@@ -14,6 +14,15 @@ local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
+local pending_event_handler = nil
+
+--- sc_event.set_pending_event_handler: register a callback called by the library when a stored event
+-- (saved during a downtime) is ready to be sent because the downtime ended with a status change.
+-- The callback receives an already-validated sc_event object.
+-- @param handler (function) function(sc_event_obj) called for each valid pending event
+function sc_event.set_pending_event_handler(handler)
+  pending_event_handler = handler
+end
 
 function sc_event.new(broker_event, params, common, logger, broker, storage)
   local self = {}
@@ -42,10 +51,10 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
   self.validation_steps = {}
 
   for accepted_element, info in pairs(self.params.accepted_elements_info) do
-    if not self.validation_steps[info.category_id] then 
+    if not self.validation_steps[info.category_id] then
       self.validation_steps[info.category_id] = {}
     end
-    
+
     self.validation_steps[info.category_id][info.element_id] = {}
   end
 
@@ -55,7 +64,7 @@ end
 
 
 --- is_valid_category: check if the event is in an accepted category
--- @retun true|false (boolean)
+-- @return true|false (boolean)
 function ScEvent:is_valid_category()
   return self:find_in_mapping(self.params.category_mapping, self.params.accepted_categories, self.event.category)
 end
@@ -63,7 +72,56 @@ end
 --- is_valid_element: check if the event is an accepted element
 -- @return true|false (boolean)
 function ScEvent:is_valid_element()
-  return self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
+  local is_valid_element = false
+  is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
+  if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
+    local object_id
+    if self.event.type == 1 then
+      object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
+    elseif self.event.type == 2 then
+      object_id = 'downtime_host_' .. self.event.host_id
+    else
+      self.sc_logger:error("[sc_event:is_valid_element]: unknown downtime type: " .. tostring(self.event.type))
+      return is_valid_element
+    end
+    if self:is_valid_downtime_event_start() then
+      local status = -1
+      if self.event.type == 1 then
+        status = broker_cache:get_service(self.event.host_id, self.event.service_id).state
+      elseif self.event.type == 2 then
+        status = broker_cache:get_host(self.event.host_id).state
+      end
+      local storage_data = {
+        object_type = self.event.type,
+        status = status,
+        downtime_start = self.event.actual_start_time,
+        downtime_end = self.event.actual_end_time
+      }
+      if not self.sc_storage:set_multiple(object_id, storage_data) then
+        self.sc_logger:error("[sc_event:is_valid_element]: Cannot register downtime datas in storage.")
+      end
+    elseif self:is_valid_downtime_event_end() then
+      local ok, stored = self.sc_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
+      if ok then
+        if stored.broker_event and pending_event_handler then
+          -- delete broker_event from storage before sending to prevent duplicate dispatch
+          -- on the second downtime end event (cancellation + deletion both trigger this path)
+          self.sc_storage:delete(object_id, "broker_event")
+          -- broker_event is stored as a JSON string: decode it explicitly
+          local broker_event = broker.json_decode(stored.broker_event)
+          if broker_event then
+            broker_event.scheduled_downtime_depth = 0
+            pending_event_handler(broker_event)
+          else
+            self.sc_logger:error("[sc_event:is_valid_element]: failed to decode stored broker_event")
+          end
+        end
+      else
+        self.sc_logger:error("[sc_event:is_valid_element]: Cannot get downtime datas from storage.")
+      end
+    end
+  end
+  return is_valid_element
 end
 
 --- find_in_mapping: check if item type is in the mapping and is accepted
@@ -79,7 +137,6 @@ function ScEvent:find_in_mapping(mapping, reference, item)
       end
     end
   end
-
   return false
 end
 
@@ -741,9 +798,26 @@ function ScEvent:is_valid_event_downtime_state()
     self.event.scheduled_downtime_depth = self.event.downtime_depth
   end
 
-  if not self.sc_common:compare_numbers(self.params.in_downtime, self.event.scheduled_downtime_depth, ">=") then
-    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in an valid downtime state. Event downtime state must be below or equal to " .. tostring(self.params.in_downtime) 
-      .. ". Current downtime state: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
+  if self.params.in_downtime == 0 and self.event.scheduled_downtime_depth > 0 then
+    local object_id
+    if self.event.service_id and self.event.service_id ~= 0 then
+      object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
+    else
+      object_id = 'downtime_host_' .. self.event.host_id
+    end
+    local ok, stored = self.sc_storage:get_multiple(object_id, {"object_type", "status"})
+    if ok then
+      if stored.status ~= self.event.state then
+        -- store broker_event as explicit JSON string to avoid relying on storage backend type conversion
+        if not self.sc_storage:set(object_id, "broker_event", broker.json_encode(self.broker_event)) then
+          self.sc_logger:error("[sc_event:is_valid_event_downtime_state]: event hasn't been stored in storage")
+        end
+      else
+        self.sc_storage:set(object_id, "broker_event", nil)
+      end
+    end
+    self.sc_logger:warning("[sc_event:is_valid_event_downtime_state]: event is not in a valid downtime state. Event downtime depth must be equal to " .. tostring(self.params.in_downtime)
+      .. ". Current downtime depth value: " .. tostring(self.sc_common:boolean_to_number(self.event.scheduled_downtime_depth)))
     return false
   end
 
@@ -1244,8 +1318,6 @@ function ScEvent:is_valid_service_severity()
     return true
   end
 
-
-
   -- return false if service severity doesn't match 
   if not self.sc_common:compare_numbers(self.params.service_severity_threshold, self.event.cache.severity.service, self.params.service_severity_operator) then
     self.sc_logger:debug("[sc_event:is_valid_service_severity]: dropping event because service with id: " .. tostring(self.event.service_id) .. " has an invalid severity. Severity is: "
@@ -1341,7 +1413,7 @@ function ScEvent:is_valid_acknowledgement_event()
   return true
 end
 
---- is_vaid_downtime_event: check if the event is a valid downtime event
+--- is_valid_downtime_event: check if the event is a valid downtime event
 -- return true|false (boolean)
 function ScEvent:is_valid_downtime_event()
   -- return false if the event is one of all the "fake" start or end downtime event received from broker
@@ -1518,7 +1590,7 @@ function ScEvent:get_most_recent_status_code(timestamp)
   }
   
   -- compare all status timestamp and keep the most recent one and the corresponding status code
-  for status_code, status_timestamp in ipairs(timestamp) do
+  for status_code, status_timestamp in pairs(timestamp) do
     if status_timestamp > status_info.highest_timestamp then
       status_info.highest_timestamp = status_timestamp
       status_info.status = status_code
@@ -1613,12 +1685,10 @@ function ScEvent:is_downtime_event_useless()
   if self:is_valid_downtime_event_start() then
     return true
   end
-  
   -- return false if downtime event is not a valid end of downtime event
   if self:is_valid_downtime_event_end() then
     return true
   end
-
   return false
 end
 
