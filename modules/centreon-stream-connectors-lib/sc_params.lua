@@ -121,11 +121,13 @@ function sc_params.new(common, logger)
 
     -- testing parameters
     send_data_test = 0,
+    execution_mode = "standard",
 
     -- logging parameters
     logfile = "",
     log_level = "",
     log_curl_commands = 0,
+    logger_backend = "broker",
 
     -- storage parameters
     load_host_properties_from_storage = "",

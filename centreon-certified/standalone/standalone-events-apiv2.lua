@@ -1,38 +1,11 @@
---
--- Copyright 2022 Centreon
---
--- Licensed under the Apache License, Version 2.0 (the "License");
--- you may not use this file except in compliance with the License.
--- You may obtain a copy of the License at
---
---     http://www.apache.org/licenses/LICENSE-2.0
---
--- Unless required by applicable law or agreed to in writing, software
--- distributed under the License is distributed on an "AS IS" BASIS,
--- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
--- See the License for the specific language governing permissions and
--- limitations under the License.
---
--- For more information : contact@centreon.com
---
--- To work you need to provide to this script a Broker stream connector output configuration
--- with the following informations:
---
--- source_ci (string): Name of the transmiter, usually Centreon server name
--- ipaddr (string): the ip address of the operation connector server
--- url (string): url of the operation connector endpoint
--- logfile (string): the log file to use
--- loglevel (number): th log level (0, 1, 2, 3) where 3 is the maximum level
--- port (number): the operation connector server port
--- max_size (number): how many events to store before sending them to the server.
--- max_age (number): flush the events when the specified time (in second) is reach (even if max_size is not reach).
+#!/usr/bin/lua
+--------------------------------------------------------------------------------
+-- Centreon Broker logstash Connector Events
+--------------------------------------------------------------------------------
+
 
 -- Libraries
-local curl = require("cURL")
-local http = require("socket.http")
-local ltn12 = require("ltn12")
-
--- Centreon lua core libraries
+local curl = require "cURL"
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
@@ -40,37 +13,32 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
-local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
-
--- workaround https://github.com/centreon/centreon-broker/issues/201
-local previous_event = ""
 
 --------------------------------------------------------------------------------
--- EventQueue class
+-- Classe event_queue
 --------------------------------------------------------------------------------
 
-EventQueue = {}
+local EventQueue = {}
 EventQueue.__index = EventQueue
 
 --------------------------------------------------------------------------------
--- Constructor
--- @param conf The table given by the init() function and returned from the GUI
--- @return the new EventQueue
---------------------------------------------------------------------------------
+---- Constructor
+---- @param conf The table given by the init() function and returned from the GUI
+---- @return the new EventQueue
+----------------------------------------------------------------------------------
+
 function EventQueue.new(params)
   local self = {}
+
+  local mandatory_parameters = {}
+
   self.fail = false
 
-  local mandatory_parameters = {
-      "ipaddr",
-      "url",
-      "port"
-  }
-
   -- set up log configuration
-  params.logfile = params.logfile or "/var/log/centreon-broker/omi_event.log"
+  params.logfile = params.logfile or "/var/log/centreon-broker/standalone-events.log"
   params.log_level = params.log_level or 1
   params.logger_backend = params.logger_backend or "broker"
+  
 
   -- initiate mandatory objects
   self.sc_logger = sc_logger.new(params)
@@ -83,32 +51,26 @@ function EventQueue.new(params)
   end
 
   -- overriding default parameters for this stream connector if the default values doesn't suit the basic needs
+  self.sc_params.params.http_server_url = params.http_server_url or 'http://127.0.0.1'
+  self.sc_params.params.port = params.port or 8086
+  self.sc_params.params.api_endpoint = params.api_endpoint or "/events"
   self.sc_params.params.accepted_categories = params.accepted_categories or "neb"
-  self.sc_params.params.accepted_elements = params.accepted_elements or "service_status"
-  self.sc_params.params.source_ci = params.source_ci or "Centreon"
-  self.sc_params.params.ipaddr = params.ipaddr or "192.168.56.15"
-  self.sc_params.params.url = params.url or "/bsmc/rest/events/opscx-sdk/v1/"
-  self.sc_params.params.port = params.port or 30005
-  self.sc_params.params.max_output_length = params.max_output_length or 1024
-  self.sc_params.params.max_buffer_size = params.max_buffer_size or 5
-  self.sc_params.params.max_buffer_age = params.max_buffer_age or 60
-  self.sc_params.params.flush_time = params.flush_time or os.time()
+  self.sc_params.params.accepted_elements = params.accepted_elements or "host_status,service_status"
 
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
-  self.format_template = self.sc_params:load_event_format_file(true)
-  self.sc_params:build_accepted_elements_info()
+  self.format_template = self.sc_params:load_event_format_file()
 
   -- only load the custom code file, not executed yet
-  if not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
+  if self.sc_params.load_custom_code_file and not self.sc_params:load_custom_code_file(self.sc_params.params.custom_code_file) then
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
 
+  self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
   self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories
@@ -116,6 +78,7 @@ function EventQueue.new(params)
 
   self.format_event = {
     [categories.neb.id] = {
+      [elements.host_status.id] = function () return self:format_event_host() end,
       [elements.service_status.id] = function () return self:format_event_service() end
     },
     [categories.bam.id] = {}
@@ -136,7 +99,7 @@ end
 
 --------------------------------------------------------------------------------
 ---- EventQueue:format_event method
----------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
 function EventQueue:format_accepted_event()
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
@@ -164,31 +127,59 @@ function EventQueue:format_accepted_event()
   self.sc_logger:debug("[EventQueue:format_event]: event formatting is finished")
 end
 
--- Format XML file with service infoamtion
-function EventQueue:format_event_service()
-  local service_severity = self.sc_broker:get_severity(self.sc_event.event.host_id, self.sc_event.event.service_id)
+function EventQueue:format_event_host()
+  self:fix_cache_tables()
+end
 
-  if service_severity == false then
-    service_severity = 0
+function EventQueue:format_event_service()
+  self:fix_cache_tables()
+end
+
+--[[
+  depending on the broker version and probably bbdo protocol, some cache data are not tables but userdata
+  need to convert them into table to make sure that this stream connector will be able to json encode the cache part of the event
+]]
+function EventQueue:fix_cache_tables()
+  local event_cache = self.sc_event.event.cache
+
+  if event_cache.host then
+    self:rebuild_cache("host")
   end
 
-  self.sc_event.event.formated_event = {
-    title = self.sc_event.event.cache.service.description,
-    description =  string.match(self.sc_event.event.output, "^(.*)\n"),
-    severity = self.sc_event.event.state,
-    time_created = self.sc_event.event.last_update,
-    node = self.sc_event.event.cache.host.name,
-    related_ci = self.sc_event.event.cache.host.name,
-    source_ci = self.sc_common:ifnil_or_empty(self.source_ci, 'Centreon'),
-    source_event_id = self.sc_common:ifnil_or_empty(self.sc_event.event.service_id, 0)
-  }
+  if event_cache.service then
+    self:rebuild_cache("service")
+  end
+
+  if event_cache.hostgroups then
+    self:rebuild_cache("hostgroups")
+  end
+
+  if event_cache.servicegroups then
+    self:rebuild_cache("servicegroups")
+  end
+
+  if event_cache.ba then
+    self:rebuild_cache("ba")
+  end
+
+  if event_cache.bvs then
+    self:rebuild_cache("bvs")
+  end
+end
+
+function EventQueue:rebuild_cache(cache_type)
+  if type(self.sc_event.event.cache[cache_type]) == "userdata" then
+    local temp_cache_table = {[cache_type] = {}}
+    for index, value in pairs(self.sc_event.event.cache[cache_type]) do
+      temp_cache_table[cache_type][index] = value
+    end
+    self.sc_event.event.cache[cache_type] = temp_cache_table[cache_type]
+  end
 end
 
 --------------------------------------------------------------------------------
--- EventQueue:add method
--- @param e An event
+-- EventQueue:add, add an event to the sending queue
 --------------------------------------------------------------------------------
-
 function EventQueue:add()
   -- store event in self.events lists
   local category = self.sc_event.event.category
@@ -198,7 +189,7 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -206,24 +197,15 @@ end
 
 --------------------------------------------------------------------------------
 -- EventQueue:build_payload, concatenate data so it is ready to be sent
--- @param payload {string} xml encoded string
+-- @param payload {string} json encoded string
 -- @param event {table} the event that is going to be added to the payload
--- @return payload {string} xml encoded string
+-- @return payload {string} json encoded string
 --------------------------------------------------------------------------------
 function EventQueue:build_payload(payload, event)
   if not payload then
-    payload = "<event_data>\t"
-    for index, xml_str in pairs(event) do
-      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
-    end
-    payload = payload .. "</event_data>"
-
+    payload = {event}
   else
-    payload = payload .. "\n<event_data>\t"
-    for index, xml_str in pairs(event) do
-      payload = payload .. "<" .. tostring(index) .. ">" .. tostring(self.sc_common:xml_escape(xml_str)) .. "</" .. tostring(index) .. ">\t"
-    end
-    payload = payload .. "</event_data>"
+    payload = table.insert(payload, event)
   end
 
   return payload
@@ -232,12 +214,10 @@ end
 function EventQueue:send_data(payload, queue_metadata)
   self.sc_logger:debug("[EventQueue:send_data]: Starting to send data")
 
-  local url = self.sc_params.params.http_server_url
-  queue_metadata.headers = {
-    "Content-Type: text/xml",
-    "content-length: " .. string.len(payload)
-  }
-
+  local url = self.sc_params.params.http_server_url .. ":" .. self.sc_params.params.port .. self.sc_params.params.api_endpoint
+  payload = broker.json_encode(payload)
+  queue_metadata.headers = {"content-type: application/json"}
+  queue_metadata.method = "POST"
   self.sc_logger:log_curl_command(url, queue_metadata, self.sc_params.params, payload)
 
   -- write payload in the logfile for test purpose
@@ -246,20 +226,21 @@ function EventQueue:send_data(payload, queue_metadata)
     return true
   end
 
-  self.sc_logger:info("[EventQueue:send_data]: Going to send the following xml " .. tostring(payload))
-  self.sc_logger:info("[EventQueue:send_data]: BSM Http Server URL is: \"" .. tostring(url) .. "\"")
+  self.sc_logger:info("[EventQueue:send_data]: Going to send the following json " .. tostring(payload))
+  self.sc_logger:info("[EventQueue:send_data]: Logstash address is: " .. tostring(url))
 
   local http_response_body = ""
   local http_request = curl.easy()
-  :setopt_url(url)
-  :setopt_writefunction(
-    function (response)
-      http_response_body = http_response_body .. tostring(response)
-    end
-  )
-  :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
-  :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
-  :setopt(curl.OPT_HTTPHEADER,queue_metadata.headers)
+    :setopt_url(url)
+    :setopt_writefunction(
+      function (response)
+        http_response_body = http_response_body .. tostring(response)
+      end
+    )
+    :setopt(curl.OPT_TIMEOUT, self.sc_params.params.connection_timeout)
+    :setopt(curl.OPT_SSL_VERIFYPEER, self.sc_params.params.verify_certificate)
+    :setopt(curl.OPT_CUSTOMREQUEST, queue_metadata.method)
+    :setopt(curl.OPT_HTTPHEADER, queue_metadata.headers)
 
   -- set proxy address configuration
   if (self.sc_params.params.proxy_address ~= '') then
@@ -287,20 +268,22 @@ function EventQueue:send_data(payload, queue_metadata)
 
   -- collecting results
   http_response_code = http_request:getinfo(curl.INFO_RESPONSE_CODE)
+
   http_request:close()
 
   -- Handling the return code
   local retval = false
-  if http_response_code == 202 or http_response_code == 200 then
+  if http_response_code == 200 then
     self.sc_logger:info("[EventQueue:send_data]: HTTP POST request successful: return code is " .. tostring(http_response_code))
     retval = true
   else
     self.sc_logger:error("[EventQueue:send_data]: HTTP POST request FAILED, return code is " .. tostring(http_response_code) .. ". Message is: " .. tostring(http_response_body))
-
+    
     if payload then
       self.sc_logger:error("[EventQueue:send_data]: sent payload was: " .. tostring(payload))
     end
   end
+
   return retval
 end
 
@@ -308,20 +291,19 @@ end
 -- Required functions for Broker StreamConnector
 --------------------------------------------------------------------------------
 
-if not queue then
-  local queue
-end
+local queue
 
 -- Fonction init()
 function init(conf)
   queue = EventQueue.new(conf)
-  sc_event.set_pending_event_handler(function(pending_broker_event)
-    write(pending_broker_event)
-  end)
 end
 
--- Fonction write()
-function write(event)
+--------------------------------------------------------------------------------
+-- write,
+-- @param {table} event, the event from broker
+-- @return {boolean}
+--------------------------------------------------------------------------------
+function write (event)
   -- skip event if a mandatory parameter is missing
   if queue.fail then
     queue.sc_logger:error("Skipping event because a mandatory parameter is not set")
@@ -329,15 +311,25 @@ function write(event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
+      --[[ 
+        since broker version 3, event is a userdata and not a table. 
+        This stream connector doesn't format the event 
+        therefore it will send an event with only informatin from the cache 
+        and some information that are spefically handled in the sc_event lib.
+        To have access to all the data, we "dump" everything from the userdata into the event table
+      ]]--
+      for index, value in pairs(event) do
+        queue.sc_event.event[index] = value
+      end
+
       -- format event if it is validated
       if queue.sc_event:is_valid_event() then
         queue:format_accepted_event()
       end
-
   --- log why the event has been dropped
     else
       queue.sc_logger:debug("dropping event because element is not valid. Event element is: "
@@ -381,4 +373,3 @@ function flush()
   -- there are events in the queue but they were not ready to be send
   return false
 end
-

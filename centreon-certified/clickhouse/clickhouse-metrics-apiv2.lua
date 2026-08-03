@@ -24,7 +24,7 @@ local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 -- Classe event_queue
 --------------------------------------------------------------------------------
 
-local EventQueue = {}
+EventQueue = {}
 EventQueue.__index = EventQueue
 
 --------------------------------------------------------------------------------
@@ -45,13 +45,13 @@ function EventQueue.new(params)
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/clickhouse-metrics.log"
-  local log_level = params.log_level or 1
+  params.logfile = params.logfile or "/var/log/centreon-broker/clickhouse-metrics.log"
+  params.log_level = params.log_level or 1
+  params.logger_backend = params.logger_backend or "broker"
   
   -- initiate mandatory objects
-  self.sc_logger = sc_logger.new(logfile, log_level)
+  self.sc_logger = sc_logger.new(params)
   self.sc_common = sc_common.new(self.sc_logger)
-  self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
   
   -- checking mandatory parameters and setting a fail flag
@@ -88,6 +88,7 @@ function EventQueue.new(params)
   self.sc_params:build_accepted_elements_info()
   self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -426,7 +427,9 @@ end
 -- Required functions for Broker StreamConnector
 --------------------------------------------------------------------------------
 
-local queue
+if not queue then
+  local queue
+end
 
 -- Fonction init()
 function init(conf)

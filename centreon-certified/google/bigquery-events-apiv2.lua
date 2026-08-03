@@ -11,7 +11,7 @@ local sc_oauth = require("centreon-stream-connectors-lib.google.auth.oauth")
 local sc_bq = require("centreon-stream-connectors-lib.google.bigquery.bigquery")
 local curl = require("cURL")
 
-local EventQueue = {}
+EventQueue = {}
 
 function EventQueue.new(params)
   local self = {}
@@ -27,13 +27,13 @@ function EventQueue.new(params)
   self.fail = false
 
   -- set up log configuration
-  local logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
-  local log_level = params.log_level or 2
+  params.logfile = params.logfile or "/var/log/centreon-broker/stream-connector.log"
+  params.log_level = params.log_level or 2
+  params.logger_backend = params.logger_backend or "broker"
 
   -- initiate mandatory objects
-  self.sc_logger = sc_logger.new(logfile, log_level)
+  self.sc_logger = sc_logger.new(params)
   self.sc_common = sc_common.new(self.sc_logger)
-  self.sc_broker = sc_broker.new(self.sc_logger)
   self.sc_params = sc_params.new(self.sc_common, self.sc_logger)
 
   -- checking mandatory parameters and setting a fail flag
@@ -109,6 +109,7 @@ function EventQueue.new(params)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_broker = sc_broker.new(self.sc_params.params, self.sc_logger)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -380,7 +381,9 @@ function EventQueue:call (data, table_name)
   return true
 end
 
-local queue
+if not queue then
+  local queue
+end
 
 function init(params)
   queue = EventQueue.new(params)
