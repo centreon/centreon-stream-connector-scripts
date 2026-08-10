@@ -35,7 +35,7 @@ runs:
         if [[ "$DISTRIB" == "el8" || "$DISTRIB" == "el9" ]]; then
           CENTREON_VERSION="25.10"
         else
-          CENTREON_VERSION="26.10"  # el10 - repo not yet available
+          CENTREON_VERSION="26.10"  # el10
         fi
         # Add Centreon plugins and standard repositories
         cat > /etc/yum.repos.d/centreon-plugins.repo << EOF
@@ -193,7 +193,7 @@ runs:
           new_repo_format=true
         elif [[ "$DISTRIB" == "trixie" ]]; then
           standard_base="apt-standard"
-          standard_distrib="${DISTRIB}-26.10"  # repo not yet available
+          standard_distrib="${DISTRIB}-26.10"
           plugins_prefix="apt-plugins"
           new_repo_format=true
         fi
@@ -204,7 +204,10 @@ runs:
               echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-stable main" | tee /etc/apt/sources.list.d/centreon-standard.list
             fi
             if [[ "$use_standard_testing" == "true" ]]; then
-              echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+              # The new repo format splits testing into release and hotfix suites, like the rpm one.
+              # The aggregated "-testing" suite only exists for bookworm and is not published for trixie.
+              echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing-release main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
+              echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-testing-hotfix main" | tee -a /etc/apt/sources.list.d/centreon-standard.list
             fi
             if [[ "$use_standard_unstable" == "true" ]]; then
               echo "deb https://packages.centreon.com/${standard_base}/ ${standard_distrib}-unstable main" | tee -a /etc/apt/sources.list.d/centreon-standard.list

@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -42,18 +42,18 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
-#          - package_extension: rpm
-#            image: packaging-stream-connectors-nfpm-alma10
-#            distrib: el10
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
-#          - package_extension: deb
-#            image: packaging-stream-connectors-nfpm-trixie
-#            distrib: trixie
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-trixie
+            distrib: trixie
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-jammy
             distrib: jammy
@@ -104,18 +104,18 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
-#          - package_extension: rpm   # Centreon 26.10 repo not yet available
-#            image: almalinux:10
-#            distrib: el10
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
           - package_extension: deb
             image: debian:bullseye
             distrib: bullseye
           - package_extension: deb
             image: debian:bookworm
             distrib: bookworm
-#          - package_extension: deb   # Centreon 26.10 repo not yet available
-#            image: debian:trixie
-#            distrib: trixie
+          - package_extension: deb
+            image: debian:trixie
+            distrib: trixie
           - package_extension: deb
             image: ubuntu:jammy
             distrib: jammy
@@ -150,7 +150,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9] #, el10]
+        distrib: [el8, el9, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
@@ -172,7 +172,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy, noble] #, trixie]
+        distrib: [bullseye, bookworm, trixie, jammy, noble]
     name: deliver ${{ matrix.distrib }}
 
     steps:
