@@ -166,9 +166,11 @@ function ScFlush:get_queues_size()
 
   for _, element_info in pairs(self.params.accepted_elements_info) do
     queues_size = queues_size + #self.queues[element_info.category_id][element_info.element_id].events
-    self.sc_logger:debug("[sc_flush:get_queues_size]: size of queue for category " .. tostring(element_info.category_name)
-      .. " and element: " .. tostring(element_info.element_name)
-      .. " is: " .. tostring(#self.queues[element_info.category_id][element_info.element_id].events))
+    if #self.queues[element_info.category_id][element_info.element_id].events > 0 then
+        self.sc_logger:debug("[sc_flush:get_queues_size]: size of queue for category " .. tostring(element_info.category_name)
+            .. " and element: " .. tostring(element_info.element_name)
+            .. " is: " .. tostring(#self.queues[element_info.category_id][element_info.element_id].events))
+    end
   end
 
   return queues_size

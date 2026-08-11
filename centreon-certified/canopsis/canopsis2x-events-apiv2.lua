@@ -417,7 +417,7 @@ function EventQueue:format_event_acknowledgement()
     -- ack_resources = false
   }
 
-  if event.service_id then
+  if event.service_id and event.service_id ~= 0 then
     self.sc_event.event.formated_event['source_type'] = "resource"
     self.sc_event.event.formated_event['resource'] = tostring(event.cache.service.description)
     -- only with v2 api ?

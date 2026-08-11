@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -42,18 +42,18 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
-#          - package_extension: rpm
-#            image: packaging-stream-connectors-nfpm-alma10
-#            distrib: el10
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bullseye
             distrib: bullseye
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
-#          - package_extension: deb
-#            image: packaging-stream-connectors-nfpm-trixie
-#            distrib: trixie
+          - package_extension: deb
+            image: packaging-stream-connectors-nfpm-trixie
+            distrib: trixie
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-jammy
             distrib: jammy
@@ -73,14 +73,14 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.8.0" # previous version:"3.7.0"
+          version: "3.8.1" # previous version:"3.8.0"
           release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
@@ -104,18 +104,18 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
-#          - package_extension: rpm   # Centreon 26.10 repo not yet available
-#            image: almalinux:10
-#            distrib: el10
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
           - package_extension: deb
             image: debian:bullseye
             distrib: bullseye
           - package_extension: deb
             image: debian:bookworm
             distrib: bookworm
-#          - package_extension: deb   # Centreon 26.10 repo not yet available
-#            image: debian:trixie
-#            distrib: trixie
+          - package_extension: deb
+            image: debian:trixie
+            distrib: trixie
           - package_extension: deb
             image: ubuntu:jammy
             distrib: jammy
@@ -127,7 +127,7 @@ jobs:
       image: ${{ matrix.image }}
     name: test packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Test packaged libs
         uses: ./.github/actions/test-packages
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload error log
         if: failure()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: install_error_log_${{ matrix.distrib }}
           path: install_error_${{ matrix.distrib }}.log
@@ -150,12 +150,12 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9] #, el10]
+        distrib: [el8, el9, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -172,12 +172,12 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy, noble] #, trixie]
+        distrib: [bullseye, bookworm, trixie, jammy, noble]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery

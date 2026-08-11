@@ -34,7 +34,7 @@ jobs:
       connectors: ${{ steps.list-connectors.outputs.connectors }}
       packaging: ${{ steps.filter.outputs.packaging }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
@@ -77,7 +77,7 @@ jobs:
     strategy:
       max-parallel: 25
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy, noble] # ,el10, trixie]
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -86,18 +86,18 @@ jobs:
           - distrib: el9
             image: packaging-stream-connectors-nfpm-alma9
             package_extension: rpm
-#          - distrib: el10
-#            image: packaging-stream-connectors-nfpm-alma10
-#            package_extension: rpm
+          - distrib: el10
+            image: packaging-stream-connectors-nfpm-alma10
+            package_extension: rpm
           - distrib: bullseye
             image: packaging-stream-connectors-nfpm-bullseye
             package_extension: deb
           - distrib: bookworm
             image: packaging-stream-connectors-nfpm-bookworm
             package_extension: deb
-#          - distrib: trixie
-#            image: packaging-stream-connectors-nfpm-trixie
-#            package_extension: deb
+          - distrib: trixie
+            image: packaging-stream-connectors-nfpm-trixie
+            package_extension: deb
           - distrib: jammy
             image: packaging-stream-connectors-nfpm-jammy
             package_extension: deb
@@ -115,7 +115,7 @@ jobs:
     steps:
 
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Replace package and connector name variables
         env:
@@ -130,26 +130,34 @@ jobs:
       - name: Add specific dependencies
         env:
           CONNECTOR_PATH: ${{ matrix.connector_path }}
+          DISTRIB: ${{ matrix.distrib }}
         run: |
-          DEB_DEPENDENCIES="libcurl4"
+          # Debian renamed libcurl4 to libcurl4t64 with the 64-bit time_t transition,
+          # and provides no libcurl4 virtual package from trixie onwards.
+          if [ "$DISTRIB" = "trixie" ]; then
+            DEB_CURL="libcurl4t64"
+          else
+            DEB_CURL="libcurl4"
+          fi
+          DEB_DEPENDENCIES="$DEB_CURL"
           RPM_DEPENDENCIES="libcurl"
           if [ "$CONNECTOR_PATH" = "elastic" ]; then
             DEB_DEPENDENCIES="lua-sec"
             RPM_DEPENDENCIES="lua-sec"
           elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
-            DEB_DEPENDENCIES="libcurl4,lua-sec"
+            DEB_DEPENDENCIES="$DEB_CURL,lua-sec"
             RPM_DEPENDENCIES="libcurl,lua-sec"
           elif [ "$CONNECTOR_PATH" = "google" ]; then
-            DEB_DEPENDENCIES="libcurl4,lua-openssl"
+            DEB_DEPENDENCIES="$DEB_CURL,lua-openssl"
             RPM_DEPENDENCIES="libcurl,lua-openssl"
           elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
-            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            DEB_DEPENDENCIES="$DEB_CURL,lua-tz"
             RPM_DEPENDENCIES="libcurl,lua-tz"
           elif [ "$CONNECTOR_PATH" = "splunk" ]; then
-            DEB_DEPENDENCIES="libcurl4,lua-tz"
+            DEB_DEPENDENCIES="$DEB_CURL,lua-tz"
             RPM_DEPENDENCIES="libcurl,lua-tz"
           fi
           sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
@@ -184,7 +192,7 @@ jobs:
       fail-fast: false
       max-parallel: 25
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy, noble] #, el10, trixie]
+        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -193,18 +201,18 @@ jobs:
           - distrib: el9
             package_extension: rpm
             image: almalinux:9
-#          - distrib: el10     # Centreon 26.10 repo not yet available
-#            package_extension: rpm
-#            image: almalinux:10
+          - distrib: el10
+            package_extension: rpm
+            image: almalinux:10
           - distrib: bullseye
             package_extension: deb
             image: debian:bullseye
           - distrib: bookworm
             package_extension: deb
             image: debian:bookworm
-#          - distrib: trixie    # Centreon 26.10 repo not yet available
-#            package_extension: deb
-#            image: debian:trixie
+          - distrib: trixie
+            package_extension: deb
+            image: debian:trixie
           - distrib: jammy
             package_extension: deb
             image: ubuntu:jammy
@@ -216,7 +224,7 @@ jobs:
       image: ${{ matrix.image }}
     name: Test ${{ matrix.distrib }} ${{ matrix.connector_path }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Test packaged connector
         uses: ./.github/actions/test-packages
@@ -228,7 +236,7 @@ jobs:
 
       - name: Upload error log
         if: failure()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: install_error_log_${{ matrix.connector_path }}_${{ matrix.distrib }}
           path: install_error_${{ matrix.distrib }}.log
@@ -239,13 +247,13 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9] #, el10]
+        distrib: [el8, el9, el10]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -262,13 +270,13 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, jammy, noble] #, trixie]
+        distrib: [bullseye, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
