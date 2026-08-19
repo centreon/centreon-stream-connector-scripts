@@ -208,7 +208,7 @@ function EventQueue:generate_min_max_metric_event(metric, tags)
   
   if (metric.min) then
     self.sc_event.event.formated_event = {
-      metric.metric_name .. ".min" ..  ","
+      metric.metric_name .. ".min" ..  ";"
         .. tags .. ";type=metric_min "
         .. metric.min .. " "
         .. event.last_check
