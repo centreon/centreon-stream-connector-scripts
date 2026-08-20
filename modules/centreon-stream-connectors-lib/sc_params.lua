@@ -29,6 +29,9 @@ function sc_params.new(common, logger)
 
   -- get the version of the bbdo protocol (only the first digit, nothing else matters)
   self.bbdo_version = self.common:get_bbdo_version()
+
+  -- any parameter name matching the following keyword will have its value hidden in the logfile
+  self.keywords_to_hide = {"pass", "key", "token", "secret"}
   
   -- initiate params
   self.params = {
@@ -954,7 +957,6 @@ function ScParams:param_override(user_params)
     return
   end
 
-  local keywords_to_hide =  {"pass", "key"}
   local logged_param_value
 
   for param_name, param_value in pairs(user_params) do
@@ -967,7 +969,7 @@ function ScParams:param_override(user_params)
 
       self.params[param_name_verified] = param_value
       logged_param_value = param_value
-      for _, must_be_hidden_param in pairs(keywords_to_hide) do
+      for _, must_be_hidden_param in pairs(self.keywords_to_hide) do
         if string.match(param_name_verified, must_be_hidden_param) then
           logged_param_value = "******"
         end
@@ -1053,7 +1055,6 @@ end
 -- @param kafka_config (object) object instance of kafka_config
 -- @param params (table) the list of parameters from broker web configuration
 function ScParams:get_kafka_params(kafka_config, params)
-  local keywords_to_hide =  {"pass", "key"}
   local logged_param_value
 
   for param_name, param_value in pairs(params) do
@@ -1063,7 +1064,7 @@ function ScParams:get_kafka_params(kafka_config, params)
       -- remove the _sc_kafka_ prefix and store the param in a dedicated kafka table
       kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
       
-      for _, must_be_hidden_param in pairs(keywords_to_hide) do
+      for _, must_be_hidden_param in pairs(self.keywords_to_hide) do
         if string.match(param_name, must_be_hidden_param) then
           logged_param_value = "******"
         end
