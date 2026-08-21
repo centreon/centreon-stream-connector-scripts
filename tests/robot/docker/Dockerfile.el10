@@ -1,6 +1,3 @@
-# NOTE: as of this writing, Centreon's rpm-standard repo for el10/26.10 does not
-# exist yet (404) - this Dockerfile is ready for when it is published, but will fail
-# to build until then. See tests/robot/README_EN.md / README_FR.md.
 FROM almalinux:10
 
 ARG CENTREON_VERSION=26.10
@@ -52,17 +49,34 @@ EOF
 # centreon-broker-core, centreon-clib and lua as dependencies. lua-lsqlite3 is needed by
 # storage_backends/sc_storage_sqlite.lua (`require("lsqlite3")`), itself needed by the
 # downtime-replay feature's storage_backend=sqlite - see tests/robot/README_EN.md/README_FR.md
-# "Writing a new test" section for the whole story.
+# "Writing a new test" section for the whole story (default "broker" backend is a no-op
+# placeholder; this package used to not exist in any repo, now published in rpm-plugins).
+# lua-cffi + librdkafka are needed by kafka-events-apiv2.lua's bundled rdkafka binding
+# (modules/.../rdkafka/librdkafka.lua): it does `pcall(require, "ffi")` (LuaJIT-only, absent
+# under broker's plain PUC-Rio Lua here) and falls back to `require("cffi")` - lua-cffi
+# provides that as a compatible shim (same function set: cast/cdef/errno/gc/load/new/string).
+# librdkafka is the real native C client library ffi.load()s at runtime.
 RUN dnf install -y \
         centreon-engine-daemon \
         centreon-broker-cbd \
         lua-curl \
         lua-lsqlite3 \
+        lua-socket \
+        lua-openssl \
+        lua-cffi \
+        librdkafka \
+        lua-devel \
+        luarocks \
         python3 \
         python3-pip \
     && dnf clean all
 
 RUN pip3 install --no-cache-dir robotframework
+
+# pagerduty-events-apiv2.lua requires "luatz" (RFC 3339 timestamps) - a pure-Lua library not
+# packaged by any distro repo here, only installable via luarocks (needs lua-devel's headers
+# to build against, even though luatz itself has no C parts to compile).
+RUN luarocks install luatz
 
 # Install the shared stream-connector lua library at the same path used by the
 # real .deb/.rpm package (packaging/connectors-lib/centreon-stream-connectors-lib.yaml),

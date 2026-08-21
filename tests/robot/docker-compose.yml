@@ -1,7 +1,8 @@
 # Every service shares this pattern: build one distro's image and run its default
 # CMD (the robot suite). `docker compose build <service>` builds a single image;
-# plain `docker compose build` builds every service NOT in the "not-ready" profile
-# (el10/trixie, whose upstream repo doesn't exist yet - see their comments below).
+# plain `docker compose build` builds every service (el10/trixie included - their
+# upstream repo used to 404, confirmed back on the standard rpm-standard/apt-standard
+# 26.10 channel on 2026-08-20).
 # `docker compose up` runs every default-profile service's tests in parallel from
 # already-built images (each writes its own results/<distro>/ so they don't clobber
 # each other); `docker compose run --rm <service> ...` still runs just one.
@@ -40,14 +41,10 @@ services:
       - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
       - ../../tests/robot/results/el8:/opt/centreon-stream-connector-scripts/tests/robot/results
 
-  # el10/26.10's Centreon repo does not exist yet (404 as of this writing), so this
-  # build will fail until Centreon publishes it. The "not-ready" profile keeps it out
-  # of the default `docker compose build`/`up` (no args) so that command still builds
-  # /runs everything else cleanly - explicitly naming this service (build/run/up
-  # robot-tests-el10) still works regardless of the active profile.
+  # AlmaLinux 10 (rpm, Centreon 26.10 line). The repo was a 404 as of 2026-07-17;
+  # confirmed back online (rpm-standard and rpm-plugins both 200) on 2026-08-20.
   robot-tests-el10:
     privileged: false
-    profiles: ["not-ready"]
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.el10
@@ -84,11 +81,10 @@ services:
       - ../../centreon-certified:/opt/centreon-stream-connector-scripts/centreon-certified
       - ../../tests/robot/results/bookworm:/opt/centreon-stream-connector-scripts/tests/robot/results
 
-  # trixie-26.10's Centreon repo does not exist yet (404 as of this writing) - see the
-  # robot-tests-el10 comment above, same "not-ready" profile treatment.
+  # Debian 13 (trixie, Centreon 26.10 line) - see the robot-tests-el10 comment above,
+  # same repo-availability history.
   robot-tests-trixie:
     privileged: false
-    profiles: ["not-ready"]
     build:
       context: ../..
       dockerfile: tests/robot/docker/Dockerfile.trixie

@@ -241,10 +241,10 @@ combinaisons OS/version Centreon packagées par ce repo (voir le `CLAUDE.md` rac
 |---|---|---|---|
 | AlmaLinux 9 (el9) | `Dockerfile.el9` | 25.10 | référence, service `docker compose` par défaut |
 | AlmaLinux 8 (el8) | `Dockerfile.el8` | 25.10 | fonctionnel |
-| AlmaLinux 10 (el10) | `Dockerfile.el10` | 26.10 | **pas encore utilisable** — le repo rpm Centreon correspondant n'existe pas (404) à l'heure où ces lignes sont écrites |
+| AlmaLinux 10 (el10) | `Dockerfile.el10` | 26.10 | fonctionnel — le repo rpm Centreon correspondant était en 404 jusqu'au 2026-08-20 |
 | Debian 11 (bullseye) | `Dockerfile.bullseye` | 24.04 | fonctionnel |
 | Debian 12 (bookworm) | `Dockerfile.bookworm` | 25.10 | fonctionnel |
-| Debian 13 (trixie) | `Dockerfile.trixie` | 26.10 | **pas encore utilisable** — le repo apt Centreon correspondant n'existe pas (404) à l'heure où ces lignes sont écrites |
+| Debian 13 (trixie) | `Dockerfile.trixie` | 26.10 | fonctionnel — le repo apt Centreon correspondant était en 404 jusqu'au 2026-08-20 |
 | Ubuntu 22.04 (jammy) | `Dockerfile.jammy` | 24.04 | fonctionnel |
 | Ubuntu 24.04 (noble) | `Dockerfile.noble` | 24.10 | fonctionnel |
 
@@ -270,25 +270,47 @@ branches câblent engine → broker différemment :
   dupliquer le fichier de config lui-même.
 
 Deux autres pièges spécifiques à apt, rencontrés seulement en construisant les images
-Debian/Ubuntu (corrigés dans les cinq Dockerfiles concernés, gardés ici car faciles à
+Debian/Ubuntu (corrigés dans les six Dockerfiles concernés, gardés ici car faciles à
 réintroduire en copiant-collant) : le `70-lua.so` de `centreon-broker-core` charge
 dynamiquement `liblua<ver>.so.0` à l'exécution mais ne déclare comme dépendance que
 l'interpréteur `lua<ver>` (pas le paquet de bibliothèque partagée) — il faut installer
 `liblua<ver>-0` explicitement, en utilisant la version renvoyée par
-`lua -e "print(string.sub(_VERSION, 5))"` (fonctionne partout ici car le paquet
-`lua<ver>` enregistre `/usr/bin/lua` via `update-alternatives`). De même, le
-`lcurl.so` de `lua-curl` est lié à `libcurl.so.4` sans le déclarer comme dépendance non
-plus — installer `libcurl4` explicitement aussi.
+`lua -e "print(string.sub(_VERSION, 5))"` (fonctionne sur bullseye/bookworm/jammy/noble
+car le paquet `lua<ver>` y enregistre `/usr/bin/lua` via `update-alternatives` — **pas**
+sur trixie, voir son piège dédié ci-dessous). De même, le `lcurl.so` de `lua-curl` est
+lié à `libcurl.so.4` sans le déclarer comme dépendance non plus — installer `libcurl4`
+explicitement aussi.
+
+**Piège spécifique à trixie :** `/usr/bin/lua` y renvoie vers Lua 5.1 (installé comme
+dépendance d'un autre paquet, sans entrée `update-alternatives` enregistrée pour lui)
+alors que `70-lua.so` est lié à `liblua5.4` — le truc `lua -e "print(_VERSION)"`
+ci-dessus détecte donc le mauvais interpréteur, installe `liblua5.1-*` au lieu de
+`liblua5.4-*`, et cbd se retrouve incapable de compiler le moindre connecteur lua
+(`lua: '<chemin>' could not be compiled`, message générique de broker pour ce cas —
+trompeur, le fichier lui-même n'a rien). Correction : détecter la version via `ldd` sur
+`70-lua.so` plutôt que de demander au binaire `lua` ambiant :
+`ldd /usr/share/centreon/lib/centreon-broker/70-lua.so | grep -oP 'liblua\K[0-9.]+(?=\.so)' | head -1`
+(`head -1` car la sous-chaîne recherchée apparaît deux fois sur la même ligne `ldd` — le
+SONAME non résolu et son chemin résolu la contiennent tous les deux). Pour la même
+raison, `luarocks install luatz` (voir plus bas) doit être fixé avec `--lua-version=$(cat
+/etc/centreon-stream-connectors-lib-luaver)` sur trixie — un simple `luarocks install`
+l'installerait dans l'arborescence de Lua 5.1, invisible depuis le `package.path` de la
+Lua 5.4 de broker.
 
 D'autres dépendances natives, nécessaires à des connecteurs spécifiques et installées
-dans chaque Dockerfile à côté de `lua-curl`/`lua-lsqlite3` : `lua-socket` (elasticsearch
-et omi font `require("socket.http")`/`require("ltn12")`/`require("mime")`), `luatz`
-(pagerduty a besoin d'horodatages RFC 3339 — pas packagé par aucun repo de distribution
-ici, donc installé via `luarocks install luatz`, qui a lui-même besoin des en-têtes Lua
+dans chaque Dockerfile (deb comme rpm, el10/trixie inclus) à côté de
+`lua-curl`/`lua-lsqlite3` : `lua-socket` (elasticsearch et omi font
+`require("socket.http")`/`require("ltn12")`/`require("mime")`), `luatz` (pagerduty a
+besoin d'horodatages RFC 3339 — pas packagé par aucun repo de distribution ici, donc
+installé via `luarocks install luatz`, qui a lui-même besoin des en-têtes Lua
 (`lua-devel` / `liblua<ver>-dev`) pour compiler même si `luatz` lui-même n'a aucune
 partie en C), `lua-openssl` (le module OAuth de bigquery), et `lua-cffi` + `librdkafka`
 (kafka — voir « Exemple travaillé : le test kafka » plus bas pour pourquoi la
-distinction `ffi`/`cffi` compte ici).
+distinction `ffi`/`cffi` compte ici). Les Dockerfiles el10/trixie ont été écrits avant
+que leur repo Centreon n'existe et n'ont jamais reçu ce bloc ; les deux ont manqué chaque
+paquet de ce paragraphe jusqu'au 2026-08-20, ce qui s'est traduit par l'échec de tous les
+connecteurs (« could not be compiled » / « module 'socket' not found ») une fois les
+repos en ligne et les images enfin construites et exécutées pour la première fois.
 
 ## Lancer les tests en local (Docker)
 
@@ -299,9 +321,8 @@ cd tests/robot
 docker compose build robot-tests-bookworm
 docker compose build robot-tests-jammy
 
-# ... ou construire toutes les distributions d'un coup (el10/trixie exclus - voir
-# « Distributions supportées » ci-dessus ; les nommer explicitement les construit
-# quand même individuellement).
+# ... ou construire toutes les distributions d'un coup (el10/trixie inclus - voir
+# « Distributions supportées » ci-dessus).
 docker compose build
 
 # Lancer la suite d'une seule distribution :
@@ -312,7 +333,7 @@ docker compose run --rm robot-tests-bookworm     # ou tout autre service du tabl
 docker compose up
 ```
 
-`docker compose up` démarre chaque service du profil par défaut (el10/trixie exclus,
+`docker compose up` démarre chaque service du profil par défaut (el10/trixie inclus,
 comme pour `build`), chacun exécutant la commande par défaut de son image (la suite
 complète sous `connectors/`), en entrelaçant leurs logs préfixés par le nom du
 conteneur ; il se termine quand tous ont fini, avec un code de sortie par service. Il

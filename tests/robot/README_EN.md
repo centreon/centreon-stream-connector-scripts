@@ -226,10 +226,10 @@ combinations this repo packages for (see the root `CLAUDE.md`):
 |---|---|---|---|
 | AlmaLinux 9 (el9) | `Dockerfile.el9` | 25.10 | reference, default `docker compose` service |
 | AlmaLinux 8 (el8) | `Dockerfile.el8` | 25.10 | working |
-| AlmaLinux 10 (el10) | `Dockerfile.el10` | 26.10 | **not usable yet** — Centreon's rpm repo for it doesn't exist (404) as of this writing |
+| AlmaLinux 10 (el10) | `Dockerfile.el10` | 26.10 | working — Centreon's rpm repo was a 404 until 2026-08-20 |
 | Debian 11 (bullseye) | `Dockerfile.bullseye` | 24.04 | working |
 | Debian 12 (bookworm) | `Dockerfile.bookworm` | 25.10 | working |
-| Debian 13 (trixie) | `Dockerfile.trixie` | 26.10 | **not usable yet** — Centreon's apt repo for it doesn't exist (404) as of this writing |
+| Debian 13 (trixie) | `Dockerfile.trixie` | 26.10 | working — Centreon's apt repo was a 404 until 2026-08-20 |
 | Ubuntu 22.04 (jammy) | `Dockerfile.jammy` | 24.04 | working |
 | Ubuntu 24.04 (noble) | `Dockerfile.noble` | 24.10 | working |
 
@@ -252,24 +252,43 @@ two lines wire engine → broker differently:
   `tests/robot/config/engine/centengine.cfg`, rather than forking the config file itself.
 
 Two more apt-specific gotchas hit only while building the Debian/Ubuntu images (fixed in
-all five Debian/Ubuntu Dockerfiles, kept here since they're easy to reintroduce by copy-pasting):
+all six Debian/Ubuntu Dockerfiles, kept here since they're easy to reintroduce by copy-pasting):
 `centreon-broker-core`'s `70-lua.so` dynamically loads `liblua<ver>.so.0` at runtime but
 only pulls in the `lua<ver>` interpreter package as a declared dependency (not the
 shared-library package) — install `liblua<ver>-0` explicitly, using the version reported
-by `lua -e "print(string.sub(_VERSION, 5))"` (works everywhere here since the `lua<ver>`
-package registers `/usr/bin/lua` via `update-alternatives`). Likewise `lua-curl`'s
-`lcurl.so` links against `libcurl.so.4` without declaring it as a dependency either —
-install `libcurl4` explicitly too.
+by `lua -e "print(string.sub(_VERSION, 5))"` (works on bullseye/bookworm/jammy/noble since
+the `lua<ver>` package registers `/usr/bin/lua` via `update-alternatives` there — **not**
+on trixie, see its own gotcha below). Likewise `lua-curl`'s `lcurl.so` links against
+`libcurl.so.4` without declaring it as a dependency either — install `libcurl4` explicitly
+too.
+
+**trixie-specific gotcha:** `/usr/bin/lua` resolves to Lua 5.1 there (pulled in as some
+other package's dependency, with no `update-alternatives` entry registered for it) while
+`70-lua.so` is linked against `liblua5.4` — so the `lua -e "print(_VERSION)"` trick above
+picks the wrong interpreter, installs `liblua5.1-*` instead of `liblua5.4-*`, and cbd ends
+up unable to compile *any* lua stream connector (`lua: '<path>' could not be compiled`,
+broker's generic error for this — misleading, since the file itself is fine). Fix:
+`ldd`-detect the version `70-lua.so` actually needs instead of asking the ambient `lua`
+binary: `ldd /usr/share/centreon/lib/centreon-broker/70-lua.so | grep -oP 'liblua\K[0-9.]+(?=\.so)' | head -1`
+(`head -1` because the matching substring appears twice on the same `ldd` line — the
+unresolved SONAME and its resolved path both contain it). For the same reason, `luarocks
+install luatz` (see below) must be pinned with `--lua-version=$(cat
+/etc/centreon-stream-connectors-lib-luaver)` on trixie — plain `luarocks install` would
+install it under Lua 5.1's tree, invisible to broker's Lua 5.4 `package.path`.
 
 More native dependencies, needed by specific connectors and installed in every
-Dockerfile alongside `lua-curl`/`lua-lsqlite3`: `lua-socket` (elasticsearch and omi
-`require("socket.http")`/`require("ltn12")`/`require("mime")`), `luatz` (pagerduty needs
-RFC 3339 timestamps — not packaged by any distro repo here, so it's installed via
-`luarocks install luatz`, which in turn needs the Lua headers (`lua-devel` /
-`liblua<ver>-dev`) to build against even though `luatz` itself has no C parts to
-compile), `lua-openssl` (bigquery's OAuth module), and `lua-cffi` + `librdkafka`
-(kafka — see "Worked example: the kafka test" below for why the `ffi`-vs-`cffi`
-distinction matters here).
+Dockerfile (deb and rpm alike, el10/trixie included) alongside `lua-curl`/`lua-lsqlite3`:
+`lua-socket` (elasticsearch and omi `require("socket.http")`/`require("ltn12")`/
+`require("mime")`), `luatz` (pagerduty needs RFC 3339 timestamps — not packaged by any
+distro repo here, so it's installed via `luarocks install luatz`, which in turn needs the
+Lua headers (`lua-devel` / `liblua<ver>-dev`) to build against even though `luatz` itself
+has no C parts to compile), `lua-openssl` (bigquery's OAuth module), and `lua-cffi` +
+`librdkafka` (kafka — see "Worked example: the kafka test" below for why the
+`ffi`-vs-`cffi` distinction matters here). el10/trixie's Dockerfiles were written before
+their Centreon repo existed and never got this block added; both were missing every
+package in this paragraph until 2026-08-20, which surfaced as every single connector
+failing with "could not be compiled"/"module 'socket' not found" once the repos came
+online and the images could finally be built and run for the first time.
 
 ## Running locally (Docker)
 
@@ -280,8 +299,8 @@ cd tests/robot
 docker compose build robot-tests-bookworm
 docker compose build robot-tests-jammy
 
-# ... or build every distro in one shot (skips el10/trixie - see "Supported
-# distributions" above; explicitly naming them still builds them on their own).
+# ... or build every distro in one shot (el10/trixie included - see "Supported
+# distributions" above).
 docker compose build
 
 # Run just one distro's suite:
@@ -292,7 +311,7 @@ docker compose run --rm robot-tests-bookworm    # or any other service from the 
 docker compose up
 ```
 
-`docker compose up` starts every default-profile service (el10/trixie excluded, same
+`docker compose up` starts every default-profile service (el10/trixie included, same
 as `build`), each running its image's default command (the full `connectors/` suite),
 interleaving their logs prefixed by container name; it exits once they all finish, one
 exit code per service. It does **not** rebuild images first — run `docker compose build`
