@@ -275,6 +275,12 @@ function ScFlush:flush_payload(send_method, payload, metadata)
 
   if not pcall_status then
     self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
+
+    -- ignore errors and tell broker everything went fine to avoid retention if asked to
+    if self.params.drop_events_on_send_failure == 1 then
+      return true
+    end
+
     return false
   end
 
