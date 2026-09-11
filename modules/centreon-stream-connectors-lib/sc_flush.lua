@@ -100,6 +100,10 @@ function ScFlush:create_new_virtual_queue(category_id, virtual_element_id, virtu
     element_name = virtual_element_name
   }
 
+  self.sc_trigger:run_trigger("sc_flush:create_new_virtual_queue", "on-create", {
+    virtual_queue = self.queues[category_id][virtual_element_id]
+  })
+
   self.sc_logger:debug("[sc_flush:create_new_virtual_queue]: created new virtual queue: " .. tostring(virtual_element_name) 
     .. " for category: " .. self.params.reverse_category_mapping[category_id] .. " with virtual element id: " .. tostring(virtual_element_id))
 
@@ -129,7 +133,12 @@ function ScFlush:add_queue_metadata(category_id, element_id, metadata)
 
   for metadata_name, metadata_value in pairs(metadata) do
     self.queues[category_id][element_id].queue_metadata[metadata_name] = metadata_value
+    self.sc_trigger:run_trigger("sc_flush:add_queue_metadata", "on-add", {
+      name = metadata_name,
+      value = metadata_value
+    })
   end
+
 end
 
 --- flush_all_queues: tries to flush all queues according to accepted elements
@@ -156,6 +165,10 @@ function ScFlush:reset_all_queues()
   for _, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id].events = {}
   end
+
+  self.sc_trigger:run_trigger("sc_flush:reset_all_queues", "on-reset", {
+    queues = self.queues
+  })
 
   self.last_global_flush = os.time()
 end
