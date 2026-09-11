@@ -276,10 +276,10 @@ function ScFlush:flush_payload(send_method, payload, metadata)
 
   if not pcall_status then
     self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
-    return false
+    return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-fail", {payload = payload, metadata = metadata, error = result})
   end
 
-  return result
+  return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-success", {payload = payload, metadata = metadata})
 end
 
 return sc_flush
