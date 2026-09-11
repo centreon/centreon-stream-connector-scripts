@@ -221,6 +221,13 @@ function ScTrigger:run_trigger(category, event_type, data)
     self.sc_logger:error("[sc_trigger:run_trigger]: error while running trigger " .. tostring(event_type) .. " from category: " .. tostring(category) .. ". Error message: " .. tostring(result))
     return default_return_value
   else
+    -- last security, make sure that the return type is the one expected from this trigger
+    if self.triggers[category][event_type]._internal.expected_return_type 
+      and type(result) ~= self.triggers[category][event_type]._internal.expected_return_type 
+    then
+      return default_return_value
+    end
+
     return result
   end
 end
