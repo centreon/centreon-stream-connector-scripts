@@ -44,18 +44,20 @@ Since this is OOP, it is required to initiate your module
 
 ### Module constructor
 
-Constructor can be initialized with two parameter if the second one is not provided it will use a default value.
+Constructor can be initialized with up to four parameters. If sc_logger is not provided it will use a default value.
 
 - params. This is the table of all stream connectors parameters
-- sc_logger. This is an instance of the sc_logger module
-
-If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+- sc_logger. This is an instance of the sc_logger module. If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+- sc_common. This is an instance of the sc_common module
+- sc_trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user at various points of the flush lifecycle
 
 ### constructor: Example
 
 ```lua
 -- load modules
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 
 -- initiate "mandatory" informations for the logger module
@@ -65,13 +67,19 @@ local severity = 1
 -- create a new instance of the sc_logger module
 local test_logger = sc_logger.new(logfile, severity)
 
+-- create a new instance of the sc_common module
+local test_common = sc_common.new(test_logger)
+
 local params = {
   param_A = "value A",
   param_B = "value B"
 }
 
+-- create a new instance of the sc_trigger module
+local test_trigger = sc_trigger.new(params, test_common, test_logger)
+
 -- create a new instance of the sc_flush module
-local test_flush = sc_flush.new(params, test_logger)
+local test_flush = sc_flush.new(params, test_logger, test_common, test_trigger)
 ```
 
 ## create_new_virtual_queue method
