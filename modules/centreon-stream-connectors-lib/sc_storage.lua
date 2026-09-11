@@ -19,7 +19,7 @@ function sc_storage.new(common, logger, params, sc_trigger)
   self.sc_common = common
   self.sc_logger = logger
   self.params = params
-  self.sc_trigger = trigger
+  self.sc_trigger = sc_trigger
 
   -- list of lua patterns used to check if an object is a valid one
   self.storage_objects = {
