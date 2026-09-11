@@ -111,6 +111,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -184,7 +188,7 @@ function EventQueue:format_metric_event(metric)
   local event = self.sc_event.event
   local tags = self:get_tags(metric)
 
-  local tmp_formated_event = {
+  local tmp_formatted_event = {
     metric.metric_name .. ";"
       .. tags .. ";type=metric_value "
       .. metric.value .. " "
@@ -198,7 +202,7 @@ function EventQueue:format_metric_event(metric)
   self:generate_thresholds_metric_event(metric, tags)
   self:generate_state_metric_event(metric, tags)
 
-  self.sc_event.event.formated_event = tmp_formated_event
+  self.sc_event.event.formatted_event = tmp_formatted_event
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
@@ -211,7 +215,7 @@ function EventQueue:generate_min_max_metric_event(metric, tags)
   local event = self.sc_event.event
   
   if (metric.min) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".min" ..  ";"
         .. tags .. ";type=metric_min "
         .. metric.min .. " "
@@ -222,7 +226,7 @@ function EventQueue:generate_min_max_metric_event(metric, tags)
   end
 
   if (metric.max) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".max" ..  ";"
         .. tags .. ";type=metric_max "
         .. metric.max .. " "
@@ -241,7 +245,7 @@ function EventQueue:generate_thresholds_metric_event(metric, tags)
   local event = self.sc_event.event
   
   if (metric.warning_high) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".warning_threshold" .. ";"
         .. tags .. ";type=metric_warning_threshold "
         .. metric.warning_high .. " "
@@ -252,7 +256,7 @@ function EventQueue:generate_thresholds_metric_event(metric, tags)
   end
 
   if (metric.critical_high) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".critical_threshold" .. ";"
         .. tags .. ";type=metric_critical_threshold "
         .. metric.critical_high .. " "
@@ -270,7 +274,7 @@ function EventQueue:generate_state_metric_event(metric, tags)
 
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     metric.metric_name .. ".state" .. ";"
         .. tags .. ";type=metric_state "
         .. event.state .. " "
@@ -359,7 +363,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

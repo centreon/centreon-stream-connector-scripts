@@ -166,6 +166,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
 
@@ -272,10 +276,10 @@ function EventQueue:format_accepted_event()
   local template = self.sc_params.params.format_template[category][element]
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -359,7 +363,7 @@ end
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "check",
     source_type = "component",
     connector = self.sc_params.params.connector,
@@ -379,7 +383,7 @@ end
 function EventQueue:format_event_service()
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "check",
     source_type = "resource",
     connector = self.sc_params.params.connector,
@@ -403,7 +407,7 @@ function EventQueue:format_event_acknowledgement()
   local event = self.sc_event.event
   local elements = self.sc_params.params.bbdo.elements
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "ack",
     author = event.author,
     resource = "",
@@ -422,25 +426,25 @@ function EventQueue:format_event_acknowledgement()
   }
 
   if event.service_id and event.service_id ~= 0 then
-    self.sc_event.event.formated_event['source_type'] = "resource"
-    self.sc_event.event.formated_event['resource'] = tostring(event.cache.service.description)
+    self.sc_event.event.formatted_event['source_type'] = "resource"
+    self.sc_event.event.formatted_event['resource'] = tostring(event.cache.service.description)
     -- only with v2 api ?
-    -- self.sc_event.event.formated_event['ref_rk'] = tostring(event.cache.service.description)
+    -- self.sc_event.event.formatted_event['ref_rk'] = tostring(event.cache.service.description)
     --   .. "/" .. tostring(event.cache.host.name)
-    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+    self.sc_event.event.formatted_event['state'] = self.centreon_to_canopsis_state[event.category]
       [elements.service_status.id][event.state]
   else
-    self.sc_event.event.formated_event['source_type'] = "component"
+    self.sc_event.event.formatted_event['source_type'] = "component"
     -- only with v2 api ?
-    -- self.sc_event.event.formated_event['ref_rk'] = "undefined/" .. tostring(event.cache.host.name)
-    self.sc_event.event.formated_event['state'] = self.centreon_to_canopsis_state[event.category]
+    -- self.sc_event.event.formatted_event['ref_rk'] = "undefined/" .. tostring(event.cache.host.name)
+    self.sc_event.event.formatted_event['state'] = self.centreon_to_canopsis_state[event.category]
       [elements.host_status.id][event.state]
   end
 
   -- send ackremove
   -- Acknowledgement (deletion_time) Time at which the acknowledgement was deleted. If 0, it was not deleted.
   if event.deletion_time ~= 0 then
-    self.sc_event.event.formated_event['event_type'] = "ackremove"
+    self.sc_event.event.formatted_event['event_type'] = "ackremove"
   end
 end
 
@@ -456,7 +460,7 @@ function EventQueue:format_event_downtime()
   local origin = self.sc_params.params.connector .. "/" .. self:get_connector_name()
 
   if event.cancelled == true or (self.bbdo_version == 2 and event.deletion_time == 1) or (self.bbdo_version > 2 and event.deletion_time ~= -1) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       action = "delete",
       origin = origin,
       tstart = event.start_time,
@@ -469,7 +473,7 @@ function EventQueue:format_event_downtime()
       downtime_name = string.sub(downtime_name, 1, 252) .. "..."
     end
 
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       action = "create",
       name = downtime_name,
       origin = origin,
@@ -484,10 +488,10 @@ function EventQueue:format_event_downtime()
 
    -- in downtime events, service id is equal to 0 when the downtime is about a host (same for BBDO 2 and 3)
   if event.service_id ~= 0 then
-    self.sc_event.event.formated_event["entities"] = {tostring(event.cache.service.description)
+    self.sc_event.event.formatted_event["entities"] = {tostring(event.cache.service.description)
       .. "/" .. tostring(event.cache.host.name)}
   else
-    self.sc_event.event.formated_event["entities"] = {tostring(event.cache.host.name)}
+    self.sc_event.event.formatted_event["entities"] = {tostring(event.cache.host.name)}
   end
 end
 
@@ -504,7 +508,11 @@ function EventQueue:add()
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
  -- self.sc_logger:notice(self.sc_common:dumper(self.sc_flush.queues[category]))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
   .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

@@ -132,6 +132,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -145,11 +149,11 @@ function EventQueue:format_accepted_event()
   local element = self.sc_event.event.element
   local template = self.sc_params.params.format_template[category][element]
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
     for index, value in pairs(template) do
-      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+      self.sc_event.event.formatted_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
     end
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
@@ -175,7 +179,7 @@ function EventQueue:format_event_service()
     service_severity = 0
   end
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     title = self.sc_event.event.cache.service.description,
     description =  string.match(self.sc_event.event.output, "^(.*)\n"),
     severity = self.sc_event.event.state,
@@ -201,7 +205,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

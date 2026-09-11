@@ -94,6 +94,18 @@ function sc_trigger.new(params, sc_common, sc_logger)
         trigger_function = false,
         _internal = {}
       }
+    },
+    ["EventQueue:new"] = {
+      ["on-init"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["EventQueue:add"] = {
+      ["on-event-add"] =  {
+        trigger_function = false,
+        _internal = {}
+      }
     }
   }
 

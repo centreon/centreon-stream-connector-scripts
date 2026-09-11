@@ -109,6 +109,10 @@ function EventQueue.new(params)
 
     self.http_post_metadata = broker.json_encode(http_post_metadata)
 
+    self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+      params = self.sc_params.params
+    })
+
     -- return EventQueue object
     setmetatable(self, { __index = EventQueue })
     return self
@@ -122,10 +126,10 @@ function EventQueue:format_accepted_event()
     local element = self.sc_event.event.element
     local template = self.sc_params.params.format_template[category][element]
     self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-    self.sc_event.event.formated_event = {}
+    self.sc_event.event.formatted_event = {}
 
     if self.format_template and template ~= nil and template ~= "" then
-      self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+      self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
     else
       -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
       if not self.format_event[category][element] then
@@ -143,7 +147,7 @@ function EventQueue:format_accepted_event()
   end
 
   function EventQueue:format_event_host()
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
         event_type = "host",
         timestamp = self.sc_event.event.last_check,
         host = self.sc_event.event.cache.host.name,
@@ -155,7 +159,7 @@ function EventQueue:format_accepted_event()
   end
 
   function EventQueue:format_event_service()
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       event_type = "service",
       timestamp = self.sc_event.event.last_check,
       host = self.sc_event.event.cache.host.name,
@@ -180,7 +184,11 @@ function EventQueue:format_accepted_event()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
     self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+    self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+    self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+      formatted_event = self.sc_event.event.formatted_event
+    })
 
 
     self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events)
