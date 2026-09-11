@@ -43,7 +43,7 @@ function ScTrigger:execute_trigger_file()
     return self
   end
 
-  local pcall_status, message = pcall(self.params.trigger_code)
+  local pcall_status, message = pcall(self.params.trigger_code, self)
 
   if not pcall_status then
     self.sc_logger:error("[sc_trigger:execute_trigger_file]: couldn't run trigger file Lua code. Error: " .. tostring(message))
@@ -106,7 +106,7 @@ function ScTrigger:register_trigger(category, event_type, trigger_function)
     return false
   end
 
-  self.triggers[category][event_type].trigger = trigger_function
+  self.triggers[category][event_type].trigger_function = trigger_function
   self.sc_logger:notice("[sc_trigger:register_trigger]: successfully registered a trigger for category: " .. tostring(category) .. " and event type: " .. tostring(event_type))
   return true
 end
