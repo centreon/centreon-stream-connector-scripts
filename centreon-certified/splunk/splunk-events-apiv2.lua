@@ -182,7 +182,8 @@ function EventQueue:add()
   }
 
   self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
-    formatted_event = self.sc_event.event.formatted_event
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
   })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 

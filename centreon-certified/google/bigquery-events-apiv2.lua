@@ -151,7 +151,8 @@ function EventQueue:add ()
   self.events[category][element][#self.events[category][element] + 1] = self.sc_event.event.formatted_event
 
   self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
-    formatted_event = self.sc_event.event.formatted_event
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
   })
 end
 

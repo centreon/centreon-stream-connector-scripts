@@ -102,19 +102,22 @@ end)
 
 **Returned default value:** no default value declared for this trigger
 
-**Return value:** ignored, no return value is expected. However `data.formatted_event` is given to you by reference: editing its fields in your function directly changes the event that is going to be queued and sent.
+**Return value:** ignored, no return value is expected. However both `data.formatted_event` and `data.full_event_data` are given to you by reference: editing their fields in your function directly changes the event that is going to be queued and sent.
 
 **data table:**
 
 | index | type | description |
 | - | - | - |
 | formatted_event | table | the event as it is going to be sent, already formatted by the stream connector. You can add, edit or remove fields on it |
+| full_event_data | table | the full event table used internally by the stream connector: every raw field from the Centreon Broker event, plus `category`, `element`, the broker `cache` data (host, service, hostgroups, ...) gathered while validating the event, and `formatted_event` itself (same table as the `formatted_event` index above, just reachable from here too) |
 
 **Example:**
 
 ```lua
 self:register_trigger("EventQueue:add", "on-event-add", function(data)
   data.formatted_event.my_custom_field = "hello from my trigger file"
+  -- full_event_data grants access to everything, including fields that never made it into formatted_event
+  data.formatted_event.host_id = data.full_event_data.host_id
 end)
 ```
 
