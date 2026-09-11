@@ -177,6 +177,10 @@ function EventQueue.new(params)
     end
   end
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -215,10 +219,10 @@ function EventQueue:format_accepted_event()
   local template = self.sc_params.params.format_template[category][element]
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -240,7 +244,7 @@ function EventQueue:format_event_host()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
       .. " " .. event.cache.host.name .. " is " .. state, 1, 130),
     description = string.sub(event.output, 1, 15000),
@@ -249,7 +253,7 @@ function EventQueue:format_event_host()
 
   local priority = self:get_priority()
   if priority then
-    self.sc_event.event.formated_event.priority = priority
+    self.sc_event.event.formatted_event.priority = priority
   end
 end
 
@@ -258,7 +262,7 @@ function EventQueue:format_event_service()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
       .. " " .. event.cache.host.name .. " // " .. event.cache.service.description .. " is " .. state, 1, 130),
     description = string.sub(event.output, 1, 15000),
@@ -267,7 +271,7 @@ function EventQueue:format_event_service()
 
   local priority = self:get_priority()
   if priority then
-    self.sc_event.event.formated_event.priority = priority
+    self.sc_event.event.formatted_event.priority = priority
   end
 end
 
@@ -276,7 +280,7 @@ function EventQueue:format_event_ba()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     message = string.sub(event.cache.ba.ba_name  .. " is " .. state .. ", health level reached " .. event.level_nominal, 1, 130)
   }
 
@@ -300,7 +304,7 @@ function EventQueue:format_event_ba()
       end
     end
 
-    self.sc_event.formated_event.tags = tags
+    self.sc_event.formatted_event.tags = tags
   end
 
 end
@@ -317,7 +321,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

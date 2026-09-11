@@ -121,6 +121,10 @@ function EventQueue.new (params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   setmetatable(self, { __index = EventQueue })
   return self
 end
@@ -338,10 +342,10 @@ function EventQueue:format_accepted_event()
   local template = self.sc_params.params.format_template[category][element]
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -361,7 +365,7 @@ end
 function EventQueue:format_event_host()
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     source = self.sc_params.params.source,
     short_description = self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. tostring(event.cache.host.name) .. " " .. tostring(event.short_output),
     cmdb_ci = tostring(event.cache.host.name),
@@ -373,7 +377,7 @@ end
 function EventQueue:format_event_service()
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     source = self.sc_params.params.source,
     short_description = self.sc_params.params.status_mapping[event.category][event.element][event.state] .. " " .. tostring(event.cache.host.name) .. " " .. tostring(event.cache.service.description) .. " " .. tostring(event.short_output),
     cmdb_ci = tostring(event.cache.host.name),
@@ -406,7 +410,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

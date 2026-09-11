@@ -113,6 +113,10 @@ function event_queue.new(params)
   self.send_data_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
   self.init_fail_sleep_counter = self.sc_common:create_sleep_counter_table({}, 0, 300, 10)
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return event_queue object
   setmetatable(self, { __index = event_queue })
   return self
@@ -146,7 +150,7 @@ function event_queue:format_event_host()
   self.sc_logger:debug("[event_queue:format_event_host]: starting format event host.")
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "host",
     state = event.state,
     state_type = event.state_type,
@@ -156,12 +160,12 @@ function event_queue:format_event_host()
     ctime = event.last_check
   }
   -- Add ACK & Downtime
-  event.formated_event["acknowledge"] = event.acknowledged
-  event.formated_event["downtime"]    = event.scheduled_downtime_depth
+  event.formatted_event["acknowledge"] = event.acknowledged
+  event.formatted_event["downtime"]    = event.scheduled_downtime_depth
 
   -- Add hostgroup
   if event.cache.host.groups then
-    event.formated_event["hostgroups"] = event.cache.host.groups
+    event.formatted_event["hostgroups"] = event.cache.host.groups
   end
 
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
@@ -176,7 +180,7 @@ function event_queue:format_event_service()
   self.sc_logger:debug("[event_queue:format_event_service]: starting format event service.")
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "service",
     state = event.state,
     state_type = event.state_type,
@@ -187,12 +191,12 @@ function event_queue:format_event_service()
     ctime = event.last_check
   }
   -- Add ACK & Downtime
-  event.formated_event["acknowledge"] = event.acknowledged
-  event.formated_event["downtime"]    = event.scheduled_downtime_depth
+  event.formatted_event["acknowledge"] = event.acknowledged
+  event.formatted_event["downtime"]    = event.scheduled_downtime_depth
 
   -- Add hostgroup
   if event.cache.host.groups then
-    event.formated_event["hostgroups"] = event.cache.host.groups
+    event.formatted_event["hostgroups"] = event.cache.host.groups
   end
 
   self.sc_metrics:build_metric(self.format_metric[event.category][event.element])
@@ -240,7 +244,7 @@ function event_queue:format_metric_event(metric)
   end
   full_metric_name = full_metric_name .. tostring(metric.metric_name)
 
-  self.sc_event.event.formated_event["metric_name:" .. full_metric_name] = metric.value
+  self.sc_event.event.formatted_event["metric_name:" .. full_metric_name] = metric.value
   self.custom_queue_size = self.custom_queue_size + 1
 
   self.sc_logger:debug("[event_queue:format_metric]: end real format metric ")
@@ -257,7 +261,11 @@ function event_queue:add()
 
   self.sc_logger:debug("[event_queue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
 
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[event_queue:add]: queue size is now: " .. tostring(self.custom_queue_size)
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

@@ -114,6 +114,10 @@ function EventQueue.new(params)
   self.sc_bq:get_tables_schema()
   self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -125,11 +129,11 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
 
-  self.sc_event.event.formated_event = {}
-  self.sc_event.event.formated_event.json = {}
+  self.sc_event.event.formatted_event = {}
+  self.sc_event.event.formatted_event.json = {}
 
   for column, value in pairs(self.sc_bq.schemas[self.sc_event.event.category][self.sc_event.event.element]) do
-    self.sc_event.event.formated_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+    self.sc_event.event.formatted_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
   end
 
   self:add()
@@ -144,7 +148,11 @@ function EventQueue:add ()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
-  self.events[category][element][#self.events[category][element] + 1] = self.sc_event.event.formated_event
+  self.events[category][element][#self.events[category][element] + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 end
 
 --------------------------------------------------------------------------------
@@ -308,8 +316,8 @@ function EventQueue:send_data (table_name)
   }
 
   -- concatenate all stored event in the data variable
-  for index, formated_event in ipairs(self.events[self.sc_event.event.category][self.sc_event.event.element]) do
-      data.rows[index] = formated_event
+  for index, formatted_event in ipairs(self.events[self.sc_event.event.category][self.sc_event.event.element]) do
+      data.rows[index] = formatted_event
   end
 
   self.sc_logger:info("EventQueue:send_data:  creating json: " .. tostring(broker.json_encode(data)))

@@ -118,6 +118,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -194,7 +198,7 @@ function EventQueue:format_metric_event(metric)
   local event = self.sc_event.event
   local params = self.sc_params.params
 
-  -- self.sc_event.event.formated_event = {
+  -- self.sc_event.event.formatted_event = {
   --   "'" .. tostring(event.cache.host.name) .. "',"
   --   .. event.last_check .. ",'"
   --   .. metric.metric_name .. "',"
@@ -229,7 +233,7 @@ function EventQueue:format_metric_event(metric)
       .. "," .. self:convert_NaN(metric.max) .. ""
   end
 
-  self.sc_event.event.formated_event = {structure}
+  self.sc_event.event.formatted_event = {structure}
 
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
@@ -283,7 +287,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

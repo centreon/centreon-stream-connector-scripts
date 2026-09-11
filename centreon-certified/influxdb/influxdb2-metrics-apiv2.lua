@@ -122,6 +122,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -181,7 +185,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_metric_host(metric)
   self.sc_logger:debug("[EventQueue:format_metric_host]:  start format_metric host")
-  self.sc_event.event.formated_event = metric.metric_name .. ",type=host," .. self:build_generic_tags(metric) .. " value=" .. metric.value .. " " .. self.sc_event.event.last_check
+  self.sc_event.event.formatted_event = metric.metric_name .. ",type=host," .. self:build_generic_tags(metric) .. " value=" .. metric.value .. " " .. self.sc_event.event.last_check
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric_service]: end format_metric host")
 end
@@ -193,7 +197,7 @@ end
 function EventQueue:format_metric_service(metric)
   local params = self.sc_params.params
   self.sc_logger:debug("[EventQueue:format_metric_service]: start format_metric service")
-  self.sc_event.event.formated_event = metric.metric_name .. ",type=service,service.name="
+  self.sc_event.event.formatted_event = metric.metric_name .. ",type=service,service.name="
     .. self:escape_special_characters(self.sc_event.event.cache.service.description)
     .. "," .. self:build_generic_tags(metric) .. " value=" .. metric.value .. " " .. self.sc_event.event.last_check
   self:add()
@@ -203,7 +207,7 @@ end
 --------------------------------------------------------------------------------
 ---- EventQueue:build_tags method
 -- @param metric {table} a single metric data
--- @return tags {table} a table with formated metadata
+-- @return tags {table} a table with formatted metadata
 --------------------------------------------------------------------------------
 function EventQueue:build_generic_tags(metric)
   local event = self.sc_event.event
@@ -245,7 +249,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

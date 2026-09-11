@@ -100,6 +100,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -113,11 +117,11 @@ function EventQueue:format_accepted_event()
   local element = self.sc_event.event.element
   local template = self.sc_params.params.format_template[category][element]
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
     for index, value in pairs(template) do
-      self.sc_event.event.formated_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+      self.sc_event.event.formatted_event[index] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
     end
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
@@ -136,7 +140,7 @@ function EventQueue:format_accepted_event()
 end
 
 function EventQueue:format_event_host()
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "host",
     state = self.sc_event.event.state,
     state_type = self.sc_event.event.state_type,
@@ -146,7 +150,7 @@ function EventQueue:format_event_host()
 end
 
 function EventQueue:format_event_service()
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     event_type = "service",
     state = self.sc_event.event.state,
     state_type = self.sc_event.event.state_type,
@@ -174,8 +178,12 @@ function EventQueue:add()
     index = self.sc_params.params.splunk_index,
     host = self.sc_params.params.splunk_host,
     time = self.sc_event.event.last_check,
-    event = self.sc_event.event.formated_event
+    event = self.sc_event.event.formatted_event
   }
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))

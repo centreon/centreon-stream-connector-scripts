@@ -141,6 +141,10 @@ function EventQueue.new(params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   self:build_index_template(self.sc_params.params)
@@ -498,7 +502,7 @@ function EventQueue:format_metric_service(metric)
   self.sc_logger:debug("[EventQueue:format_metric_service]: call format_metric service")
 
   self:add_generic_information(metric)
-  self.sc_event.event.formated_event["service_description"] = tostring(self.sc_event.event.cache.service.description)
+  self.sc_event.event.formatted_event["service_description"] = tostring(self.sc_event.event.cache.service.description)
   self:add_generic_optional_information(metric)
   self:add_service_optional_information()
   self:add()
@@ -506,7 +510,7 @@ end
 
 function EventQueue:add_generic_information(metric)
   local event = self.sc_event.event
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     ["@timestamp"] = event.last_check,
     ["host_name"] = tostring(event.cache.host.name),
     ["metric_name"] = tostring(metric.metric_name),
@@ -529,26 +533,26 @@ function EventQueue:add_generic_optional_information(metric)
       table.insert(hostgroups, hg_info.group_name)
     end
 
-    self.sc_event.event.formated_event["host_groups"] = hostgroups
+    self.sc_event.event.formatted_event["host_groups"] = hostgroups
   end
 
   -- add poller
   if params.add_poller_dimension == 1 then
-    self.sc_event.event.formated_event.poller = event.cache.poller
+    self.sc_event.event.formatted_event.poller = event.cache.poller
   end
 
   -- add min and max
   if params.add_min_max_dimension == 1 then
-    self.sc_event.event.formated_event.metric_min = self:handle_NaN(metric.min)
-    self.sc_event.event.formated_event.metric_max = self:handle_NaN(metric.max)
+    self.sc_event.event.formatted_event.metric_min = self:handle_NaN(metric.min)
+    self.sc_event.event.formatted_event.metric_max = self:handle_NaN(metric.max)
   end
 
   -- add thresholds
   if params.add_thresholds_dimension == 1 then
-    self.sc_event.event.formated_event.metric_warning_low = self:handle_NaN(metric.warning_low)
-    self.sc_event.event.formated_event.metric_warning_high = self:handle_NaN(metric.warning_high)
-    self.sc_event.event.formated_event.metric_critical_low = self:handle_NaN(metric.critical_low)
-    self.sc_event.event.formated_event.metric_critical_high = self:handle_NaN(metric.critical_high)
+    self.sc_event.event.formatted_event.metric_warning_low = self:handle_NaN(metric.warning_low)
+    self.sc_event.event.formatted_event.metric_warning_high = self:handle_NaN(metric.warning_high)
+    self.sc_event.event.formatted_event.metric_critical_low = self:handle_NaN(metric.critical_low)
+    self.sc_event.event.formatted_event.metric_critical_high = self:handle_NaN(metric.critical_high)
   end
 end
 
@@ -569,7 +573,7 @@ function EventQueue:add_service_optional_information()
       table.insert(servicegroups, sg_info.group_name)
     end
 
-    self.sc_event.event.formated_event["service_groups"] = servicegroups
+    self.sc_event.event.formatted_event["service_groups"] = servicegroups
   end
 end
 
@@ -585,7 +589,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. "max is: " .. tostring(self.sc_params.params.max_buffer_size))
 end

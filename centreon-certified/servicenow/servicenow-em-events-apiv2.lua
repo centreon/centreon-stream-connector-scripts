@@ -111,6 +111,10 @@ function EventQueue.new (params)
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   setmetatable(self, { __index = EventQueue })
 
   return self
@@ -320,10 +324,10 @@ function EventQueue:format_accepted_event()
   local template = self.sc_params.params.format_template[category][element]
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -341,7 +345,7 @@ function EventQueue:format_accepted_event()
 end
 
 function EventQueue:format_event_host()
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     source = "centreon",
     event_class = "centreon",
     node = tostring(self.sc_event.event.cache.host.name),
@@ -353,7 +357,7 @@ function EventQueue:format_event_host()
 end
 
 function EventQueue:format_event_service()
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     source = "centreon",
     event_class = "centreon",
     node = tostring(self.sc_event.event.cache.host.name),
@@ -364,13 +368,13 @@ function EventQueue:format_event_service()
   }
 
   if self.sc_event.event.state == 0 then
-    self.sc_event.event.formated_event.severity = 0
+    self.sc_event.event.formatted_event.severity = 0
   elseif self.sc_event.event.state == 1 then
-      self.sc_event.event.formated_event.severity = 3
+      self.sc_event.event.formatted_event.severity = 3
   elseif self.sc_event.event.state == 2 then 
-      self.sc_event.event.formated_event.severity = 1
+      self.sc_event.event.formatted_event.severity = 1
   elseif self.sc_event.event.state == 3 then 
-      self.sc_event.event.formated_event.severity = 4
+      self.sc_event.event.formatted_event.severity = 4
   end
 end
 
@@ -397,7 +401,11 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
