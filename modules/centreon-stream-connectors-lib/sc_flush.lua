@@ -274,13 +274,13 @@ function ScFlush:flush_payload(send_method, payload, metadata)
   self.sc_logger:debug("[sc_flush:flush_payload]: tried to send payload protected by pcall. Status: " .. tostring(pcall_status) .. ", Message: " .. tostring(result))
 
   if not pcall_status then
-    self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
-
     -- ignore errors and tell broker everything went fine to avoid retention if asked to
     if self.params.drop_events_on_send_failure == 1 then
+      self.sc_logger:error("[sc_flush:flush_payload]: Dropping payload because parameter drop_events_on_send_failure is set to: " .. tostring(self.params.drop_events_on_send_failure) .. ". pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
       return true
     end
 
+    self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
     return false
   end
 
