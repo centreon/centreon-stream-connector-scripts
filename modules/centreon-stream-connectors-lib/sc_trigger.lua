@@ -28,6 +28,54 @@ function sc_trigger.new(params, sc_common, sc_logger)
           default_value = false
         }
       }
+    },
+    ["sc_storage:set"] = {
+      ["on-set"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:set_multiple"] = {
+      ["on-set"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:get"] = {
+      ["on-get"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:get_multiple"] = {
+      ["on-get"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:delete"] = {
+      ["on-delete"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:delete_multiple"] = {
+      ["on-delete"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:show"] = {
+      ["on-show"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_storage:clear"] = {
+      ["on-clear"] = {
+        trigger_function = false,
+        _internal = {}
+      }
     }
   }
 
