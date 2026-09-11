@@ -41,6 +41,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 
 -- workaround https://github.com/centreon/centreon-broker/issues/201
 local previous_event = ""
@@ -97,6 +98,9 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
@@ -107,8 +111,8 @@ function EventQueue.new(params)
     self.sc_logger:error("[EventQueue:new]: couldn't successfully load the custom code file: " .. tostring(self.sc_params.params.custom_code_file))
   end
 
-  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger, self.sc_common, self.sc_trigger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -326,7 +330,7 @@ function write(event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage, queue.sc_trigger)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
