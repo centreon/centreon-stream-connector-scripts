@@ -134,13 +134,11 @@ end
 --- build_valid_trigger_categories: create a table of all trigger categories that are set in the self.triggers table
 -- @return self
 function ScTrigger:build_valid_trigger_categories()
-  local valid_categories = {}
+  self.valid_categories = {}
 
   for category_name, category_data in pairs(self.triggers) do
-    table.insert(valid_categories, category_name)
+    table.insert(self.valid_categories, category_name)
   end
-
-  self.valid_categories = table.concat(valid_categories, ", ")
 
   return self
 end
@@ -149,15 +147,18 @@ end
 -- @return self
 function ScTrigger:build_valid_trigger_event_types()
   local valid_event_types = {}
+  self.valid_event_types = {}
 
   for _, category_name in ipairs(self.valid_categories) do
     self.valid_event_types[category_name] = {}
     for event_type_name, event_type_data in pairs(self.triggers[category_name]) do
-      table.insert(self.valid_event_types[category_name], event_type_name)
+      table.insert(valid_event_types, event_type_name)
     end
+    self.valid_event_types[category_name] = table.concat(valid_event_types, ", ")
+    valid_event_types = {}
   end
 
-  self.valid_event_types = table.concat(valid_event_types, ", ")
+  self.valid_categories = table.concat(self.valid_categories, ", ")
   return self
 end
 
@@ -175,7 +176,7 @@ function ScTrigger:register_trigger(category, event_type, trigger_function)
 
   if not self.triggers[category][event_type] then
     self.sc_logger:error("[sc_trigger:register_trigger]: ivalid trigger event type: " .. tostring(event_type) 
-      .. ". List of valid event type for category " .. tostring(category) .. ": " .. self.valid_event_types)
+      .. ". List of valid event type for category " .. tostring(category) .. ": " .. self.valid_event_types[category])
     return false
   end
 
@@ -199,14 +200,14 @@ function ScTrigger:run_trigger(category, event_type, data)
 
   if not self.triggers[category][event_type] then
     self.sc_logger:error("[sc_trigger:run_trigger]: ivalid trigger event type: " .. tostring(event_type) 
-      .. ". List of valid event type for category " .. tostring(category) .. ": " .. self.valid_event_types)
+      .. ". List of valid event type for category " .. tostring(category) .. ": " .. self.valid_event_types[category])
     return false
   end
 
   -- at that point, we know that there is an existing entry in the trigger table. Check if the is a default return value that we can use if something fails from now on
   local default_return_value = false
-  if self.triggers[category][event_type].default_value ~= nil then
-    default_return_value = self.triggers[category][event_type].default_value
+  if self.triggers[category][event_type]._internal.default_value ~= nil then
+    default_return_value = self.triggers[category][event_type]._internal.default_value
   end
 
   if not self.triggers[category][event_type].trigger_function then
