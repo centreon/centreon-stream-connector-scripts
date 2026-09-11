@@ -7,14 +7,14 @@
 local sc_flush = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScFlush = {}
 
 --- sc_flush.new: sc_flush constructor
 -- @param params (table) the params table of the stream connector
 -- @param [opt] sc_logger (object) a sc_logger object 
-function sc_flush.new(params, logger)
+-- @param sc_common
+function sc_flush.new(params, logger, sc_common, sc_trigger)
   local self = {}
   
   -- create a default logger if it is not provided
@@ -23,7 +23,8 @@ function sc_flush.new(params, logger)
     self.sc_logger = sc_logger.new()
   end
 
-  self.sc_common = sc_common.new(self.sc_logger)
+  self.sc_common = sc_common
+  self.sc_trigger = sc_trigger
 
   self.params = params
   self.last_global_flush = os.time()
