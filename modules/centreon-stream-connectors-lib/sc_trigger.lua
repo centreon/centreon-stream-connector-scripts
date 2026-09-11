@@ -32,7 +32,24 @@ function sc_trigger.new(params, sc_common, sc_logger)
   }
 
   setmetatable(self, { __index = ScTrigger})
-  self:build_valid_trigger_categories():build_valid_trigger_event_types()
+  self:build_valid_trigger_categories()
+    :build_valid_trigger_event_types()
+    :execute_trigger_file()
+  return self
+end
+
+function ScTrigger:execute_trigger_file()
+  if not self.params.trigger_code then
+    return self
+  end
+
+  local pcall_status, message = pcall(self.params.trigger_code)
+
+  if not pcall_status then
+    self.sc_logger:error("[sc_trigger:execute_trigger_file]: couldn't run trigger file Lua code. Error: " .. tostring(message))
+  end
+
+  self.sc_logger:notice("[sc_trigger:execute_trigger_file]: successfully executed trigger file Lua code")
   return self
 end
 
