@@ -29,6 +29,24 @@ function sc_trigger.new(params, sc_common, sc_logger)
         }
       }
     },
+    ["sc_flush:create_new_virtual_queue"] = {
+      ["on-create"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_flush:add_queue_metadata"] = {
+      ["on-add"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_flush:reset_all_queues"] = {
+      ["on-reset"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
     ["sc_storage:set"] = {
       ["on-set"] = {
         trigger_function = false,
