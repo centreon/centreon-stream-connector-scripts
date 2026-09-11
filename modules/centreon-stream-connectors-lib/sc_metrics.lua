@@ -21,7 +21,7 @@ local ScMetrics = {}
 -- @param broker (object) a sc_broker instance
 -- @param cache (object) a sc_cache instance
 -- @param [opt] sc_logger (object) a sc_logger instance 
-function sc_metrics.new(event, params, common, broker, storage, logger)
+function sc_metrics.new(event, params, common, broker, storage, logger, sc_trigger)
   self = {}
 
   -- create a default logger if it is not provided
@@ -33,6 +33,7 @@ function sc_metrics.new(event, params, common, broker, storage, logger)
   self.sc_common = common
   self.params = params
   self.sc_broker = broker
+  self.sc_trigger = sc_trigger
 
   local categories = self.params.bbdo.categories
   local elements = self.params.bbdo.elements
@@ -67,7 +68,7 @@ function sc_metrics.new(event, params, common, broker, storage, logger)
   -- initiate metrics table 
   self.metrics = {}
   -- initiate sc_event object
-  self.sc_event = sc_event.new(event, self.params, self.sc_common, self.sc_logger, self.sc_broker, self.sc_storage)
+  self.sc_event = sc_event.new(event, self.params, self.sc_common, self.sc_logger, self.sc_broker, self.sc_storage, self.sc_trigger)
 
   setmetatable(self, { __index = ScMetrics })
   return self

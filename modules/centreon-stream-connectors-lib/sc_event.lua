@@ -24,7 +24,7 @@ function sc_event.set_pending_event_handler(handler)
   pending_event_handler = handler
 end
 
-function sc_event.new(broker_event, params, common, logger, broker, storage)
+function sc_event.new(broker_event, params, common, logger, broker, storage, sc_trigger)
   local self = {}
 
   self.sc_logger = logger
@@ -37,6 +37,7 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
   self.broker_event = broker_event
   self.sc_broker = broker
   self.sc_storage = storage
+  self.sc_trigger = sc_trigger
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
   -- we create our event table

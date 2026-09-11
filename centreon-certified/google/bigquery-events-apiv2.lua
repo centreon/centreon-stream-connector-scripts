@@ -7,6 +7,7 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_oauth = require("centreon-stream-connectors-lib.google.auth.oauth")
 local sc_bq = require("centreon-stream-connectors-lib.google.bigquery.bigquery")
 local curl = require("cURL")
@@ -52,6 +53,9 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
 
   self.sc_params.params.__internal_ts_host_last_flush = os.time()
   self.sc_params.params.__internal_ts_service_last_flush = os.time()
@@ -108,7 +112,7 @@ function EventQueue.new(params)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -397,7 +401,7 @@ function write(event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage, queue.sc_trigger)
 
   -- drop event if wrong category
   if not queue.sc_event:is_valid_category() then
