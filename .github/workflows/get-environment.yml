@@ -4,12 +4,16 @@ on:
       stability:
         description: "branch stability (stable, testing, unstable, canary)"
         value: ${{ jobs.get-environment.outputs.stability }}
+      release_type:
+        description: "release type (release, hotfix or empty when the branch is neither)"
+        value: ${{ jobs.get-environment.outputs.release_type }}
 
 jobs:
   get-environment:
     runs-on: ubuntu-24.04
     outputs:
       stability: ${{ steps.get_environment.outputs.stability }}
+      release_type: ${{ steps.get_environment.outputs.release_type }}
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -37,4 +41,11 @@ jobs:
               ;;
           esac
           echo "stability=$STABILITY" >> $GITHUB_OUTPUT
+          # the pulp testing repositories are split per release type
+          RELEASE_TYPE=""
+          case "$BRANCHNAME" in
+            release*) RELEASE_TYPE="release" ;;
+            hotfix*) RELEASE_TYPE="hotfix" ;;
+          esac
+          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
         shell: bash
