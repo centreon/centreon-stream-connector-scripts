@@ -77,7 +77,7 @@ jobs:
     strategy:
       max-parallel: 25
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, el10, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -89,9 +89,6 @@ jobs:
           - distrib: el10
             image: packaging-stream-connectors-nfpm-alma10
             package_extension: rpm
-          - distrib: bullseye
-            image: packaging-stream-connectors-nfpm-bullseye
-            package_extension: deb
           - distrib: bookworm
             image: packaging-stream-connectors-nfpm-bookworm
             package_extension: deb
@@ -192,7 +189,7 @@ jobs:
       fail-fast: false
       max-parallel: 25
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, el10, bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -204,9 +201,6 @@ jobs:
           - distrib: el10
             package_extension: rpm
             image: almalinux:10
-          - distrib: bullseye
-            package_extension: deb
-            image: debian:bullseye
           - distrib: bookworm
             package_extension: deb
             image: debian:bookworm
@@ -270,7 +264,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, trixie, jammy, noble]
+        distrib: [bookworm, trixie, jammy, noble]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
@@ -300,7 +294,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie]
+        distrib: [el8, el9, el10, bookworm, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -309,8 +303,6 @@ jobs:
             package_extension: rpm
           - distrib: el10
             package_extension: rpm
-          - distrib: bullseye
-            package_extension: deb
           - distrib: bookworm
             package_extension: deb
           - distrib: trixie
