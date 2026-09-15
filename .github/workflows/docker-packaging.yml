@@ -27,7 +27,7 @@ jobs:
 
     strategy:
       matrix:
-        distrib: [alma8, alma9, alma10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [alma8, alma9, alma10, bookworm, trixie, jammy, noble]
     steps:
       - name: Checkout sources
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

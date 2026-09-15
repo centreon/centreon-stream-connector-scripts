@@ -29,6 +29,7 @@ jobs:
       - name: Check workflow files
         run: |
           ${{ steps.get_actionlint.outputs.executable }} \
+          -ignore 'label "centreon-(common|ubuntu-22.04)" is unknown' \
           -ignore '"github.head_ref" is potentially untrusted' \
           -shellcheck= \
           -pyflakes= \
