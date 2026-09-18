@@ -7,14 +7,14 @@
 local sc_flush = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScFlush = {}
 
 --- sc_flush.new: sc_flush constructor
 -- @param params (table) the params table of the stream connector
 -- @param [opt] sc_logger (object) a sc_logger object 
-function sc_flush.new(params, logger)
+-- @param sc_common
+function sc_flush.new(params, logger, sc_common, sc_trigger)
   local self = {}
   
   -- create a default logger if it is not provided
@@ -23,7 +23,8 @@ function sc_flush.new(params, logger)
     self.sc_logger = sc_logger.new()
   end
 
-  self.sc_common = sc_common.new(self.sc_logger)
+  self.sc_common = sc_common
+  self.sc_trigger = sc_trigger
 
   self.params = params
   self.last_global_flush = os.time()
@@ -99,6 +100,10 @@ function ScFlush:create_new_virtual_queue(category_id, virtual_element_id, virtu
     element_name = virtual_element_name
   }
 
+  self.sc_trigger:run_trigger("sc_flush:create_new_virtual_queue", "on-create", {
+    virtual_queue = self.queues[category_id][virtual_element_id]
+  })
+
   self.sc_logger:debug("[sc_flush:create_new_virtual_queue]: created new virtual queue: " .. tostring(virtual_element_name) 
     .. " for category: " .. self.params.reverse_category_mapping[category_id] .. " with virtual element id: " .. tostring(virtual_element_id))
 
@@ -128,7 +133,12 @@ function ScFlush:add_queue_metadata(category_id, element_id, metadata)
 
   for metadata_name, metadata_value in pairs(metadata) do
     self.queues[category_id][element_id].queue_metadata[metadata_name] = metadata_value
+    self.sc_trigger:run_trigger("sc_flush:add_queue_metadata", "on-add", {
+      name = metadata_name,
+      value = metadata_value
+    })
   end
+
 end
 
 --- flush_all_queues: tries to flush all queues according to accepted elements
@@ -155,6 +165,10 @@ function ScFlush:reset_all_queues()
   for _, element_info in pairs(self.params.accepted_elements_info) do
     self.queues[element_info.category_id][element_info.element_id].events = {}
   end
+
+  self.sc_trigger:run_trigger("sc_flush:reset_all_queues", "on-reset", {
+    queues = self.queues
+  })
 
   self.last_global_flush = os.time()
 end
@@ -275,10 +289,10 @@ function ScFlush:flush_payload(send_method, payload, metadata)
 
   if not pcall_status then
     self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
-    return false
+    return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-fail", {payload = payload, metadata = metadata, error = result})
   end
 
-  return result
+  return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-success", {payload = payload, metadata = metadata})
 end
 
 return sc_flush

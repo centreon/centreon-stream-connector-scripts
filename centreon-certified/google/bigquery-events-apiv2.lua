@@ -7,6 +7,7 @@ local sc_event = require("centreon-stream-connectors-lib.sc_event")
 local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_oauth = require("centreon-stream-connectors-lib.google.auth.oauth")
 local sc_bq = require("centreon-stream-connectors-lib.google.bigquery.bigquery")
 local curl = require("cURL")
@@ -52,6 +53,9 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
 
   self.sc_params.params.__internal_ts_host_last_flush = os.time()
   self.sc_params.params.__internal_ts_service_last_flush = os.time()
@@ -108,7 +112,11 @@ function EventQueue.new(params)
   self.sc_oauth = sc_oauth.new(self.sc_params.params, self.sc_common, self.sc_logger) -- , self.sc_common, self.sc_logger)
   self.sc_bq = sc_bq.new(self.sc_params.params, self.sc_logger)
   self.sc_bq:get_tables_schema()
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
+
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -121,11 +129,11 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
 
-  self.sc_event.event.formated_event = {}
-  self.sc_event.event.formated_event.json = {}
+  self.sc_event.event.formatted_event = {}
+  self.sc_event.event.formatted_event.json = {}
 
   for column, value in pairs(self.sc_bq.schemas[self.sc_event.event.category][self.sc_event.event.element]) do
-    self.sc_event.event.formated_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
+    self.sc_event.event.formatted_event.json[column] = self.sc_macros:replace_sc_macro(value, self.sc_event.event)
   end
 
   self:add()
@@ -140,7 +148,12 @@ function EventQueue:add ()
   -- store event in self.events lists
   local category = self.sc_event.event.category
   local element = self.sc_event.event.element
-  self.events[category][element][#self.events[category][element] + 1] = self.sc_event.event.formated_event
+  self.events[category][element][#self.events[category][element] + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
+  })
 end
 
 --------------------------------------------------------------------------------
@@ -304,8 +317,8 @@ function EventQueue:send_data (table_name)
   }
 
   -- concatenate all stored event in the data variable
-  for index, formated_event in ipairs(self.events[self.sc_event.event.category][self.sc_event.event.element]) do
-      data.rows[index] = formated_event
+  for index, formatted_event in ipairs(self.events[self.sc_event.event.category][self.sc_event.event.element]) do
+      data.rows[index] = formatted_event
   end
 
   self.sc_logger:info("EventQueue:send_data:  creating json: " .. tostring(broker.json_encode(data)))
@@ -397,7 +410,7 @@ function write(event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage, queue.sc_trigger)
 
   -- drop event if wrong category
   if not queue.sc_event:is_valid_category() then

@@ -111,6 +111,9 @@ function sc_params.new(common, logger)
     -- custom code parameters
     custom_code_file = "",
 
+    -- trigger parameters
+    trigger_file = "",
+
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
     timestamp_conversion_format = "%Y-%m-%d %X", -- will print 2021-06-11 10:43:38
@@ -1047,6 +1050,7 @@ function ScParams:check_params()
 
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
   self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
+  self:load_trigger_file()
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
@@ -1162,6 +1166,36 @@ function ScParams:load_custom_code_file(custom_code_file)
   end
 
   self.params.custom_code = custom_code
+  io.close(file)
+  return true
+end
+
+--- load_trigger_file: load Lua file containing code for triggers which purpose is to enhance stream connectors possibilities without having to edit any standard code
+-- @param file (string) the file that needs to be loaded (example: /etc/centreon-broker/sc-trigger-code.lua)
+-- @return true|false (boolean) if file is a valid Lua file or not
+function ScParams:load_trigger_file()
+  if self.params.trigger_file == "" or self.params.trigger_file == nil then
+    return true
+  end
+
+  local file = io.open(self.params.trigger_file, "r")
+
+  if not file then
+    self.logger:error("[sc_params:load_trigger_file]: couldn't open file "
+      .. tostring(self.params.trigger_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+    return false
+  end
+
+  self.logger:notice("[sc_params:load_trigger_file]: you are loading the " .. tostring(self.params.trigger_file) .. " trigger file.")
+
+  local trigger_code, error = loadfile(self.params.trigger_file)
+  if not trigger_code then
+    self.logger:error("[sc_params:load_trigger_file]: trigger_file doesn't contain valid lua code. Error is: " .. tostring(error))
+    return false
+  end
+
+  self.params.trigger_code = trigger_code
+  io.close(file)
   return true
 end
 

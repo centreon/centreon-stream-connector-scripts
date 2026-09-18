@@ -22,6 +22,9 @@
     - [load\_event\_format\_file: parameters](#load_event_format_file-parameters)
     - [load\_event\_format\_file: returns](#load_event_format_file-returns)
     - [load\_event\_format\_file: example](#load_event_format_file-example)
+  - [load\_trigger\_file method](#load_trigger_file-method)
+    - [load\_trigger\_file: returns](#load_trigger_file-returns)
+    - [load\_trigger\_file: example](#load_trigger_file-example)
   - [validate\_pattern\_param method](#validate_pattern_param-method)
     - [validate\_pattern\_param: parameters](#validate_pattern_param-parameters)
     - [validate\_pattern\_param: returns](#validate_pattern_param-returns)
@@ -87,6 +90,7 @@ The sc_param module provides methods to help you handle parameters for your stre
 | send_data_test                          | number | 0                                                                             | When set to 1, send data in the logfile of the stream connector instead of sending it where the stream connector was designed to                                                                                                                                                                                                              | all                                                                                                                                                                                                                                                                                      |                                                                                                                                                                                                                                                                                                  |
 | format_file                             | string |                                                                               | Path to a file that will be used as a template to format events instead of using the default format                                                                                                                                                                                                                                               | only usable for events stream connectors (\*-events-apiv2.lua) and not metrics stream connectors (\*-metrics-apiv2.lua) you should put the file in /etc/centreon-broker to keep your broker configuration in a single place. [**See documentation for more information**](templating.md) |                                                                                                                                                                                                                                                                                                  |
 | custom_code_file                        | string |                                                                               | Path to a file that contains your custom lua code                                                                                                                                                                                                                                                                                             | any                                                                                                                                                                                                                                                                                      | [Documentation](custom_code.md)                                                                                                                                                                                                                                                                  |
+| trigger_file                            | string |                                                                               | Path to a file that contains your triggers registrations                                                                                                                                                                                                                                                                                      | any                                                                                                                                                                                                                                                                                      | [Documentation](how_to_use_triggers.md)                                                                                                                                                                                                                                                          |
 | proxy_address                           | string |                                                                               | address of the proxy                                                                                                                                                                                                                                                                                                                          |                                                                                                                                                                                                                                                                                          |                                                                                                                                                                                                                                                                                                  |
 | proxy_port                              | number |                                                                               | port of the proxy                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                          |                                                                                                                                                                                                                                                                                                  |
 | proxy_username                          | string |                                                                               | user for the proxy                                                                                                                                                                                                                                                                                                                            |                                                                                                                                                                                                                                                                                          |                                                                                                                                                                                                                                                                                                  |
@@ -359,6 +363,31 @@ test_param.params.format_file = 3
 
 result = test_param:load_event_format_file(true)
 --> result is false
+```
+
+## load_trigger_file method
+
+The **load_trigger_file** method loads and compiles a Lua file containing [triggers](how_to_use_triggers.md) registrations. It uses the [**trigger_file parameter**](#default-parameters) to know which file to load. If a file is successfully loaded and compiled, it is stored (as a Lua function, not yet executed) in `self.params.trigger_code`, ready to be given to the [sc_trigger module](sc_trigger.md), which will execute it once when it is initialized. This method is automatically called by [**check_params**](#check_params-method), you usually don't need to call it yourself.
+
+### load_trigger_file: returns
+
+| return | type | always | condition |
+| - | - | - | - |
+| true | boolean | no | the trigger_file parameter is empty/not set, or the file has been successfully loaded and compiled |
+| false | boolean | no | the file could not be opened, or it does not contain valid Lua code |
+
+### load_trigger_file: example
+
+```lua
+test_param.params.trigger_file = "/etc/centreon-broker/my-trigger-file.lua"
+
+local result = test_param:load_trigger_file()
+--> result is true or false
+--[[
+  if result is true, test_param.params.trigger_code now holds
+  the compiled (but not yet executed) trigger file, ready to be
+  given to sc_trigger.new()
+]]--
 ```
 
 ## validate_pattern_param method

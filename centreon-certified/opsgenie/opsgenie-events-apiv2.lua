@@ -14,6 +14,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -79,6 +80,9 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
 
   -- need a queue for each type of event because ba status aren't sent on the same endpoint
   self.sc_params.params.send_mixed_events = 0
@@ -92,8 +96,8 @@ function EventQueue.new(params)
   end
 
   self.sc_params:build_accepted_elements_info()
-  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger, self.sc_common, self.sc_trigger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -173,6 +177,10 @@ function EventQueue.new(params)
     end
   end
 
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
+
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
@@ -211,10 +219,10 @@ function EventQueue:format_accepted_event()
   local template = self.sc_params.params.format_template[category][element]
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -236,7 +244,7 @@ function EventQueue:format_event_host()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
       .. " " .. event.cache.host.name .. " is " .. state, 1, 130),
     description = string.sub(event.output, 1, 15000),
@@ -245,7 +253,7 @@ function EventQueue:format_event_host()
 
   local priority = self:get_priority()
   if priority then
-    self.sc_event.event.formated_event.priority = priority
+    self.sc_event.event.formatted_event.priority = priority
   end
 end
 
@@ -254,7 +262,7 @@ function EventQueue:format_event_service()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     message = string.sub(os.date(self.sc_params.params.timestamp_conversion_format, event.last_update) 
       .. " " .. event.cache.host.name .. " // " .. event.cache.service.description .. " is " .. state, 1, 130),
     description = string.sub(event.output, 1, 15000),
@@ -263,7 +271,7 @@ function EventQueue:format_event_service()
 
   local priority = self:get_priority()
   if priority then
-    self.sc_event.event.formated_event.priority = priority
+    self.sc_event.event.formatted_event.priority = priority
   end
 end
 
@@ -272,7 +280,7 @@ function EventQueue:format_event_ba()
   local event = self.sc_event.event
   local state = self.sc_params.params.status_mapping[event.category][event.element][event.state]
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     message = string.sub(event.cache.ba.ba_name  .. " is " .. state .. ", health level reached " .. event.level_nominal, 1, 130)
   }
 
@@ -296,7 +304,7 @@ function EventQueue:format_event_ba()
       end
     end
 
-    self.sc_event.formated_event.tags = tags
+    self.sc_event.formatted_event.tags = tags
   end
 
 end
@@ -313,7 +321,12 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -442,7 +455,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage, queue.sc_trigger)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then

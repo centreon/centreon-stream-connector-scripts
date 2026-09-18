@@ -197,11 +197,12 @@ Since this is OOP, it is required to initiate your module.
 
 ### Module constructor
 
-Constructor must be initialized with three parameters: 
+Constructor must be initialized with four parameters: 
 
 - sc_common. This is an instance of the sc_common module
 - sc_logger. This is an instance of the sc_logger module
 - a params table.
+- sc_trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user at various points of the storage lifecycle
 
 ### Constructor: Example
 
@@ -209,6 +210,7 @@ Constructor must be initialized with three parameters:
 -- load modules
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 -- initiate "mandatory" informations for the logger module
@@ -225,8 +227,11 @@ local params = {
   storage_backend = "broker"
 }
 
--- create a new instance of the sc_common module
-local test_storage = sc_storage.new(test_common, test_logger, params)
+-- create a new instance of the sc_trigger module
+local test_trigger = sc_trigger.new(params, test_common, test_logger)
+
+-- create a new instance of the sc_storage module
+local test_storage = sc_storage.new(test_common, test_logger, params, test_trigger)
 ```
 
 ## is_valid_storage_object method

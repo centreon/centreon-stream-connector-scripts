@@ -15,6 +15,7 @@ local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 
 --------------------------------------------------------------------------------
 -- Classe event_queue
@@ -78,6 +79,9 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   
   -- only load the custom code file, not executed yet
@@ -86,8 +90,8 @@ function EventQueue.new(params)
   end
     
   self.sc_params:build_accepted_elements_info()
-  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger, self.sc_common, self.sc_trigger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -113,6 +117,10 @@ function EventQueue.new(params)
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
+
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -190,7 +198,7 @@ function EventQueue:format_metric_event(metric)
   local event = self.sc_event.event
   local params = self.sc_params.params
 
-  -- self.sc_event.event.formated_event = {
+  -- self.sc_event.event.formatted_event = {
   --   "'" .. tostring(event.cache.host.name) .. "',"
   --   .. event.last_check .. ",'"
   --   .. metric.metric_name .. "',"
@@ -225,7 +233,7 @@ function EventQueue:format_metric_event(metric)
       .. "," .. self:convert_NaN(metric.max) .. ""
   end
 
-  self.sc_event.event.formated_event = {structure}
+  self.sc_event.event.formatted_event = {structure}
 
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
@@ -279,7 +287,12 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -455,7 +468,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_storage, queue.sc_logger)
+  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_storage, queue.sc_logger, queue.sc_trigger)
   queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then

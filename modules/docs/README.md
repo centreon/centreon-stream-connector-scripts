@@ -12,6 +12,7 @@
   - [sc\_metrics methods](#sc_metrics-methods)
   - [sc\_storage methods](#sc_storage-methods)
   - [sc\_storage\_sqlite methods](#sc_storage_sqlite-methods)
+  - [sc\_trigger methods](#sc_trigger-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
   - [Additionnal documentations](#additionnal-documentations)
@@ -30,6 +31,7 @@
 | sc_metrics               | methods to help you handle metrics               | when you want to send metrics and not just events                         | [Documentation](sc_metrics.md)               |
 | sc_storage                 | methods to help you use the stream connectors internal storage mechanism | when you want to store data                                               | [Documentation](sc_storage.md)                       |
 | sc_storage_sqlite          | methods to use sqlite as a storage mechanism                            | when you want to use sqlite as your storage backend                         | [Documentation](storage_backends/sc_storage_sqlite.md) |
+| sc_trigger                | lets you run your own Lua code at specific points of a stream connector lifecycle | when you want to customize a stream connector without editing its code | [Documentation](sc_trigger.md)               |
 | google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
 | google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
 
@@ -91,6 +93,7 @@
 | is_mandatory_config_set            | check that all mandatory parameters for a stream connector are set                                                                           | [Documentation](sc_param.md#is_mandatory_config_set-method)            |
 | get_kafka_params                   | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                 | [Documentation](sc_param.md#get_kafka_params-method)                   |
 | load_event_format_file             | load a file that serves as a template for formatting events                                                                                  | [Documentation](sc_param.md#load_event_format_file-method)             |
+| load_trigger_file                  | load and compile a file that contains triggers registrations                                                                                 | [Documentation](sc_param.md#load_trigger_file-method)                  |
 | build_accepted_elements_info       | build a table that stores information about accepted elements                                                                                | [Documentation](sc_param.md#build_accepted_elements_info-method)       |
 | validate_pattern_param             | check if a parameter has a valid Lua pattern as a value                                                                                      | [Documentation](sc_param.md#validate_pattern_param-method)             |
 | build_and_validate_filters_pattern | build a table that stores information about patterns for compatible parameters                                                               | [Documentation](sc_param.md#build_and_validate_filters_pattern-method) |
@@ -219,6 +222,13 @@
 | show               | shows (in the log file) all stored properties of an object          | [Documentation](storage_backends/sc_storage_sqlite.md#show-method)               |
 | clear              | deletes all stored information in storage                             | [Documentation](storage_backends/sc_storage_sqlite.md#is_valid_perfdata-method)  |
 
+## sc_trigger methods
+
+| Method name      | Method description                                                                        | Link                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| register_trigger | attach your own function to a category/event_type, meant to be called from a trigger file  | [Documentation](sc_trigger.md#register_trigger-method)  |
+| run_trigger      | run the function registered for a category/event_type, meant to be called from the library or a stream connector | [Documentation](sc_trigger.md#run_trigger-method) |
+
 ## google.bigquery.bigquery methods
 
 | Method name                  | Method description                                         | Link                                                                             |
@@ -249,5 +259,6 @@
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | learn how to create a custom format using a format file       | [Documentation](./templating.md)                                                                                                    |
 | learn how to create custom code for your stream connector     | [Documentation](./custom_code.md)                                                                                                   |
+| learn how to write a trigger file and see the list of every available trigger | [Documentation](./how_to_use_triggers.md)                                                                           |
 | have a look at all the available mappings and how to use them | [Documentation](./mappings.md)                                                                                                      |
 | have a look at the event structure                            | [Documentation](./broker_data_structure.md) and [Documentation](https://docs.centreon.com/docs/developer/developer-broker-mapping/) |
