@@ -592,6 +592,8 @@ function ScEvent:is_valid_host()
     }
   end
 
+  -- store broker cache in a dedicated table that is used as a metatable of the official cache table. 
+  -- This allow us to edit the cache table which is not possible if we store broker cache userdata directly in the cache table
   local host_cache_meta = { __index = function (tbl, key) return host_cache_result[key] end}
   setmetatable(self.event.cache.host, host_cache_meta)
 
@@ -655,6 +657,8 @@ function ScEvent:is_valid_service()
     }
   end
 
+  -- store broker cache in a dedicated table that is used as a metatable of the official cache table. 
+  -- This allow us to edit the cache table which is not possible if we store broker cache userdata directly in the cache table
   local service_cache_meta = { __index = function (tbl, key) return service_cache_result[key] end}
   setmetatable(self.event.cache.service, service_cache_meta)
 
