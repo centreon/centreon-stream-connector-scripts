@@ -577,18 +577,23 @@ function ScEvent:is_valid_host()
     return false
   end
 
-  self.event.cache.host = self.sc_broker:get_host_all_infos(self.event.host_id)
+  local host_cache_result = self.sc_broker:get_host_all_infos(self.event.host_id)
+  self.event.cache.host = {}
+  
 
   -- return false if we can't get hostname
-  if (not self.event.cache.host and self.params.skip_anon_events == 1) then
+  if (not host_cache_result and self.params.skip_anon_events == 1) then
     self.sc_logger:warning("[sc_event:is_valid_host]: No name for host with id: " .. tostring(self.event.host_id) 
       .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
-  elseif (not self.event.cache.host and self.params.skip_anon_events == 0) then
+  elseif (not host_cache_result and self.params.skip_anon_events == 0) then
     self.event.cache.host = {
       name = self.event.host_id
     }
   end
+
+  local host_cache_meta = { __index = function (tbl, key) return host_cache_result[key] end}
+  setmetatable(self.event.cache.host, host_cache_meta)
 
   -- force host name to be its id if no name has been found
   if not self.event.cache.host.name then
@@ -636,18 +641,22 @@ function ScEvent:is_valid_service()
     return false
   end
 
-  self.event.cache.service = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
-
+  local service_cache_result = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
+  self.event.cache.service = {}
+  
   -- return false if we can't get service description
-  if (not self.event.cache.service and self.params.skip_anon_events == 1) then
+  if (not service_cache_result and self.params.skip_anon_events == 1) then
     self.sc_logger:warning("[sc_event:is_valid_service]: Invalid description for service with id: " .. tostring(self.event.service_id) 
-      .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
+    .. " and skip anon events is: " .. tostring(self.params.skip_anon_events))
     return false
-  elseif (not self.event.cache.service and self.params.skip_anon_events == 0) then
+  elseif (not service_cache_result and self.params.skip_anon_events == 0) then
     self.event.cache.service = {
       description = self.event.service_id
     }
   end
+
+  local service_cache_meta = { __index = function (tbl, key) return service_cache_result[key] end}
+  setmetatable(self.event.cache.service, service_cache_meta)
 
   -- force service description to its id if no description has been found
   if not self.event.cache.service.description then
