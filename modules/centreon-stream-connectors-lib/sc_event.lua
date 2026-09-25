@@ -654,6 +654,16 @@ function ScEvent:is_valid_service()
     self.event.cache.service.description = self.event.service_id
   end
 
+  -- meta service description is meta_X where X is its ID. Its real name is stored in the display_name entry from the cache
+  if self.event.cache.host.name == "_Module_Meta" then
+    self.event.cache.service.description = self.event.cache.service.display_name
+
+    -- allow people to use a better host name than _Module_Meta
+    if self.params.meta_service_default_host_name ~= "" then
+      self.event.cache.host.name = self.params.meta_service_default_host_name
+    end
+  end
+
   -- loop through each Lua pattern to check if service description match the filter
   local is_valid_pattern = false
   if self.params.accepted_services ~= "" then

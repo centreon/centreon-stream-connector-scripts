@@ -139,6 +139,9 @@ function sc_params.new(common, logger)
     metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
 
+    -- meta services
+    meta_service_default_host_name = "",
+
     -- initiate mappings
     element_mapping = {},
     status_mapping = {},
@@ -990,6 +993,7 @@ function ScParams:check_params()
   self.params.enable_bam_host = self.common:check_boolean_number_option_syntax(self.params.enable_bam_host, 0)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.rejected_authors = self.common:if_wrong_type(self.params.rejected_authors, "string", "")
+  self.params.meta_service_default_host_name = self.common:if_wrong_type(self.params.meta_service_default_host_name, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
   self.params.rejected_hostgroups = self.common:if_wrong_type(self.params.rejected_hostgroups, "string", "")
   self.params.accepted_servicegroups = self.common:if_wrong_type(self.params.accepted_servicegroups, "string", "")
