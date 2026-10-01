@@ -167,7 +167,7 @@ jobs:
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
 
-  # pulp mirrors the artifactory delivery above (jammy/noble stay artifactory-only);
+  # pulp mirrors the artifactory delivery above;
   # stable is a promotion of the testing packages, keyed on the release/hotfix branch
   deliver-pulp:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}

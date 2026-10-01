@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, el10, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, el10, bookworm, trixie]
         include:
           - distrib: el8
             package_extension: rpm
@@ -54,14 +54,6 @@ jobs:
             package_extension: deb
             image: packaging-stream-connectors-nfpm-trixie
             lua_version: 5.4
-          - distrib: jammy
-            package_extension: deb
-            image: packaging-stream-connectors-nfpm-jammy
-            lua_version: 5.3
-          - distrib: noble
-            package_extension: deb
-            image: packaging-stream-connectors-nfpm-noble
-            lua_version: 5.3
 
     runs-on: ubuntu-24.04
 
@@ -141,12 +133,6 @@ jobs:
           - package_extension: deb
             image: debian:trixie
             distrib: trixie
-          - package_extension: deb
-            image: ubuntu:jammy
-            distrib: jammy
-          - package_extension: deb
-            image: ubuntu:noble
-            distrib: noble
 
     runs-on: ubuntu-24.04
     container:
@@ -199,7 +185,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bookworm, trixie, jammy, noble]
+        distrib: [bookworm, trixie]
     name: deliver ${{ matrix.distrib }}
 
     steps:
@@ -215,7 +201,7 @@ jobs:
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-lsqlite3-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
 
-  # pulp mirrors the artifactory delivery above (jammy/noble stay artifactory-only);
+  # pulp mirrors the artifactory delivery above;
   # stable is a promotion of the testing packages, keyed on the release/hotfix branch
   deliver-pulp:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
