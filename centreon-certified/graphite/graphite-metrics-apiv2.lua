@@ -17,6 +17,7 @@ local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 
 local EventQueue = {}
 EventQueue.__index = EventQueue
@@ -71,6 +72,9 @@ function EventQueue.new(params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   
   -- only load the custom code file, not executed yet
@@ -79,8 +83,8 @@ function EventQueue.new(params)
   end
     
   self.sc_params:build_accepted_elements_info()
-  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger, self.sc_common, self.sc_trigger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -106,6 +110,10 @@ function EventQueue.new(params)
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
+
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
 
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
@@ -180,7 +188,7 @@ function EventQueue:format_metric_event(metric)
   local event = self.sc_event.event
   local tags = self:get_tags(metric)
 
-  local tmp_formated_event = {
+  local tmp_formatted_event = {
     metric.metric_name .. ";"
       .. tags .. ";type=metric_value "
       .. metric.value .. " "
@@ -194,7 +202,7 @@ function EventQueue:format_metric_event(metric)
   self:generate_thresholds_metric_event(metric, tags)
   self:generate_state_metric_event(metric, tags)
 
-  self.sc_event.event.formated_event = tmp_formated_event
+  self.sc_event.event.formatted_event = tmp_formatted_event
   self:add()
   self.sc_logger:debug("[EventQueue:format_metric]: end real format metric ")
 end
@@ -207,7 +215,7 @@ function EventQueue:generate_min_max_metric_event(metric, tags)
   local event = self.sc_event.event
   
   if (metric.min) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".min" ..  ";"
         .. tags .. ";type=metric_min "
         .. metric.min .. " "
@@ -218,7 +226,7 @@ function EventQueue:generate_min_max_metric_event(metric, tags)
   end
 
   if (metric.max) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".max" ..  ";"
         .. tags .. ";type=metric_max "
         .. metric.max .. " "
@@ -237,7 +245,7 @@ function EventQueue:generate_thresholds_metric_event(metric, tags)
   local event = self.sc_event.event
   
   if (metric.warning_high) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".warning_threshold" .. ";"
         .. tags .. ";type=metric_warning_threshold "
         .. metric.warning_high .. " "
@@ -248,7 +256,7 @@ function EventQueue:generate_thresholds_metric_event(metric, tags)
   end
 
   if (metric.critical_high) then
-    self.sc_event.event.formated_event = {
+    self.sc_event.event.formatted_event = {
       metric.metric_name .. ".critical_threshold" .. ";"
         .. tags .. ";type=metric_critical_threshold "
         .. metric.critical_high .. " "
@@ -266,7 +274,7 @@ function EventQueue:generate_state_metric_event(metric, tags)
 
   local event = self.sc_event.event
 
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     metric.metric_name .. ".state" .. ";"
         .. tags .. ";type=metric_state "
         .. event.state .. " "
@@ -355,7 +363,12 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -516,7 +529,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_storage, queue.sc_logger)
+  queue.sc_metrics = sc_metrics.new(event, queue.sc_params.params, queue.sc_common, queue.sc_broker, queue.sc_storage, queue.sc_logger, queue.sc_trigger)
   queue.sc_event = queue.sc_metrics.sc_event
 
   if queue.sc_event:is_valid_category() then

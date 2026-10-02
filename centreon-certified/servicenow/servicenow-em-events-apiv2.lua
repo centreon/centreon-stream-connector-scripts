@@ -16,6 +16,7 @@ local sc_params = require("centreon-stream-connectors-lib.sc_params")
 local sc_macros = require("centreon-stream-connectors-lib.sc_macros")
 local sc_flush = require("centreon-stream-connectors-lib.sc_flush")
 local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 
 --------------------------------------------------------------------------------
 -- EventQueue class
@@ -75,6 +76,9 @@ function EventQueue.new (params)
   -- apply users params and check syntax of standard ones
   self.sc_params:param_override(params)
   self.sc_params:check_params()
+  self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
+  -- adding trigger system to already initialized module
+  self.sc_broker.sc_trigger = sc_trigger
 
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
   self.format_template = self.sc_params:load_event_format_file(true)
@@ -85,8 +89,8 @@ function EventQueue.new (params)
   end
 
   self.sc_params:build_accepted_elements_info()
-  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger)
-  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params)
+  self.sc_flush = sc_flush.new(self.sc_params.params, self.sc_logger, self.sc_common, self.sc_trigger)
+  self.sc_storage = sc_storage.new(self.sc_common, self.sc_logger, self.sc_params.params, self.sc_trigger)
 
   local categories = self.sc_params.params.bbdo.categories
   local elements = self.sc_params.params.bbdo.elements
@@ -106,6 +110,10 @@ function EventQueue.new (params)
   self.build_payload_method = {
     [1] = function (payload, event) return self:build_payload(payload, event) end
   }
+
+  self.sc_trigger:run_trigger("EventQueue:new", "on-init", {
+    params = self.sc_params.params
+  })
 
   setmetatable(self, { __index = EventQueue })
 
@@ -316,10 +324,10 @@ function EventQueue:format_accepted_event()
   local template = self.sc_params.params.format_template[category][element]
 
   self.sc_logger:debug("[EventQueue:format_event]: starting format event")
-  self.sc_event.event.formated_event = {}
+  self.sc_event.event.formatted_event = {}
 
   if self.format_template and template ~= nil and template ~= "" then
-    self.sc_event.event.formated_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
+    self.sc_event.event.formatted_event = self.sc_macros:replace_sc_macro(template, self.sc_event.event, true)
   else
     -- can't format event if stream connector is not handling this kind of event and that it is not handled with a template file
     if not self.format_event[category][element] then
@@ -337,7 +345,7 @@ function EventQueue:format_accepted_event()
 end
 
 function EventQueue:format_event_host()
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     source = "centreon",
     event_class = "centreon",
     node = tostring(self.sc_event.event.cache.host.name),
@@ -349,7 +357,7 @@ function EventQueue:format_event_host()
 end
 
 function EventQueue:format_event_service()
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     source = "centreon",
     event_class = "centreon",
     node = tostring(self.sc_event.event.cache.host.name),
@@ -360,13 +368,13 @@ function EventQueue:format_event_service()
   }
 
   if self.sc_event.event.state == 0 then
-    self.sc_event.event.formated_event.severity = 0
+    self.sc_event.event.formatted_event.severity = 0
   elseif self.sc_event.event.state == 1 then
-      self.sc_event.event.formated_event.severity = 3
+      self.sc_event.event.formatted_event.severity = 3
   elseif self.sc_event.event.state == 2 then 
-      self.sc_event.event.formated_event.severity = 1
+      self.sc_event.event.formatted_event.severity = 1
   elseif self.sc_event.event.state == 3 then 
-      self.sc_event.event.formated_event.severity = 4
+      self.sc_event.event.formatted_event.severity = 4
   end
 end
 
@@ -393,7 +401,12 @@ function EventQueue:add()
     .. " element: " .. tostring(self.sc_params.params.reverse_element_mapping[category][element]))
 
   self.sc_logger:debug("[EventQueue:add]: queue size before adding event: " .. tostring(#self.sc_flush.queues[category][element].events))
-  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formated_event
+  self.sc_flush.queues[category][element].events[#self.sc_flush.queues[category][element].events + 1] = self.sc_event.event.formatted_event
+
+  self.sc_trigger:run_trigger("EventQueue:add", "on-event-add", {
+    formatted_event = self.sc_event.event.formatted_event,
+    full_event_data = self.sc_event.event
+  })
 
   self.sc_logger:info("[EventQueue:add]: queue size is now: " .. tostring(#self.sc_flush.queues[category][element].events) 
     .. ", max is: " .. tostring(self.sc_params.params.max_buffer_size))
@@ -458,7 +471,7 @@ function write (event)
   end
 
   -- initiate event object
-  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage)
+  queue.sc_event = sc_event.new(event, queue.sc_params.params, queue.sc_common, queue.sc_logger, queue.sc_broker, queue.sc_storage, queue.sc_trigger)
 
   if queue.sc_event:is_valid_category() then
     if queue.sc_event:is_valid_element() then
