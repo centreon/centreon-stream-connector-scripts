@@ -185,7 +185,7 @@ end)
 
 The **run_trigger** method runs the function that has been registered (with [register_trigger](#register_trigger-method)) for a given category/event_type. It is meant to be called from the stream connector or the library code, at the exact point that should be exposed as a customization point.
 
-If no function has been registered for the category/event_type, or if it raises an error, the documented default value for that category/event_type is returned instead (see [how_to_use_triggers.md](how_to_use_triggers.md)).
+If no function has been registered for the category/event_type, if it raises an error or if it returns a value whose type is not the expected one, the documented default value for that category/event_type is returned instead (see [how_to_use_triggers.md](how_to_use_triggers.md)). If the category or the event_type is invalid, `false` is returned.
 
 ### run_trigger: parameters
 
@@ -200,7 +200,8 @@ If no function has been registered for the category/event_type, or if it raises 
 | return | type | always | condition |
 | - | - | - | - |
 | the result of the registered trigger function | any | no | a trigger has been registered for the category/event_type and it succeeded |
-| the default value documented for the category/event_type | any | no | no trigger has been registered, or it raised an error, or category/event_type is invalid |
+| the default value documented for the category/event_type | any | no | no trigger has been registered, or it raised an error, or it returned a value of an unexpected type |
+| false | boolean | no | category/event_type is invalid |
 
 ### run_trigger: example
 

@@ -197,12 +197,12 @@ Since this is OOP, it is required to initiate your module.
 
 ### Module constructor
 
-Constructor must be initialized with four parameters: 
+Constructor must be initialized with three parameters, the fourth one (sc_trigger) is optional: 
 
-- sc_common. This is an instance of the sc_common module
-- sc_logger. This is an instance of the sc_logger module
+- common. This is an instance of the sc_common module
+- logger. This is an instance of the sc_logger module
 - a params table.
-- sc_trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user at various points of the storage lifecycle
+- trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user at various points of the storage lifecycle. If you don't provide this parameter it will create a default sc_trigger instance
 
 ### Constructor: Example
 
