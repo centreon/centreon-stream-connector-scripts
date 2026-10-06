@@ -7,6 +7,9 @@ on:
       release_type:
         description: "release type (release, hotfix or empty when the branch is neither)"
         value: ${{ jobs.get-environment.outputs.release_type }}
+      skip_workflow:
+        description: "true on a release tag push when the workflow paths did not change since the previous release tag"
+        value: ${{ jobs.get-environment.outputs.skip_workflow }}
 
 jobs:
   get-environment:
@@ -14,16 +17,48 @@ jobs:
     outputs:
       stability: ${{ steps.get_environment.outputs.stability }}
       release_type: ${{ steps.get_environment.outputs.release_type }}
+      skip_workflow: ${{ steps.get_environment.outputs.skip_workflow }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: ${{ github.ref_type == 'tag' && '0' || '1' }}
+
+      # a centreon-stream-connectors-YYYYMMNN tag pushed by release-new promotes testing to stable
+      - if: ${{ github.ref_type == 'tag' }}
+        name: Get release tag context
+        id: tag_context
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          WORKFLOW_FILE="${WORKFLOW_REF#"$GITHUB_REPOSITORY/"}"
+          export WORKFLOW_FILE="${WORKFLOW_FILE%%@*}"
+          .github/scripts/release/get-release-tag-context.sh
+        shell: bash
 
       - id: get_environment
+        env:
+          IS_RELEASE_TAG: ${{ steps.tag_context.outputs.is_release_tag }}
+          TAG_RELEASE_TYPE: ${{ steps.tag_context.outputs.release_type }}
+          TAG_CHANGED: ${{ steps.tag_context.outputs.changed }}
         run: |
           if [[ -z "$GITHUB_HEAD_REF" ]]; then
             BRANCHNAME="$GITHUB_REF_NAME"
           else
             BRANCHNAME="$GITHUB_HEAD_REF"
+          fi
+
+          if [[ "$IS_RELEASE_TAG" == "true" ]]; then
+            echo "stability=stable" >> "$GITHUB_OUTPUT"
+            echo "release_type=$TAG_RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+            if [[ "$TAG_CHANGED" == "true" ]]; then
+              echo "skip_workflow=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::skipping workflow because its paths did not change since the previous release tag"
+              echo "skip_workflow=true" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
           fi
 
           case "$BRANCHNAME" in
@@ -40,12 +75,13 @@ jobs:
               STABILITY="canary"
               ;;
           esac
-          echo "stability=$STABILITY" >> $GITHUB_OUTPUT
+          echo "stability=$STABILITY" >> "$GITHUB_OUTPUT"
           # the pulp testing repositories are split per release type
           RELEASE_TYPE=""
           case "$BRANCHNAME" in
             release*) RELEASE_TYPE="release" ;;
             hotfix*) RELEASE_TYPE="hotfix" ;;
           esac
-          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+          echo "skip_workflow=false" >> "$GITHUB_OUTPUT"
         shell: bash
