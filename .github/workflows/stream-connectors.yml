@@ -1,31 +1,16 @@
 name: stream-connectors
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
+# triggered by stream-connectors-ci.yml
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
-  push:
-    branches:
-      - develop
-      - master
-    paths:
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
+  workflow_call:
+    inputs:
+      use_local_lib:
+        description: "Test the stream connectors against the library packages built earlier in the same run"
+        type: boolean
+        default: false
 
 jobs:
-  dependency-scan:
-    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
-
   get-environment:
-    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   detect-changes:
@@ -214,6 +199,8 @@ jobs:
           package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          # must match the cache_key of the package job in stream-connectors-lib.yml
+          lib_cache_key: ${{ inputs.use_local_lib && format('{0}-{1}-{2}-{3}', github.sha, github.run_id, matrix.package_extension, matrix.distrib) || '' }}
           test_type: stream-connector
 
       - name: Upload error log

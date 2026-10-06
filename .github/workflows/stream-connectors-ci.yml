@@ -1,0 +1,84 @@
+name: stream-connectors-ci
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/stream-connectors-ci.yml'
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
+      - '.github/workflows/stream-connectors.yml'
+      - 'centreon-certified/**'
+      - 'packaging/connectors/**'
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - '.github/workflows/stream-connectors-ci.yml'
+      - '.github/workflows/stream-connectors-lib.yml'
+      - 'packaging/connectors-lib/**'
+      - 'modules/centreon-stream-connectors-lib/**'
+      - '.github/workflows/stream-connectors.yml'
+      - 'centreon-certified/**'
+      - 'packaging/connectors/**'
+
+jobs:
+  dependency-scan:
+    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
+
+  detect-changes:
+    needs: [dependency-scan]
+    runs-on: ubuntu-24.04
+    outputs:
+      # a manual run builds and tests both the library and the stream connectors
+      lib: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.lib }}
+      connectors: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.connectors }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - if: ${{ github.event_name != 'workflow_dispatch' }}
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            lib:
+              - .github/workflows/stream-connectors-ci.yml
+              - .github/workflows/stream-connectors-lib.yml
+              - packaging/connectors-lib/**
+              - modules/centreon-stream-connectors-lib/**
+            connectors:
+              - .github/workflows/stream-connectors-ci.yml
+              - .github/workflows/stream-connectors.yml
+              - centreon-certified/**
+              - packaging/connectors/**
+
+  stream-connectors-lib:
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.lib == 'true' }}
+    uses: ./.github/workflows/stream-connectors-lib.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+
+  # when the library has been rebuilt in this run, the stream connectors are tested
+  # against those freshly built packages instead of the ones from the repositories
+  stream-connectors:
+    needs: [detect-changes, stream-connectors-lib]
+    if: ${{ !cancelled() && needs.detect-changes.outputs.connectors == 'true' && needs.stream-connectors-lib.result != 'failure' }}
+    uses: ./.github/workflows/stream-connectors.yml
+    with:
+      use_local_lib: ${{ needs.stream-connectors-lib.result == 'success' }}
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
