@@ -84,8 +84,6 @@ function EventQueue.new (params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
-  -- adding trigger system to already initialized module
-  self.sc_broker.sc_trigger = sc_trigger
   self.sc_params.params.http_server_url = self.sc_common:if_wrong_type(self.sc_params.params.http_server_url, "string", "service-now.com")
   self.sc_params.params.incident_table = self.sc_common:if_wrong_type(self.sc_params.params.incident_table, "string", "incident")
   self.sc_params.params.source = self.sc_common:if_wrong_type(self.sc_params.params.source, "string", "centreon")

@@ -10,7 +10,6 @@ broker_api_version = 2
 local sc_params = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScParams = {}
 

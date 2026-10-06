@@ -61,8 +61,6 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
-  -- adding trigger system to already initialized module
-  self.sc_broker.sc_trigger = sc_trigger
 
   -- SEGFAULT ON EL8 (only usefull for debugging)
   -- self.sc_kafka_config:set_delivery_cb(function (payload, err) print("Delivery Callback '"..payload.."'") end)

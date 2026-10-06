@@ -64,8 +64,6 @@ function event_queue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
-  -- adding trigger system to already initialized module
-  self.sc_broker.sc_trigger = sc_trigger
 
   -- in order to have the proper use of that max_buffer_size param, we need to separate queues for hosts and services
   self.sc_params.params.send_mixed_events = 0

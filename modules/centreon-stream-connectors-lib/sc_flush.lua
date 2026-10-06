@@ -7,14 +7,16 @@
 local sc_flush = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 
 local ScFlush = {}
 
 --- sc_flush.new: sc_flush constructor
 -- @param params (table) the params table of the stream connector
--- @param [opt] sc_logger (object) a sc_logger object 
--- @param sc_common
-function sc_flush.new(params, logger, sc_common, sc_trigger)
+-- @param [opt] logger (object) a sc_logger object
+-- @param sc_common (object) a sc_common instance
+-- @param [opt] trigger (object) a sc_trigger instance
+function sc_flush.new(params, logger, sc_common, trigger)
   local self = {}
   
   -- create a default logger if it is not provided
@@ -24,7 +26,12 @@ function sc_flush.new(params, logger, sc_common, sc_trigger)
   end
 
   self.sc_common = sc_common
-  self.sc_trigger = sc_trigger
+
+  -- create a default trigger instance if it is not provided (stream connectors written before the trigger system)
+  self.sc_trigger = trigger
+  if not self.sc_trigger then
+    self.sc_trigger = sc_trigger.new(params, sc_common, self.sc_logger)
+  end
 
   self.params = params
   self.last_global_flush = os.time()
@@ -296,6 +303,11 @@ function ScFlush:flush_payload(send_method, payload, metadata)
 
     self.sc_logger:error("[sc_flush:flush_payload]: could not send payload because of an internal error. pcall status: " .. tostring(pcall_status) .. ", error message: " .. tostring(result))
     return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-fail", {payload = payload, metadata = metadata, error = result})
+  end
+
+  -- if the send method did not raise an error but reported a failure (http error for example), events must be kept in retention
+  if not result then
+    return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-fail", {payload = payload, metadata = metadata, error = "send method returned: " .. tostring(result)})
   end
 
   return self.sc_trigger:run_trigger("sc_flush:flush_payload", "on-success", {payload = payload, metadata = metadata})

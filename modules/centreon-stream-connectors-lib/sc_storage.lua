@@ -6,20 +6,26 @@
 local sc_storage = {}
 local ScStorage = {}
 
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
+
 
 --- sc_storage.new: sc_storage constructor
 -- @param common (object) a sc_common instance 
 -- @param logger (object) a sc_logger instance 
 -- @param params (table) the params table of the stream connector
--- @param sc_trigger(object) a sc_trigger instance
-function sc_storage.new(common, logger, params, sc_trigger)
+-- @param [opt] trigger (object) a sc_trigger instance
+function sc_storage.new(common, logger, params, trigger)
   local self = {}
 
   self.sc_common = common
   self.sc_logger = logger
   self.params = params
-  self.sc_trigger = sc_trigger
+
+  -- create a default trigger instance if it is not provided (stream connectors written before the trigger system)
+  self.sc_trigger = trigger
+  if not self.sc_trigger then
+    self.sc_trigger = sc_trigger.new(params, common, logger)
+  end
 
   -- list of lua patterns used to check if an object is a valid one
   self.storage_objects = {
