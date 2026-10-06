@@ -120,7 +120,51 @@ check_tags() {
     fail "release_number $RELEASE_NUMBER must be greater than latest release tag $latest."
   else
     info "previous release tag is $latest"
+    PREVIOUS_TAG="$latest"
   fi
+}
+
+# a package with a fixed version (root .version.<package> file listed in its workflow paths) must have its
+# version file changed when its content changed since the previous release tag, else the build would reuse
+# a version that is already stable
+check_version_bumps() {
+  local workflow version_file changed missing=() unchecked=()
+  local -a paths content
+  [[ -n "${PREVIOUS_TAG:-}" ]] || return 0
+  git fetch --quiet --depth=1 "$REMOTE" "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG" \
+    || fail "cannot fetch $PREVIOUS_TAG."
+
+  while read -r workflow; do
+    mapfile -t paths < <(git show "$RELEASE_SHA:$workflow" | yq -r '.on.push.paths // [] | .[]')
+    version_file=""
+    content=()
+    for path in "${paths[@]}"; do
+      case "$path" in
+        .version.*) version_file="$path" ;;
+        .github/*) ;;
+        *) content+=(":(glob)$path") ;;
+      esac
+    done
+    [[ -n "$version_file" && ${#content[@]} -gt 0 ]] || continue
+
+    if ! git cat-file -e "refs/tags/$PREVIOUS_TAG:$version_file" 2> /dev/null; then
+      unchecked+=("$version_file")
+      continue
+    fi
+    changed="$(git -c core.quotePath=false diff --no-renames --name-only "refs/tags/$PREVIOUS_TAG" "$RELEASE_SHA" -- "${content[@]}")" \
+      || fail "cannot diff $PREVIOUS_TAG and $RELEASE_BRANCH."
+    if [[ -n "$changed" ]] && git diff --quiet "refs/tags/$PREVIOUS_TAG" "$RELEASE_SHA" -- "$version_file"; then
+      missing+=("$version_file ($(echo "$changed" | head -n 3 | paste -sd ' ' -))")
+    fi
+  done < <(git ls-tree --name-only "$RELEASE_SHA" .github/workflows/ | grep -E '\.ya?ml$')
+
+  if (( ${#unchecked[@]} > 0 )); then
+    warn "not checked, no version file in $PREVIOUS_TAG: ${unchecked[*]}"
+  fi
+  if (( ${#missing[@]} > 0 )); then
+    fail "content changed since $PREVIOUS_TAG without a version bump: ${missing[*]}"
+  fi
+  info "versions are bumped for every changed package"
 }
 
 create_tag() {
@@ -189,6 +233,7 @@ main() {
   check_branch
   check_versions
   check_tags
+  check_version_bumps
 
   create_tag
   create_github_release
