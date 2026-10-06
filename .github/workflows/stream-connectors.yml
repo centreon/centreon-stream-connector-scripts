@@ -1,37 +1,29 @@
 name: stream-connectors
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
+# triggered by stream-connectors-ci.yml
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
-  push:
-    branches:
-      - develop
-      - master
-    paths:
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
+  workflow_call:
+    inputs:
+      use_local_lib:
+        description: "Test the stream connectors against the library packages built earlier in the same run"
+        type: boolean
+        default: false
+      test_all_connectors:
+        description: "Build and test all the stream connectors (only the changed ones are delivered)"
+        type: boolean
+        default: false
 
 jobs:
-  dependency-scan:
-    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
-
   get-environment:
-    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   detect-changes:
     runs-on: ubuntu-24.04
     outputs:
+      # connectors to build and test
       connectors: ${{ steps.list-connectors.outputs.connectors }}
+      # connectors to deliver, only the ones that changed
+      delivered_connectors: ${{ steps.list-connectors.outputs.delivered_connectors }}
       packaging: ${{ steps.filter.outputs.packaging }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -53,11 +45,13 @@ jobs:
         env:
           CONNECTOR_FILES: ${{ steps.filter.outputs.connectors_files }}
           PACKAGING_CHANGED: ${{ steps.filter.outputs.packaging }}
+          TEST_ALL_CONNECTORS: ${{ inputs.test_all_connectors }}
         run: |
           folders=()
+          mapfile -t all_folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
           if [ "$PACKAGING_CHANGED" = "true" ]; then
             echo "Packaging files changed, adding all connectors"
-            mapfile -t folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
+            folders=("${all_folders[@]}")
           else
             for f in $CONNECTOR_FILES; do
               DIR_NAME="$(dirname "$f")"
@@ -67,6 +61,12 @@ jobs:
             done
           fi
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
+          echo "delivered_connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
+
+          if [ "$TEST_ALL_CONNECTORS" = "true" ]; then
+            echo "Library changed, testing all connectors"
+            unique_folders=($(printf "%s\n" "${all_folders[@]}" | sort -u | tr '\n' ' '))
+          fi
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
         shell: bash
 
@@ -214,6 +214,8 @@ jobs:
           package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          # must match the cache_key of the package job in stream-connectors-lib.yml
+          lib_cache_key: ${{ inputs.use_local_lib && format('{0}-{1}-{2}-{3}', github.sha, github.run_id, matrix.package_extension, matrix.distrib) || '' }}
           test_type: stream-connector
 
       - name: Upload error log
@@ -224,13 +226,13 @@ jobs:
           path: install_error_${{ matrix.distrib }}.log
 
   deliver-rpm:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) && needs.detect-changes.outputs.delivered_connectors != '[]' }}
     needs: [get-environment, detect-changes, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         distrib: [el8, el9, el10]
-        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
+        connector_path: ${{ fromJson(needs.detect-changes.outputs.delivered_connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
@@ -247,13 +249,13 @@ jobs:
           stability: ${{ needs.get-environment.outputs.stability }}
 
   deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) && needs.detect-changes.outputs.delivered_connectors != '[]' }}
     needs: [get-environment, detect-changes, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         distrib: [bookworm, trixie]
-        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
+        connector_path: ${{ fromJson(needs.detect-changes.outputs.delivered_connectors) }}
     name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
 
     steps:
@@ -272,7 +274,7 @@ jobs:
   # pulp mirrors the artifactory delivery above;
   # stable is a promotion of the testing packages, keyed on the release/hotfix branch
   deliver-pulp:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) && needs.detect-changes.outputs.delivered_connectors != '[]' }}
     needs: [get-environment, detect-changes, package, test-packages]
     runs-on: centreon-ubuntu-22.04
     permissions:
@@ -283,7 +285,7 @@ jobs:
       fail-fast: false
       matrix:
         distrib: [el8, el9, el10, bookworm, trixie]
-        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
+        connector_path: ${{ fromJson(needs.detect-changes.outputs.delivered_connectors) }}
         include:
           - distrib: el8
             package_extension: rpm

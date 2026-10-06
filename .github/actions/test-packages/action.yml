@@ -13,6 +13,10 @@ inputs:
   test_type:
     description: "The type of test to run: dependency, library or stream-connector"
     required: true
+  lib_cache_key:
+    description: "The cache key of library packages built in the same run, installed before the tested packages instead of the ones from the repositories"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -212,6 +216,32 @@ runs:
         echo "deb https://packages.centreon.com/${plugins_prefix}-testing/ $DISTRIB main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         echo "deb https://packages.centreon.com/${plugins_prefix}-unstable/ $DISTRIB main" | tee -a /etc/apt/sources.list.d/centreon-plugins.list
         apt-get update
+      shell: bash
+
+    - if: ${{ inputs.lib_cache_key != '' }}
+      name: Restore library packages from cache
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ./*.${{ inputs.package_extension }}
+        key: ${{ inputs.lib_cache_key }}
+        fail-on-cache-miss: true
+
+    # installed explicitly so they are kept by the autoremove run after each tested package
+    - if: ${{ inputs.lib_cache_key != '' }}
+      name: Install library packages
+      env:
+        PACKAGE_EXTENSION: ${{ inputs.package_extension }}
+      run: |
+        # move them aside so that they are not part of the tested packages
+        mkdir -p local-lib
+        mv ./*."$PACKAGE_EXTENSION" local-lib/
+        if [[ "$PACKAGE_EXTENSION" == "rpm" ]]; then
+          dnf install -y ./local-lib/*.rpm
+          rpm -q centreon-stream-connectors-lib
+        else
+          apt-get install -y ./local-lib/*.deb
+          dpkg -s centreon-stream-connectors-lib | grep -E '^(Package|Version):'
+        fi
       shell: bash
 
     - name: Restore packages from cache
