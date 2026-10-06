@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/lua-lsqlite3.yml'
+      - '.version.lua-lsqlite3'
       - 'dependencies/lua-lsqlite3/**'
   push:
     branches:
@@ -18,6 +19,7 @@ on:
       - 'centreon-stream-connectors-[0-9]+'
     paths:
       - '.github/workflows/lua-lsqlite3.yml'
+      - '.version.lua-lsqlite3'
       - 'dependencies/lua-lsqlite3/**'
 
 jobs:
@@ -98,6 +100,19 @@ jobs:
           gcc -O2 -fPIC -shared -o lsqlite3.so lsqlite3.c -DLSQLITE_VERSION='"${LSQLITE3_VERSION}"' $(pkg-config --cflags lua${LUA_VERSION}) $(pkg-config --cflags --libs sqlite3)
         shell: bash
 
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION="$(sed -n 's/^VERSION=//p' .version.lua-lsqlite3)"
+          RELEASE="$(sed -n 's/^RELEASE=//p' .version.lua-lsqlite3)"
+          if [[ ! "$VERSION" =~ ^[0-9][0-9A-Za-z.]*$ || ! "$RELEASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::.version.lua-lsqlite3 must hold VERSION=<version> and RELEASE=<number> (got '$VERSION' and '$RELEASE')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
@@ -105,8 +120,8 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: amd64
-          version: "0.9.7"
-          release: "1"
+          version: ${{ steps.package-version.outputs.version }}
+          release: ${{ steps.package-version.outputs.release }}
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-lsqlite3-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}

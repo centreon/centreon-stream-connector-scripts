@@ -39,7 +39,7 @@ workflow_push_paths() {
 }
 
 main() {
-  local version release_type message tag_type previous_tag="" file_version changed="false" diff_output
+  local version release_type message tag_type previous_tag="" file_version changed="false" diff_output versioned="false"
   local -a patterns=() files=()
 
   if [[ ! "$TAG_NAME" =~ ^$TAG_PREFIX-([0-9]{8})$ ]]; then
@@ -81,7 +81,12 @@ main() {
     if [[ -n "$diff_output" ]]; then
       mapfile -t files <<< "$diff_output"
     fi
+    for pattern in "${patterns[@]}"; do
+      [[ "$pattern" == .version.* ]] && versioned="true"
+    done
     for file in "${files[@]}"; do
+      # a versioned package ships through its root .version.* file: its ci changes alone don't make a release
+      [[ "$versioned" == "true" && "$file" == .github/* ]] && continue
       for pattern in "${patterns[@]}"; do
         # unquoted pattern: glob match where * also spans /, so ** behaves like the workflow filter
         # shellcheck disable=SC2053

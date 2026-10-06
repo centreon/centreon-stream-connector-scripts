@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/stream-connectors-lib.yml'
+      - '.version.stream-connectors-lib'
       - 'packaging/connectors-lib/**'
       - 'modules/centreon-stream-connectors-lib/**'
   push:
@@ -19,6 +20,7 @@ on:
       - 'centreon-stream-connectors-[0-9]+'
     paths:
       - '.github/workflows/stream-connectors-lib.yml'
+      - '.version.stream-connectors-lib'
       - 'packaging/connectors-lib/**'
       - 'modules/centreon-stream-connectors-lib/**'
 
@@ -69,13 +71,26 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION="$(sed -n 's/^VERSION=//p' .version.stream-connectors-lib)"
+          RELEASE="$(sed -n 's/^RELEASE=//p' .version.stream-connectors-lib)"
+          if [[ ! "$VERSION" =~ ^[0-9][0-9A-Za-z.]*$ || ! "$RELEASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::.version.stream-connectors-lib must hold VERSION=<version> and RELEASE=<number> (got '$VERSION' and '$RELEASE')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.8.1" # previous version:"3.8.0"
-          release: "1"
+          version: ${{ steps.package-version.outputs.version }}
+          release: ${{ steps.package-version.outputs.release }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
           commit_hash: ${{ github.sha }}

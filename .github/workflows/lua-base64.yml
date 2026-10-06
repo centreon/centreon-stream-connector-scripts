@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/lua-base64.yml'
+      - '.version.lua-base64'
       - 'dependencies/lua-base64/**'
   push:
     branches:
@@ -18,6 +19,7 @@ on:
       - 'centreon-stream-connectors-[0-9]+'
     paths:
       - '.github/workflows/lua-base64.yml'
+      - '.version.lua-base64'
       - 'dependencies/lua-base64/**'
 
 jobs:
@@ -80,6 +82,19 @@ jobs:
           cp base64-src/base64.lua dependencies/lua-base64/lbase64/base64.lua
         shell: bash
 
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION="$(sed -n 's/^VERSION=//p' .version.lua-base64)"
+          RELEASE="$(sed -n 's/^RELEASE=//p' .version.lua-base64)"
+          if [[ ! "$VERSION" =~ ^[0-9][0-9A-Za-z.]*$ || ! "$RELEASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::.version.lua-base64 must hold VERSION=<version> and RELEASE=<number> (got '$VERSION' and '$RELEASE')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
@@ -87,8 +102,8 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
-          version: "1.5.3"
-          release: "1"
+          version: ${{ steps.package-version.outputs.version }}
+          release: ${{ steps.package-version.outputs.release }}
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-base64-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}

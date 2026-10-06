@@ -120,7 +120,63 @@ check_tags() {
     fail "release_number $RELEASE_NUMBER must be greater than latest release tag $latest."
   else
     info "previous release tag is $latest"
+    PREVIOUS_TAG="$latest"
   fi
+}
+
+# prints VERSION-RELEASE of a root .version.<package> file at a commit
+package_version() {
+  local content
+  content="$(git show "$1:$2")"
+  echo "$(sed -n 's/^VERSION=//p' <<< "$content")-$(sed -n 's/^RELEASE=//p' <<< "$content")"
+}
+
+# packages with a fixed version: "<root version file> <content pathspecs...>"; the version file must go up
+# when the content changed since the previous release tag, else the build would reuse a released version
+VERSIONED_PACKAGES=(
+  ".version.stream-connectors-lib modules/centreon-stream-connectors-lib packaging/connectors-lib"
+  ".version.lua-base64 dependencies/lua-base64"
+  ".version.lua-cffi dependencies/lua-cffi"
+  ".version.lua-lsqlite3 dependencies/lua-lsqlite3"
+  ".version.lua-openssl dependencies/lua-openssl"
+  ".version.lua-sql-mysql dependencies/lua-sql-mysql"
+  ".version.lua-tz dependencies/lua-tz"
+)
+
+check_version_bumps() {
+  local package version_file content_paths changed previous_version new_version missing=() unchecked=()
+  local -a content
+  [[ -n "${PREVIOUS_TAG:-}" ]] || return 0
+  git fetch --quiet --depth=1 "$REMOTE" "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG" \
+    || fail "cannot fetch $PREVIOUS_TAG."
+
+  for package in "${VERSIONED_PACKAGES[@]}"; do
+    read -r version_file content_paths <<< "$package"
+    read -ra content <<< "$content_paths"
+    git cat-file -e "$RELEASE_SHA:$version_file" 2> /dev/null || fail "$version_file does not exist on $RELEASE_BRANCH."
+    if ! git cat-file -e "refs/tags/$PREVIOUS_TAG:$version_file" 2> /dev/null; then
+      unchecked+=("$version_file")
+      continue
+    fi
+    changed="$(git -c core.quotePath=false diff --no-renames --name-only "refs/tags/$PREVIOUS_TAG" "$RELEASE_SHA" -- "${content[@]}")" \
+      || fail "cannot diff $PREVIOUS_TAG and $RELEASE_BRANCH."
+    [[ -n "$changed" ]] || continue
+    previous_version="$(package_version "refs/tags/$PREVIOUS_TAG" "$version_file")"
+    new_version="$(package_version "$RELEASE_SHA" "$version_file")"
+    # the version must go up: a forward-ported hotfix rebuilt under an older version would be refused or shadowed
+    if [[ "$new_version" == "$previous_version" ]] \
+      || [[ "$(printf '%s\n%s\n' "$previous_version" "$new_version" | sort -V | tail -n 1)" != "$new_version" ]]; then
+      missing+=("$version_file $previous_version -> $new_version ($(echo "$changed" | head -n 3 | paste -sd ' ' -))")
+    fi
+  done
+
+  if (( ${#unchecked[@]} > 0 )); then
+    warn "not checked, no version file in $PREVIOUS_TAG: ${unchecked[*]}"
+  fi
+  if (( ${#missing[@]} > 0 )); then
+    fail "content changed since $PREVIOUS_TAG without a higher version: ${missing[*]}"
+  fi
+  info "versions are bumped for every changed package"
 }
 
 create_tag() {
@@ -189,6 +245,7 @@ main() {
   check_branch
   check_versions
   check_tags
+  check_version_bumps
 
   create_tag
   create_github_release

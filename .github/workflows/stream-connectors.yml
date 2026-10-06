@@ -186,7 +186,7 @@ jobs:
 
       - name: Export package version
         id: package-version
-        run: echo "package_version=`date '+%Y%m%d'`" >> $GITHUB_OUTPUT
+        run: echo "package_version=$(tr -d '[:space:]' < .version.stream-connectors)" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Package
