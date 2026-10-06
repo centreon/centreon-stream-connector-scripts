@@ -14,6 +14,8 @@ on:
     branches:
       - develop
       - master
+    tags:
+      - 'centreon-stream-connectors-[0-9]+'
     paths:
       - '.github/workflows/lua-openssl.yml'
       - 'dependencies/lua-openssl/**'
@@ -27,6 +29,7 @@ jobs:
     uses: ./.github/workflows/get-environment.yml
 
   package:
+    if: ${{ github.ref_type != 'tag' }}
     needs: [get-environment]
 
     strategy:
@@ -191,6 +194,7 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-openssl-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
@@ -213,6 +217,7 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-openssl-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
 
   # pulp mirrors the artifactory delivery above;
   # stable is a promotion of the testing packages, keyed on the release/hotfix branch
@@ -321,3 +326,57 @@ jobs:
           pulp_url: ${{ vars.PULP_API_URL }}
           pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
           audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+  # a release tag promotes the latest testing packages to stable, nothing is rebuilt
+  promote:
+    needs: [get-environment]
+    if: ${{ github.ref_type == 'tag' && needs.get-environment.outputs.stability == 'stable' && needs.get-environment.outputs.skip_workflow != 'true' }}
+    runs-on: centreon-ubuntu-22.04
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+          - distrib: el9
+            package_extension: rpm
+          - distrib: el10
+            package_extension: rpm
+          - distrib: bookworm
+            package_extension: deb
+          - distrib: trixie
+            package_extension: deb
+    name: promote lua-openssl ${{ matrix.distrib }} to stable
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Promote packages on Pulp
+        uses: ./.github/actions/promote-to-stable-pulp
+        with:
+          module_name: lua-openssl
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          major_version: ""
+          stability: stable
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+      # jfrog is promoted even if pulp failed, the job still fails
+      - name: Promote packages on JFrog
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/promote-to-stable-jfrog
+        with:
+          module_name: lua-openssl
+          distrib: ${{ matrix.distrib }}
+          package_extension: ${{ matrix.package_extension }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
