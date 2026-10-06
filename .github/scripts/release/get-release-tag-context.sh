@@ -82,6 +82,8 @@ main() {
       mapfile -t files <<< "$diff_output"
     fi
     for file in "${files[@]}"; do
+      # ci changes alone never make a release: versions live in the root .version.* files
+      [[ "$file" == .github/* ]] && continue
       for pattern in "${patterns[@]}"; do
         # unquoted pattern: glob match where * also spans /, so ** behaves like the workflow filter
         # shellcheck disable=SC2053
