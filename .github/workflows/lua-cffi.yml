@@ -111,8 +111,14 @@ jobs:
       - name: Get package version
         id: package-version
         run: |
-          echo "version=$(sed -n 's/^VERSION=//p' .version.lua-cffi)" >> "$GITHUB_OUTPUT"
-          echo "release=$(sed -n 's/^RELEASE=//p' .version.lua-cffi)" >> "$GITHUB_OUTPUT"
+          VERSION="$(sed -n 's/^VERSION=//p' .version.lua-cffi)"
+          RELEASE="$(sed -n 's/^RELEASE=//p' .version.lua-cffi)"
+          if [[ ! "$VERSION" =~ ^[0-9][0-9A-Za-z.]*$ || ! "$RELEASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::.version.lua-cffi must hold VERSION=<version> and RELEASE=<number> (got '$VERSION' and '$RELEASE')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Package

@@ -124,18 +124,28 @@ check_tags() {
   fi
 }
 
+# prints VERSION-RELEASE of a root .version.<package> file at a commit
+package_version() {
+  local content
+  content="$(git show "$1:$2")"
+  echo "$(sed -n 's/^VERSION=//p' <<< "$content")-$(sed -n 's/^RELEASE=//p' <<< "$content")"
+}
+
 # a package with a fixed version (root .version.<package> file listed in its workflow paths) must have its
 # version file changed when its content changed since the previous release tag, else the build would reuse
 # a version that is already stable
 check_version_bumps() {
-  local workflow version_file changed missing=() unchecked=()
+  local workflow workflow_paths version_file changed previous_version new_version missing=() unchecked=()
   local -a paths content
   [[ -n "${PREVIOUS_TAG:-}" ]] || return 0
+  command -v yq > /dev/null 2>&1 || fail "yq is required to check the version bumps."
   git fetch --quiet --depth=1 "$REMOTE" "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG" \
     || fail "cannot fetch $PREVIOUS_TAG."
 
   while read -r workflow; do
-    mapfile -t paths < <(git show "$RELEASE_SHA:$workflow" | yq -r '.on.push.paths // [] | .[]')
+    workflow_paths="$(git show "$RELEASE_SHA:$workflow" | yq -r '.on.push.paths // [] | .[]')" \
+      || fail "cannot read the paths of $workflow."
+    mapfile -t paths <<< "$workflow_paths"
     version_file=""
     content=()
     for path in "${paths[@]}"; do
@@ -153,8 +163,13 @@ check_version_bumps() {
     fi
     changed="$(git -c core.quotePath=false diff --no-renames --name-only "refs/tags/$PREVIOUS_TAG" "$RELEASE_SHA" -- "${content[@]}")" \
       || fail "cannot diff $PREVIOUS_TAG and $RELEASE_BRANCH."
-    if [[ -n "$changed" ]] && git diff --quiet "refs/tags/$PREVIOUS_TAG" "$RELEASE_SHA" -- "$version_file"; then
-      missing+=("$version_file ($(echo "$changed" | head -n 3 | paste -sd ' ' -))")
+    [[ -n "$changed" ]] || continue
+    previous_version="$(package_version "refs/tags/$PREVIOUS_TAG" "$version_file")"
+    new_version="$(package_version "$RELEASE_SHA" "$version_file")"
+    # the version must go up: a forward-ported hotfix rebuilt under an older version would be refused or shadowed
+    if [[ "$new_version" == "$previous_version" ]] \
+      || [[ "$(printf '%s\n%s\n' "$previous_version" "$new_version" | sort -V | tail -n 1)" != "$new_version" ]]; then
+      missing+=("$version_file $previous_version -> $new_version ($(echo "$changed" | head -n 3 | paste -sd ' ' -))")
     fi
   done < <(git ls-tree --name-only "$RELEASE_SHA" .github/workflows/ | grep -E '\.ya?ml$')
 
@@ -162,7 +177,7 @@ check_version_bumps() {
     warn "not checked, no version file in $PREVIOUS_TAG: ${unchecked[*]}"
   fi
   if (( ${#missing[@]} > 0 )); then
-    fail "content changed since $PREVIOUS_TAG without a version bump: ${missing[*]}"
+    fail "content changed since $PREVIOUS_TAG without a higher version: ${missing[*]}"
   fi
   info "versions are bumped for every changed package"
 }
