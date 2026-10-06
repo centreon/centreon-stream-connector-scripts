@@ -16,6 +16,10 @@ inputs:
   artifactory_token:
     description: "Artifactory token"
     required: true
+  release_type:
+    description: "Type of release (hotfix, release), set as a property on testing packages"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -40,11 +44,17 @@ runs:
         MODULE_NAME: ${{ inputs.module_name }}
         DISTRIB: ${{ inputs.distrib }}
         STABILITY: ${{ inputs.stability }}
+        RELEASE_TYPE: ${{ inputs.release_type }}
       run: |
         FILES="*.deb"
+        # the promotion of a release tag only takes the testing packages of its release type
+        TARGET_PROPS=()
+        if [ "$STABILITY" == "testing" ]; then
+          TARGET_PROPS=(--target-props "release_type=$RELEASE_TYPE")
+        fi
         for FILE in $FILES; do
           echo "[DEBUG] - File: $FILE"
           ARCH=$(echo $FILE | cut -d '_' -f3 | cut -d '.' -f1)
-          jf rt upload "$FILE" "apt-plugins-$STABILITY/pool/$MODULE_NAME/" --deb "$DISTRIB/main/$ARCH"
+          jf rt upload "$FILE" "apt-plugins-$STABILITY/pool/$MODULE_NAME/" --deb "$DISTRIB/main/$ARCH" "${TARGET_PROPS[@]}"
         done
       shell: bash

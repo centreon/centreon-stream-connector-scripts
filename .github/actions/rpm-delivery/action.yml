@@ -16,6 +16,10 @@ inputs:
   artifactory_token:
     description: "Artifactory token"
     required: true
+  release_type:
+    description: "Type of release (hotfix, release), hotfix testing packages go to testing-hotfix"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -37,6 +41,7 @@ runs:
         MODULE_NAME: ${{ inputs.module_name }}
         DISTRIB: ${{ inputs.distrib }}
         STABILITY: ${{ inputs.stability }}
+        RELEASE_TYPE: ${{ inputs.release_type }}
       run: |
         FILES="*.rpm"
 
@@ -64,12 +69,18 @@ runs:
           mv "$FILE" "$ARCH"
         done
 
+        # hotfix builds are kept apart so that a hotfix tag never promotes release builds
+        STABILITY_PATH="$STABILITY"
+        if [ "$STABILITY" == "testing" ] && [ "$RELEASE_TYPE" == "hotfix" ]; then
+          STABILITY_PATH="testing-hotfix"
+        fi
+
         for ARCH in "noarch" "x86_64"; do
           if [ "$(ls -A $ARCH)" ]; then
             if [ "$STABILITY" == "stable" ]; then
               jf rt upload "${ARCH}/*.rpm" "rpm-plugins/${DISTRIB}/${STABILITY}/${ARCH}/RPMS/${MODULE_NAME}/" --flat
             else
-              jf rt upload "${ARCH}/*.rpm" "rpm-plugins/${DISTRIB}/${STABILITY}/${ARCH}/${MODULE_NAME}/" --flat
+              jf rt upload "${ARCH}/*.rpm" "rpm-plugins/${DISTRIB}/${STABILITY_PATH}/${ARCH}/${MODULE_NAME}/" --flat
             fi
           fi
         done
