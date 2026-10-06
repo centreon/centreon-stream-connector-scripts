@@ -131,32 +131,29 @@ package_version() {
   echo "$(sed -n 's/^VERSION=//p' <<< "$content")-$(sed -n 's/^RELEASE=//p' <<< "$content")"
 }
 
-# a package with a fixed version (root .version.<package> file listed in its workflow paths) must have its
-# version file changed when its content changed since the previous release tag, else the build would reuse
-# a version that is already stable
+# packages with a fixed version: "<root version file> <content pathspecs...>"; the version file must go up
+# when the content changed since the previous release tag, else the build would reuse a released version
+VERSIONED_PACKAGES=(
+  ".version.stream-connectors-lib modules/centreon-stream-connectors-lib packaging/connectors-lib"
+  ".version.lua-base64 dependencies/lua-base64"
+  ".version.lua-cffi dependencies/lua-cffi"
+  ".version.lua-lsqlite3 dependencies/lua-lsqlite3"
+  ".version.lua-openssl dependencies/lua-openssl"
+  ".version.lua-sql-mysql dependencies/lua-sql-mysql"
+  ".version.lua-tz dependencies/lua-tz"
+)
+
 check_version_bumps() {
-  local workflow workflow_paths version_file changed previous_version new_version missing=() unchecked=()
-  local -a paths content
+  local package version_file content_paths changed previous_version new_version missing=() unchecked=()
+  local -a content
   [[ -n "${PREVIOUS_TAG:-}" ]] || return 0
-  command -v yq > /dev/null 2>&1 || fail "yq is required to check the version bumps."
   git fetch --quiet --depth=1 "$REMOTE" "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG" \
     || fail "cannot fetch $PREVIOUS_TAG."
 
-  while read -r workflow; do
-    workflow_paths="$(git show "$RELEASE_SHA:$workflow" | yq -r '.on.push.paths // [] | .[]')" \
-      || fail "cannot read the paths of $workflow."
-    mapfile -t paths <<< "$workflow_paths"
-    version_file=""
-    content=()
-    for path in "${paths[@]}"; do
-      case "$path" in
-        .version.*) version_file="$path" ;;
-        .github/*) ;;
-        *) content+=(":(glob)$path") ;;
-      esac
-    done
-    [[ -n "$version_file" && ${#content[@]} -gt 0 ]] || continue
-
+  for package in "${VERSIONED_PACKAGES[@]}"; do
+    read -r version_file content_paths <<< "$package"
+    read -ra content <<< "$content_paths"
+    git cat-file -e "$RELEASE_SHA:$version_file" 2> /dev/null || fail "$version_file does not exist on $RELEASE_BRANCH."
     if ! git cat-file -e "refs/tags/$PREVIOUS_TAG:$version_file" 2> /dev/null; then
       unchecked+=("$version_file")
       continue
@@ -171,7 +168,7 @@ check_version_bumps() {
       || [[ "$(printf '%s\n%s\n' "$previous_version" "$new_version" | sort -V | tail -n 1)" != "$new_version" ]]; then
       missing+=("$version_file $previous_version -> $new_version ($(echo "$changed" | head -n 3 | paste -sd ' ' -))")
     fi
-  done < <(git ls-tree --name-only "$RELEASE_SHA" .github/workflows/ | grep -E '\.ya?ml$')
+  done
 
   if (( ${#unchecked[@]} > 0 )); then
     warn "not checked, no version file in $PREVIOUS_TAG: ${unchecked[*]}"
