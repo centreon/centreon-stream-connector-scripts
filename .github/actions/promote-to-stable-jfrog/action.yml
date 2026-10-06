@@ -1,0 +1,31 @@
+name: "promote-to-stable-jfrog"
+description: "Promote the latest testing packages of a module to stable on JFrog."
+inputs:
+  module_name:
+    description: "The package module name"
+    required: true
+  distrib:
+    description: "The distribution used for packaging"
+    required: true
+  package_extension:
+    description: "rpm or deb"
+    required: true
+  artifactory_token:
+    description: "Artifactory token"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: jfrog/setup-jfrog-cli@1641575d87647fb969c0545f0b6a76873e328b7c # v5.0.0
+      env:
+        JF_URL: https://centreon.jfrog.io
+        JF_ACCESS_TOKEN: ${{ inputs.artifactory_token }}
+
+    - name: Promote packages to stable
+      env:
+        MODULE_NAME: ${{ inputs.module_name }}
+        DISTRIB: ${{ inputs.distrib }}
+        PACKAGE_EXTENSION: ${{ inputs.package_extension }}
+      run: ${{ github.action_path }}/../../scripts/release/promote-jfrog.sh
+      shell: bash
