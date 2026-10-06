@@ -48,13 +48,20 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Get package version
+        id: package-version
+        run: |
+          echo "version=$(sed -n 's/^VERSION=//p' .version.stream-connectors-lib)" >> "$GITHUB_OUTPUT"
+          echo "release=$(sed -n 's/^RELEASE=//p' .version.stream-connectors-lib)" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.8.2" # previous version:"3.8.1"
-          release: "1"
+          version: ${{ steps.package-version.outputs.version }}
+          release: ${{ steps.package-version.outputs.release }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
           commit_hash: ${{ github.sha }}
