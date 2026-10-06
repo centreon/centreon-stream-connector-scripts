@@ -88,8 +88,6 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
-  -- adding trigger system to already initialized module
-  self.sc_broker.sc_trigger = sc_trigger
   self.sc_params.params.send_mixed_events = 0
 
   if self.sc_params.params.connector_name_type ~= "poller" and self.sc_params.params.connector_name_type ~= "custom" then

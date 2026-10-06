@@ -78,8 +78,6 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
-  -- adding trigger system to already initialized module
-  self.sc_broker.sc_trigger = sc_trigger
   self.sc_macros = sc_macros.new(self.sc_params.params, self.sc_logger)
 
   -- only load the custom code file, not executed yet
