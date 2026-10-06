@@ -8,10 +8,6 @@
 local sc_event = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
-local sc_params = require("centreon-stream-connectors-lib.sc_params")
-local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
-local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
 local pending_event_handler = nil
