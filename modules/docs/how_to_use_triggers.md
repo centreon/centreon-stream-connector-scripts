@@ -98,11 +98,11 @@ end)
 
 ### EventQueue:add / on-event-add
 
-**When triggered:** every time a stream connector is about to push a freshly formatted event into its sending queue, right before it is actually queued.
+**When triggered:** every time a stream connector has just pushed a freshly formatted event into its sending queue (the event is already queued when your function runs).
 
 **Returned default value:** no default value declared for this trigger
 
-**Return value:** ignored, no return value is expected. However both `data.formatted_event` and `data.full_event_data` are given to you by reference: editing their fields in your function directly changes the event that is going to be queued and sent.
+**Return value:** ignored, no return value is expected. However both `data.formatted_event` and `data.full_event_data` are given to you by reference: editing the fields of `data.formatted_event` in your function directly changes the queued event that is going to be sent. Be aware that some stream connectors copy some values from the event into their own structure before queuing it (for example the `time` or `host` fields of the Splunk stream connector), editing `data.full_event_data` will not change those copied values.
 
 **data table:**
 
@@ -190,11 +190,11 @@ end)
 
 ### sc_flush:flush_payload / on-success
 
-**When triggered:** every time `sc_flush:flush_payload` has just **successfully** sent a payload (the send function did not raise an error).
+**When triggered:** every time `sc_flush:flush_payload` has just **successfully** sent a payload (the send function did not raise an error and returned a truthy value).
 
 **Returned default value:** `true`
 
-**Return value:** **you must return a boolean**. It is not ignored: it becomes the actual return value of `flush_payload`, which the rest of the stream connector uses to decide whether the flush worked. Returning `false` turns this successful send into a reported failure.
+**Return value:** **you must return a boolean**. It is not ignored: it becomes the actual return value of `flush_payload`, which the rest of the stream connector uses to decide whether the flush worked. Returning `false` turns this successful send into a reported failure. If your function returns something that is not a boolean (or nothing at all), an error is logged and the default value is used instead.
 
 **data table:**
 
@@ -214,11 +214,11 @@ end)
 
 ### sc_flush:flush_payload / on-fail
 
-**When triggered:** every time `sc_flush:flush_payload` **fails** to send a payload (the send function raised an error, caught internally).
+**When triggered:** every time `sc_flush:flush_payload` **fails** to send a payload: either the send function raised an error (caught internally) or it returned a falsy value (an http error for example). It is **not** triggered when the send function raised an error and the **drop_events_on_send_failure** parameter is set to `1`: in that case the payload is dropped and `flush_payload` returns `true`.
 
 **Returned default value:** `false`
 
-**Return value:** **you must return a boolean**. It is not ignored: it becomes the actual return value of `flush_payload`. Returning `true` reports this failed send as a success despite the underlying error (useful if you want to swallow a specific, known-harmless error).
+**Return value:** **you must return a boolean**. It is not ignored: it becomes the actual return value of `flush_payload`. Returning `true` reports this failed send as a success despite the underlying error (useful if you want to swallow a specific, known-harmless error). If your function returns something that is not a boolean (or nothing at all), an error is logged and the default value is used instead.
 
 **data table:**
 
@@ -226,7 +226,7 @@ end)
 | - | - | - |
 | payload | any | the payload that failed to be sent |
 | metadata | table | the queue metadata (endpoint, method, ...) that was used to try to send the payload |
-| error | string | the error message that was caught |
+| error | any | the error that was caught, or `send method returned: <value>` when the send function returned a falsy value |
 
 **Example:**
 

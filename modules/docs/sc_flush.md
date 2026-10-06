@@ -44,12 +44,12 @@ Since this is OOP, it is required to initiate your module
 
 ### Module constructor
 
-Constructor can be initialized with up to four parameters. If sc_logger is not provided it will use a default value.
+Constructor can be initialized with up to four parameters. If sc_logger or sc_trigger are not provided it will use a default value.
 
 - params. This is the table of all stream connectors parameters
-- sc_logger. This is an instance of the sc_logger module. If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
+- logger. This is an instance of the sc_logger module. If you don't provide this parameter it will create a default sc_logger instance with default parameters ([sc_logger default params](./sc_logger.md#module-initialization))
 - sc_common. This is an instance of the sc_common module
-- sc_trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user at various points of the flush lifecycle
+- trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user at various points of the flush lifecycle. If you don't provide this parameter it will create a default sc_trigger instance
 
 ### constructor: Example
 

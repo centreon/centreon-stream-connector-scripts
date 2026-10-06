@@ -125,6 +125,7 @@ function ScTrigger:execute_trigger_file()
 
   if not pcall_status then
     self.sc_logger:error("[sc_trigger:execute_trigger_file]: couldn't run trigger file Lua code. Error: " .. tostring(message))
+    return self
   end
 
   self.sc_logger:notice("[sc_trigger:execute_trigger_file]: successfully executed trigger file Lua code")
@@ -175,7 +176,7 @@ function ScTrigger:register_trigger(category, event_type, trigger_function)
   end
 
   if not self.triggers[category][event_type] then
-    self.sc_logger:error("[sc_trigger:register_trigger]: ivalid trigger event type: " .. tostring(event_type) 
+    self.sc_logger:error("[sc_trigger:register_trigger]: invalid trigger event type: " .. tostring(event_type) 
       .. ". List of valid event type for category " .. tostring(category) .. ": " .. self.valid_event_types[category])
     return false
   end
@@ -199,7 +200,7 @@ function ScTrigger:run_trigger(category, event_type, data)
   end
 
   if not self.triggers[category][event_type] then
-    self.sc_logger:error("[sc_trigger:run_trigger]: ivalid trigger event type: " .. tostring(event_type) 
+    self.sc_logger:error("[sc_trigger:run_trigger]: invalid trigger event type: " .. tostring(event_type) 
       .. ". List of valid event type for category " .. tostring(category) .. ": " .. self.valid_event_types[category])
     return false
   end
@@ -225,6 +226,9 @@ function ScTrigger:run_trigger(category, event_type, data)
     if self.triggers[category][event_type]._internal.expected_return_type 
       and type(result) ~= self.triggers[category][event_type]._internal.expected_return_type 
     then
+      self.sc_logger:error("[sc_trigger:run_trigger]: trigger " .. tostring(event_type) .. " from category: " .. tostring(category)
+        .. " returned a value of type: " .. type(result) .. " but expected type is: " .. tostring(self.triggers[category][event_type]._internal.expected_return_type)
+        .. ". Using default value instead: " .. tostring(default_return_value))
       return default_return_value
     end
 
