@@ -10,6 +10,9 @@ inputs:
   package_extension:
     description: "rpm or deb"
     required: true
+  release_type:
+    description: "Type of release (hotfix, release), selects the testing packages to promote"
+    required: true
   artifactory_token:
     description: "Artifactory token"
     required: true
@@ -27,5 +30,6 @@ runs:
         MODULE_NAME: ${{ inputs.module_name }}
         DISTRIB: ${{ inputs.distrib }}
         PACKAGE_EXTENSION: ${{ inputs.package_extension }}
+        RELEASE_TYPE: ${{ inputs.release_type }}
       run: ${{ github.action_path }}/../../scripts/release/promote-jfrog.sh
       shell: bash
