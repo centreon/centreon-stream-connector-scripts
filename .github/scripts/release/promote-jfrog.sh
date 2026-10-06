@@ -7,6 +7,7 @@ set -euo pipefail
 MODULE_NAME="${MODULE_NAME:-}"
 DISTRIB="${DISTRIB:-}"
 PACKAGE_EXTENSION="${PACKAGE_EXTENSION:-}"
+RELEASE_TYPE="${RELEASE_TYPE:-}"
 DRY_RUN="${DRY_RUN:-false}"
 WORK_DIR="${WORK_DIR:-$(mktemp -d)}"
 
@@ -34,19 +35,25 @@ run() {
   fi
 }
 
-# reads "<group key>\t<version>\t<path>" lines, prints the path of the highest version per group key
+# reads "<group key>\t<version>\t<fields...>" lines, prints the fields of the highest version per group key
 latest_per_package() {
-  sort -t $'\t' -k1,1 -k2,2V | awk -F '\t' '{ latest[$1] = $3 } END { for (key in latest) print latest[key] }' | sort
+  sort -t $'\t' -k1,1 -k2,2V \
+    | awk -F '\t' '{ line = $3; for (i = 4; i <= NF; i++) line = line "\t" $i; latest[$1] = line } END { for (key in latest) print latest[key] }' \
+    | sort
 }
 
-# promote_file <source path> <target directory> [jf upload options...]
+# promote_file <source path> <source sha256> <target directory> [jf upload options...]
 promote_file() {
-  local source="$1" target="$2" file count
-  shift 2
+  local source="$1" sha256="$2" target="$3" file stable_sha256
+  shift 3
   file="$(basename "$source")"
 
-  count="$(jf rt search --count "$target$file")" || fail "cannot search $target$file."
-  if (( count > 0 )); then
+  stable_sha256="$(jf rt search "$target$file" | jq -r '.[0].sha256 // empty')" || fail "cannot search $target$file."
+  if [[ -n "$stable_sha256" ]]; then
+    # a stable file is never overwritten: same name means same version-release
+    if [[ "$stable_sha256" != "$sha256" ]]; then
+      echo "::warning::$file is already stable with a different checksum, bump its version or release to ship this build"
+    fi
     echo "$file is already stable"
     ALREADY_STABLE=$((ALREADY_STABLE + 1))
     return
@@ -59,47 +66,62 @@ promote_file() {
   PROMOTED=$((PROMOTED + 1))
 }
 
+# prints the search results as tsv, failing on any result missing one of the given properties
+search_tsv() {
+  local search="$1" filter="$2"
+  jq -e 'all(.[]; .props as $p | all($ARGS.positional[]; ($p[.][0] // "") != ""))' --args "${@:3}" <<< "$search" > /dev/null \
+    || fail "some testing packages miss one of these properties: ${*:3}."
+  jq -r "$filter | @tsv" <<< "$search"
+}
+
 promote_rpm() {
-  local arch search source found=0
+  local source_stability="testing" arch search source sha256 found=0
+  # hotfix builds are delivered apart, as on pulp
+  if [[ "$RELEASE_TYPE" == "hotfix" ]]; then
+    source_stability="testing-hotfix"
+  fi
   for arch in noarch x86_64; do
-    search="$(jf rt search --recursive=false "rpm-plugins/$DISTRIB/testing/$arch/$MODULE_NAME/*.rpm")" \
-      || fail "cannot search rpm-plugins/$DISTRIB/testing/$arch/$MODULE_NAME."
-    while read -r source; do
+    search="$(jf rt search --recursive=false "rpm-plugins/$DISTRIB/$source_stability/$arch/$MODULE_NAME/*.rpm")" \
+      || fail "cannot search rpm-plugins/$DISTRIB/$source_stability/$arch/$MODULE_NAME."
+    while IFS=$'\t' read -r source sha256; do
       [[ -n "$source" ]] || continue
       found=1
-      promote_file "$source" "rpm-plugins/$DISTRIB/stable/$arch/RPMS/$MODULE_NAME/"
-    done < <(jq -r '.[] | [
+      promote_file "$source" "$sha256" "rpm-plugins/$DISTRIB/stable/$arch/RPMS/$MODULE_NAME/"
+    done < <(search_tsv "$search" '.[] | [
         .props["rpm.metadata.name"][0],
         "\(.props["rpm.metadata.version"][0])-\(.props["rpm.metadata.release"][0])",
-        .path
-      ] | @tsv' <<< "$search" | latest_per_package)
+        .path,
+        .sha256
+      ]' rpm.metadata.name rpm.metadata.version rpm.metadata.release | latest_per_package)
   done
-  (( found )) || fail "nothing to promote: no $MODULE_NAME rpm in rpm-plugins/$DISTRIB/testing."
+  (( found )) || fail "nothing to promote: no $MODULE_NAME rpm in rpm-plugins/$DISTRIB/$source_stability."
 }
 
 promote_deb() {
-  local search source arch found=0
-  search="$(jf rt search --recursive=false --props "deb.distribution=$DISTRIB" "apt-plugins-testing/pool/$MODULE_NAME/*.deb")" \
+  local search source arch sha256 found=0
+  search="$(jf rt search --recursive=false --props "deb.distribution=$DISTRIB;release_type=$RELEASE_TYPE" \
+    "apt-plugins-testing/pool/$MODULE_NAME/*.deb")" \
     || fail "cannot search apt-plugins-testing/pool/$MODULE_NAME."
-  while IFS=$'\t' read -r source arch; do
+  while IFS=$'\t' read -r source arch sha256; do
     [[ -n "$source" ]] || continue
     found=1
-    promote_file "$source" "apt-plugins-stable/pool/$MODULE_NAME/" --deb "$DISTRIB/main/$arch"
-  done < <(jq -r '.[] | [
+    promote_file "$source" "$sha256" "apt-plugins-stable/pool/$MODULE_NAME/" --deb "$DISTRIB/main/$arch"
+  done < <(search_tsv "$search" '.[] | [
       "\(.props["deb.name"][0])_\(.props["deb.architecture"][0])",
       .props["deb.version"][0],
       .path,
-      .props["deb.architecture"][0]
-    ] | @tsv' <<< "$search" | sort -t $'\t' -k1,1 -k2,2V \
-      | awk -F '\t' '{ latest[$1] = $3 "\t" $4 } END { for (key in latest) print latest[key] }' | sort)
-  (( found )) || fail "nothing to promote: no $MODULE_NAME deb for $DISTRIB in apt-plugins-testing."
+      .props["deb.architecture"][0],
+      .sha256
+    ]' deb.name deb.version deb.architecture | latest_per_package)
+  (( found )) || fail "nothing to promote: no $RELEASE_TYPE $MODULE_NAME deb for $DISTRIB in apt-plugins-testing."
 }
 
 main() {
   [[ -n "$MODULE_NAME" && -n "$DISTRIB" ]] || fail "MODULE_NAME and DISTRIB are required."
+  [[ "$RELEASE_TYPE" == "release" || "$RELEASE_TYPE" == "hotfix" ]] || fail "RELEASE_TYPE must be release or hotfix (got '$RELEASE_TYPE')."
   [[ "$DRY_RUN" == "true" || "$DRY_RUN" == "false" ]] || fail "DRY_RUN must be true or false (got '$DRY_RUN')."
 
-  summary "### $MODULE_NAME $DISTRIB promoted to stable on JFrog"
+  summary "### $MODULE_NAME $DISTRIB promoted to stable on JFrog ($RELEASE_TYPE)"
   case "$PACKAGE_EXTENSION" in
     rpm) promote_rpm ;;
     deb) promote_deb ;;
