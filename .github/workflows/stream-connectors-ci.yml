@@ -70,13 +70,15 @@ jobs:
       pull-requests: read
 
   # when the library has been rebuilt in this run, the stream connectors are tested
-  # against those freshly built packages instead of the ones from the repositories
+  # against those freshly built packages instead of the ones from the repositories.
+  # A library change tests all the stream connectors, but only the changed ones are delivered
   stream-connectors:
     needs: [detect-changes, stream-connectors-lib]
-    if: ${{ !cancelled() && needs.detect-changes.outputs.connectors == 'true' && needs.stream-connectors-lib.result != 'failure' }}
+    if: ${{ !cancelled() && (needs.detect-changes.outputs.connectors == 'true' || needs.detect-changes.outputs.lib == 'true') && needs.stream-connectors-lib.result != 'failure' }}
     uses: ./.github/workflows/stream-connectors.yml
     with:
       use_local_lib: ${{ needs.stream-connectors-lib.result == 'success' }}
+      test_all_connectors: ${{ needs.detect-changes.outputs.lib == 'true' }}
     secrets: inherit
     permissions:
       contents: read
