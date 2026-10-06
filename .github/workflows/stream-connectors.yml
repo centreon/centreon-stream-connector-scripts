@@ -39,10 +39,36 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # a release/hotfix branch packages every connector changed since the previous release tag
+      - name: Get changes base
+        id: base
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          BASE="$GITHUB_REF"
+          if [[ "$REF_NAME" =~ ^(release|hotfix)-([0-9]{8})$ ]]; then
+            NUMBER="${BASH_REMATCH[2]}"
+            PREVIOUS_TAG=""
+            while read -r tag; do
+              if (( 10#${tag##*-} < 10#$NUMBER )); then
+                PREVIOUS_TAG="$tag"
+              fi
+            done < <(git ls-remote --tags --refs origin 'refs/tags/centreon-stream-connectors-*' \
+              | sed 's#.*refs/tags/##' | { grep -E '^centreon-stream-connectors-[0-9]{8}$' || true; } | sort -V)
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              echo "changes are detected since release tag $PREVIOUS_TAG"
+              BASE="$PREVIOUS_TAG"
+            else
+              echo "::warning::no release tag before $NUMBER, changes are detected from the last commit only"
+            fi
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
-          base: ${{ github.ref }}
+          base: ${{ steps.base.outputs.base }}
           list-files: shell
           filters: |
             connectors:
