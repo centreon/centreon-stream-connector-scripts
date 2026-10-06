@@ -9,6 +9,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/lua-sql-mysql.yml'
+      - '.version.lua-sql-mysql'
       - 'dependencies/lua-sql-mysql/**'
   push:
     branches:
@@ -18,6 +19,7 @@ on:
       - 'centreon-stream-connectors-[0-9]+'
     paths:
       - '.github/workflows/lua-sql-mysql.yml'
+      - '.version.lua-sql-mysql'
       - 'dependencies/lua-sql-mysql/**'
 
 jobs:
@@ -92,6 +94,13 @@ jobs:
           sed -i "s/@mysql_version@/${MYSQL_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
         shell: bash
 
+      - name: Get package version
+        id: package-version
+        run: |
+          echo "version=$(sed -n 's/^VERSION=//p' .version.lua-sql-mysql)" >> "$GITHUB_OUTPUT"
+          echo "release=$(sed -n 's/^RELEASE=//p' .version.lua-sql-mysql)" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
@@ -99,8 +108,8 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: rpm
           arch: amd64
-          version: "2.7.0"
-          release: "1"
+          version: ${{ steps.package-version.outputs.version }}
+          release: ${{ steps.package-version.outputs.release }}
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
