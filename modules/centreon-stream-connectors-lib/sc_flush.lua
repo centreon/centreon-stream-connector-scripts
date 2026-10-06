@@ -30,7 +30,7 @@ function sc_flush.new(params, logger, sc_common, trigger)
   -- create a default trigger instance if it is not provided (stream connectors written before the trigger system)
   self.sc_trigger = trigger
   if not self.sc_trigger then
-    self.sc_trigger = sc_trigger_lib.new(params, sc_common, self.sc_logger)
+    self.sc_trigger = sc_trigger.new(params, sc_common, self.sc_logger)
   end
 
   self.params = params
