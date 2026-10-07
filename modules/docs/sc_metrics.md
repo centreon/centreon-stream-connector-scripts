@@ -38,13 +38,15 @@ Since this is OOP, it is required to initiate your module.
 
 ### module constructor
 
-Constructor must be initialized with 5 parameters
+Constructor must be initialized with 7 parameters
 
 - an event table
 - a params table
 - a sc_common instance
 - a sc_broker instance
+- a sc_storage instance
 - a sc_logger instance (will create a new one with default parameters if not provided)
+- a sc_trigger instance, it is used to run the triggers registered by the user at various points of the metrics lifecycle
 
 ### constructor: Example
 
@@ -58,6 +60,8 @@ local sc_param = require("centreon-stream-connectors-lib.sc_param")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
+local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_metrics = require("centreon-stream-connectors-lib.sc_metrics")
 
 -- initiate "mandatory" information for the logger module
@@ -76,8 +80,14 @@ local test_param = sc_param.new(test_common, test_logger)
 -- create a new instance of the sc_broker module
 local test_broker = sc_broker.new(test_logger)
 
--- create a new instance of the sc_event module
-local test_metrics = sc_metrics.new(event, test_param.params, test_common, test_broker, test_logger)
+-- create a new instance of the sc_trigger module
+local test_trigger = sc_trigger.new(test_param.params, test_common, test_logger)
+
+-- create a new instance of the sc_storage module
+local test_storage = sc_storage.new(test_common, test_logger, test_param.params, test_trigger)
+
+-- create a new instance of the sc_metrics module
+local test_metrics = sc_metrics.new(event, test_param.params, test_common, test_broker, test_storage, test_logger, test_trigger)
 ```
 
 ## is_valid_bbdo_element method

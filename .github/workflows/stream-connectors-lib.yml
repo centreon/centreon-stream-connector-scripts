@@ -1,31 +1,11 @@
 name: stream-connectors-lib
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
+# triggered by stream-connectors-ci.yml
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/stream-connectors-lib.yml'
-      - 'packaging/connectors-lib/**'
-      - 'modules/centreon-stream-connectors-lib/**'
-  push:
-    branches:
-      - develop
-      - master
-    paths:
-      - '.github/workflows/stream-connectors-lib.yml'
-      - 'packaging/connectors-lib/**'
-      - 'modules/centreon-stream-connectors-lib/**'
+  workflow_call:
 
 jobs:
-  dependency-scan:
-    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
-
   get-environment:
-    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   package:
