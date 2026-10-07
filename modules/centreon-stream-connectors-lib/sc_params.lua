@@ -909,9 +909,12 @@ function sc_params.new(common, logger)
       }
     },
     [categories.bam.id] = {
-      [0] = "OK",
-      [1] = "WARNING",
-      [2] = "CRITICAL"
+      [elements.ba_status.id] = {
+        [0] = "OK",
+        [1] = "WARNING",
+        [2] = "CRITICAL",
+        [3] = "UNKNOWN"
+      }
     }
   }
 
