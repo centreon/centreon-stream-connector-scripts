@@ -7,7 +7,6 @@ local sc_storage_sqlite = {}
 local ScStorageSqlite = {}
 
 local sqlite = require("lsqlite3")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 --- sc_storage_sqlite.new: sc_storage_sqlite constructor
 -- @param common (object) a sc_common instance
