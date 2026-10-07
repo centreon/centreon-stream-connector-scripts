@@ -155,7 +155,7 @@ jobs:
   deliver-pulp:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
     needs: [get-environment, package, test-packages]
-    runs-on: centreon-ubuntu-22.04
+    runs-on: centreon-ubuntu-26.04-small
     permissions:
       contents: read
       id-token: write
