@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
       test_all_connectors:
-        description: "Build and test all the stream connectors (only the changed ones are delivered)"
+        description: "Build and test all the stream connectors, used for library or CI changes (only the changed ones are delivered)"
         type: boolean
         default: false
 
@@ -36,8 +36,8 @@ jobs:
           filters: |
             connectors:
               - added|modified: centreon-certified/**
+            # changes of the CI files are handled by stream-connectors-ci.yml (test_all_connectors input)
             packaging:
-              - modified: .github/workflows/stream-connectors.yml
               - added|modified: packaging/connectors/**
 
       - name: Transform to directories
@@ -64,7 +64,7 @@ jobs:
           echo "delivered_connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
 
           if [ "$TEST_ALL_CONNECTORS" = "true" ]; then
-            echo "Library changed, testing all connectors"
+            echo "Library or CI changed, testing all connectors"
             unique_folders=($(printf "%s\n" "${all_folders[@]}" | sort -u | tr '\n' ' '))
           fi
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT

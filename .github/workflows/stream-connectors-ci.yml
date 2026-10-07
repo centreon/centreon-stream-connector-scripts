@@ -4,29 +4,28 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# no paths filter: the detect-changes job decides what to run, and the ci-status job
+# always reports a result so that it can be used as a required check
 on:
   workflow_dispatch:
+    inputs:
+      build_lib:
+        description: "Build and test the library"
+        type: boolean
+        default: true
+      build_connectors:
+        description: "Build and test all the stream connectors (always done when build_lib is set)"
+        type: boolean
+        default: true
+      deliver_lib:
+        description: "Deliver the library (requires build_lib)"
+        type: boolean
+        default: false
   pull_request:
-    paths:
-      - '.github/workflows/stream-connectors-ci.yml'
-      - '.github/workflows/stream-connectors-lib.yml'
-      - 'packaging/connectors-lib/**'
-      - 'modules/centreon-stream-connectors-lib/**'
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
   push:
     branches:
       - develop
       - master
-    paths:
-      - '.github/workflows/stream-connectors-ci.yml'
-      - '.github/workflows/stream-connectors-lib.yml'
-      - 'packaging/connectors-lib/**'
-      - 'modules/centreon-stream-connectors-lib/**'
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
 
 jobs:
   dependency-scan:
@@ -36,9 +35,13 @@ jobs:
     needs: [dependency-scan]
     runs-on: ubuntu-24.04
     outputs:
-      # a manual run builds and tests both the library and the stream connectors
-      lib: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.lib }}
-      connectors: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.connectors }}
+      # a manual run builds, tests and delivers what has been asked through its inputs
+      lib: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_lib && 'true' || 'false') || steps.filter.outputs.lib }}
+      connectors: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_connectors && 'true' || 'false') || steps.filter.outputs.connectors }}
+      # CI changes test everything but do not deliver anything
+      ci: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.ci }}
+      # the library is only delivered when its code or packaging changed
+      deliver_lib: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_lib && inputs.deliver_lib && 'true' || 'false') || steps.filter.outputs.lib_code }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
@@ -48,14 +51,22 @@ jobs:
         with:
           base: ${{ github.ref }}
           filters: |
-            lib:
+            ci: &ci
               - .github/workflows/stream-connectors-ci.yml
               - .github/workflows/stream-connectors-lib.yml
-              - packaging/connectors-lib/**
-              - modules/centreon-stream-connectors-lib/**
-            connectors:
-              - .github/workflows/stream-connectors-ci.yml
+              - .github/workflows/stream-connectors-lib-delivery.yml
               - .github/workflows/stream-connectors.yml
+              - .github/workflows/get-environment.yml
+              - .github/actions/**
+            lib_code: &lib_code
+              - modules/centreon-stream-connectors-lib/**
+              - packaging/connectors-lib/**
+            lib:
+              - *ci
+              - *lib_code
+              - tests/packaging/**
+            connectors:
+              - *ci
               - centreon-certified/**
               - packaging/connectors/**
 
@@ -71,16 +82,39 @@ jobs:
 
   # when the library has been rebuilt in this run, the stream connectors are tested
   # against those freshly built packages instead of the ones from the repositories.
-  # A library change tests all the stream connectors, but only the changed ones are delivered
+  # A library or CI change tests all the stream connectors, but only the changed ones are delivered
   stream-connectors:
     needs: [detect-changes, stream-connectors-lib]
     if: ${{ !cancelled() && (needs.detect-changes.outputs.connectors == 'true' || needs.detect-changes.outputs.lib == 'true') && needs.stream-connectors-lib.result != 'failure' }}
     uses: ./.github/workflows/stream-connectors.yml
     with:
       use_local_lib: ${{ needs.stream-connectors-lib.result == 'success' }}
-      test_all_connectors: ${{ needs.detect-changes.outputs.lib == 'true' }}
+      test_all_connectors: ${{ needs.detect-changes.outputs.lib == 'true' || needs.detect-changes.outputs.ci == 'true' }}
     secrets: inherit
     permissions:
       contents: read
       id-token: write
       pull-requests: read
+
+  # the library is delivered only once the stream connectors have also been tested against it
+  stream-connectors-lib-delivery:
+    needs: [detect-changes, stream-connectors-lib, stream-connectors]
+    if: ${{ !cancelled() && needs.detect-changes.outputs.deliver_lib == 'true' && needs.stream-connectors-lib.result == 'success' && needs.stream-connectors.result != 'failure' }}
+    uses: ./.github/workflows/stream-connectors-lib-delivery.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+
+  # aggregated result of the workflow, meant to be used as the required check
+  ci-status:
+    needs: [dependency-scan, detect-changes, stream-connectors-lib, stream-connectors, stream-connectors-lib-delivery]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check jobs result
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one job failed or has been cancelled"
+          exit 1
