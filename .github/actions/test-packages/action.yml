@@ -8,13 +8,18 @@ inputs:
     description: "The distribution name"
     required: true
   cache_key:
-    description: "The cache key to restore packages"
-    required: true
+    description: "The cache key to restore packages (not used when published_packages is set)"
+    required: false
+    default: ""
   test_type:
     description: "The type of test to run: dependency, library or stream-connector"
     required: true
   lib_cache_key:
     description: "The cache key of library packages built in the same run, installed before the tested packages instead of the ones from the repositories"
+    required: false
+    default: ""
+  published_packages:
+    description: "Space separated list of packages to download from the repositories and test, instead of the ones restored from cache_key"
     required: false
     default: ""
 
@@ -244,12 +249,37 @@ runs:
         fi
       shell: bash
 
-    - name: Restore packages from cache
+    - if: ${{ inputs.published_packages == '' }}
+      name: Restore packages from cache
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ./*.${{ inputs.package_extension }}
         key: ${{ inputs.cache_key }}
         fail-on-cache-miss: true
+
+    - if: ${{ inputs.published_packages != '' }}
+      name: Download published packages from the repositories
+      env:
+        PACKAGE_EXTENSION: ${{ inputs.package_extension }}
+        PUBLISHED_PACKAGES: ${{ inputs.published_packages }}
+      run: |
+        for package in $PUBLISHED_PACKAGES; do
+          echo "Downloading package: $package"
+          if [[ "$PACKAGE_EXTENSION" == "rpm" ]]; then
+            dnf download --destdir=. "$package" || echo "::warning::$package is not published for this distribution, it is not tested"
+          else
+            apt-get download "$package" || echo "::warning::$package is not published for this distribution, it is not tested"
+          fi
+        done
+        # name the deb packages like the ones built by nfpm, the test step extracts the package name from the file name
+        if [[ "$PACKAGE_EXTENSION" == "deb" ]]; then
+          for package_file in ./*.deb; do
+            [[ -f "$package_file" ]] || continue
+            target="./$(dpkg-deb -f "$package_file" Package)_$(dpkg-deb -f "$package_file" Version)_all.deb"
+            [[ "$package_file" == "$target" ]] || mv "$package_file" "$target"
+          done
+        fi
+      shell: bash
 
     - if: ${{ inputs.package_extension == 'rpm' }}
       name: Check packages installation / uninstallation

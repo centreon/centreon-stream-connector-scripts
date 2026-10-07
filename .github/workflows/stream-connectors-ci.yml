@@ -43,16 +43,16 @@ jobs:
       # the library is only delivered when its code or packaging changed
       deliver_lib: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_lib && inputs.deliver_lib && 'true' || 'false') || steps.filter.outputs.lib_code }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - if: ${{ github.event_name != 'workflow_dispatch' }}
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           base: ${{ github.ref }}
           filters: |
+            # this workflow only dispatches the jobs, its own changes do not trigger them
             ci: &ci
-              - .github/workflows/stream-connectors-ci.yml
               - .github/workflows/stream-connectors-lib.yml
               - .github/workflows/stream-connectors-lib-delivery.yml
               - .github/workflows/stream-connectors.yml
@@ -82,14 +82,17 @@ jobs:
 
   # when the library has been rebuilt in this run, the stream connectors are tested
   # against those freshly built packages instead of the ones from the repositories.
-  # A library or CI change tests all the stream connectors, but only the changed ones are delivered
+  # - the changed stream connectors are built, tested and delivered
+  # - a CI change builds and tests all the stream connectors, without delivering them
+  # - a library change tests the published packages of the stream connectors that are not built
   stream-connectors:
     needs: [detect-changes, stream-connectors-lib]
     if: ${{ !cancelled() && (needs.detect-changes.outputs.connectors == 'true' || needs.detect-changes.outputs.lib == 'true') && needs.stream-connectors-lib.result != 'failure' }}
     uses: ./.github/workflows/stream-connectors.yml
     with:
       use_local_lib: ${{ needs.stream-connectors-lib.result == 'success' }}
-      test_all_connectors: ${{ needs.detect-changes.outputs.lib == 'true' || needs.detect-changes.outputs.ci == 'true' }}
+      build_all_connectors: ${{ needs.detect-changes.outputs.ci == 'true' }}
+      test_published_connectors: ${{ needs.detect-changes.outputs.lib == 'true' }}
     secrets: inherit
     permissions:
       contents: read
