@@ -8,8 +8,12 @@ on:
         description: "Test the stream connectors against the library packages built earlier in the same run"
         type: boolean
         default: false
-      test_all_connectors:
-        description: "Build and test all the stream connectors (only the changed ones are delivered)"
+      build_all_connectors:
+        description: "Build and test all the stream connectors, used for CI changes (only the changed ones are delivered)"
+        type: boolean
+        default: false
+      test_published_connectors:
+        description: "Test the published packages of the stream connectors that are not built in this run, used for library changes"
         type: boolean
         default: false
 
@@ -24,6 +28,8 @@ jobs:
       connectors: ${{ steps.list-connectors.outputs.connectors }}
       # connectors to deliver, only the ones that changed
       delivered_connectors: ${{ steps.list-connectors.outputs.delivered_connectors }}
+      # space separated packages of the connectors that are not built, tested from the repositories
+      published_packages: ${{ steps.list-connectors.outputs.published_packages }}
       packaging: ${{ steps.filter.outputs.packaging }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,8 +42,8 @@ jobs:
           filters: |
             connectors:
               - added|modified: centreon-certified/**
+            # changes of the CI files are handled by stream-connectors-ci.yml (build_all_connectors input)
             packaging:
-              - modified: .github/workflows/stream-connectors.yml
               - added|modified: packaging/connectors/**
 
       - name: Transform to directories
@@ -45,7 +51,8 @@ jobs:
         env:
           CONNECTOR_FILES: ${{ steps.filter.outputs.connectors_files }}
           PACKAGING_CHANGED: ${{ steps.filter.outputs.packaging }}
-          TEST_ALL_CONNECTORS: ${{ inputs.test_all_connectors }}
+          BUILD_ALL_CONNECTORS: ${{ inputs.build_all_connectors }}
+          TEST_PUBLISHED_CONNECTORS: ${{ inputs.test_published_connectors }}
         run: |
           folders=()
           mapfile -t all_folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
@@ -63,11 +70,23 @@ jobs:
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
           echo "delivered_connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
 
-          if [ "$TEST_ALL_CONNECTORS" = "true" ]; then
-            echo "Library changed, testing all connectors"
+          if [ "$BUILD_ALL_CONNECTORS" = "true" ]; then
+            echo "CI changed, building and testing all connectors"
             unique_folders=($(printf "%s\n" "${all_folders[@]}" | sort -u | tr '\n' ' '))
           fi
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
+
+          # the connectors that are not built in this run are tested with their published packages
+          published_packages=()
+          if [ "$TEST_PUBLISHED_CONNECTORS" = "true" ]; then
+            for folder in "${all_folders[@]}"; do
+              if [[ ! " ${unique_folders[*]} " =~ " ${folder} " ]]; then
+                published_packages+=("centreon-stream-connector-${folder}")
+              fi
+            done
+            echo "Library changed, testing published packages: ${published_packages[*]}"
+          fi
+          echo "published_packages=${published_packages[*]}" >> $GITHUB_OUTPUT
         shell: bash
 
   package:
@@ -223,6 +242,54 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: install_error_log_${{ matrix.connector_path }}_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
+
+  # the published packages of the connectors are tested against the library built in this run
+  test-published-packages:
+    if: ${{ needs.detect-changes.outputs.published_packages != '' }}
+    needs: [detect-changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+            image: almalinux:8
+          - distrib: el9
+            package_extension: rpm
+            image: almalinux:9
+          - distrib: el10
+            package_extension: rpm
+            image: almalinux:10
+          - distrib: bookworm
+            package_extension: deb
+            image: debian:bookworm
+          - distrib: trixie
+            package_extension: deb
+            image: debian:trixie
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    name: Test published ${{ matrix.distrib }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test published connectors
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          published_packages: ${{ needs.detect-changes.outputs.published_packages }}
+          # must match the cache_key of the package job in stream-connectors-lib.yml
+          lib_cache_key: ${{ inputs.use_local_lib && format('{0}-{1}-{2}-{3}', github.sha, github.run_id, matrix.package_extension, matrix.distrib) || '' }}
+          test_type: stream-connector
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: install_error_log_published_${{ matrix.distrib }}
           path: install_error_${{ matrix.distrib }}.log
 
   deliver-rpm:
