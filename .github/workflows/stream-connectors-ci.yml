@@ -61,6 +61,8 @@ jobs:
             lib_code: &lib_code
               - modules/centreon-stream-connectors-lib/**
               - packaging/connectors-lib/**
+              # the library version is set in its workflow: a version bump must deliver the library
+              - .github/workflows/stream-connectors-lib.yml
             lib:
               - *ci
               - *lib_code
