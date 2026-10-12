@@ -53,7 +53,7 @@ jobs:
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.9.0" # previous version:"3.8.2"
+          version: "3.8.2" # previous version:"3.8.1"
           release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
