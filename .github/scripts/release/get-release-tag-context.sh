@@ -39,8 +39,8 @@ workflow_push_paths() {
 }
 
 main() {
-  local version release_type message tag_type previous_tag="" file_version changed="false" diff_output
-  local -a patterns=() files=()
+  local version release_type message tag_type previous_tag="" file_version changed="false" diff_output versioned="false" entry status file
+  local -a patterns=() entries=()
 
   if [[ ! "$TAG_NAME" =~ ^$TAG_PREFIX-([0-9]{8})$ ]]; then
     echo "$TAG_NAME is not a release tag."
@@ -76,12 +76,21 @@ main() {
     changed="true"
   else
     # a failed diff must fail the step, never read as "nothing changed" (which would skip promotion)
-    diff_output="$(git -c core.quotePath=false diff --no-renames --name-only "refs/tags/$previous_tag" "refs/tags/$TAG_NAME")" \
+    diff_output="$(git -c core.quotePath=false diff --no-renames --name-status "refs/tags/$previous_tag" "refs/tags/$TAG_NAME")" \
       || fail "cannot diff $previous_tag and $TAG_NAME."
     if [[ -n "$diff_output" ]]; then
-      mapfile -t files <<< "$diff_output"
+      mapfile -t entries <<< "$diff_output"
     fi
-    for file in "${files[@]}"; do
+    for pattern in "${patterns[@]}"; do
+      [[ "$pattern" == .version.* ]] && versioned="true"
+    done
+    for entry in "${entries[@]}"; do
+      status="${entry%%$'\t'*}"
+      file="${entry#*$'\t'}"
+      # a versioned package ships through its root .version.* file: its ci changes alone don't make a release
+      [[ "$versioned" == "true" && "$file" == .github/* ]] && continue
+      # a version file added since the previous tag only moved an unchanged version out of its workflow
+      [[ "$status" == "A" && "$file" == .version.* ]] && continue
       for pattern in "${patterns[@]}"; do
         # unquoted pattern: glob match where * also spans /, so ** behaves like the workflow filter
         # shellcheck disable=SC2053
