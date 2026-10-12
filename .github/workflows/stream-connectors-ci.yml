@@ -18,7 +18,7 @@ on:
         type: boolean
         default: true
       deliver_lib:
-        description: "Deliver the library (requires build_lib)"
+        description: "Deliver the library (requires build_lib), always done on a release or hotfix branch when the library changed since the previous release tag"
         type: boolean
         default: false
   pull_request:
@@ -44,14 +44,15 @@ jobs:
       # CI changes test everything but do not deliver anything
       ci: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.ci) }}
       # the library is only delivered when its code or packaging changed
-      deliver_lib: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && (inputs.build_lib && inputs.deliver_lib && 'true' || 'false') || steps.filter.outputs.lib_code) }}
+      deliver_lib: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && (inputs.build_lib && (inputs.deliver_lib || steps.filter.outputs.lib_code == 'true') && 'true' || 'false') || steps.filter.outputs.lib_code) }}
       # a release tag promotes what changed since the previous release tag (everything for the first one)
       promote_lib: ${{ github.ref_type == 'tag' && (steps.base.outputs.all == 'true' || steps.filter.outputs.lib_code == 'true') && 'true' || 'false' }}
       promote_connectors: ${{ github.ref_type == 'tag' && (steps.base.outputs.all == 'true' || steps.filter.outputs.connectors_code == 'true') && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # a release tag is compared with the previous release tag (highest centreon-stream-connectors-N below its N)
+      # a release tag, or a release/hotfix branch, is compared with the previous release tag
+      # (highest centreon-stream-connectors-N below its N), commit to commit
       - name: Get changes base
         id: base
         env:
@@ -59,8 +60,15 @@ jobs:
         run: |
           BASE="$GITHUB_REF"
           ALL="false"
+          RELEASE_REF="false"
+          NUMBER=""
           if [[ "$GITHUB_REF_TYPE" == "tag" && "$REF_NAME" =~ ^centreon-stream-connectors-([0-9]{8})$ ]]; then
             NUMBER="${BASH_REMATCH[1]}"
+          elif [[ "$GITHUB_REF_TYPE" == "branch" && "$REF_NAME" =~ ^(release|hotfix)-([0-9]{8})$ ]]; then
+            NUMBER="${BASH_REMATCH[2]}"
+            RELEASE_REF="true"
+          fi
+          if [[ -n "$NUMBER" ]]; then
             PREVIOUS_TAG=""
             while read -r tag; do
               if (( 10#${tag##*-} < 10#$NUMBER )); then
@@ -69,18 +77,23 @@ jobs:
             done < <(git ls-remote --tags --refs origin 'refs/tags/centreon-stream-connectors-*' \
               | sed 's#.*refs/tags/##' | { grep -E '^centreon-stream-connectors-[0-9]{8}$' || true; } | sort -V)
             if [[ -n "$PREVIOUS_TAG" ]]; then
-              echo "changes are detected since release tag $PREVIOUS_TAG"
-              BASE="$PREVIOUS_TAG"
-            else
+              git fetch --quiet --depth=1 origin "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG"
+              BASE="$(git rev-parse "refs/tags/$PREVIOUS_TAG^{commit}")"
+              echo "changes are detected since release tag $PREVIOUS_TAG ($BASE)"
+            elif [[ "$RELEASE_REF" == "false" ]]; then
               echo "::warning::no release tag before $REF_NAME, everything is promoted"
               ALL="true"
+            else
+              echo "::warning::no release tag before $REF_NAME, changes are detected from the last commit only"
             fi
           fi
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "all=$ALL" >> "$GITHUB_OUTPUT"
+          echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
         shell: bash
 
-      - if: ${{ github.event_name != 'workflow_dispatch' }}
+      # also run on a release/hotfix branch dispatch: the library is delivered when it changed since the previous release
+      - if: ${{ github.event_name != 'workflow_dispatch' || steps.base.outputs.release_ref == 'true' }}
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
