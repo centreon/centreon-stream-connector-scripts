@@ -211,7 +211,13 @@ jobs:
 
       - name: Export package version
         id: package-version
-        run: echo "package_version=$(tr -d '[:space:]' < .version.stream-connectors)" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION="$(tr -d '[:space:]' < .version.stream-connectors)"
+          if [[ ! "$VERSION" =~ ^[0-9]{8}$ ]]; then
+            echo "::error::.version.stream-connectors must hold the YYYYMMNN release number (got '$VERSION')"
+            exit 1
+          fi
+          echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Package
