@@ -18,17 +18,21 @@ local OAuth = {}
 
 --- oauth constructor
 -- @param params (table) the table of all the stream connector parameters
--- @param sc_common (object) a sc_common object instance
--- @param sc_logger (object) a sc_logger object instance
-function oauth.new(params, sc_common, sc_logger)
+-- @param common (object) a sc_common object instance
+-- @param logger (object) a sc_logger object instance
+function oauth.new(params, common, logger)
   local self = {}
 
   -- initiate stream connector logger 
-  self.sc_logger = sc_logger
+  self.sc_logger = logger
   if not self.sc_logger then
     self.sc_logger = sc_logger.new("/var/log/centreon-broker/gbq.log", 3)
   end
-  self.sc_common = sc_common
+
+  self.sc_common = common
+  if not self.sc_common then
+    self.sc_common = sc_common.new(self.sc_logger)
+  end
 
   -- load stream connector parameters
   self.params = params

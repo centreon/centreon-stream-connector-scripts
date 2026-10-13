@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, el10, bookworm, trixie]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -44,20 +44,11 @@ jobs:
             image: packaging-stream-connectors-nfpm-alma10
             distrib: el10
           - package_extension: deb
-            image: packaging-stream-connectors-nfpm-bullseye
-            distrib: bullseye
-          - package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-trixie
             distrib: trixie
-          - package_extension: deb
-            image: packaging-stream-connectors-nfpm-jammy
-            distrib: jammy
-          - package_extension: deb
-            image: packaging-stream-connectors-nfpm-noble
-            distrib: noble
 
     runs-on: ubuntu-24.04
 
@@ -71,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         env:
@@ -83,16 +74,12 @@ jobs:
           else
             apt-get update
             apt-get install -y make gcc g++ meson cmake libffi-dev
-            if [ "$DISTRIB" = "bullseye" ]; then
-              apt-get install -y libffi7
-            else
-              apt-get install -y libffi8
-            fi
+            apt-get install -y libffi8
           fi
         shell: bash
 
       - name: Checkout cffi-lua sources
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: "q66/cffi-lua"
           path: "cffi-lua-src"
@@ -124,7 +111,7 @@ jobs:
           package_extension: ${{ matrix.package_extension }}
           arch: amd64
           version: "0.2.4"
-          release: "2"
+          release: "3"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-cffi-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
@@ -149,27 +136,18 @@ jobs:
             image: almalinux:10
             distrib: el10
           - package_extension: deb
-            image: debian:bullseye
-            distrib: bullseye
-          - package_extension: deb
             image: debian:bookworm
             distrib: bookworm
           - package_extension: deb
             image: debian:trixie
             distrib: trixie
-          - package_extension: deb
-            image: ubuntu:jammy
-            distrib: jammy
-          - package_extension: deb
-            image: ubuntu:noble
-            distrib: noble
     runs-on: ubuntu-24.04
     container:
       image: ${{ matrix.image }}
 
     name: Test lua packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test packaged libs
         uses: ./.github/actions/test-packages
@@ -197,7 +175,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -214,12 +192,12 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, trixie, jammy, noble]
+        distrib: [bookworm, trixie]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
@@ -229,3 +207,111 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-cffi-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+
+  # pulp mirrors the artifactory delivery above;
+  # stable is a promotion of the testing packages, keyed on the release/hotfix branch
+  deliver-pulp:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package, test-packages]
+    runs-on: centreon-ubuntu-26.04-small
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+          - distrib: el9
+            package_extension: rpm
+          - distrib: el10
+            package_extension: rpm
+          - distrib: bookworm
+            package_extension: deb
+          - distrib: trixie
+            package_extension: deb
+    name: deliver ${{ matrix.distrib }} on pulp
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Get release type
+        if: ${{ needs.get-environment.outputs.stability == 'stable' }}
+        id: get_release_type
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const commitSha = context.sha;
+
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sort: 'updated',
+              direction: 'desc',
+              state: 'closed',
+              per_page: 100
+            });
+
+            core.startGroup(`Checking pull request linked to commit ${commitSha}`);
+            const pr = pulls.data.find(p => {
+              console.log(`Checking pull request ${p.number}("${p.title}") with merge commit ${p.merge_commit_sha}`);
+              return p.merge_commit_sha === commitSha;
+            });
+            core.endGroup();
+            if (!pr) {
+              core.error(`No pull request found for merge commit ${commitSha}`);
+              core.setOutput('release_type', '');
+              return;
+            }
+
+            const prHeadRef = pr?.head?.ref || 'unknown';
+            let releaseType = '';
+            switch (true) {
+              case /^release.+/.test(prHeadRef):
+                releaseType = 'release';
+                break;
+              case /^hotfix.+/.test(prHeadRef):
+                releaseType = 'hotfix';
+                break;
+              default:
+                core.error(`No packages are promoted because push of branch ${prHeadRef} is not related to a hotfix/release pull request.`);
+                core.setOutput('release_type', '');
+                return;
+            }
+            console.log(`Release type: ${releaseType}`);
+            core.setOutput('release_type', releaseType);
+
+      - name: Deliver packages on Pulp
+        if: ${{ contains(fromJson('["testing", "unstable"]'), needs.get-environment.outputs.stability) }}
+        uses: ./.github/actions/package-delivery-pulp
+        with:
+          module_name: lua-cffi
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          version: ""
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-cffi-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+      - name: Promote packages on Pulp
+        if: ${{ needs.get-environment.outputs.stability == 'stable' && steps.get_release_type.outputs.release_type != '' }}
+        uses: ./.github/actions/promote-to-stable-pulp
+        with:
+          module_name: lua-cffi
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          major_version: ""
+          stability: stable
+          release_type: ${{ steps.get_release_type.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}

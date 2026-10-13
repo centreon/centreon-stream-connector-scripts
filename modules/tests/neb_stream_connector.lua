@@ -53,7 +53,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
   -- starting to handle shared information between host and service
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     -- name of host has been stored in a cache table when calling is_valid_even()
     my_host = self.sc_event.event.cache.host.name,
     -- states (critical, ok...) are found and converted to human format thanks to the status_mapping table
@@ -67,9 +67,9 @@ function EventQueue:format_event()
   -- handle service specific information
   if self.sc_event.event.element == 24 then
     -- like the name of the host, service description is stored in the cache table of the event
-    self.sc_event.event.formated_event.my_description = self.sc_event.event.cache.service.description
+    self.sc_event.event.formatted_event.my_description = self.sc_event.event.cache.service.description
     -- if the service doesn't have notes,  we can retrieve the ones from the host by fetching it from the broker cache
-    self.sc_event.event.formated_event.my_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.service.notes, self.sc_event.event.formated_event.my_notes)
+    self.sc_event.event.formatted_event.my_notes = self.sc_common:ifnil_or_empty(self.sc_event.event.cache.service.notes, self.sc_event.event.formatted_event.my_notes)
   end
 
   self:add()
@@ -82,7 +82,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:add ()
   -- store event in self.events list
-  self.events[#self.events + 1] = self.sc_event.event.formated_event
+  self.events[#self.events + 1] = self.sc_event.event.formatted_event
 end
 
 --------------------------------------------------------------------------------
@@ -114,12 +114,12 @@ function EventQueue:send_data ()
   local counter = 0
 
   -- concatenate all stored event in the data variable
-  for _, formated_event in ipairs(self.events) do
+  for _, formatted_event in ipairs(self.events) do
     if counter == 0 then
-      data = broker.json_encode(formated_event) 
+      data = broker.json_encode(formatted_event) 
       counter = counter + 1
     else
-      data = data .. "," .. broker.json_encode(formated_event)
+      data = data .. "," .. broker.json_encode(formatted_event)
     end
   end
 

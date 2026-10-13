@@ -8,10 +8,6 @@
 local sc_event = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
-local sc_params = require("centreon-stream-connectors-lib.sc_params")
-local sc_broker = require("centreon-stream-connectors-lib.sc_broker")
-local sc_storage = require("centreon-stream-connectors-lib.sc_storage")
 
 local ScEvent = {}
 local pending_event_handler = nil
@@ -24,7 +20,7 @@ function sc_event.set_pending_event_handler(handler)
   pending_event_handler = handler
 end
 
-function sc_event.new(broker_event, params, common, logger, broker, storage)
+function sc_event.new(broker_event, params, common, logger, broker, storage, sc_trigger)
   local self = {}
 
   self.sc_logger = logger
@@ -37,6 +33,7 @@ function sc_event.new(broker_event, params, common, logger, broker, storage)
   self.broker_event = broker_event
   self.sc_broker = broker
   self.sc_storage = storage
+  self.sc_trigger = sc_trigger
   self.bbdo_version = self.sc_common:get_bbdo_version()
 
   -- we create our event table
@@ -74,8 +71,10 @@ end
 function ScEvent:is_valid_element()
   local is_valid_element = false
   is_valid_element = self:find_in_mapping(self.params.element_mapping[self.event.category], self.params.accepted_elements, self.event.element)
+
   if self.event.element == self.params.bbdo.elements.downtime.id and self.params.in_downtime == 0 then
     local object_id
+    
     if self.event.type == 1 then
       object_id = 'downtime_service_' .. self.event.host_id .. '_' .. self.event.service_id
     elseif self.event.type == 2 then
@@ -84,24 +83,34 @@ function ScEvent:is_valid_element()
       self.sc_logger:error("[sc_event:is_valid_element]: unknown downtime type: " .. tostring(self.event.type))
       return is_valid_element
     end
+
     if self:is_valid_downtime_event_start() then
-      local status = -1
+      local current_status = -1
+      local event_cache
+      
       if self.event.type == 1 then
-        status = broker_cache:get_service(self.event.host_id, self.event.service_id).state
+        event_cache = self.sc_broker:get_service_all_infos(self.event.host_id, self.event.service_id)
       elseif self.event.type == 2 then
-        status = broker_cache:get_host(self.event.host_id).state
+        event_cache = self.sc_broker:get_host_all_infos(self.event.host_id)
       end
+
+      if event_cache then
+        current_status = event_cache.state or current_status
+      end
+
       local storage_data = {
         object_type = self.event.type,
-        status = status,
+        status = current_status,
         downtime_start = self.event.actual_start_time,
         downtime_end = self.event.actual_end_time
       }
+
       if not self.sc_storage:set_multiple(object_id, storage_data) then
         self.sc_logger:error("[sc_event:is_valid_element]: Cannot register downtime datas in storage.")
       end
     elseif self:is_valid_downtime_event_end() then
       local ok, stored = self.sc_storage:get_multiple(object_id, {"object_type", "status", "broker_event"})
+      
       if ok then
         if stored.broker_event and pending_event_handler then
           -- delete broker_event from storage before sending to prevent duplicate dispatch
@@ -109,6 +118,7 @@ function ScEvent:is_valid_element()
           self.sc_storage:delete(object_id, "broker_event")
           -- broker_event is stored as a JSON string: decode it explicitly
           local broker_event = broker.json_decode(stored.broker_event)
+          
           if broker_event then
             broker_event.scheduled_downtime_depth = 0
             pending_event_handler(broker_event)

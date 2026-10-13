@@ -10,7 +10,6 @@ broker_api_version = 2
 local sc_params = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local ScParams = {}
 
@@ -29,6 +28,9 @@ function sc_params.new(common, logger)
 
   -- get the version of the bbdo protocol (only the first digit, nothing else matters)
   self.bbdo_version = self.common:get_bbdo_version()
+
+  -- any parameter name matching the following keyword will have its value hidden in the logfile
+  self.keywords_to_hide = {"pass", "key", "token", "secret"}
   
   -- initiate params
   self.params = {
@@ -93,6 +95,7 @@ function sc_params.new(common, logger)
     connection_timeout = 60,
     allow_insecure_connection = 0, --deprecated (confusing naming)
     verify_certificate = 1,
+    drop_events_on_send_failure = 0,
 
     -- proxy parameters
     proxy_address = "",
@@ -110,6 +113,9 @@ function sc_params.new(common, logger)
 
     -- custom code parameters
     custom_code_file = "",
+
+    -- trigger parameters
+    trigger_file = "",
 
     -- time parameters
     local_time_diff_from_utc = os.difftime(os.time(), os.time(os.date("!*t", os.time()))),
@@ -954,7 +960,6 @@ function ScParams:param_override(user_params)
     return
   end
 
-  local keywords_to_hide =  {"pass", "key"}
   local logged_param_value
 
   for param_name, param_value in pairs(user_params) do
@@ -967,7 +972,7 @@ function ScParams:param_override(user_params)
 
       self.params[param_name_verified] = param_value
       logged_param_value = param_value
-      for _, must_be_hidden_param in pairs(keywords_to_hide) do
+      for _, must_be_hidden_param in pairs(self.keywords_to_hide) do
         if string.match(param_name_verified, must_be_hidden_param) then
           logged_param_value = "******"
         end
@@ -988,6 +993,7 @@ function ScParams:check_params()
   self.params.skip_anon_events = self.common:check_boolean_number_option_syntax(self.params.skip_anon_events, 1)
   self.params.skip_nil_id = self.common:check_boolean_number_option_syntax(self.params.skip_nil_id, 1)
   self.params.enable_bam_host = self.common:check_boolean_number_option_syntax(self.params.enable_bam_host, 0)
+  self.params.drop_events_on_send_failure = self.common:check_boolean_number_option_syntax(self.params.drop_events_on_send_failure, 0)
   self.params.accepted_authors = self.common:if_wrong_type(self.params.accepted_authors, "string", "")
   self.params.rejected_authors = self.common:if_wrong_type(self.params.rejected_authors, "string", "")
   self.params.accepted_hostgroups = self.common:if_wrong_type(self.params.accepted_hostgroups, "string", "")
@@ -1047,13 +1053,13 @@ function ScParams:check_params()
 
   -- handle some dedicated parameters that can use lua pattern (such as accepted_hosts and accepted_services)
   self:build_and_validate_filters_pattern({"accepted_hosts", "accepted_services"})
+  self:load_trigger_file()
 end
 
 --- get_kafka_params: retrieve the kafka parameters and store them the self.params.kafka table
 -- @param kafka_config (object) object instance of kafka_config
 -- @param params (table) the list of parameters from broker web configuration
 function ScParams:get_kafka_params(kafka_config, params)
-  local keywords_to_hide =  {"pass", "key"}
   local logged_param_value
 
   for param_name, param_value in pairs(params) do
@@ -1063,7 +1069,7 @@ function ScParams:get_kafka_params(kafka_config, params)
       -- remove the _sc_kafka_ prefix and store the param in a dedicated kafka table
       kafka_config[string.gsub(param_name, "_sc_kafka_", "")] = param_value
       
-      for _, must_be_hidden_param in pairs(keywords_to_hide) do
+      for _, must_be_hidden_param in pairs(self.keywords_to_hide) do
         if string.match(param_name, must_be_hidden_param) then
           logged_param_value = "******"
         end
@@ -1162,6 +1168,36 @@ function ScParams:load_custom_code_file(custom_code_file)
   end
 
   self.params.custom_code = custom_code
+  io.close(file)
+  return true
+end
+
+--- load_trigger_file: load Lua file containing code for triggers which purpose is to enhance stream connectors possibilities without having to edit any standard code
+-- @param file (string) the file that needs to be loaded (example: /etc/centreon-broker/sc-trigger-code.lua)
+-- @return true|false (boolean) if file is a valid Lua file or not
+function ScParams:load_trigger_file()
+  if self.params.trigger_file == "" or self.params.trigger_file == nil then
+    return true
+  end
+
+  local file = io.open(self.params.trigger_file, "r")
+
+  if not file then
+    self.logger:error("[sc_params:load_trigger_file]: couldn't open file "
+      .. tostring(self.params.trigger_file) .. ". Make sure your file is there and that it is readable by centreon-broker")
+    return false
+  end
+
+  self.logger:notice("[sc_params:load_trigger_file]: you are loading the " .. tostring(self.params.trigger_file) .. " trigger file.")
+
+  local trigger_code, error = loadfile(self.params.trigger_file)
+  if not trigger_code then
+    self.logger:error("[sc_params:load_trigger_file]: trigger_file doesn't contain valid lua code. Error is: " .. tostring(error))
+    return false
+  end
+
+  self.params.trigger_code = trigger_code
+  io.close(file)
   return true
 end
 

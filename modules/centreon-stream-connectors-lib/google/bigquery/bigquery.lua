@@ -5,18 +5,17 @@
 local bigquery = {}
 
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
 
 local BigQuery = {}
 
 --- module constructor
 -- @param params (table) table of all the stream connector parameters
--- @sc_logger (object) instance of the sc_logger module
-function bigquery.new(params, sc_logger)
+-- @param logger (object) instance of the sc_logger module
+function bigquery.new(params, logger)
   local self = {}
 
   -- initiate sc_logger
-  self.sc_logger = sc_logger
+  self.sc_logger = logger
   if not self.sc_logger then
     self.sc_logger = sc_logger.new()
   end

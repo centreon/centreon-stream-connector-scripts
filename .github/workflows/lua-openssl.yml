@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, el10, bullseye, bookworm, trixie, jammy, noble]
+        distrib: [el8, el9, el10, bookworm, trixie]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -44,20 +44,11 @@ jobs:
             image: packaging-stream-connectors-nfpm-alma10
             distrib: el10
           - package_extension: deb
-            image: packaging-stream-connectors-nfpm-bullseye
-            distrib: bullseye
-          - package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-trixie
             distrib: trixie
-          - package_extension: deb
-            image: packaging-stream-connectors-nfpm-jammy
-            distrib: jammy
-          - package_extension: deb
-            image: packaging-stream-connectors-nfpm-noble
-            distrib: noble
 
     runs-on: ubuntu-24.04
 
@@ -71,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         env:
@@ -92,7 +83,7 @@ jobs:
         shell: bash
 
       - name: Checkout lua-openssl sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: "zhaozg/lua-openssl"
           path: "lua-openssl-src"
@@ -150,20 +141,11 @@ jobs:
             image: almalinux:10
             distrib: el10
           - package_extension: deb
-            image: debian:bullseye
-            distrib: bullseye
-          - package_extension: deb
             image: debian:bookworm
             distrib: bookworm
           - package_extension: deb
             image: debian:trixie
             distrib: trixie
-          - package_extension: deb
-            image: ubuntu:jammy
-            distrib: jammy
-          - package_extension: deb
-            image: ubuntu:noble
-            distrib: noble
 
     runs-on: ubuntu-24.04
     container:
@@ -171,7 +153,7 @@ jobs:
 
     name: Test lua packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test packaged libs
         uses: ./.github/actions/test-packages
@@ -183,7 +165,7 @@ jobs:
 
       - name: Upload error log
         if: failure()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: install_error_log_${{ matrix.distrib }}
           path: install_error_${{ matrix.distrib }}.log
@@ -199,7 +181,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -216,12 +198,12 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [bullseye, bookworm, trixie, jammy, noble]
+        distrib: [bookworm, trixie]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Publish DEB packages
         uses: ./.github/actions/deb-delivery
@@ -231,3 +213,111 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-openssl-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+
+  # pulp mirrors the artifactory delivery above;
+  # stable is a promotion of the testing packages, keyed on the release/hotfix branch
+  deliver-pulp:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package, test-packages]
+    runs-on: centreon-ubuntu-26.04-small
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+          - distrib: el9
+            package_extension: rpm
+          - distrib: el10
+            package_extension: rpm
+          - distrib: bookworm
+            package_extension: deb
+          - distrib: trixie
+            package_extension: deb
+    name: deliver ${{ matrix.distrib }} on pulp
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Get release type
+        if: ${{ needs.get-environment.outputs.stability == 'stable' }}
+        id: get_release_type
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const commitSha = context.sha;
+
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sort: 'updated',
+              direction: 'desc',
+              state: 'closed',
+              per_page: 100
+            });
+
+            core.startGroup(`Checking pull request linked to commit ${commitSha}`);
+            const pr = pulls.data.find(p => {
+              console.log(`Checking pull request ${p.number}("${p.title}") with merge commit ${p.merge_commit_sha}`);
+              return p.merge_commit_sha === commitSha;
+            });
+            core.endGroup();
+            if (!pr) {
+              core.error(`No pull request found for merge commit ${commitSha}`);
+              core.setOutput('release_type', '');
+              return;
+            }
+
+            const prHeadRef = pr?.head?.ref || 'unknown';
+            let releaseType = '';
+            switch (true) {
+              case /^release.+/.test(prHeadRef):
+                releaseType = 'release';
+                break;
+              case /^hotfix.+/.test(prHeadRef):
+                releaseType = 'hotfix';
+                break;
+              default:
+                core.error(`No packages are promoted because push of branch ${prHeadRef} is not related to a hotfix/release pull request.`);
+                core.setOutput('release_type', '');
+                return;
+            }
+            console.log(`Release type: ${releaseType}`);
+            core.setOutput('release_type', releaseType);
+
+      - name: Deliver packages on Pulp
+        if: ${{ contains(fromJson('["testing", "unstable"]'), needs.get-environment.outputs.stability) }}
+        uses: ./.github/actions/package-delivery-pulp
+        with:
+          module_name: lua-openssl
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          version: ""
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-openssl-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+      - name: Promote packages on Pulp
+        if: ${{ needs.get-environment.outputs.stability == 'stable' && steps.get_release_type.outputs.release_type != '' }}
+        uses: ./.github/actions/promote-to-stable-pulp
+        with:
+          module_name: lua-openssl
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          major_version: ""
+          stability: stable
+          release_type: ${{ steps.get_release_type.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}

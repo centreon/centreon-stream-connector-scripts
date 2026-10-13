@@ -53,7 +53,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:format_event()
   -- starting to handle information from BA
-  self.sc_event.event.formated_event = {
+  self.sc_event.event.formatted_event = {
     -- name of BA has been stored in a cache table when calling is_valid_even()
     my_ba = self.sc_event.event.cache.ba.ba_name,
     -- states (critical, ok...) are found and converted to human format thanks to the status_mapping table
@@ -72,7 +72,7 @@ end
 --------------------------------------------------------------------------------
 function EventQueue:add ()
   -- store event in self.events list
-  self.events[#self.events + 1] = self.sc_event.event.formated_event
+  self.events[#self.events + 1] = self.sc_event.event.formatted_event
 end
 
 --------------------------------------------------------------------------------
@@ -104,12 +104,12 @@ function EventQueue:send_data ()
   local counter = 0
 
   -- concatenate all stored event in the data variable
-  for _, formated_event in ipairs(self.events) do
+  for _, formatted_event in ipairs(self.events) do
     if counter == 0 then
-      data = broker.json_encode(formated_event) 
+      data = broker.json_encode(formatted_event) 
       counter = counter + 1
     else
-      data = data .. "," .. broker.json_encode(formated_event)
+      data = data .. "," .. broker.json_encode(formatted_event)
     end
   end
 

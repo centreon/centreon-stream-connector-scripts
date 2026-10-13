@@ -6,18 +6,26 @@
 local sc_storage = {}
 local ScStorage = {}
 
-local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
+
 
 --- sc_storage.new: sc_storage constructor
 -- @param common (object) a sc_common instance 
 -- @param logger (object) a sc_logger instance 
 -- @param params (table) the params table of the stream connector
-function sc_storage.new(common, logger, params)
+-- @param [opt] trigger (object) a sc_trigger instance
+function sc_storage.new(common, logger, params, trigger)
   local self = {}
 
   self.sc_common = common
   self.sc_logger = logger
   self.params = params
+
+  -- create a default trigger instance if it is not provided (stream connectors written before the trigger system)
+  self.sc_trigger = trigger
+  if not self.sc_trigger then
+    self.sc_trigger = sc_trigger.new(params, common, logger)
+  end
 
   -- list of lua patterns used to check if an object is a valid one
   self.storage_objects = {
@@ -190,6 +198,12 @@ function ScStorage:set(object_id, property, value)
     return false
   end
 
+  self.sc_trigger:run_trigger("sc_storage:set", "on-set", {
+    object_id = object_id,
+    property = property,
+    value = value
+  })
+
   return self.storage_backend:set(object_id, property, value)
 end
 
@@ -209,6 +223,11 @@ function ScStorage:set_multiple(object_id, properties)
       .. ". Received properties: " .. self.sc_common:dumper(properties))
     return false
   end
+
+  self.sc_trigger:run_trigger("sc_storage:set_multiple", "on-set", {
+    object_id = object_id,
+    properties = properties,
+  })
 
   return self.storage_backend:set_multiple(object_id, properties)
 end
@@ -230,6 +249,13 @@ function ScStorage:get(object_id, property)
     self.sc_logger:error("[sc_storage:get]: couldn't get property in storage. Object id: " .. tostring(object_id)
       .. ", property name: " .. tostring(property))
   end
+
+  self.sc_trigger:run_trigger("sc_storage:get", "on-get", {
+    object_id = object_id,
+    property = property,
+    value = value,
+    status = status
+  })
 
   return status, value
 end
@@ -258,6 +284,13 @@ function ScStorage:get_multiple(object_id, properties)
       .. ", property name: " .. self.sc_common:dumper(properties))
   end
 
+  self.sc_trigger:run_trigger("sc_storage:get_multiple", "on-get", {
+    object_id = object_id,
+    properties = properties,
+    value = value,
+    status = status
+  })
+
   return status, value
 end
 
@@ -270,6 +303,11 @@ function ScStorage:delete(object_id, property)
     self.sc_logger:error("[sc_storage:delete]: Object is invalid")
     return false
   end
+  
+  self.sc_trigger:run_trigger("sc_storage:delete", "on-delete", {
+    object_id = object_id,
+    property = property,
+  })
 
   return self.storage_backend:delete(object_id, property)
 end
@@ -290,8 +328,12 @@ function ScStorage:delete_multiple(object_id, properties)
     return false
   end
 
+  self.sc_trigger:run_trigger("sc_storage:delete_multiple", "on-delete", {
+    object_id = object_id,
+    properties = properties,
+  })
 
-  return self.storage_backend:delete_multiple(object_id, property)
+  return self.storage_backend:delete_multiple(object_id, properties)
 end
 
 --- show: show (in the log file) all stored properties of an object
@@ -303,12 +345,17 @@ function ScStorage:show(object_id)
     return false
   end
 
+  self.sc_trigger:run_trigger("sc_storage:show", "on-show", {
+    object_id = object_id,
+  })
+
   return self.storage_backend:show(object_id)
 end
 
 --- clear: delete all stored information in storage
 -- @return (boolean) true if storage has been deleted, false otherwise
 function ScStorage:clear()
+  self.sc_trigger:run_trigger("sc_storage:clear", "on-clear", {})
   return self.storage_backend:clear()
 end
 
