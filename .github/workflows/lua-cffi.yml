@@ -112,6 +112,7 @@ jobs:
           arch: amd64
           version: "0.2.4"
           release: "3"
+          deb_release_from_input: "true"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-cffi-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
