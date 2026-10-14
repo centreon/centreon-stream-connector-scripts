@@ -102,6 +102,7 @@ jobs:
           arch: all
           version: ${{ steps.package-version.outputs.version }}
           release: ${{ steps.package-version.outputs.release }}
+          deb_release_from_input: "true"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-tz-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}

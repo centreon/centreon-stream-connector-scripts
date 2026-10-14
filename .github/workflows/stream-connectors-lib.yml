@@ -68,6 +68,7 @@ jobs:
           distrib: ${{ matrix.distrib }}
           version: ${{ steps.package-version.outputs.version }}
           release: ${{ steps.package-version.outputs.release }}
+          deb_release_from_input: "true"
           package_extension: ${{ matrix.package_extension }}
           arch: all
           commit_hash: ${{ github.sha }}
