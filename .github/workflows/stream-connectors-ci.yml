@@ -110,8 +110,8 @@ jobs:
             lib_code: &lib_code
               - modules/centreon-stream-connectors-lib/**
               - packaging/connectors-lib/**
-              # a version bump must deliver the library
-              - .version.stream-connectors-lib
+              # a version bump must deliver the library; "modified" only, as its creation is not a release
+              - modified: .version.stream-connectors-lib
             lib:
               - *ci
               - *lib_code
