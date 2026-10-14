@@ -41,6 +41,10 @@ inputs:
   artifact_name:
     description: The name of the uploaded artifact
     required: false
+  deb_release_from_input:
+    description: "Keep the release input in the deb version for testing and stable (default: forced to 1)"
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -64,6 +68,7 @@ runs:
         INPUT_STABILITY: ${{ inputs.stability }}
         INPUT_NFPM_FILE_PATTERN: ${{ inputs.nfpm_file_pattern }}
         INPUT_COMMIT_HASH: ${{ inputs.commit_hash }}
+        INPUT_DEB_RELEASE_FROM_INPUT: ${{ inputs.deb_release_from_input }}
       run: |
         export VERSION="$INPUT_VERSION"
         export RELEASE="$INPUT_RELEASE"
@@ -73,7 +78,7 @@ runs:
           export DIST=".${INPUT_DISTRIB}"
         else
           export DIST=""
-          if [ "$INPUT_STABILITY" = "unstable" ] || [ "$INPUT_STABILITY" = "canary" ]; then
+          if [ "$INPUT_STABILITY" = "unstable" ] || [ "$INPUT_STABILITY" = "canary" ] || [ "$INPUT_DEB_RELEASE_FROM_INPUT" = "true" ]; then
             export RELEASE="${RELEASE}~${INPUT_DISTRIB}"
           else
             export RELEASE="1~${INPUT_DISTRIB}"
