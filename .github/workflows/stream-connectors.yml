@@ -40,10 +40,38 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # a release/hotfix branch packages every connector changed since the previous release tag
+      - name: Get changes base
+        id: base
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          BASE="$GITHUB_REF"
+          if [[ "$REF_NAME" =~ ^(release|hotfix)-([0-9]{8})$ ]]; then
+            NUMBER="${BASH_REMATCH[2]}"
+            PREVIOUS_TAG=""
+            while read -r tag; do
+              if (( 10#${tag##*-} < 10#$NUMBER )); then
+                PREVIOUS_TAG="$tag"
+              fi
+            done < <(git ls-remote --tags --refs origin 'refs/tags/centreon-stream-connectors-*' \
+              | sed 's#.*refs/tags/##' | { grep -E '^centreon-stream-connectors-[0-9]{8}$' || true; } | sort -V)
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              # commit to commit diff, not from the merge-base of the branch and the tag
+              git fetch --quiet --depth=1 origin "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG"
+              BASE="$(git rev-parse "refs/tags/$PREVIOUS_TAG^{commit}")"
+              echo "changes are detected since release tag $PREVIOUS_TAG ($BASE)"
+            else
+              echo "::warning::no release tag before $NUMBER, changes are detected from the last commit only"
+            fi
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
-          base: ${{ github.ref }}
+          base: ${{ steps.base.outputs.base }}
           list-files: shell
           filters: |
             connectors:
@@ -183,7 +211,13 @@ jobs:
 
       - name: Export package version
         id: package-version
-        run: echo "package_version=`date '+%Y%m%d'`" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="$(tr -d '[:space:]' < .version.stream-connectors)"
+          if [[ ! "$VERSION" =~ ^[0-9]{8}$ ]]; then
+            echo "::error::.version.stream-connectors must hold the YYYYMMNN release number (got '$VERSION')"
+            exit 1
+          fi
+          echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
         shell: bash
 
       - name: Package

@@ -9,13 +9,17 @@ on:
   pull_request:
     paths:
       - '.github/workflows/lua-tz.yml'
+      - '.version.lua-tz'
       - 'dependencies/lua-tz/**'
   push:
     branches:
       - develop
       - master
+    tags:
+      - 'centreon-stream-connectors-[0-9]+'
     paths:
       - '.github/workflows/lua-tz.yml'
+      - '.version.lua-tz'
       - 'dependencies/lua-tz/**'
 
 jobs:
@@ -27,6 +31,7 @@ jobs:
     uses: ./.github/workflows/get-environment.yml
 
   package:
+    if: ${{ github.ref_type != 'tag' }}
     needs: [get-environment]
 
     strategy:
@@ -75,6 +80,19 @@ jobs:
         run: cp -r luatz-src/luatz dependencies/lua-tz/lua-tz
         shell: bash
 
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION="$(sed -n 's/^VERSION=//p' .version.lua-tz)"
+          RELEASE="$(sed -n 's/^RELEASE=//p' .version.lua-tz)"
+          if [[ ! "$VERSION" =~ ^[0-9][0-9A-Za-z.]*$ || ! "$RELEASE" =~ ^[0-9]+$ ]]; then
+            echo "::error::.version.lua-tz must hold VERSION=<version> and RELEASE=<number> (got '$VERSION' and '$RELEASE')"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
@@ -82,8 +100,9 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: ${{ matrix.package_extension }}
           arch: all
-          version: "0.5"
-          release: "1"
+          version: ${{ steps.package-version.outputs.version }}
+          release: ${{ steps.package-version.outputs.release }}
+          deb_release_from_input: "true"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-tz-${{ matrix.distrib }}
           rpm_gpg_key: ${{ secrets.RPM_GPG_SIGNING_KEY }}
@@ -158,6 +177,7 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-tz-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
 
   deliver-deb:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
@@ -180,6 +200,7 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-tz-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
 
   # pulp mirrors the artifactory delivery above;
   # stable is a promotion of the testing packages, keyed on the release/hotfix branch
@@ -288,3 +309,57 @@ jobs:
           pulp_url: ${{ vars.PULP_API_URL }}
           pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
           audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+  # a release tag promotes the latest testing packages to stable, nothing is rebuilt
+  promote:
+    needs: [get-environment]
+    if: ${{ github.ref_type == 'tag' && needs.get-environment.outputs.stability == 'stable' && needs.get-environment.outputs.skip_workflow != 'true' }}
+    runs-on: centreon-ubuntu-26.04-small
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+          - distrib: el9
+            package_extension: rpm
+          - distrib: el10
+            package_extension: rpm
+          - distrib: bookworm
+            package_extension: deb
+          - distrib: trixie
+            package_extension: deb
+    name: promote lua-tz ${{ matrix.distrib }} to stable
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Promote packages on Pulp
+        uses: ./.github/actions/promote-to-stable-pulp
+        with:
+          module_name: lua-tz
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          major_version: ""
+          stability: stable
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+      # jfrog is promoted even if pulp failed, the job still fails
+      - name: Promote packages on JFrog
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/promote-to-stable-jfrog
+        with:
+          module_name: lua-tz
+          distrib: ${{ matrix.distrib }}
+          package_extension: ${{ matrix.package_extension }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}

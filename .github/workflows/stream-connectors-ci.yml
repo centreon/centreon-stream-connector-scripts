@@ -18,7 +18,7 @@ on:
         type: boolean
         default: true
       deliver_lib:
-        description: "Deliver the library (requires build_lib)"
+        description: "Deliver the library (requires build_lib), always done on a release or hotfix branch when the library changed since the previous release tag"
         type: boolean
         default: false
   pull_request:
@@ -26,6 +26,9 @@ on:
     branches:
       - develop
       - master
+    # pushed by release-new: promotes the testing packages of what changed since the previous release tag
+    tags:
+      - 'centreon-stream-connectors-[0-9]+'
 
 jobs:
   dependency-scan:
@@ -35,21 +38,66 @@ jobs:
     needs: [dependency-scan]
     runs-on: ubuntu-24.04
     outputs:
-      # a manual run builds, tests and delivers what has been asked through its inputs
-      lib: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_lib && 'true' || 'false') || steps.filter.outputs.lib }}
-      connectors: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_connectors && 'true' || 'false') || steps.filter.outputs.connectors }}
+      # a manual run builds, tests and delivers what has been asked through its inputs; a release tag builds nothing
+      lib: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && (inputs.build_lib && 'true' || 'false') || steps.filter.outputs.lib) }}
+      connectors: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && (inputs.build_connectors && 'true' || 'false') || steps.filter.outputs.connectors) }}
       # CI changes test everything but do not deliver anything
-      ci: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.ci }}
+      ci: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.ci) }}
       # the library is only delivered when its code or packaging changed
-      deliver_lib: ${{ github.event_name == 'workflow_dispatch' && (inputs.build_lib && inputs.deliver_lib && 'true' || 'false') || steps.filter.outputs.lib_code }}
+      deliver_lib: ${{ github.ref_type == 'tag' && 'false' || (github.event_name == 'workflow_dispatch' && (inputs.build_lib && (inputs.deliver_lib || steps.filter.outputs.lib_code == 'true') && 'true' || 'false') || steps.filter.outputs.lib_code) }}
+      # a release tag promotes what changed since the previous release tag (everything for the first one)
+      promote_lib: ${{ github.ref_type == 'tag' && (steps.base.outputs.all == 'true' || steps.filter.outputs.lib_code == 'true') && 'true' || 'false' }}
+      promote_connectors: ${{ github.ref_type == 'tag' && (steps.base.outputs.all == 'true' || steps.filter.outputs.connectors_code == 'true') && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - if: ${{ github.event_name != 'workflow_dispatch' }}
+      # a release tag, or a release/hotfix branch, is compared with the previous release tag
+      # (highest centreon-stream-connectors-N below its N), commit to commit
+      - name: Get changes base
+        id: base
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          BASE="$GITHUB_REF"
+          ALL="false"
+          RELEASE_REF="false"
+          NUMBER=""
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$REF_NAME" =~ ^centreon-stream-connectors-([0-9]{8})$ ]]; then
+            NUMBER="${BASH_REMATCH[1]}"
+          elif [[ "$GITHUB_REF_TYPE" == "branch" && "$REF_NAME" =~ ^(release|hotfix)-([0-9]{8})$ ]]; then
+            NUMBER="${BASH_REMATCH[2]}"
+            RELEASE_REF="true"
+          fi
+          if [[ -n "$NUMBER" ]]; then
+            PREVIOUS_TAG=""
+            while read -r tag; do
+              if (( 10#${tag##*-} < 10#$NUMBER )); then
+                PREVIOUS_TAG="$tag"
+              fi
+            done < <(git ls-remote --tags --refs origin 'refs/tags/centreon-stream-connectors-*' \
+              | sed 's#.*refs/tags/##' | { grep -E '^centreon-stream-connectors-[0-9]{8}$' || true; } | sort -V)
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              git fetch --quiet --depth=1 origin "+refs/tags/$PREVIOUS_TAG:refs/tags/$PREVIOUS_TAG"
+              BASE="$(git rev-parse "refs/tags/$PREVIOUS_TAG^{commit}")"
+              echo "changes are detected since release tag $PREVIOUS_TAG ($BASE)"
+            elif [[ "$RELEASE_REF" == "false" ]]; then
+              echo "::warning::no release tag before $REF_NAME, everything is promoted"
+              ALL="true"
+            else
+              echo "::warning::no release tag before $REF_NAME, changes are detected from the last commit only"
+            fi
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "all=$ALL" >> "$GITHUB_OUTPUT"
+          echo "release_ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      # also run on a release/hotfix branch dispatch: the library is delivered when it changed since the previous release
+      - if: ${{ github.event_name != 'workflow_dispatch' || steps.base.outputs.release_ref == 'true' }}
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
-          base: ${{ github.ref }}
+          base: ${{ steps.base.outputs.base }}
           filters: |
             # this workflow only dispatches the jobs, its own changes do not trigger them
             ci: &ci
@@ -62,8 +110,8 @@ jobs:
             lib_code: &lib_code
               - modules/centreon-stream-connectors-lib/**
               - packaging/connectors-lib/**
-              # the library version is set in its workflow: a version bump must deliver the library
-              - .github/workflows/stream-connectors-lib.yml
+              # a version bump must deliver the library; "modified" only, as its creation is not a release
+              - modified: .version.stream-connectors-lib
             lib:
               - *ci
               - *lib_code
@@ -72,6 +120,12 @@ jobs:
               - *ci
               - centreon-certified/**
               - packaging/connectors/**
+            # what a release tag promotes: CI-only changes are not released,
+            # but stream-connectors.yml holds the dependencies of the connectors packages
+            connectors_code:
+              - centreon-certified/**
+              - packaging/connectors/**
+              - .github/workflows/stream-connectors.yml
 
   stream-connectors-lib:
     needs: [detect-changes]
@@ -109,7 +163,11 @@ jobs:
   # the library is delivered only once the stream connectors have also been tested against it
   stream-connectors-lib-delivery:
     needs: [detect-changes, stream-connectors-lib, stream-connectors]
-    if: ${{ !cancelled() && needs.detect-changes.outputs.deliver_lib == 'true' && needs.stream-connectors-lib.result == 'success' && needs.stream-connectors.result != 'failure' }}
+    if: >-
+      ${{ !cancelled() && (
+        (needs.detect-changes.outputs.deliver_lib == 'true' && needs.stream-connectors-lib.result == 'success' && needs.stream-connectors.result != 'failure') ||
+        needs.detect-changes.outputs.promote_lib == 'true'
+      ) }}
     uses: ./.github/workflows/stream-connectors-lib-delivery.yml
     secrets: inherit
     permissions:
@@ -119,11 +177,16 @@ jobs:
 
   # the stream connectors are delivered only once the library they depend on has been delivered (or did not need to be)
   stream-connectors-delivery:
-    needs: [stream-connectors, stream-connectors-lib-delivery]
-    if: ${{ !cancelled() && needs.stream-connectors.result == 'success' && needs.stream-connectors.outputs.delivered_connectors != '[]' && contains(fromJson('["success", "skipped"]'), needs.stream-connectors-lib-delivery.result) }}
+    needs: [detect-changes, stream-connectors, stream-connectors-lib-delivery]
+    if: >-
+      ${{ !cancelled() && contains(fromJson('["success", "skipped"]'), needs.stream-connectors-lib-delivery.result) && (
+        (needs.stream-connectors.result == 'success' && needs.stream-connectors.outputs.delivered_connectors != '[]') ||
+        needs.detect-changes.outputs.promote_connectors == 'true'
+      ) }}
     uses: ./.github/workflows/stream-connectors-delivery.yml
     with:
-      connectors: ${{ needs.stream-connectors.outputs.delivered_connectors }}
+      # a release tag promotes the testing packages, nothing is delivered from this run
+      connectors: ${{ github.ref_type == 'tag' && '[]' || needs.stream-connectors.outputs.delivered_connectors }}
     secrets: inherit
     permissions:
       contents: read
