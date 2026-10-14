@@ -1,6 +1,6 @@
 # Centreon Stream Connectors
 
-The content of the repository has been moved to https://github.com/centreon/centreon-collect
+The content of the repository has been moved to https://github.com/centreon/centreon-collect 
 
 <!-- SHIELDS -->
 [![Contributors][contributors-shield]][contributors-url]
