@@ -59,7 +59,7 @@ This stream connector handles the following event types
 lets take a closer look at the format of a host_status event
 
 ```lua
-self.sc_event.event.formated_event = {
+self.sc_event.event.formatted_event = {
   event_type = "host",
   state = self.sc_event.event.state,
   state_type = self.sc_event.event.state_type,
@@ -68,7 +68,7 @@ self.sc_event.event.formated_event = {
 }
 ```
 
-In the code, the formated event is made of a string (event_type), the state, state_type, hostname and output. Let say we would like to have the **host_id** and the **address**. The first one needs to be in an index called **"MY_HOST_ID"** and the address stored in an index called **"IP"**
+In the code, the formatted event is made of a string (event_type), the state, state_type, hostname and output. Let say we would like to have the **host_id** and the **address**. The first one needs to be in an index called **"MY_HOST_ID"** and the address stored in an index called **"IP"**
 
 This will result in the following json templating file
 

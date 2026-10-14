@@ -7,7 +7,7 @@
 local oauth = {}
 
 local mime = require("mime")
-local crypto = require("crypto")
+local openssl = require("openssl")
 local curl = require("cURL")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
@@ -18,17 +18,21 @@ local OAuth = {}
 
 --- oauth constructor
 -- @param params (table) the table of all the stream connector parameters
--- @param sc_common (object) a sc_common object instance
--- @param sc_logger (object) a sc_logger object instance
-function oauth.new(params, sc_common, sc_logger)
+-- @param common (object) a sc_common object instance
+-- @param logger (object) a sc_logger object instance
+function oauth.new(params, common, logger)
   local self = {}
 
   -- initiate stream connector logger 
-  self.sc_logger = sc_logger
+  self.sc_logger = logger
   if not self.sc_logger then
     self.sc_logger = sc_logger.new("/var/log/centreon-broker/gbq.log", 3)
   end
-  self.sc_common = sc_common
+
+  self.sc_common = common
+  if not self.sc_common then
+    self.sc_common = sc_common.new(self.sc_logger)
+  end
 
   -- load stream connector parameters
   self.params = params
@@ -163,25 +167,24 @@ end
 -- @return false (boolean) if the key object is not created using the private key from the key file or if the sign operation failed
 -- @return true (boolean) if the string has been successfully signed
 function OAuth:create_signature(string_to_sign)
-  -- create a pkey object
-  local private_key_object = crypto.pkey.from_pem(self.key_table.private_key, true)
+  -- create a pkey object from the PEM private key
+  local private_key_object = openssl.pkey.read(self.key_table.private_key, true)
 
   -- return if the pkey object is not valid
   if not private_key_object then
-    self.sc_logger:error("[google.auth.oauth:create_signature]: couldn't create private key object using crypto lib and"
+    self.sc_logger:error("[google.auth.oauth:create_signature]: couldn't create private key object using openssl lib and"
       .. " private key from key file " .. tostring(self.jwt_info.key_file))
 
     return false
   end
 
-  -- sign the string
-  local signature = crypto.sign(self.jwt_info.hash_protocol, string_to_sign, private_key_object)
+  -- sign the string using RSA-SHA256
+  local signature = private_key_object:sign(string_to_sign, "sha256")
 
   -- return if string is not signed
   if not signature then
-    self.sc_logger:error("[google.auth.oauth:create_signature]: couldn't sign string using crypto lib and the hash protocol: "
-      .. tostring(self.jwt_info.hash_protocol))
-    
+    self.sc_logger:error("[google.auth.oauth:create_signature]: couldn't sign string using openssl lib with sha256")
+
     return false
   end
 

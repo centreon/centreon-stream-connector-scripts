@@ -1,0 +1,162 @@
+name: stream-connectors-lib-delivery
+
+# triggered by stream-connectors-ci.yml, once the library and the stream connectors have been tested
+# the packages are restored from the cache filled by the package job of stream-connectors-lib.yml in the same run
+on:
+  workflow_call:
+
+jobs:
+  get-environment:
+    uses: ./.github/workflows/get-environment.yml
+
+  deliver-rpm:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        distrib: [el8, el9, el10]
+    name: deliver ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish RPM packages
+        uses: ./.github/actions/rpm-delivery
+        with:
+          module_name: stream-connectors-lib
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+
+  deliver-deb:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        distrib: [bookworm, trixie]
+    name: deliver ${{ matrix.distrib }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish DEB packages
+        uses: ./.github/actions/deb-delivery
+        with:
+          module_name: stream-connectors-lib
+          distrib: ${{ matrix.distrib }}
+          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+
+  # pulp mirrors the artifactory delivery above;
+  # stable is a promotion of the testing packages, keyed on the release/hotfix branch
+  deliver-pulp:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment]
+    runs-on: centreon-ubuntu-26.04-small
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+          - distrib: el9
+            package_extension: rpm
+          - distrib: el10
+            package_extension: rpm
+          - distrib: bookworm
+            package_extension: deb
+          - distrib: trixie
+            package_extension: deb
+    name: deliver ${{ matrix.distrib }} on pulp
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Get release type
+        if: ${{ needs.get-environment.outputs.stability == 'stable' }}
+        id: get_release_type
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const commitSha = context.sha;
+
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sort: 'updated',
+              direction: 'desc',
+              state: 'closed',
+              per_page: 100
+            });
+
+            core.startGroup(`Checking pull request linked to commit ${commitSha}`);
+            const pr = pulls.data.find(p => {
+              console.log(`Checking pull request ${p.number}("${p.title}") with merge commit ${p.merge_commit_sha}`);
+              return p.merge_commit_sha === commitSha;
+            });
+            core.endGroup();
+            if (!pr) {
+              core.error(`No pull request found for merge commit ${commitSha}`);
+              core.setOutput('release_type', '');
+              return;
+            }
+
+            const prHeadRef = pr?.head?.ref || 'unknown';
+            let releaseType = '';
+            switch (true) {
+              case /^release.+/.test(prHeadRef):
+                releaseType = 'release';
+                break;
+              case /^hotfix.+/.test(prHeadRef):
+                releaseType = 'hotfix';
+                break;
+              default:
+                core.error(`No packages are promoted because push of branch ${prHeadRef} is not related to a hotfix/release pull request.`);
+                core.setOutput('release_type', '');
+                return;
+            }
+            console.log(`Release type: ${releaseType}`);
+            core.setOutput('release_type', releaseType);
+
+      - name: Deliver packages on Pulp
+        if: ${{ contains(fromJson('["testing", "unstable"]'), needs.get-environment.outputs.stability) }}
+        uses: ./.github/actions/package-delivery-pulp
+        with:
+          module_name: stream-connectors-lib
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          version: ""
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+      - name: Promote packages on Pulp
+        if: ${{ needs.get-environment.outputs.stability == 'stable' && steps.get_release_type.outputs.release_type != '' }}
+        uses: ./.github/actions/promote-to-stable-pulp
+        with:
+          module_name: stream-connectors-lib
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          major_version: ""
+          stability: stable
+          release_type: ${{ steps.get_release_type.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}

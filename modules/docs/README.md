@@ -12,6 +12,7 @@
   - [sc\_metrics methods](#sc_metrics-methods)
   - [sc\_storage methods](#sc_storage-methods)
   - [sc\_storage\_sqlite methods](#sc_storage_sqlite-methods)
+  - [sc\_trigger methods](#sc_trigger-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
   - [Additionnal documentations](#additionnal-documentations)
@@ -30,30 +31,31 @@
 | sc_metrics               | methods to help you handle metrics               | when you want to send metrics and not just events                         | [Documentation](sc_metrics.md)               |
 | sc_storage                 | methods to help you use the stream connectors internal storage mechanism | when you want to store data                                               | [Documentation](sc_storage.md)                       |
 | sc_storage_sqlite          | methods to use sqlite as a storage mechanism                            | when you want to use sqlite as your storage backend                         | [Documentation](storage_backends/sc_storage_sqlite.md) |
+| sc_trigger                | lets you run your own Lua code at specific points of a stream connector lifecycle | when you want to customize a stream connector without editing its code | [Documentation](sc_trigger.md)               |
 | google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
 | google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
 
 ## sc_common methods
 
-| Method name                        | Method description                                                                                              | Link                                                                    |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case                       | [Documentation](sc_common.md#ifnil_or_empty-method)                     |
-| if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value                         | [Documentation](sc_common.md#if_wrong_type-method)                      |
-| boolean_to_number                  | change a true/false boolean to a 1/0 value                                                                      | [Documentation](sc_common.md#boolean_to_number-method)                  |
-| number_to_boolean                  | change a 0/1 number to a false/true value                                                                       | [Documentation](sc_common.md#number_to_boolean-method)                  |
-| check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value                     | [Documentation](sc_common.md#check_boolean_number_option_syntax-method) |
-| split                              | split a string using a separator (default is ",") and store each part in a table                                | [Documentation](sc_common.md#split-method)                              |
-| compare_numbers                    | compare two numbers using the given mathematical operator and return true or false                              | [Documentation](sc_common.md#compare_numbers-method)                    |
-| generate_postfield_param_string    | convert a table of parameters into a URL encoded parameter string                                             | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
-| load_json_file                     | the method loads a json file and parses it                                                                           | [Documentation](sc_common.md#load_json_file-method)                     |
-| json_escape                        | escape json characters in a string                                                                              | [Documentation](sc_common.md#json_escape-method)                        |
-| xml_escape                         | escape xml characters in a string                                                                               | [Documentation](sc_common.md#xml_escape-method)                         |
-| lua_regex_escape                   | escape lua regex special characters in a string                                                                 | [Documentation](sc_common.md#lua_regex_escape-method)                   |
+| Method name                        | Method description                                                                                               | Link                                                                    |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| ifnil_or_empty                     | check if a variable is empty or nil and replace it with a default value if it is the case                        | [Documentation](sc_common.md#ifnil_or_empty-method)                     |
+| if_wrong_type                      | check the type of a variable, if it is wrong, replace the variable with a default value                          | [Documentation](sc_common.md#if_wrong_type-method)                      |
+| boolean_to_number                  | change a true/false boolean to a 1/0 value                                                                       | [Documentation](sc_common.md#boolean_to_number-method)                  |
+| number_to_boolean                  | change a 0/1 number to a false/true value                                                                        | [Documentation](sc_common.md#number_to_boolean-method)                  |
+| check_boolean_number_option_syntax | make sure that a boolean is 0 or 1, if that's not the case, replace it with a default value                      | [Documentation](sc_common.md#check_boolean_number_option_syntax-method) |
+| split                              | split a string using a separator (default is ",") and store each part in a table                                 | [Documentation](sc_common.md#split-method)                              |
+| compare_numbers                    | compare two numbers using the given mathematical operator and return true or false                               | [Documentation](sc_common.md#compare_numbers-method)                    |
+| generate_postfield_param_string    | convert a table of parameters into a URL encoded parameter string                                                | [Documentation](sc_common.md#generate_postfield_param_string-method)    |
+| load_json_file                     | the method loads a json file and parses it                                                                       | [Documentation](sc_common.md#load_json_file-method)                     |
+| json_escape                        | escape json characters in a string                                                                               | [Documentation](sc_common.md#json_escape-method)                        |
+| xml_escape                         | escape xml characters in a string                                                                                | [Documentation](sc_common.md#xml_escape-method)                         |
+| lua_regex_escape                   | escape lua regex special characters in a string                                                                  | [Documentation](sc_common.md#lua_regex_escape-method)                   |
 | dumper                             | dump any variable for debug purposes                                                                             | [Documentation](sc_common.md#dumper-method)                             |
-| trim                               | trim spaces (or provided character) at the beginning and the end of a string                                    | [Documentation](sc_common.md#trim-method)                               |
-| get_bbdo_version                   | returns the first digit of the bbdo protocol version                                                            | [Documentation](sc_common.md#get_bbdo_version-method)                   |
-| is_valid_pattern                   | check if a Lua pattern is valid                                                                                 | [Documentation](sc_common.md#is_valid_pattern-method)                   |
-| sleep                              | wait a given number of seconds                                                                                  | [Documentation](sc_common.md#sleep-method)                              |
+| trim                               | trim spaces (or provided character) at the beginning and the end of a string                                     | [Documentation](sc_common.md#trim-method)                               |
+| get_bbdo_version                   | returns the first digit of the bbdo protocol version                                                             | [Documentation](sc_common.md#get_bbdo_version-method)                   |
+| is_valid_pattern                   | check if a Lua pattern is valid                                                                                  | [Documentation](sc_common.md#is_valid_pattern-method)                   |
+| sleep                              | wait a given number of seconds                                                                                   | [Documentation](sc_common.md#sleep-method)                              |
 | create_sleep_counter_table         | create a table to handle sleep counters. Useful when you want to log something less often after some repetitions | [Documentation](sc_common.md#create_sleep_counter_table-method)         |
 
 ## sc_logger methods
@@ -84,16 +86,17 @@
 
 ## sc_param methods
 
-| Method name                        | Method description                                                                                                                            | Link                                                                   |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| param_override                     | replace default values of params with the ones provided by users in the web configuration of the stream connector                             | [Documentation](sc_param.md#param_override-method)                     |
+| Method name                        | Method description                                                                                                                           | Link                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| param_override                     | replace default values of params with the ones provided by users in the web configuration of the stream connector                            | [Documentation](sc_param.md#param_override-method)                     |
 | check_params                       | make sure that the default stream connector params provided by the user from the web configuration are valid. If not, uses the default value | [Documentation](sc_param.md#check_params-method)                       |
-| is_mandatory_config_set            | check that all mandatory parameters for a stream connector are set                                                                            | [Documentation](sc_param.md#is_mandatory_config_set-method)            |
-| get_kafka_params                   | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                  | [Documentation](sc_param.md#get_kafka_params-method)                   |
-| load_event_format_file             | load a file that serves as a template for formatting events                                                                                   | [Documentation](sc_param.md#load_event_format_file-method)             |
-| build_accepted_elements_info       | build a table that stores information about accepted elements                                                                                  | [Documentation](sc_param.md#build_accepted_elements_info-method)       |
-| validate_pattern_param             | check if a parameter has a valid Lua pattern as a value                                                                                       | [Documentation](sc_param.md#validate_pattern_param-method)             |
-| build_and_validate_filters_pattern | build a table that stores information about patterns for compatible parameters                                                                | [Documentation](sc_param.md#build_and_validate_filters_pattern-method) |
+| is_mandatory_config_set            | check that all mandatory parameters for a stream connector are set                                                                           | [Documentation](sc_param.md#is_mandatory_config_set-method)            |
+| get_kafka_params                   | retreive Kafka dedicated parameters from the parameter list and put them in the provided kafka_config object                                 | [Documentation](sc_param.md#get_kafka_params-method)                   |
+| load_event_format_file             | load a file that serves as a template for formatting events                                                                                  | [Documentation](sc_param.md#load_event_format_file-method)             |
+| load_trigger_file                  | load and compile a file that contains triggers registrations                                                                                 | [Documentation](sc_param.md#load_trigger_file-method)                  |
+| build_accepted_elements_info       | build a table that stores information about accepted elements                                                                                | [Documentation](sc_param.md#build_accepted_elements_info-method)       |
+| validate_pattern_param             | check if a parameter has a valid Lua pattern as a value                                                                                      | [Documentation](sc_param.md#validate_pattern_param-method)             |
+| build_and_validate_filters_pattern | build a table that stores information about patterns for compatible parameters                                                               | [Documentation](sc_param.md#build_and_validate_filters_pattern-method) |
 
 ## sc_event methods
 
@@ -167,6 +170,7 @@
 
 | Method name               | Method description                                                     | Link                                                          |
 | ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| create_new_virtual_queue  | create a virtual queue                                                 | [Documentation](sc_flush.md#create_new_virtual_queue-method)  |
 | add_queue_metadata        | add specific metadata to a queue                                       | [Documentation](sc_flush.md#add_queue_metadata-method)        |
 | flush_all_queues          | try to flush all queues according to accepted elements                 | [Documentation](sc_flush.md#flush_all_queues-method)          |
 | reset_all_queues          | put all queues back to their initial state after flushing their events | [Documentation](sc_flush.md#reset_all_queues-method)          |
@@ -218,6 +222,13 @@
 | show               | shows (in the log file) all stored properties of an object          | [Documentation](storage_backends/sc_storage_sqlite.md#show-method)               |
 | clear              | deletes all stored information in storage                             | [Documentation](storage_backends/sc_storage_sqlite.md#is_valid_perfdata-method)  |
 
+## sc_trigger methods
+
+| Method name      | Method description                                                                        | Link                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| register_trigger | attach your own function to a category/event_type, meant to be called from a trigger file  | [Documentation](sc_trigger.md#register_trigger-method)  |
+| run_trigger      | run the function registered for a category/event_type, meant to be called from the library or a stream connector | [Documentation](sc_trigger.md#run_trigger-method) |
+
 ## google.bigquery.bigquery methods
 
 | Method name                  | Method description                                         | Link                                                                             |
@@ -248,5 +259,6 @@
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | learn how to create a custom format using a format file       | [Documentation](./templating.md)                                                                                                    |
 | learn how to create custom code for your stream connector     | [Documentation](./custom_code.md)                                                                                                   |
+| learn how to write a trigger file and see the list of every available trigger | [Documentation](./how_to_use_triggers.md)                                                                           |
 | have a look at all the available mappings and how to use them | [Documentation](./mappings.md)                                                                                                      |
 | have a look at the event structure                            | [Documentation](./broker_data_structure.md) and [Documentation](https://docs.centreon.com/docs/developer/developer-broker-mapping/) |

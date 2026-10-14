@@ -1,31 +1,13 @@
 name: stream-connectors-lib
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
+# triggered by stream-connectors-ci.yml
+# only builds and tests the library, its delivery is done by stream-connectors-lib-delivery.yml
+# once the stream connectors have also been tested against it
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/stream-connectors-lib.yml'
-      - 'packaging/connectors-lib/**'
-      - 'modules/centreon-stream-connectors-lib/**'
-  push:
-    branches:
-      - develop
-      - master
-    paths:
-      - '.github/workflows/stream-connectors-lib.yml'
-      - 'packaging/connectors-lib/**'
-      - 'modules/centreon-stream-connectors-lib/**'
+  workflow_call:
 
 jobs:
-  dependency-scan:
-    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
-
   get-environment:
-    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   package:
@@ -34,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy]
+        distrib: [el8, el9, el10, bookworm, trixie]
         include:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma8
@@ -42,15 +24,15 @@ jobs:
           - package_extension: rpm
             image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
-          - package_extension: deb
-            image: packaging-stream-connectors-nfpm-bullseye
-            distrib: bullseye
+          - package_extension: rpm
+            image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
           - package_extension: deb
             image: packaging-stream-connectors-nfpm-bookworm
             distrib: bookworm
           - package_extension: deb
-            image: packaging-stream-connectors-nfpm-jammy
-            distrib: jammy
+            image: packaging-stream-connectors-nfpm-trixie
+            distrib: trixie
 
     runs-on: ubuntu-24.04
 
@@ -64,14 +46,14 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Package
         uses: ./.github/actions/package-nfpm
         with:
           nfpm_file_pattern: "packaging/connectors-lib/*.yaml"
           distrib: ${{ matrix.distrib }}
-          version: "3.8.0" # previous version:"3.7.0"
+          version: "3.8.2" # previous version:"3.8.1"
           release: "1"
           package_extension: ${{ matrix.package_extension }}
           arch: all
@@ -83,46 +65,45 @@ jobs:
           stability: ${{ needs.get-environment.outputs.stability }}
           artifact_name: "package-stream-connectors-lib-${{ matrix.distrib }}"
 
-  deliver-rpm:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+  test-packages:
     needs: [get-environment, package]
-    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        distrib: [el8, el9]
-    name: deliver ${{ matrix.distrib }}
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Publish RPM packages
-        uses: ./.github/actions/rpm-delivery
-        with:
-          module_name: stream-connectors-lib
-          distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
-
-  deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
+        include:
+          - package_extension: rpm
+            image: almalinux:8
+            distrib: el8
+          - package_extension: rpm
+            image: almalinux:9
+            distrib: el9
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
+          - package_extension: deb
+            image: debian:bookworm
+            distrib: bookworm
+          - package_extension: deb
+            image: debian:trixie
+            distrib: trixie
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        distrib: [bullseye, bookworm, jammy]
-    name: deliver ${{ matrix.distrib }}
-
+    container:
+      image: ${{ matrix.image }}
+    name: test packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Publish DEB packages
-        uses: ./.github/actions/deb-delivery
+      - name: Test packaged libs
+        uses: ./.github/actions/test-packages
         with:
-          module_name: stream-connectors-lib
+          package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.distrib }}
+          test_type: library
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: install_error_log_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log

@@ -32,13 +32,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
         include:
           - image: packaging-stream-connectors-nfpm-alma8
             distrib: el8
             lua_version: 5.3
           - image: packaging-stream-connectors-nfpm-alma9
             distrib: el9
+            lua_version: 5.4
+          - image: packaging-stream-connectors-nfpm-alma10
+            distrib: el10
             lua_version: 5.4
 
     runs-on: ubuntu-24.04
@@ -53,14 +56,14 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout luasql sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: "lunarmodules/luasql"
           path: "lua-sql-src"
-          ref: "2.6.0"
+          ref: "2.7.0"
 
       - name: Prepare packaging of lua-sql-mysql
         env:
@@ -73,12 +76,17 @@ jobs:
           else
             dnf config-manager --set-enabled crb
           fi
-          dnf install -y make gcc lua lua-devel mysql mysql-devel
+          MYSQL_VERSION=""
+          if [ "$DISTRIB" == "el10" ]; then
+            MYSQL_VERSION="8.4"
+          fi
+          dnf install -y make gcc lua lua-devel mysql$MYSQL_VERSION mysql$MYSQL_VERSION-devel
           cd lua-sql-src
           make mysql DRIVER_LIBS_mysql="-L/usr/lib64/mysql -lmysqlclient" DRIVER_INCS_mysql=-I/usr/include/mysql LUA_SYS_VER="$LUA_VERSION"
           cd ..
 
           sed -i "s/@luaver@/${LUA_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
+          sed -i "s/@mysql_version@/${MYSQL_VERSION}/g" dependencies/lua-sql-mysql/packaging/lua-sql-mysql.yaml
         shell: bash
 
       - name: Package
@@ -88,7 +96,7 @@ jobs:
           distrib: ${{ matrix.distrib }}
           package_extension: rpm
           arch: amd64
-          version: "2.6.0"
+          version: "2.7.0"
           release: "1"
           commit_hash: ${{ github.sha }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
@@ -110,6 +118,9 @@ jobs:
           - package_extension: rpm
             image: almalinux:9
             distrib: el9
+          - package_extension: rpm
+            image: almalinux:10
+            distrib: el10
 
     runs-on: ubuntu-24.04
     container:
@@ -117,7 +128,7 @@ jobs:
 
     name: Test lua packages on ${{ matrix.package_extension }} ${{ matrix.distrib }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test packaged libs
         uses: ./.github/actions/test-packages
@@ -125,6 +136,7 @@ jobs:
           package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
+          test_type: dependency
 
       - name: Upload error log
         if: failure()
@@ -135,16 +147,16 @@ jobs:
 
   deliver-rpm:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package]
+    needs: [get-environment, package, test-packages]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10]
     name: deliver ${{ matrix.distrib }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Publish RPM packages
         uses: ./.github/actions/rpm-delivery
@@ -154,3 +166,107 @@ jobs:
           artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
           cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-sql-mysql-${{ matrix.distrib }}
           stability: ${{ needs.get-environment.outputs.stability }}
+
+  # pulp mirrors the artifactory delivery above;
+  # stable is a promotion of the testing packages, keyed on the release/hotfix branch
+  deliver-pulp:
+    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+    needs: [get-environment, package, test-packages]
+    runs-on: centreon-ubuntu-26.04-small
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10]
+        include:
+          - distrib: el8
+            package_extension: rpm
+          - distrib: el9
+            package_extension: rpm
+          - distrib: el10
+            package_extension: rpm
+    name: deliver ${{ matrix.distrib }} on pulp
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Get release type
+        if: ${{ needs.get-environment.outputs.stability == 'stable' }}
+        id: get_release_type
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const commitSha = context.sha;
+
+            const pulls = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sort: 'updated',
+              direction: 'desc',
+              state: 'closed',
+              per_page: 100
+            });
+
+            core.startGroup(`Checking pull request linked to commit ${commitSha}`);
+            const pr = pulls.data.find(p => {
+              console.log(`Checking pull request ${p.number}("${p.title}") with merge commit ${p.merge_commit_sha}`);
+              return p.merge_commit_sha === commitSha;
+            });
+            core.endGroup();
+            if (!pr) {
+              core.error(`No pull request found for merge commit ${commitSha}`);
+              core.setOutput('release_type', '');
+              return;
+            }
+
+            const prHeadRef = pr?.head?.ref || 'unknown';
+            let releaseType = '';
+            switch (true) {
+              case /^release.+/.test(prHeadRef):
+                releaseType = 'release';
+                break;
+              case /^hotfix.+/.test(prHeadRef):
+                releaseType = 'hotfix';
+                break;
+              default:
+                core.error(`No packages are promoted because push of branch ${prHeadRef} is not related to a hotfix/release pull request.`);
+                core.setOutput('release_type', '');
+                return;
+            }
+            console.log(`Release type: ${releaseType}`);
+            core.setOutput('release_type', releaseType);
+
+      - name: Deliver packages on Pulp
+        if: ${{ contains(fromJson('["testing", "unstable"]'), needs.get-environment.outputs.stability) }}
+        uses: ./.github/actions/package-delivery-pulp
+        with:
+          module_name: lua-sql-mysql
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          version: ""
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-lua-sql-mysql-${{ matrix.distrib }}
+          stability: ${{ needs.get-environment.outputs.stability }}
+          release_type: ${{ needs.get-environment.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}
+
+      - name: Promote packages on Pulp
+        if: ${{ needs.get-environment.outputs.stability == 'stable' && steps.get_release_type.outputs.release_type != '' }}
+        uses: ./.github/actions/promote-to-stable-pulp
+        with:
+          module_name: lua-sql-mysql
+          repository_name: plugins
+          distrib: ${{ matrix.distrib }}
+          major_version: ""
+          stability: stable
+          release_type: ${{ steps.get_release_type.outputs.release_type }}
+          is_cloud: "false"
+          pulp_url: ${{ vars.PULP_API_URL }}
+          pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
+          audience: ${{ vars.PULP_OIDC_AUDIENCE }}

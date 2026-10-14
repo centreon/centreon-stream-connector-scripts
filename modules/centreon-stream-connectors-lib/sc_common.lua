@@ -23,10 +23,10 @@ end
 
 local ScCommon = {}
 
-function sc_common.new(sc_logger)
+function sc_common.new(logger)
   local self = {}
   
-  self.sc_logger = sc_logger
+  self.sc_logger = logger
   if not self.sc_logger then 
     self.sc_logger = sc_logger.new()
   end

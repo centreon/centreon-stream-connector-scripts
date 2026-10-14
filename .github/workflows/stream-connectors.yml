@@ -1,42 +1,46 @@
 name: stream-connectors
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
-
+# triggered by stream-connectors-ci.yml
+# only builds and tests the stream connectors, their delivery is done by stream-connectors-delivery.yml
+# once the library has been delivered
 on:
-  workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
-  push:
-    branches:
-      - develop
-      - master
-    paths:
-      - '.github/workflows/stream-connectors.yml'
-      - 'centreon-certified/**'
-      - 'packaging/connectors/**'
+  workflow_call:
+    outputs:
+      delivered_connectors:
+        description: "JSON list of the stream connectors to deliver, only the ones that changed"
+        value: ${{ jobs.detect-changes.outputs.delivered_connectors }}
+    inputs:
+      use_local_lib:
+        description: "Test the stream connectors against the library packages built earlier in the same run"
+        type: boolean
+        default: false
+      build_all_connectors:
+        description: "Build and test all the stream connectors, used for CI changes (only the changed ones are delivered)"
+        type: boolean
+        default: false
+      test_published_connectors:
+        description: "Test the published packages of the stream connectors that are not built in this run, used for library changes"
+        type: boolean
+        default: false
 
 jobs:
-  dependency-scan:
-    uses: centreon/security-tools/.github/workflows/dependency-analysis.yml@main
-
   get-environment:
-    needs: [dependency-scan]
     uses: ./.github/workflows/get-environment.yml
 
   detect-changes:
     runs-on: ubuntu-24.04
     outputs:
+      # connectors to build and test
       connectors: ${{ steps.list-connectors.outputs.connectors }}
+      # connectors to deliver, only the ones that changed
+      delivered_connectors: ${{ steps.list-connectors.outputs.delivered_connectors }}
+      # space separated packages of the connectors that are not built, tested from the repositories
+      published_packages: ${{ steps.list-connectors.outputs.published_packages }}
       packaging: ${{ steps.filter.outputs.packaging }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           base: ${{ github.ref }}
@@ -44,6 +48,7 @@ jobs:
           filters: |
             connectors:
               - added|modified: centreon-certified/**
+            # the dependencies of the stream connectors packages are set in this workflow
             packaging:
               - modified: .github/workflows/stream-connectors.yml
               - added|modified: packaging/connectors/**
@@ -53,11 +58,14 @@ jobs:
         env:
           CONNECTOR_FILES: ${{ steps.filter.outputs.connectors_files }}
           PACKAGING_CHANGED: ${{ steps.filter.outputs.packaging }}
+          BUILD_ALL_CONNECTORS: ${{ inputs.build_all_connectors }}
+          TEST_PUBLISHED_CONNECTORS: ${{ inputs.test_published_connectors }}
         run: |
           folders=()
+          mapfile -t all_folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
           if [ "$PACKAGING_CHANGED" = "true" ]; then
             echo "Packaging files changed, adding all connectors"
-            mapfile -t folders < <(find centreon-certified/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
+            folders=("${all_folders[@]}")
           else
             for f in $CONNECTOR_FILES; do
               DIR_NAME="$(dirname "$f")"
@@ -67,7 +75,25 @@ jobs:
             done
           fi
           unique_folders=($(printf "%s\n" "${folders[@]}" | sort -u | tr '\n' ' '))
+          echo "delivered_connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
+
+          if [ "$BUILD_ALL_CONNECTORS" = "true" ]; then
+            echo "CI changed, building and testing all connectors"
+            unique_folders=($(printf "%s\n" "${all_folders[@]}" | sort -u | tr '\n' ' '))
+          fi
           echo "connectors=$(jq --compact-output --null-input '$ARGS.positional' --args -- ${unique_folders[@]})" >> $GITHUB_OUTPUT
+
+          # the connectors that are not built in this run are tested with their published packages
+          published_packages=()
+          if [ "$TEST_PUBLISHED_CONNECTORS" = "true" ]; then
+            for folder in "${all_folders[@]}"; do
+              if [[ ! " ${unique_folders[*]} " =~ " ${folder} " ]]; then
+                published_packages+=("centreon-stream-connector-${folder}")
+              fi
+            done
+            echo "Library changed, testing published packages: ${published_packages[*]}"
+          fi
+          echo "published_packages=${published_packages[*]}" >> $GITHUB_OUTPUT
         shell: bash
 
   package:
@@ -75,8 +101,9 @@ jobs:
     needs: [get-environment, detect-changes]
     runs-on: ubuntu-24.04
     strategy:
+      max-parallel: 25
       matrix:
-        distrib: [el8, el9, bullseye, bookworm, jammy]
+        distrib: [el8, el9, el10, bookworm, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
         include:
           - distrib: el8
@@ -85,14 +112,14 @@ jobs:
           - distrib: el9
             image: packaging-stream-connectors-nfpm-alma9
             package_extension: rpm
-          - distrib: bullseye
-            image: packaging-stream-connectors-nfpm-bullseye
-            package_extension: deb
+          - distrib: el10
+            image: packaging-stream-connectors-nfpm-alma10
+            package_extension: rpm
           - distrib: bookworm
             image: packaging-stream-connectors-nfpm-bookworm
             package_extension: deb
-          - distrib: jammy
-            image: packaging-stream-connectors-nfpm-jammy
+          - distrib: trixie
+            image: packaging-stream-connectors-nfpm-trixie
             package_extension: deb
 
     name: Package ${{ matrix.distrib }} ${{ matrix.connector_path }}
@@ -105,7 +132,7 @@ jobs:
     steps:
 
       - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Replace package and connector name variables
         env:
@@ -120,18 +147,35 @@ jobs:
       - name: Add specific dependencies
         env:
           CONNECTOR_PATH: ${{ matrix.connector_path }}
+          DISTRIB: ${{ matrix.distrib }}
         run: |
-          DEB_DEPENDENCIES=""
-          RPM_DEPENDENCIES=""
-          if [ "$CONNECTOR_PATH" = "kafka" ]; then
+          # Debian renamed libcurl4 to libcurl4t64 with the 64-bit time_t transition,
+          # and provides no libcurl4 virtual package from trixie onwards.
+          if [ "$DISTRIB" = "trixie" ]; then
+            DEB_CURL="libcurl4t64"
+          else
+            DEB_CURL="libcurl4"
+          fi
+          DEB_DEPENDENCIES="$DEB_CURL"
+          RPM_DEPENDENCIES="libcurl"
+          if [ "$CONNECTOR_PATH" = "elastic" ]; then
+            DEB_DEPENDENCIES="lua-sec"
+            RPM_DEPENDENCIES="lua-sec"
+          elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
+            DEB_DEPENDENCIES="$DEB_CURL,lua-sec"
+            RPM_DEPENDENCIES="libcurl,lua-sec"
+          elif [ "$CONNECTOR_PATH" = "google" ]; then
+            DEB_DEPENDENCIES="$DEB_CURL,lua-openssl"
+            RPM_DEPENDENCIES="libcurl,lua-openssl"
+          elif [ "$CONNECTOR_PATH" = "kafka" ]; then
             DEB_DEPENDENCIES="librdkafka1,lua-cffi"
             RPM_DEPENDENCIES="librdkafka,lua-cffi"
           elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
+            DEB_DEPENDENCIES="$DEB_CURL,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           elif [ "$CONNECTOR_PATH" = "splunk" ]; then
-            DEB_DEPENDENCIES="lua-tz"
-            RPM_DEPENDENCIES="lua-tz"
+            DEB_DEPENDENCIES="$DEB_CURL,lua-tz"
+            RPM_DEPENDENCIES="libcurl,lua-tz"
           fi
           sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
           sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
@@ -159,48 +203,98 @@ jobs:
           stability: ${{ needs.get-environment.outputs.stability }}
           artifact_name: "package-${{ matrix.connector_path }}-${{ matrix.distrib }}"
 
-  deliver-rpm:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
+  test-packages:
     needs: [get-environment, detect-changes, package]
-    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
+      max-parallel: 25
       matrix:
-        distrib: [el8, el9]
+        distrib: [el8, el9, el10, bookworm, trixie]
         connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Publish RPM packages
-        uses: ./.github/actions/rpm-delivery
-        with:
-          module_name: stream-connectors
-          distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-${{ matrix.connector_path }}-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
-
-  deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, detect-changes, package]
+        include:
+          - distrib: el8
+            package_extension: rpm
+            image: almalinux:8
+          - distrib: el9
+            package_extension: rpm
+            image: almalinux:9
+          - distrib: el10
+            package_extension: rpm
+            image: almalinux:10
+          - distrib: bookworm
+            package_extension: deb
+            image: debian:bookworm
+          - distrib: trixie
+            package_extension: deb
+            image: debian:trixie
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        distrib: [bullseye, bookworm, jammy]
-        connector_path: ${{ fromJson(needs.detect-changes.outputs.connectors) }}
-    name: Deliver ${{ matrix.distrib }} ${{ matrix.connector_path }}
-
+    container:
+      image: ${{ matrix.image }}
+    name: Test ${{ matrix.distrib }} ${{ matrix.connector_path }}
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Publish DEB packages
-        uses: ./.github/actions/deb-delivery
+      - name: Test packaged connector
+        uses: ./.github/actions/test-packages
         with:
-          module_name: stream-connectors
+          package_extension: ${{ matrix.package_extension }}
           distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-${{ matrix.connector_path }}-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
+          cache_key: ${{ github.sha }}-${{ github.run_id }}-${{ matrix.package_extension }}-${{ matrix.connector_path }}-${{ matrix.distrib }}
+          # must match the cache_key of the package job in stream-connectors-lib.yml
+          lib_cache_key: ${{ inputs.use_local_lib && format('{0}-{1}-{2}-{3}', github.sha, github.run_id, matrix.package_extension, matrix.distrib) || '' }}
+          test_type: stream-connector
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: install_error_log_${{ matrix.connector_path }}_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log
+
+  # the published packages of the connectors are tested against the library built in this run
+  test-published-packages:
+    if: ${{ needs.detect-changes.outputs.published_packages != '' }}
+    needs: [detect-changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        distrib: [el8, el9, el10, bookworm, trixie]
+        include:
+          - distrib: el8
+            package_extension: rpm
+            image: almalinux:8
+          - distrib: el9
+            package_extension: rpm
+            image: almalinux:9
+          - distrib: el10
+            package_extension: rpm
+            image: almalinux:10
+          - distrib: bookworm
+            package_extension: deb
+            image: debian:bookworm
+          - distrib: trixie
+            package_extension: deb
+            image: debian:trixie
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    name: Test published ${{ matrix.distrib }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test published connectors
+        uses: ./.github/actions/test-packages
+        with:
+          package_extension: ${{ matrix.package_extension }}
+          distrib: ${{ matrix.distrib }}
+          published_packages: ${{ needs.detect-changes.outputs.published_packages }}
+          # must match the cache_key of the package job in stream-connectors-lib.yml
+          lib_cache_key: ${{ inputs.use_local_lib && format('{0}-{1}-{2}-{3}', github.sha, github.run_id, matrix.package_extension, matrix.distrib) || '' }}
+          test_type: stream-connector
+
+      - name: Upload error log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: install_error_log_published_${{ matrix.distrib }}
+          path: install_error_${{ matrix.distrib }}.log

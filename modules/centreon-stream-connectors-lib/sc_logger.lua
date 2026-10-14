@@ -10,7 +10,7 @@ local sc_logger = {}
 --- build_message: prepare log message
 -- @param severity (string) the severity of the message (WARNING, CRITIAL...)
 -- @param message (string) the log message 
--- @return ouput (string) the formated log message
+-- @return ouput (string) the formatted log message
 local function build_message(severity, message)
   local date = os.date("%a %b %d %H:%M:%S %Y")
   local output = date .. ": " .. severity .. ": " .. message .. "\n"
