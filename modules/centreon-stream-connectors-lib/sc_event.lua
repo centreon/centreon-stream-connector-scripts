@@ -990,14 +990,14 @@ function ScEvent:is_valid_bam_event()
     step_order = {
       "is_valid_ba",
       "is_valid_ba_status_event",
-      "is_valid_ba_downtime_event",
+      "is_valid_ba_downtime_state",
       "is_valid_ba_acknowledge_state",
       "is_valid_bv"
     },
     step_order_reverse_mapping = {
       is_valid_ba = 1,
       is_valid_ba_status_event = 2,
-      is_valid_ba_downtime_event = 3,
+      is_valid_ba_downtime_state = 3,
       is_valid_ba_acknowledge_state = 4,
       is_valid_bv = 5
     },
