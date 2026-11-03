@@ -156,53 +156,6 @@ jobs:
           name: install_error_log_${{ matrix.distrib }}
           path: install_error_${{ matrix.distrib }}.log
 
-  deliver-rpm:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package, test-packages]
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        distrib: [el8, el9, el10]
-    name: deliver ${{ matrix.distrib }}
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Publish RPM packages
-        uses: ./.github/actions/rpm-delivery
-        with:
-          module_name: lua-tz
-          distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-rpm-lua-tz-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
-          release_type: ${{ needs.get-environment.outputs.release_type }}
-
-  deliver-deb:
-    if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
-    needs: [get-environment, package, test-packages]
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        distrib: [bookworm, trixie]
-    name: deliver ${{ matrix.distrib }}
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Publish DEB packages
-        uses: ./.github/actions/deb-delivery
-        with:
-          module_name: lua-tz
-          distrib: ${{ matrix.distrib }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
-          cache_key: ${{ github.sha }}-${{ github.run_id }}-deb-lua-tz-${{ matrix.distrib }}
-          stability: ${{ needs.get-environment.outputs.stability }}
-          release_type: ${{ needs.get-environment.outputs.release_type }}
-
-  # pulp mirrors the artifactory delivery above;
   # stable is a promotion of the testing packages, keyed on the release/hotfix branch
   deliver-pulp:
     if: ${{ contains(fromJson('["unstable", "testing", "stable"]'), needs.get-environment.outputs.stability) }}
@@ -352,14 +305,3 @@ jobs:
           pulp_url: ${{ vars.PULP_API_URL }}
           pulp_content_url: ${{ vars.PULP_CONTENT_URL }}
           audience: ${{ vars.PULP_OIDC_AUDIENCE }}
-
-      # jfrog is promoted even if pulp failed, the job still fails
-      - name: Promote packages on JFrog
-        if: ${{ !cancelled() }}
-        uses: ./.github/actions/promote-to-stable-jfrog
-        with:
-          module_name: lua-tz
-          distrib: ${{ matrix.distrib }}
-          package_extension: ${{ matrix.package_extension }}
-          release_type: ${{ needs.get-environment.outputs.release_type }}
-          artifactory_token: ${{ secrets.ARTIFACTORY_ACCESS_TOKEN }}
