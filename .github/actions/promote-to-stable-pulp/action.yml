@@ -140,8 +140,7 @@ runs:
         # verifying the just-promoted content, which now lives in the stable domain
         PULP_DOMAIN: ${{ steps.pulp-properties.outputs.stable_domain }}
       run: |
-        ${{ github.action_path }}/../../scripts/pulp/check-rpm.sh ||
-          echo "::warning::Pulp promotion verification failed for ${MODULE_NAME} on ${DISTRIB} (non-blocking during the Artifactory-to-Pulp migration, see the run summary table)"
+        ${{ github.action_path }}/../../scripts/pulp/check-rpm.sh
 
     - name: Verify DEB promotion
       # skipped on dry runs (stability != stable): the promote script exits
@@ -160,5 +159,4 @@ runs:
         # verifying the just-promoted content, which now lives in the stable domain
         PULP_DOMAIN: ${{ steps.pulp-properties.outputs.stable_domain }}
       run: |
-        ${{ github.action_path }}/../../scripts/pulp/check-deb.sh ||
-          echo "::warning::Pulp promotion verification failed for ${MODULE_NAME} on ${DISTRIB} (non-blocking during the Artifactory-to-Pulp migration, see the run summary table)"
+        ${{ github.action_path }}/../../scripts/pulp/check-deb.sh
