@@ -230,6 +230,7 @@
 
 | Method name      | Method description                                         | Link                                                   |
 | ---------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| escape           | converts a Lua value into a SQL value that can be used as is in a query | [Documentation](sc_database.md#escape-method)  |
 | execute          | runs the given query using the database backend            | [Documentation](sc_database.md#execute-method)          |
 | open_connection  | opens the connection to the database                       | [Documentation](sc_database.md#open_connection-method)  |
 | close_connection | closes the connection to the database                      | [Documentation](sc_database.md#close_connection-method) |
@@ -243,6 +244,10 @@
 | close_connection       | closes the connection to the mysql/mariadb database             | [Documentation](database_backends/sc_database_mysql.md#close_connection-method)       |
 | build_result           | converts a query result (luasql cursor) into a table            | [Documentation](database_backends/sc_database_mysql.md#build_result-method)           |
 | execute                | runs the given query and returns its result                     | [Documentation](database_backends/sc_database_mysql.md#execute-method)                |
+| escape_nil             | converts a nil value into NULL                                  | [Documentation](database_backends/sc_database_mysql.md#escape_nil-method)             |
+| escape_string          | escapes a string and wraps it in single quotes                  | [Documentation](database_backends/sc_database_mysql.md#escape_string-method)          |
+| escape_boolean         | converts a boolean into 1 or 0                                  | [Documentation](database_backends/sc_database_mysql.md#escape_boolean-method)         |
+| escape_number          | converts a number into a number literal without losing precision | [Documentation](database_backends/sc_database_mysql.md#escape_number-method)        |
 
 ## sc_trigger methods
 

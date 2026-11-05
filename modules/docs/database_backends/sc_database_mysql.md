@@ -24,6 +24,21 @@
     - [execute: parameters](#execute-parameters)
     - [execute: returns](#execute-returns)
     - [execute: example](#execute-example)
+  - [escape\_nil method](#escape_nil-method)
+    - [escape\_nil: returns](#escape_nil-returns)
+    - [escape\_nil: example](#escape_nil-example)
+  - [escape\_string method](#escape_string-method)
+    - [escape\_string: parameters](#escape_string-parameters)
+    - [escape\_string: returns](#escape_string-returns)
+    - [escape\_string: example](#escape_string-example)
+  - [escape\_boolean method](#escape_boolean-method)
+    - [escape\_boolean: parameters](#escape_boolean-parameters)
+    - [escape\_boolean: returns](#escape_boolean-returns)
+    - [escape\_boolean: example](#escape_boolean-example)
+  - [escape\_number method](#escape_number-method)
+    - [escape\_number: parameters](#escape_number-parameters)
+    - [escape\_number: returns](#escape_number-returns)
+    - [escape\_number: example](#escape_number-example)
 
 ## Introduction
 
@@ -233,4 +248,117 @@ local result = test_database_mysql:execute(query)
 query = "SELECT id, address FROM hosts WHERE name = 'host_that_does_not_exist';"
 result = test_database_mysql:execute(query)
 --> result is {}
+```
+
+## escape_nil method
+
+The **escape_nil** method converts a nil value into its MySQL equivalent: `NULL`.
+
+> You should not call this method directly. Use the [escape method](../sc_database.md#escape-method) of the sc_database module instead.
+
+### escape_nil: returns
+
+| return | type   | always | condition |
+| ------ | ------ | ------ | --------- |
+| NULL   | string | yes    |           |
+
+### escape_nil: example
+
+```lua
+local result = test_database_mysql:escape_nil()
+--> result is "NULL"
+```
+
+## escape_string method
+
+The **escape_string** method escapes a string using the luasql escape method and wraps it in single quotes so it can be used as is in a query.
+
+The luasql escape method relies on the charset of the connection. Therefore, the connection to the database is opened if it is not already active.
+
+> You should not call this method directly. Use the [escape method](../sc_database.md#escape-method) of the sc_database module instead.
+
+### escape_string: parameters
+
+| parameter                | type   | optional | default value |
+| ------------------------ | ------ | -------- | ------------- |
+| the raw string to escape | string | no       |               |
+
+### escape_string: returns
+
+| return                                 | type              | always | condition                                                                                 |
+| -------------------------------------- | ----------------- | ------ | ----------------------------------------------------------------------------------------- |
+| false or the escaped and quoted string | boolean or string | yes    | false if the connection to the database couldn't be opened, the escaped string otherwise |
+
+### escape_string: example
+
+```lua
+local result = test_database_mysql:escape_string("O'Brien")
+--> result is the string 'O\'Brien' (quotes included)
+```
+
+## escape_boolean method
+
+The **escape_boolean** method converts a boolean into its MySQL equivalent. MySQL doesn't have a real boolean type (TRUE and FALSE are aliases of 1 and 0), so the boolean is converted to `1` or `0`.
+
+> You should not call this method directly. Use the [escape method](../sc_database.md#escape-method) of the sc_database module instead.
+
+### escape_boolean: parameters
+
+| parameter                 | type    | optional | default value |
+| ------------------------- | ------- | -------- | ------------- |
+| the boolean to convert    | boolean | no       |               |
+
+### escape_boolean: returns
+
+| return | type   | always | condition                                    |
+| ------ | ------ | ------ | -------------------------------------------- |
+| 1 or 0 | string | yes    | "1" if the value is true, "0" if it is false |
+
+### escape_boolean: example
+
+```lua
+local result = test_database_mysql:escape_boolean(true)
+--> result is "1"
+
+result = test_database_mysql:escape_boolean(false)
+--> result is "0"
+```
+
+## escape_number method
+
+The **escape_number** method converts a number into a MySQL number literal without losing precision:
+
+- integers are written with all their digits.
+- floats are written with their shortest representation (`%.14g`). If this representation loses precision, the full one (`%.17g`) is used instead.
+
+Big or small numbers may be written using the scientific notation (for example `1e+20`), which is valid in MySQL.
+
+> You should not call this method directly. Use the [escape method](../sc_database.md#escape-method) of the sc_database module instead. It refuses NaN and infinite numbers before calling this method.
+
+### escape_number: parameters
+
+| parameter             | type   | optional | default value |
+| --------------------- | ------ | -------- | ------------- |
+| the number to convert | number | no       |               |
+
+### escape_number: returns
+
+| return                  | type   | always | condition |
+| ----------------------- | ------ | ------ | --------- |
+| the number as a string  | string | yes    |           |
+
+### escape_number: example
+
+```lua
+local result = test_database_mysql:escape_number(42)
+--> result is "42"
+
+result = test_database_mysql:escape_number(0.1)
+--> result is "0.1"
+
+result = test_database_mysql:escape_number(0.1 + 0.2)
+--> result is "0.30000000000000004"
+
+result = test_database_mysql:escape_number(1e20)
+--> result is "1e+20"
 ```

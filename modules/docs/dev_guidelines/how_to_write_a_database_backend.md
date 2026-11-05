@@ -8,6 +8,7 @@
     - [Mandatory functions](#mandatory-functions)
     - [Connection handling](#connection-handling)
     - [Query results](#query-results)
+    - [Escaping values](#escaping-values)
     - [Parameters](#parameters)
     - [Dependencies](#dependencies)
   - [Documentation](#documentation)
@@ -57,15 +58,21 @@ A database backend is a Lua module that must implement the following methods:
 - execute(query)
 - open_connection()
 - close_connection()
+- escape_nil()
+- escape_string(value)
+- escape_boolean(value)
+- escape_number(value)
 
 When implementing them in your database backend, you must follow the rules listed below:
 
 - you need the exact same function parameter
 - you need to return the exact same value.
 
-All those functions are documented [here](../sc_database.md).
+The execute(), open_connection() and close_connection() methods are documented in the [sc_database documentation](../sc_database.md). The escape_* methods are described in the [Escaping values](#escaping-values) section below.
 
 You can of course add your own methods (for example the mysql backend has a check_mandatory_params() and a build_result() method). They will only be used internally by your backend since the sc_database wrapper only calls the mandatory ones.
+
+The escape_* methods are not called by stream connectors. They are called by the escape() method of the sc_database wrapper (see [Escaping values](#escaping-values)).
 
 ### Connection handling
 
@@ -104,6 +111,31 @@ must return:
 ```
 
 You absolutely must keep this consistent. A stream connector must be able to switch from one database backend to another without changing the way it reads the query results.
+
+### Escaping values
+
+Stream connectors escape the values they put in their queries using the [escape method](../sc_database.md#escape-method) of the sc_database wrapper. The wrapper handles everything that is the same for every database engine:
+
+- it checks the type of the value and calls the appropriate escape_* method of your backend.
+- it refuses unsupported types (tables, functions...) and returns false.
+- it refuses NaN and infinite numbers and returns false.
+
+Your backend only has to convert each type into the syntax of its database engine. Every escape_* method must return a string that can be used **as is** in a query. Stream connectors never add quotes around escaped values.
+
+| method                | must return                                                                                          | MySQL        | PostgreSQL       | MSSQL         |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | ------------ | ---------------- | ------------- |
+| escape_nil()          | the NULL keyword                                                                                     | `NULL`       | `NULL`           | `NULL`        |
+| escape_string(value)  | the escaped string, quotes included                                                                  | `'O\'Brien'` | `'O''Brien'`     | `N'O''Brien'` |
+| escape_boolean(value) | the boolean literal of the database engine                                                           | `1` / `0`    | `TRUE` / `FALSE` | `1` / `0`     |
+| escape_number(value)  | the number without losing precision (integers with all their digits, floats with `%.14g` or `%.17g`) | `42`         | `42`             | `42`          |
+
+When implementing them, you must follow the rules listed below:
+
+- the methods must never raise an error. If something goes wrong, log the error and return false.
+- escape_string() must use the escape function of the database driver when it exists (for example `conn:escape()` for luasql). It knows the charset of the connection and the configuration of the database server. If the connection is needed, open it if it is not already active.
+- if the driver doesn't provide an escape function, double the single quotes (`'` becomes `''`). This is the SQL standard. **Never** write your own backslash based escaping: it only works with MySQL and is a common source of SQL injections with other database engines.
+- escape_boolean() must use the boolean type of the database engine. For example, PostgreSQL has a real boolean type and refuses `1` and `0` for boolean columns, while MySQL, MSSQL and SQLite use `1` and `0`.
+- escape_number() can trust the wrapper: it will never receive NaN or infinite numbers.
 
 ### Parameters
 

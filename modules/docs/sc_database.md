@@ -7,6 +7,10 @@
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [Constructor: Example](#constructor-example)
+  - [escape method](#escape-method)
+    - [escape: parameters](#escape-parameters)
+    - [escape: returns](#escape-returns)
+    - [escape: example](#escape-example)
   - [execute method](#execute-method)
     - [execute: parameters](#execute-parameters)
     - [execute: returns](#execute-returns)
@@ -22,7 +26,7 @@
 
 The sc_database module is a generic wrapper that helps you communicate with a database (to enrich your events with data coming from a CMDB for example). It is made in OOP (object oriented programming).
 
-It doesn't talk to any database by itself. Instead, it loads a **database backend** and forwards every call to it. This means that your stream connector code always uses the same methods (execute, open_connection, close_connection) whatever the database engine is.
+It doesn't talk to any database by itself. Instead, it loads a **database backend** and forwards every call to it. This means that your stream connector code always uses the same methods (escape, execute, open_connection, close_connection) whatever the database engine is.
 
 ## Available database backends
 
@@ -38,6 +42,12 @@ Every database backend must at least provide the following methods:
 - an `execute(query)` method
 - an `open_connection()` method
 - a `close_connection()` method
+- an `escape_nil()` method
+- an `escape_string(value)` method
+- an `escape_boolean(value)` method
+- an `escape_number(value)` method
+
+The escape_* methods are not meant to be called by stream connectors. They are called by the [escape method](#escape-method) of the sc_database module.
 
 ## How are database parameters handled
 
@@ -107,6 +117,67 @@ local test_database_inventory = sc_database.new("mysql", test_common, test_logge
 -- try to load a backend that doesn't exist
 local test_database_fail = sc_database.new("oracle", test_common, test_logger, params)
 --> test_database_fail is false
+```
+
+## escape method
+
+The **escape** method converts a Lua value into a SQL value that can be safely used **as is** in a query. It checks the type of the value and calls the appropriate method of the database backend:
+
+| Lua type | backend method                                                          | MySQL example                |
+| -------- | ----------------------------------------------------------------------- | ---------------------------- |
+| nil      | escape_nil()                                                            | `NULL`                       |
+| string   | escape_string(value): escapes the string and wraps it in single quotes  | `O'Brien` -> `'O\'Brien'`    |
+| boolean  | escape_boolean(value)                                                   | `true` -> `1`                |
+| number   | escape_number(value)                                                    | `0.1` -> `0.1`               |
+
+Any other type (table, function...) as well as NaN and infinite numbers are refused.
+
+Since the returned value is already formatted for the database engine (quotes included for strings), you must follow the rules listed below:
+
+- **never** put quotes around a value returned by the escape method.
+- always give the raw value to the escape method. **Never** escape a value twice, the second escape would change the data (`O'Brien` would be stored as `O\'Brien`).
+- never use the escape method on a whole query, only on the values that you put in it.
+- the escape method can't be used for table or column names. If they come from a parameter, check them against a list of allowed values.
+- `nil` is converted to `NULL`, which is mostly useful in INSERT and UPDATE queries. In a WHERE clause, remember that `column = NULL` never matches anything in SQL (use `column IS NULL` instead).
+
+> If you build your query without the escape method, you are responsible for its syntax and its security.
+
+### escape: parameters
+
+| parameter                  | type                        | optional | default value |
+| -------------------------- | --------------------------- | -------- | ------------- |
+| the raw value to escape    | string, number, boolean, nil | no       |               |
+
+### escape: returns
+
+| return                       | type              | always | condition                                                                                                     |
+| ---------------------------- | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------- |
+| false or the escaped value   | boolean or string | yes    | false if the type is not supported, if the number is NaN or infinite, or if escaping failed. The SQL value otherwise |
+
+### escape: example
+
+```lua
+local host_name = test_database:escape("O'Brien")
+--> host_name is the string 'O\'Brien' (quotes included, with the mysql backend)
+
+local state = test_database:escape(2)
+--> state is "2"
+
+local acknowledged = test_database:escape(true)
+--> acknowledged is "1" (with the mysql backend)
+
+local comment = test_database:escape(nil)
+--> comment is "NULL"
+
+local query = "INSERT INTO events (host_name, state, acknowledged, comment) VALUES ("
+  .. host_name .. ", " .. state .. ", " .. acknowledged .. ", " .. comment .. ");"
+--> query is: INSERT INTO events (host_name, state, acknowledged, comment) VALUES ('O\'Brien', 2, 1, NULL);
+
+local result = test_database:escape({ "a", "table" })
+--> result is false
+
+result = test_database:escape(0/0)
+--> result is false
 ```
 
 ## execute method
