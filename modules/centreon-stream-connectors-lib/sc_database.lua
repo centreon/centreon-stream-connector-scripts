@@ -21,7 +21,7 @@ function sc_database.new(db_backend, sc_common, sc_logger, params, db_params)
   self.db_params = db_params
 
   -- make sure we are able to load the desired database backend.
-  if pcall(require, "centreon-stream-connectors-lib.database_backends.sc_database_" .. db_backend) then
+  if pcall(require, "centreon-stream-connectors-lib.database_backends.sc_database_" .. tostring(db_backend)) then
     self.sc_logger:debug("[sc_database.new] found database backend sc_database_" .. tostring(db_backend))
     local database_backend = require("centreon-stream-connectors-lib.database_backends.sc_database_" .. db_backend)
     self.database_backend = database_backend.new(self.sc_common, self.sc_logger, self.params, self.db_params)

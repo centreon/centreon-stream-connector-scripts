@@ -57,7 +57,7 @@ function ScDatabaseMysql:check_mandatory_params()
   return is_valid
 end
 
---- open_connection: open the db connection (already done during module initialization)
+--- open_connection: open the db connection
 -- @return status (boolean) true if connection has been opened, false otherwise
 function ScDatabaseMysql:open_connection()
   if not self.is_configuration_valid then
@@ -65,12 +65,20 @@ function ScDatabaseMysql:open_connection()
     return false
   end
 
+  if self.db then
+    self.sc_logger:info("[sc_database_mysql:open_connection]: found an existing connection. We try to close it before reopening it.")
+    
+    if not self:close_connection() then
+      self.sc_logger:error("[sc_database_mysql:open_connection]: we couldn't close the existing connection. A new one is still going to be created. It can lead to memory leaks")
+    end
+  end
+
   local db_params = self.db_params
   self.is_db_connection_active = false
 
   if pcall(require, "luasql.mysql") then
-    local db = require("luasql.mysql")
-    local db_driver = db.mysql()
+    local mysql = require("luasql.mysql")
+    local db_driver = mysql.mysql()
     local db, error_msg = db_driver:connect(
       db_params["db_name"], 
       db_params["db_user"], 
@@ -93,16 +101,24 @@ function ScDatabaseMysql:open_connection()
     return false
   end
 
-  return true
+  return self.is_db_connection_active
 end
 
 --- close_connection: close the db connection
 -- @return status (boolean) true if connection has been closed, false otherwise
 function ScDatabaseMysql:close_connection()
+  if not self.db then
+    self.sc_logger:info("[sc_database_mysql:close_connection]: no active connection found. Nothing to do.")
+    return true
+  end
+
   local result, error_msg = self.db:close()
 
   if not result then
     self.sc_logger:error("[sc_database_mysql:close_connection]: couldn't close db connection. Error: " .. tostring(error_msg))
+  else
+    self.db = nil
+    self.is_db_connection_active = false
   end
 
   return result
@@ -114,6 +130,7 @@ end
 function ScDatabaseMysql:build_result(result)
   local row = result:fetch({}, "a")
   local db_content = {}
+  local tmp_row
     
   while row do
     tmp_row = {}
@@ -143,7 +160,7 @@ function ScDatabaseMysql:execute(query)
 
   local result, error_msg = self.db:execute(query)
 
-  if not result or result ~= result then
+  if not result then
     self.sc_logger:error("[sc_database_mysql:execute]: query: " .. tostring(query) .. " failed\n error: " .. tostring(error_msg))
 
     -- we may have just lost the connection. We can try to redo it
