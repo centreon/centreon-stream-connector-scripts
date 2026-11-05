@@ -1,27 +1,30 @@
 ---
 -- wrapper for mysql/mariadb DBMS
--- @module sc_
+-- @module sc_database_mysql
 
 local sc_database_mysql = {}
-local ModuleName = {}
+local ScDatabaseMysql = {}
 
+-- TODO add triggers
 local mandatory_parameters = {
-  ["sc_database.mysql.db_user"] = "string",
-  ["sc_database.mysql.db_password"] = "string",
-  ["sc_database.mysql.db_address"] = "string",
-  ["sc_database.mysql.db_name"] = "string",
-  ["sc_database.mysql.db_port"] = "number",
+  ["db_user"] = "string",
+  ["db_password"] = "string",
+  ["db_address"] = "string",
+  ["db_name"] = "string",
+  ["db_port"] = "number",
 }
 
-function sc_database_mysql.new(sc_common, sc_logger, params)
+function sc_database_mysql.new(sc_common, sc_logger, params, db_params)
   local self = {}
 
   self.sc_logger = sc_logger
   self.sc_common = sc_common
   self.params = params
+  self.db_params = db_params or {}
+  self.param_prefix = 'sc_database.mysql.'
 
   setmetatable(self, { __index = ScDatabaseMysql})
-  self:check_mandatory_params()
+  self.is_configuration_valid = self:check_mandatory_params()
   return self
 end
 
@@ -29,25 +32,33 @@ end
 -- @return is_valid (boolean) true if all mandatory parameters are set. False otherwise
 function ScDatabaseMysql:check_mandatory_params()
   local is_valid = true
+  local errors = ""
   
   for param_name, param_type in pairs(mandatory_parameters) do
-    local value = self.params[param_name]
+    self.db_params[param_name] = self.db_params[param_name] or self.params[self.param_prefix .. param_name]
+    local value = self.db_params[param_name]
     
     if type(value) ~= param_type or value == "" then
-      self.sc_logger:notice("[sc_database_mysql:init_params]: param: " .. tostring(param_name) .. " must be a non empty " .. param_type .. ". Current type: " .. type(value))
+      errors = errors .. "- param: " .. tostring(param_name) .. " must be a non empty " .. param_type .. ". Current type: " .. type(value) .. "\n"
       is_valid = false
     end
+  end
+
+  if not is_valid then
+    self.sc_logger:notice("[sc_database:mysql:check_mandatory_params]: you may have one or more invalid parameters. Please check your configuration. Errors: \n" .. errors)
   end
 
   return is_valid
 end
 
--- TODO add default value system (port = 3306 for example)
--- TODO add a list of mandatory params (user, password....)
-
 --- open_connection: open the db connection (already done during module initialization)
 -- @return status (boolean) true if connection has been opened, false otherwise
-function sc_database_mysql:open_connection()
+function ScDatabaseMysql:open_connection()
+  if not self.is_configuration_valid then
+    self.sc_logger:error("[sc_database_mysql:open_connection]: Connection to database is not going to be done until parameters are fixed")
+    return false
+  end
+
   local db_params = self.db_params
   self.is_db_connection_active = false
 
@@ -55,33 +66,26 @@ function sc_database_mysql:open_connection()
     local db = require("luasql.mysql")
     local db_driver = db.mysql()
     local db, error_msg = db_driver:connect(
-      params["sc_database.mysql.db_name"].db_name, 
-      params["sc_database.mysql.db_user"].db_user, 
-      params["sc_database.mysql.db_password"].db_password, 
-      params["sc_database.mysql.db_address"].db_address,
-      params["sc_database.mysql.db_port"].db_port
+      db_params["db_name"], 
+      db_params["db_user"], 
+      db_params["db_password"], 
+      db_params["db_address"],
+      db_params["db_port"]
     )
     
     if not db then
       self.sc_logger:error("[sc_database_mysql:open_connection]: couldn't connect to " .. tostring(db_params.db_name) .. ". Error is: " .. tostring(error_msg)
       .. "make sure that your parameters are valid: db_user: " .. tostring(db_params.db_user) 
-      .. ", db_address: " .. tostring(params.db_address) 
-      .. ", db_port: " .. tostring(params.db_port))
+      .. ", db_address: " .. tostring(db_params.db_address) 
+      .. ", db_port: " .. tostring(db_params.db_port))
     else
       self.db = db
-      self.db_connection_retry_sleep_table:reset()
       self.is_db_connection_active = true
     end
   else
     self.sc_logger:error("[sc_database_mysql:open_connection]: couldn't load luasql.mysql module. Make sure that you have installed this dependency.")
     return false
   end
-
-  -- TODO check if this should be there
-  -- if (self.params.create_queue_until_db_is_up == 1 and not self.is_db_connection_active) then
-  --   self.db_connection_retry_sleep_table:sleep()
-  --   self:open_connection()
-  -- end
 
   return true
 end
