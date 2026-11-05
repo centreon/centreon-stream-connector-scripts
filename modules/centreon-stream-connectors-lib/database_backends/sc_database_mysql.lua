@@ -183,5 +183,49 @@ function ScDatabaseMysql:execute(query)
   return self:build_result(result)
 end
 
+--- escape_nil: convert a nil value into its mysql equivalent (NULL)
+-- @param value (nil) obviously not mandatory
+-- @return NULL (string) NULL
+function ScDatabaseMysql:escape_nil(value)
+  return "NULL"
+end
+
+--- escape_string: escape a string and wrap it in single quotes so it can be used as is in a query
+-- the connection to the database is opened if needed because the luasql escape method relies on the connection charset
+-- @param value (string) the raw string to escape
+-- @return escaped_value (false|string) the escaped and quoted string (example: 'O\'Brien'), false if the connection to the database couldn't be opened
+function ScDatabaseMysql:escape_string(value)
+  if not self.is_db_connection_active and not self:open_connection() then
+    self.sc_logger:error("[sc_database_mysql:escape_string]: can't escape value, connection to database is not active")
+    return false
+  end
+
+  return "'" .. self.db:escape(value) .. "'"
+end
+
+--- escape_boolean: convert a boolean into its mysql equivalent (1 or 0)
+-- @param value (boolean) the boolean to convert
+-- @return escaped_value (string) "1" if value is true, "0" if value is false
+function ScDatabaseMysql:escape_boolean(value)
+  return value and "1" or "0"
+end
+
+--- escape_number: convert a number into a mysql number literal without losing precision
+-- integers are printed with all their digits. Floats use the shortest representation (%.14g) unless it loses precision, in which case the full one (%.17g) is used
+-- @param value (number) the number to convert (NaN and infinite values must be rejected before calling this method)
+-- @return escaped_value (string) the number as a string (example: "42", "0.1", "1e+20")
+function ScDatabaseMysql:escape_number(value)
+  if math.type(value) == "integer" then
+    return string.format("%d", value)
+  end
+
+  local formatted = string.format("%.14g", value)
+
+  if tonumber(formatted) ~= value then
+    formatted = string.format("%.17g", value)
+  end
+
+  return formatted
+end
 
 return sc_database_mysql

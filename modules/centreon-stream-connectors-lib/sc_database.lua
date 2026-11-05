@@ -35,6 +35,31 @@ function sc_database.new(db_backend, sc_common, sc_logger, params, db_params)
   return self
 end
 
+--- escape: escape a given value for safe use in a SQL query
+-- @param value (string|number|boolean|nil) the raw value to escape
+-- @param escaped_value (false|string) the SQL value, false if the type is not supported of if escaping failed
+function ScDatabase:escape(value)
+  local value_type = type(value)
+
+  if value_type == "nil" then
+    return self.database_backend:escape_nil()
+  elseif value_type == "string" then
+    return self.database_backend:escape_string(value)
+  elseif value_type == "number" then
+    if value ~= value or value == math.huge or value == -math.huge then
+      self.sc_logger:error("[sc_database:escape]: can't escape NaN or infinite numbers")
+      return false
+    end
+
+    return self.database_backend:escape_number(value)
+  elseif value_type == "boolean" then
+    return self.database_backend:escape_boolean(value)
+  end
+
+  self.sc_logger:error("[sc_database:escape]: can't escape a value of type: " .. value_type)
+  return false
+end
+
 --- execute: run the given query
 -- @param query (string) the query to run
 -- @return result (false|table) false if something went wrong, a table otherwise (empty table if the query is not supposed to return something) 
