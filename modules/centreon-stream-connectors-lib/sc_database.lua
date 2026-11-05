@@ -5,8 +5,13 @@
 local sc_database = {}
 local ScDatabase = {}
 
---- sc_database.new: instantiate a new database connection
--- 
+--- sc_database.new: module constructor
+-- @param db_backend (string) the name of the database backend that must be used (for example: mysql for sc_database_mysql)
+-- @param sc_common (object) an instance of the sc_common module
+-- @param sc_logger (object) an instane of the sc_logger module
+-- @param params (table) the stream connectors param table
+-- @param db_params (table) a dedicated list of parameters used for the connection to the database (will use values from the params table if mandatory_params are missing)
+-- @return false|self (boolean|object) an instance of the sc_database_mysql module or false if we can't load the db_backend module
 function sc_database.new(db_backend, sc_common, sc_logger, params, db_params)
   local self = {}
 

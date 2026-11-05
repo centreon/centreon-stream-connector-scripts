@@ -14,6 +14,12 @@ local mandatory_parameters = {
   ["db_port"] = "number",
 }
 
+--- sc_database_mysql.new: module constructor
+-- @param sc_common (object) an instance of the sc_common module
+-- @param sc_logger (object) an instane of the sc_logger module
+-- @param params (table) the stream connectors param table
+-- @param db_params (table) a dedicated list of parameters used for the connection to the database (will use values from the params table if mandatory_params are missing)
+-- @return self (object) an instance of the sc_database_mysql module
 function sc_database_mysql.new(sc_common, sc_logger, params, db_params)
   local self = {}
 
