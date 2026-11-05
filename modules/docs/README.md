@@ -12,6 +12,8 @@
   - [sc\_metrics methods](#sc_metrics-methods)
   - [sc\_storage methods](#sc_storage-methods)
   - [sc\_storage\_sqlite methods](#sc_storage_sqlite-methods)
+  - [sc\_database methods](#sc_database-methods)
+  - [sc\_database\_mysql methods](#sc_database_mysql-methods)
   - [sc\_trigger methods](#sc_trigger-methods)
   - [google.bigquery.bigquery methods](#googlebigquerybigquery-methods)
   - [google.auth.oauth methods](#googleauthoauth-methods)
@@ -31,6 +33,8 @@
 | sc_metrics               | methods to help you handle metrics               | when you want to send metrics and not just events                         | [Documentation](sc_metrics.md)               |
 | sc_storage                 | methods to help you use the stream connectors internal storage mechanism | when you want to store data                                               | [Documentation](sc_storage.md)                       |
 | sc_storage_sqlite          | methods to use sqlite as a storage mechanism                            | when you want to use sqlite as your storage backend                         | [Documentation](storage_backends/sc_storage_sqlite.md) |
+| sc_database                | generic wrapper to query a database using any available database backend | when you want to get data from a database                                 | [Documentation](sc_database.md)                      |
+| sc_database_mysql          | methods to use mysql/mariadb as a database backend                      | when you want to query a mysql or mariadb database                          | [Documentation](database_backends/sc_database_mysql.md) |
 | sc_trigger                | lets you run your own Lua code at specific points of a stream connector lifecycle | when you want to customize a stream connector without editing its code | [Documentation](sc_trigger.md)               |
 | google.bigquery.bigquery | methods to help you handle bigquery data         | when you want to generate tables schema for bigquery                      | [Documentation](google/bigquery/bigquery.md) |
 | google.auth.oauth        | methods to help you authenticate to google api   | when you want to authenticate yourself on the google api                  | [Documentation](google/auth/oauth.md)        |
@@ -221,6 +225,24 @@
 | delete_multiple    | deletes object properties in the storage                           | [Documentation](storage_backends/sc_storage_sqlite.md#delete_multiple-method)    |
 | show               | shows (in the log file) all stored properties of an object          | [Documentation](storage_backends/sc_storage_sqlite.md#show-method)               |
 | clear              | deletes all stored information in storage                             | [Documentation](storage_backends/sc_storage_sqlite.md#is_valid_perfdata-method)  |
+
+## sc_database methods
+
+| Method name      | Method description                                         | Link                                                   |
+| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| execute          | runs the given query using the database backend            | [Documentation](sc_database.md#execute-method)          |
+| open_connection  | opens the connection to the database                       | [Documentation](sc_database.md#open_connection-method)  |
+| close_connection | closes the connection to the database                      | [Documentation](sc_database.md#close_connection-method) |
+
+## sc_database_mysql methods
+
+| Method name            | Method description                                              | Link                                                                               |
+| ---------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| check_mandatory_params | makes sure that all mandatory connection parameters are valid   | [Documentation](database_backends/sc_database_mysql.md#check_mandatory_params-method) |
+| open_connection        | opens the connection to the mysql/mariadb database              | [Documentation](database_backends/sc_database_mysql.md#open_connection-method)        |
+| close_connection       | closes the connection to the mysql/mariadb database             | [Documentation](database_backends/sc_database_mysql.md#close_connection-method)       |
+| build_result           | converts a query result (luasql cursor) into a table            | [Documentation](database_backends/sc_database_mysql.md#build_result-method)           |
+| execute                | runs the given query and returns its result                     | [Documentation](database_backends/sc_database_mysql.md#execute-method)                |
 
 ## sc_trigger methods
 
