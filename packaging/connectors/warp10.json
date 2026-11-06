@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Warp10",
+  "description": "Sends Centreon host and service events to a Warp10 time series database.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

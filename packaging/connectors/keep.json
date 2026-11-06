@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Keep",
+  "description": "Sends Centreon host and service status events and acknowledgements to Keep.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

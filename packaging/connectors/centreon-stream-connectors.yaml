@@ -8,7 +8,8 @@ section: "default"
 priority: "optional"
 maintainer: "Centreon <contact@centreon.com>"
 description: |
-  Those modules provides helpful methods to create stream connectors for Centreon
+  @SUMMARY@
+  @DESCRIPTION@
   Commit: @COMMIT_HASH@
 vendor: "Centreon"
 homepage: "https://www.centreon.com"
@@ -20,17 +21,15 @@ contents:
 
 overrides:
   rpm:
-    depends: [
-      centreon-stream-connectors-lib >= 3.8.2,
-      @RPM_DEPENDENCIES@
-    ]
+    depends:
+      - centreon-stream-connectors-lib >= 3.8.2
+@RPM_DEPENDENCIES@
   deb:
-    depends: [
-      "centreon-stream-connectors-lib (>= 3.8.2~)",
-      @DEB_DEPENDENCIES@
-    ]
+    depends:
+      - "centreon-stream-connectors-lib (>= 3.8.2~)"
+@DEB_DEPENDENCIES@
 rpm:
-  summary: Centreon stream connectors lua modules
+  summary: @SUMMARY_QUOTED@
   signature:
     key_file: ${RPM_SIGNING_KEY_FILE}
     key_id: ${RPM_SIGNING_KEY_ID}

@@ -1,0 +1,14 @@
+{
+  "summary": "Centreon stream connector for Kafka",
+  "description": "Publishes Centreon host, service and business activity status events to a Kafka topic.",
+  "depends": {
+    "rpm": [
+      "librdkafka",
+      "lua-cffi"
+    ],
+    "deb": [
+      "librdkafka1",
+      "lua-cffi"
+    ]
+  }
+}
