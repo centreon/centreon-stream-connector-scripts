@@ -120,12 +120,16 @@ jobs:
               - *ci
               - centreon-certified/**
               - packaging/connectors/**
+              - .github/scripts/render-connector-nfpm.sh
+              - .github/scripts/check-connectors-packaging.sh
+              - .github/scripts/connectors-lua-modules.json
             # what a release tag promotes: CI-only changes are not released,
-            # but stream-connectors.yml holds the dependencies of the connectors packages
+            # but stream-connectors.yml and render-connector-nfpm.sh build the connectors packages
             connectors_code:
               - centreon-certified/**
               - packaging/connectors/**
               - .github/workflows/stream-connectors.yml
+              - .github/scripts/render-connector-nfpm.sh
 
   stream-connectors-lib:
     needs: [detect-changes]

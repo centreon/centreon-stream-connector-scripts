@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Datadog",
+  "description": "Sends Centreon host and service status events and performance metrics to Datadog.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

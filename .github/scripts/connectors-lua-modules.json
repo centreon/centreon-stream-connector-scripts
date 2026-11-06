@@ -1,0 +1,21 @@
+{
+  "provided_by_lib": [
+    "centreon-stream-connectors-lib.*",
+    "cURL",
+    "ltn12",
+    "mime",
+    "socket",
+    "socket.*"
+  ],
+  "packages": {
+    "base64": "lua-base64",
+    "luatz.*": "lua-tz",
+    "ssl.*": "lua-sec"
+  },
+  "in_package": [
+    "ndo"
+  ],
+  "unpackaged": [
+    "LuaXML"
+  ]
+}

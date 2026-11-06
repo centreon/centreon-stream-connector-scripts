@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for ServiceNow",
+  "description": "Sends Centreon host and service status events to ServiceNow Event Manager or creates ServiceNow incidents from them.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

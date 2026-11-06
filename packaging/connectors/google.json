@@ -1,0 +1,14 @@
+{
+  "summary": "Centreon stream connector for Google BigQuery",
+  "description": "Sends Centreon host, service, downtime, acknowledgement and business activity events to Google BigQuery.",
+  "depends": {
+    "rpm": [
+      "libcurl",
+      "lua-openssl"
+    ],
+    "deb": [
+      "libcurl4",
+      "lua-openssl"
+    ]
+  }
+}
