@@ -95,6 +95,32 @@ function sc_trigger.new(params, sc_common, sc_logger)
         _internal = {}
       }
     },
+    ["sc_database:execute"] = {
+      ["on-success"] = {
+        trigger_function = false,
+        _internal = {}
+      },
+      ["on-fail"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_database_mysql:open_connection"] = {
+      ["on-success"] = {
+        trigger_function = false,
+        _internal = {}
+      },
+      ["on-fail"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
+    ["sc_database_mysql:close_connection"] = {
+      ["on-success"] = {
+        trigger_function = false,
+        _internal = {}
+      }
+    },
     ["EventQueue:new"] = {
       ["on-init"] = {
         trigger_function = false,

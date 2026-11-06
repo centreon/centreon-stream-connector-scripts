@@ -20,6 +20,11 @@
     - [sc\_storage:delete\_multiple / on-delete](#sc_storagedelete_multiple--on-delete)
     - [sc\_storage:show / on-show](#sc_storageshow--on-show)
     - [sc\_storage:clear / on-clear](#sc_storageclear--on-clear)
+    - [sc\_database:execute / on-success](#sc_databaseexecute--on-success)
+    - [sc\_database:execute / on-fail](#sc_databaseexecute--on-fail)
+    - [sc\_database\_mysql:open\_connection / on-success](#sc_database_mysqlopen_connection--on-success)
+    - [sc\_database\_mysql:open\_connection / on-fail](#sc_database_mysqlopen_connection--on-fail)
+    - [sc\_database\_mysql:close\_connection / on-success](#sc_database_mysqlclose_connection--on-success)
 
 ## Introduction
 
@@ -419,5 +424,130 @@ This trigger receives an empty table, there is no contextual data for it.
 ```lua
 self:register_trigger("sc_storage:clear", "on-clear", function(data)
   self.sc_logger:warning("the whole storage is about to be cleared")
+end)
+```
+
+### sc_database:execute / on-success
+
+**When triggered:** every time `sc_database:execute` has just **successfully** run a query, right before the result is returned to the stream connector.
+
+**Returned default value:** no default value declared for this trigger
+
+**Return value:** ignored, no return value is expected.
+
+**data table:**
+
+| index | type | description |
+| - | - | - |
+| query | string | the query that has been run |
+| result | table | the result of the query (a table of rows indexed by column names, an empty table if the query has no result). This is the table that is returned to the stream connector, **not a copy**: if you edit it, the stream connector receives your edited version |
+
+**Example:**
+
+```lua
+self:register_trigger("sc_database:execute", "on-success", function(data)
+  self.sc_logger:debug("query: " .. tostring(data.query) .. " returned " .. tostring(#data.result) .. " rows")
+end)
+```
+
+### sc_database:execute / on-fail
+
+**When triggered:** every time `sc_database:execute` **fails** to run a query (the database backend returned false). This can be caused by the query itself (syntax error, missing table, missing permission...) or by a connection that couldn't be opened. It is **not** triggered when the given query is not a string.
+
+**Returned default value:** no default value declared for this trigger
+
+**Return value:** ignored, no return value is expected.
+
+**data table:**
+
+| index | type | description |
+| - | - | - |
+| query | string | the query that failed |
+
+**Example:**
+
+```lua
+self:register_trigger("sc_database:execute", "on-fail", function(data)
+  self.sc_logger:error("my query failed: " .. tostring(data.query))
+end)
+```
+
+### sc_database_mysql:open_connection / on-success
+
+**When triggered:** every time the mysql database backend has just **successfully** opened a connection to the database. This includes the automatic reconnections done when the connection has been lost, not only the first connection.
+
+**Returned default value:** no default value declared for this trigger
+
+**Return value:** ignored, no return value is expected.
+
+**data table:**
+
+| index | type | description |
+| - | - | - |
+| db | object | the luasql connection object (refer to [the luasql connection documentation](https://lunarmodules.github.io/luasql/manual.html#connection_object)). You can use it to run queries on this connection |
+| connection_state | boolean | the state of the connection, always `true` for this trigger |
+
+This trigger is the right place to configure the database session, since it is fired again after each reconnection.
+
+**Example:**
+
+```lua
+self:register_trigger("sc_database_mysql:open_connection", "on-success", function(data)
+  -- make sure that the data is exchanged using utf8mb4 and that dates are in UTC
+  data.db:execute("SET NAMES utf8mb4")
+  data.db:execute("SET time_zone = '+00:00'")
+end)
+```
+
+### sc_database_mysql:open_connection / on-fail
+
+**When triggered:** every time the mysql database backend **fails** to open a connection to the database (wrong credentials, database server unreachable, TLS required by the database user...). It is **not** triggered when the connection parameters are invalid or when the luasql.mysql module can't be loaded: those errors are only written in the log file.
+
+When a query is run and the connection can't be opened, the [sc_database:execute / on-fail](#sc_databaseexecute--on-fail) trigger is fired as well.
+
+**Returned default value:** no default value declared for this trigger
+
+**Return value:** ignored, no return value is expected.
+
+**data table:**
+
+| index | type | description |
+| - | - | - |
+| db_name | string | the name of the database |
+| db_user | string | the user used to connect to the database |
+| db_address | string | the address of the database server |
+| db_port | number | the port of the database server |
+| error | string | the error message returned by the driver |
+
+The password is never given to this trigger.
+
+**Example:**
+
+```lua
+self:register_trigger("sc_database_mysql:open_connection", "on-fail", function(data)
+  self.sc_logger:error("couldn't connect to " .. tostring(data.db_user) .. "@" .. tostring(data.db_address)
+    .. ":" .. tostring(data.db_port) .. "/" .. tostring(data.db_name) .. ". Error: " .. tostring(data.error))
+end)
+```
+
+### sc_database_mysql:close_connection / on-success
+
+**When triggered:** every time the mysql database backend has just **successfully** closed the connection to the database. This includes the connections that are closed before an automatic reconnection.
+
+**Returned default value:** no default value declared for this trigger
+
+**Return value:** ignored, no return value is expected.
+
+**data table:**
+
+| index | type | description |
+| - | - | - |
+| connection_state | boolean | the state of the connection, always `false` for this trigger |
+
+**Example:**
+
+```lua
+self:register_trigger("sc_database_mysql:close_connection", "on-success", function(data)
+  self.sc_logger:notice("connection to the database has been closed")
 end)
 ```

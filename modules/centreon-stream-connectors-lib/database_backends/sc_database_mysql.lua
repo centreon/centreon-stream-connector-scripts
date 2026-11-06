@@ -16,15 +16,17 @@ local mandatory_parameters = {
 
 --- sc_database_mysql.new: module constructor
 -- @param sc_common (object) an instance of the sc_common module
--- @param sc_logger (object) an instane of the sc_logger module
+-- @param sc_logger (object) an instance of the sc_logger module
+-- @param sc_trigger (object) an instance of the sc_trigger module
 -- @param params (table) the stream connectors param table
 -- @param db_params (table) a dedicated list of parameters used for the connection to the database (will use values from the params table if mandatory_params are missing)
 -- @return self (object) an instance of the sc_database_mysql module
-function sc_database_mysql.new(sc_common, sc_logger, params, db_params)
+function sc_database_mysql.new(sc_common, sc_logger, sc_trigger, params, db_params)
   local self = {}
 
   self.sc_logger = sc_logger
   self.sc_common = sc_common
+  self.sc_trigger = sc_trigger
   self.params = params
   self.db_params = db_params or {}
   self.param_prefix = 'sc_database.mysql.'
@@ -109,9 +111,20 @@ function ScDatabaseMysql:open_connection()
       .. "make sure that your parameters are valid: db_user: " .. tostring(db_params.db_user) 
       .. ", db_address: " .. tostring(db_params.db_address) 
       .. ", db_port: " .. tostring(db_params.db_port))
+      self.sc_trigger:run_trigger("sc_database_mysql:open_connection", "on-fail", {
+        db_name = db_params["db_name"], 
+        db_user = db_params["db_user"], 
+        db_address = db_params["db_address"],
+        db_port = db_params["db_port"],
+        error = error_msg
+      })
     else
       self.db = db
       self.is_db_connection_active = true
+      self.sc_trigger:run_trigger("sc_database_mysql:open_connection", "on-success", {
+        db = self.db,
+        connection_state = self.is_db_connection_active
+      })
     end
   else
     self.sc_logger:error("[sc_database_mysql:open_connection]: couldn't load luasql.mysql module. Make sure that you have installed this dependency.")
@@ -136,6 +149,9 @@ function ScDatabaseMysql:close_connection()
   else
     self.db = nil
     self.is_db_connection_active = false
+    self.sc_trigger:run_trigger("sc_database_mysql:close_connection", "on-success", {
+      connection_state = self.is_db_connection_active
+    })
   end
 
   return result

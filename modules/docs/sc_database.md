@@ -4,6 +4,7 @@
   - [Introduction](#introduction)
   - [Available database backends](#available-database-backends)
   - [TLS support](#tls-support)
+  - [Triggers](#triggers)
   - [How are database parameters handled](#how-are-database-parameters-handled)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
@@ -39,7 +40,7 @@ Database backends are stored in the `centreon-stream-connectors-lib/database_bac
 
 Every database backend must at least provide the following methods:
 
-- a `new(sc_common, sc_logger, params, db_params)` constructor
+- a `new(sc_common, sc_logger, sc_trigger, params, db_params)` constructor
 - an `execute(query)` method
 - an `open_connection()` method
 - a `close_connection()` method
@@ -57,6 +58,20 @@ The escape_* methods are not meant to be called by stream connectors. They are c
 | backend name | TLS support     | details                                                                                                                                                                                                                       |
 | ------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | mysql        | ❌ not supported | the luasql-mysql driver doesn't provide any TLS option. The connection is not encrypted, even if TLS is enabled on the database server. See the [sc_database_mysql documentation](database_backends/sc_database_mysql.md#tls) |
+
+## Triggers
+
+The sc_database module and its database backends fire triggers at specific moments, so you can run your own Lua code without editing the stream connector (see [how to use triggers](how_to_use_triggers.md)).
+
+| category                           | event_type | when triggered                                                                    | documentation                                                                                 |
+| ---------------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| sc_database:execute                | on-success | a query has been successfully run                                                 | [Documentation](how_to_use_triggers.md#sc_databaseexecute--on-success)                        |
+| sc_database:execute                | on-fail    | a query failed                                                                    | [Documentation](how_to_use_triggers.md#sc_databaseexecute--on-fail)                           |
+| sc_database_mysql:open_connection  | on-success | the mysql backend opened a connection (including automatic reconnections)        | [Documentation](how_to_use_triggers.md#sc_database_mysqlopen_connection--on-success)          |
+| sc_database_mysql:open_connection  | on-fail    | the mysql backend couldn't open a connection                                      | [Documentation](how_to_use_triggers.md#sc_database_mysqlopen_connection--on-fail)             |
+| sc_database_mysql:close_connection | on-success | the mysql backend closed a connection (including before automatic reconnections) | [Documentation](how_to_use_triggers.md#sc_database_mysqlclose_connection--on-success)         |
+
+The sc_database:execute triggers are fired by the sc_database module, whatever the database backend is. The other ones are fired by the database backend itself and their category starts with the name of the backend.
 
 ## How are database parameters handled
 
@@ -77,11 +92,12 @@ Since this is OOP, it is required to initiate your module.
 
 ### Module constructor
 
-Constructor must be initialized with four parameters, the fifth one (db_params) is optional:
+Constructor must be initialized with the following parameters. The trigger (it can be nil) and db_params parameters are optional:
 
 - db_backend. The name of the database backend that must be used (for example: `mysql` to use the sc_database_mysql backend)
 - common. This is an instance of the sc_common module
 - logger. This is an instance of the sc_logger module
+- trigger. This is an instance of the sc_trigger module, it is used to run the triggers registered by the user (see [how to use triggers](how_to_use_triggers.md)). It is also given to the database backend. If you give nil, a default sc_trigger instance is created. You should give the sc_trigger instance of your stream connector, otherwise the trigger file is executed a second time to create the default instance
 - a params table. This is the stream connector parameters table
 - db_params. A table with the parameters used to connect to the database. If a mandatory parameter is missing from this table, the backend will use the one from the params table. (see [How are database parameters handled](#how-are-database-parameters-handled))
 
@@ -93,6 +109,7 @@ Constructor must be initialized with four parameters, the fifth one (db_params) 
 -- load modules
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_database = require("centreon-stream-connectors-lib.sc_database")
 
 -- initiate "mandatory" informations for the logger module
@@ -112,8 +129,11 @@ local params = {
   ["sc_database.mysql.db_port"] = 3306
 }
 
+-- create a new instance of the sc_trigger module
+local test_trigger = sc_trigger.new(params, test_common, test_logger)
+
 -- create a new instance of the sc_database module using the mysql backend and the params table
-local test_database = sc_database.new("mysql", test_common, test_logger, params)
+local test_database = sc_database.new("mysql", test_common, test_logger, test_trigger, params)
 
 -- create another instance of the sc_database module, this one connects to another database
 -- db_user, db_password, db_address and db_port are not set in the db_params table so they will be taken from the params table
@@ -121,10 +141,10 @@ local db_params = {
   db_name = "inventory"
 }
 
-local test_database_inventory = sc_database.new("mysql", test_common, test_logger, params, db_params)
+local test_database_inventory = sc_database.new("mysql", test_common, test_logger, test_trigger, params, db_params)
 
 -- try to load a backend that doesn't exist
-local test_database_fail = sc_database.new("oracle", test_common, test_logger, params)
+local test_database_fail = sc_database.new("oracle", test_common, test_logger, test_trigger, params)
 --> test_database_fail is false
 ```
 

@@ -9,14 +9,16 @@ local ScDatabase = {}
 -- @param db_backend (string) the name of the database backend that must be used (for example: mysql for sc_database_mysql)
 -- @param sc_common (object) an instance of the sc_common module
 -- @param sc_logger (object) an instance of the sc_logger module
+-- @param sc_trigger (object) an instance of the sc_trigger module
 -- @param params (table) the stream connectors param table
 -- @param db_params (table) a dedicated list of parameters used for the connection to the database (will use values from the params table if mandatory_params are missing)
 -- @return false|self (boolean|object) an instance of the sc_database_mysql module or false if we can't load the db_backend module
-function sc_database.new(db_backend, sc_common, sc_logger, params, db_params)
+function sc_database.new(db_backend, sc_common, sc_logger, sc_trigger, params, db_params)
   local self = {}
 
   self.sc_common = sc_common
   self.sc_logger = sc_logger
+  self.sc_trigger = sc_trigger or require("centreon-stream-connectors-lib.sc_trigger").new(params, sc_common, sc_logger)
   self.params = params
   self.db_params = db_params
 
@@ -24,7 +26,7 @@ function sc_database.new(db_backend, sc_common, sc_logger, params, db_params)
   if pcall(require, "centreon-stream-connectors-lib.database_backends.sc_database_" .. tostring(db_backend)) then
     self.sc_logger:debug("[sc_database.new] found database backend sc_database_" .. tostring(db_backend))
     local database_backend = require("centreon-stream-connectors-lib.database_backends.sc_database_" .. db_backend)
-    self.database_backend = database_backend.new(self.sc_common, self.sc_logger, self.params, self.db_params)
+    self.database_backend = database_backend.new(self.sc_common, self.sc_logger, self.sc_trigger, self.params, self.db_params)
   else
     self.sc_logger:error("[sc_database.new]: Couldn't load database backend: " .. tostring(db_backend)
       .. ". Make sure that the file sc_database_" .. tostring(db_backend) .. ".lua exists on your server.")
@@ -69,7 +71,20 @@ function ScDatabase:execute(query)
     return false
   end
 
-  return self.database_backend:execute(query)
+  local result = self.database_backend:execute(query)
+
+  if not result then
+    self.sc_trigger:run_trigger("sc_database:execute", "on-fail", {
+      query = query
+    })
+  else
+    self.sc_trigger:run_trigger("sc_database:execute", "on-success", {
+      query = query,
+      result = result
+    })
+  end
+
+  return result
 end
 
 --- open_connection: open the db connection

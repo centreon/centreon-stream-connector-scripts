@@ -5,6 +5,7 @@
   - [Prerequisites](#prerequisites)
   - [Parameters](#parameters)
   - [TLS](#tls)
+  - [Triggers](#triggers)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
@@ -82,16 +83,29 @@ The following parameters are mandatory. They are first read from the db_params t
 
 The TLS support of every database backend is listed in the [sc_database documentation](../sc_database.md#tls-support).
 
+## Triggers
+
+This backend fires the following triggers (see [how to use triggers](../how_to_use_triggers.md)):
+
+| category                           | event_type | when triggered                                                                    | documentation                                                                                    |
+| ---------------------------------- | ---------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| sc_database_mysql:open_connection  | on-success | a connection has been opened (including automatic reconnections)                 | [Documentation](../how_to_use_triggers.md#sc_database_mysqlopen_connection--on-success)          |
+| sc_database_mysql:open_connection  | on-fail    | a connection couldn't be opened                                                   | [Documentation](../how_to_use_triggers.md#sc_database_mysqlopen_connection--on-fail)             |
+| sc_database_mysql:close_connection | on-success | a connection has been closed (including before automatic reconnections)          | [Documentation](../how_to_use_triggers.md#sc_database_mysqlclose_connection--on-success)         |
+
+The open_connection / on-success trigger is the right place to configure the database session (for example `SET NAMES utf8mb4`), since it is fired again after each reconnection.
+
 ## Module initialization
 
 Since this is OOP, it is required to initiate your module.
 
 ### Module constructor
 
-Constructor must be initialized with three parameters, the fourth one (db_params) is optional:
+Constructor must be initialized with four parameters, the fifth one (db_params) is optional:
 
 - common. This is an instance of the sc_common module
 - logger. This is an instance of the sc_logger module
+- trigger. This is an instance of the sc_trigger module, it is used to run the [sc_database_mysql triggers](../how_to_use_triggers.md#sc_database_mysqlopen_connection--on-success). Unlike the sc_database module, this module doesn't create a default instance: it is given by the sc_database module
 - a params table. This is the stream connector parameters table
 - db_params. A table with the parameters used to connect to the database (see [Parameters](#parameters))
 
@@ -103,6 +117,7 @@ The constructor checks the mandatory parameters (using the [check_mandatory_para
 -- load modules
 local sc_logger = require("centreon-stream-connectors-lib.sc_logger")
 local sc_common = require("centreon-stream-connectors-lib.sc_common")
+local sc_trigger = require("centreon-stream-connectors-lib.sc_trigger")
 local sc_database_mysql = require("centreon-stream-connectors-lib.database_backends.sc_database_mysql")
 
 -- initiate "mandatory" informations for the logger module
@@ -126,8 +141,11 @@ local db_params = {
   db_name = "cmdb"
 }
 
+-- create a new instance of the sc_trigger module
+local test_trigger = sc_trigger.new(params, test_common, test_logger)
+
 -- create a new instance of the sc_database_mysql module
-local test_database_mysql = sc_database_mysql.new(test_common, test_logger, params, db_params)
+local test_database_mysql = sc_database_mysql.new(test_common, test_logger, test_trigger, params, db_params)
 ```
 
 ## check_mandatory_params method
