@@ -2,6 +2,7 @@
   "provided_by_lib": [
     "centreon-stream-connectors-lib.*",
     "cURL",
+    "lsqlite3",
     "ltn12",
     "mime",
     "socket",
@@ -9,11 +10,16 @@
   ],
   "packages": {
     "base64": "lua-base64",
+    "cffi": "lua-cffi",
     "luatz.*": "lua-tz",
+    "openssl": "lua-openssl",
     "ssl.*": "lua-sec"
   },
   "in_package": [
     "ndo"
+  ],
+  "optional": [
+    "ffi"
   ],
   "unpackaged": [
     "LuaXML"
