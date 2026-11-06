@@ -52,7 +52,7 @@ Each `centreon-certified/<connector>` directory is packaged as `centreon-stream-
 }
 ```
 
-The CI fails when a connector has no manifest, when two connectors share a summary, or when a connector requires a Lua module that is neither provided by `centreon-stream-connectors-lib` nor declared in `depends`. The Lua module to package map is `.github/scripts/connectors-lua-modules.json`.
+The CI fails when a connector has no manifest, when two connectors share a summary, or when a connector requires a Lua module, directly or through the library modules it loads, that is neither provided by `centreon-stream-connectors-lib` nor declared in `depends`. The Lua module to package map is `.github/scripts/connectors-lua-modules.json`.
 
 ## Documentations
 

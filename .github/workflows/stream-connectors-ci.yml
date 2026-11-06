@@ -122,6 +122,7 @@ jobs:
               - packaging/connectors/**
               - .github/scripts/render-connector-nfpm.sh
               - .github/scripts/check-connectors-packaging.sh
+              - .github/scripts/connector-manifest.jq
               - .github/scripts/connectors-lua-modules.json
             # what a release tag promotes: CI-only changes are not released,
             # but stream-connectors.yml and render-connector-nfpm.sh build the connectors packages

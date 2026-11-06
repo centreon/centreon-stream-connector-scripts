@@ -8,8 +8,16 @@ DISTRIB="$2"
 TEMPLATE="packaging/connectors/centreon-stream-connectors.yaml"
 MANIFEST="packaging/connectors/$CONNECTOR.json"
 
+if ! command -v jq > /dev/null; then
+  echo "::error::jq is required to render the nfpm config of $CONNECTOR"
+  exit 1
+fi
 if [[ ! -f "$MANIFEST" ]]; then
   echo "::error file=$MANIFEST::no packaging manifest for the stream connector $CONNECTOR"
+  exit 1
+fi
+if ! jq -e -f "$(dirname "$0")/connector-manifest.jq" "$MANIFEST" > /dev/null; then
+  echo "::error file=$MANIFEST::invalid packaging manifest, run .github/scripts/check-connectors-packaging.sh"
   exit 1
 fi
 
@@ -26,32 +34,47 @@ depends_items() {
     '.depends[$packager][] | ($renames[.] // .) | "      - " + tojson' "$MANIFEST"
 }
 
-# values go through the environment and are replaced literally: sed and awk gsub
-# alter "&", "/" and backslashes
+# assigned one by one so that a jq failure stops the script
+SUMMARY="$(jq -r '.summary' "$MANIFEST")"
+SUMMARY_QUOTED="$(jq '.summary' "$MANIFEST")"
+DESCRIPTION="$(jq -r '.description' "$MANIFEST")"
+RPM_DEPENDENCIES="$(depends_items rpm '{}')"
+DEB_DEPENDENCIES="$(depends_items deb "$DEB_RENAMES")"
+
+# values go through the environment and are inserted literally in a single pass: sed and awk gsub
+# alter "&", "/" and backslashes, and an inserted value is never scanned for tokens again
 TPL_PACKAGE_NAME="centreon-stream-connector-$CONNECTOR" \
 TPL_CONNECTOR_NAME="$CONNECTOR" \
-TPL_SUMMARY="$(jq -r '.summary' "$MANIFEST")" \
-TPL_SUMMARY_QUOTED="$(jq '.summary' "$MANIFEST")" \
-TPL_DESCRIPTION="$(jq -r '.description' "$MANIFEST")" \
-TPL_RPM_DEPENDENCIES="$(depends_items rpm '{}')" \
-TPL_DEB_DEPENDENCIES="$(depends_items deb "$DEB_RENAMES")" \
+TPL_SUMMARY="$SUMMARY" \
+TPL_SUMMARY_QUOTED="$SUMMARY_QUOTED" \
+TPL_DESCRIPTION="$DESCRIPTION" \
+TPL_RPM_DEPENDENCIES="$RPM_DEPENDENCIES" \
+TPL_DEB_DEPENDENCIES="$DEB_DEPENDENCIES" \
 awk '
-function replace(line, token, value,    out, i) {
-  out = ""
-  while ((i = index(line, token)) > 0) {
-    out = out substr(line, 1, i - 1) value
-    line = substr(line, i + length(token))
-  }
-  return out line
-}
 BEGIN {
   n = split("PACKAGE_NAME CONNECTOR_NAME SUMMARY_QUOTED SUMMARY DESCRIPTION RPM_DEPENDENCIES DEB_DEPENDENCIES", tokens, " ")
 }
 {
   line = $0
-  for (t = 1; t <= n; t++) {
-    line = replace(line, "@" tokens[t] "@", ENVIRON["TPL_" tokens[t]])
+  out = ""
+  while ((i = index(line, "@")) > 0) {
+    out = out substr(line, 1, i - 1)
+    line = substr(line, i)
+    matched = 0
+    for (t = 1; t <= n; t++) {
+      token = "@" tokens[t] "@"
+      if (substr(line, 1, length(token)) == token) {
+        out = out ENVIRON["TPL_" tokens[t]]
+        line = substr(line, length(token) + 1)
+        matched = 1
+        break
+      }
+    }
+    if (!matched) {
+      out = out "@"
+      line = substr(line, 2)
+    }
   }
-  print line
+  print out line
 }' "$TEMPLATE" > "$TEMPLATE.rendered"
 mv "$TEMPLATE.rendered" "$TEMPLATE"
