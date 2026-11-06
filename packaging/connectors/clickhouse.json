@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Clickhouse",
+  "description": "Inserts Centreon host and service performance metrics into a Clickhouse table.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

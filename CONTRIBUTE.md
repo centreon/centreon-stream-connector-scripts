@@ -37,6 +37,23 @@ If you want to work on our LUA modules, you must follow the coding style provide
 While it is mandatory to follow those guidelines for modules, they will not be enforced on community powered Stream Connectors scripts.
 It is however recommened to follow them as much as possible.
 
+## Packaging
+
+Each `centreon-certified/<connector>` directory is packaged as `centreon-stream-connector-<connector>`, described by the manifest `packaging/connectors/<connector>.json`:
+
+```json
+{
+  "summary": "Centreon stream connector for <name used in the documentation>",
+  "description": "One line describing what the connector sends, and where.",
+  "depends": {
+    "rpm": ["libcurl"],
+    "deb": ["libcurl4"]
+  }
+}
+```
+
+The CI fails when a connector has no manifest, when two connectors share a summary, or when a connector requires a Lua module that is neither provided by `centreon-stream-connectors-lib` nor declared in `depends`. The Lua module to package map is `.github/scripts/connectors-lua-modules.json`.
+
 ## Documentations
 
 When creating a module you must comment your methods as follow

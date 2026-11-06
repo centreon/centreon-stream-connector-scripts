@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for HP OMI",
+  "description": "Sends Centreon host and service events to HP Operations Manager i (OMI).",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

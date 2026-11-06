@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for NDO",
+  "description": "Sends Centreon Broker real-time data to an NDO socket.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

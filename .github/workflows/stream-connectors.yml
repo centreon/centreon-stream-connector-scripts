@@ -40,6 +40,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # one manifest per connector, with a declared package for every Lua module it requires
+      - name: Check packaging manifests
+        run: .github/scripts/check-connectors-packaging.sh
+        shell: bash
+
       # a release/hotfix branch packages every connector changed since the previous release tag
       - name: Get changes base
         id: base
@@ -76,10 +81,11 @@ jobs:
           filters: |
             connectors:
               - added|modified: centreon-certified/**
-            # the dependencies of the stream connectors packages are set in this workflow
+              - added|modified: packaging/connectors/*.json
             packaging:
               - modified: .github/workflows/stream-connectors.yml
-              - added|modified: packaging/connectors/**
+              - modified: packaging/connectors/centreon-stream-connectors.yaml
+              - added|modified: .github/scripts/render-connector-nfpm.sh
 
       - name: Transform to directories
         id: list-connectors
@@ -96,8 +102,11 @@ jobs:
             folders=("${all_folders[@]}")
           else
             for f in $CONNECTOR_FILES; do
-              DIR_NAME="$(dirname "$f")"
-              BASE_NAME="$(basename "$DIR_NAME")"
+              if [[ "$f" == packaging/connectors/*.json ]]; then
+                BASE_NAME="$(basename "$f" .json)"
+              else
+                BASE_NAME="$(basename "$(dirname "$f")")"
+              fi
               echo "Adding $BASE_NAME to folders"
               folders+=($BASE_NAME)
             done
@@ -162,51 +171,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Replace package and connector name variables
-        env:
-          CONNECTOR_PATH: ${{ matrix.connector_path }}
-        run: |
-          package_name="centreon-stream-connector-$(basename "$CONNECTOR_PATH")"
-          sed -i "s/@PACKAGE_NAME@/${package_name}/g" ./packaging/connectors/centreon-stream-connectors.yaml
-          connector_name="$(basename "$CONNECTOR_PATH")"
-          sed -i "s/@CONNECTOR_NAME@/${connector_name}/g" ./packaging/connectors/centreon-stream-connectors.yaml
-        shell: bash
-
-      - name: Add specific dependencies
+      - name: Render the nfpm config from the connector manifest
         env:
           CONNECTOR_PATH: ${{ matrix.connector_path }}
           DISTRIB: ${{ matrix.distrib }}
-        run: |
-          # Debian renamed libcurl4 to libcurl4t64 with the 64-bit time_t transition,
-          # and provides no libcurl4 virtual package from trixie onwards.
-          if [ "$DISTRIB" = "trixie" ]; then
-            DEB_CURL="libcurl4t64"
-          else
-            DEB_CURL="libcurl4"
-          fi
-          DEB_DEPENDENCIES="$DEB_CURL"
-          RPM_DEPENDENCIES="libcurl"
-          if [ "$CONNECTOR_PATH" = "elastic" ]; then
-            DEB_DEPENDENCIES="lua-sec"
-            RPM_DEPENDENCIES="lua-sec"
-          elif [ "$CONNECTOR_PATH" = "influxdb" ]; then
-            DEB_DEPENDENCIES="$DEB_CURL,lua-sec"
-            RPM_DEPENDENCIES="libcurl,lua-sec"
-          elif [ "$CONNECTOR_PATH" = "google" ]; then
-            DEB_DEPENDENCIES="$DEB_CURL,lua-openssl"
-            RPM_DEPENDENCIES="libcurl,lua-openssl"
-          elif [ "$CONNECTOR_PATH" = "kafka" ]; then
-            DEB_DEPENDENCIES="librdkafka1,lua-cffi"
-            RPM_DEPENDENCIES="librdkafka,lua-cffi"
-          elif [ "$CONNECTOR_PATH" = "pagerduty" ]; then
-            DEB_DEPENDENCIES="$DEB_CURL,lua-tz"
-            RPM_DEPENDENCIES="libcurl,lua-tz"
-          elif [ "$CONNECTOR_PATH" = "splunk" ]; then
-            DEB_DEPENDENCIES="$DEB_CURL,lua-tz"
-            RPM_DEPENDENCIES="libcurl,lua-tz"
-          fi
-          sed -i "s/@RPM_DEPENDENCIES@/$RPM_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
-          sed -i "s/@DEB_DEPENDENCIES@/$DEB_DEPENDENCIES/g;" ./packaging/connectors/centreon-stream-connectors.yaml
+        run: .github/scripts/render-connector-nfpm.sh "$CONNECTOR_PATH" "$DISTRIB"
         shell: bash
 
       - name: Export package version

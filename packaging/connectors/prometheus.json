@@ -1,0 +1,14 @@
+{
+  "summary": "Centreon stream connector for Prometheus Pushgateway",
+  "description": "Sends Centreon host and service performance metrics to a Prometheus Pushgateway.",
+  "depends": {
+    "rpm": [
+      "libcurl",
+      "lua-base64"
+    ],
+    "deb": [
+      "libcurl4",
+      "lua-base64"
+    ]
+  }
+}

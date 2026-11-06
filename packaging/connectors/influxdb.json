@@ -1,0 +1,14 @@
+{
+  "summary": "Centreon stream connector for InfluxDB",
+  "description": "Sends Centreon host and service performance metrics to InfluxDB.",
+  "depends": {
+    "rpm": [
+      "libcurl",
+      "lua-sec"
+    ],
+    "deb": [
+      "libcurl4",
+      "lua-sec"
+    ]
+  }
+}

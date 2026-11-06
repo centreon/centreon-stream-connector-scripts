@@ -1,0 +1,14 @@
+{
+  "summary": "Centreon stream connector for Elastic",
+  "description": "Sends Centreon host and service events and performance metrics to Elasticsearch.",
+  "depends": {
+    "rpm": [
+      "libcurl",
+      "lua-sec"
+    ],
+    "deb": [
+      "libcurl4",
+      "lua-sec"
+    ]
+  }
+}

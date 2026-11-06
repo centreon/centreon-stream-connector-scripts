@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Graphite",
+  "description": "Sends Centreon host and service performance metrics to Graphite.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}
