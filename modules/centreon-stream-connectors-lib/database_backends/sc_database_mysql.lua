@@ -5,7 +5,6 @@
 local sc_database_mysql = {}
 local ScDatabaseMysql = {}
 
--- TODO add triggers
 local mandatory_parameters = {
   ["db_user"] = "string",
   ["db_password"] = "string",
