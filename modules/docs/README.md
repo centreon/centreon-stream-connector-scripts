@@ -240,6 +240,7 @@
 | Method name            | Method description                                              | Link                                                                               |
 | ---------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | check_mandatory_params | makes sure that all mandatory connection parameters are valid   | [Documentation](database_backends/sc_database_mysql.md#check_mandatory_params-method) |
+| is_connection_alive    | checks if the connection to the database still works            | [Documentation](database_backends/sc_database_mysql.md#is_connection_alive-method)    |
 | open_connection        | opens the connection to the mysql/mariadb database              | [Documentation](database_backends/sc_database_mysql.md#open_connection-method)        |
 | close_connection       | closes the connection to the mysql/mariadb database             | [Documentation](database_backends/sc_database_mysql.md#close_connection-method)       |
 | build_result           | converts a query result (luasql cursor) into a table            | [Documentation](database_backends/sc_database_mysql.md#build_result-method)           |

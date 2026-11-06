@@ -8,7 +8,7 @@ local ScDatabase = {}
 --- sc_database.new: module constructor
 -- @param db_backend (string) the name of the database backend that must be used (for example: mysql for sc_database_mysql)
 -- @param sc_common (object) an instance of the sc_common module
--- @param sc_logger (object) an instane of the sc_logger module
+-- @param sc_logger (object) an instance of the sc_logger module
 -- @param params (table) the stream connectors param table
 -- @param db_params (table) a dedicated list of parameters used for the connection to the database (will use values from the params table if mandatory_params are missing)
 -- @return false|self (boolean|object) an instance of the sc_database_mysql module or false if we can't load the db_backend module
@@ -37,7 +37,7 @@ end
 
 --- escape: escape a given value for safe use in a SQL query
 -- @param value (string|number|boolean|nil) the raw value to escape
--- @param escaped_value (false|string) the SQL value, false if the type is not supported of if escaping failed
+-- @return escaped_value (false|string) the SQL value, false if the type is not supported of if escaping failed
 function ScDatabase:escape(value)
   local value_type = type(value)
 
@@ -72,7 +72,7 @@ function ScDatabase:execute(query)
   return self.database_backend:execute(query)
 end
 
---- open_connection: open the db connection (already done during module initialization)
+--- open_connection: open the db connection
 -- @return status (boolean) true if connection has been opened, false otherwise
 function ScDatabase:open_connection()
   return self.database_backend:open_connection()

@@ -3,6 +3,7 @@
 - [Documentation of the sc\_database module](#documentation-of-the-sc_database-module)
   - [Introduction](#introduction)
   - [Available database backends](#available-database-backends)
+  - [TLS support](#tls-support)
   - [How are database parameters handled](#how-are-database-parameters-handled)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
@@ -32,8 +33,8 @@ It doesn't talk to any database by itself. Instead, it loads a **database backen
 
 Database backends are stored in the `centreon-stream-connectors-lib/database_backends` folder. Each backend file must be named `sc_database_<backend_name>.lua`. When you initialize the sc_database module with a backend name, it will try to load the file `centreon-stream-connectors-lib.database_backends.sc_database_<backend_name>`.
 
-| backend name | module                                                    | documentation                                                |
-| ------------ | --------------------------------------------------------- | ------------------------------------------------------------ |
+| backend name | module                                                             | documentation                                           |
+| ------------ | ------------------------------------------------------------------ | ------------------------------------------------------- |
 | mysql        | centreon-stream-connectors-lib.database_backends.sc_database_mysql | [Documentation](database_backends/sc_database_mysql.md) |
 
 Every database backend must at least provide the following methods:
@@ -48,6 +49,14 @@ Every database backend must at least provide the following methods:
 - an `escape_number(value)` method
 
 The escape_* methods are not meant to be called by stream connectors. They are called by the [escape method](#escape-method) of the sc_database module.
+
+## TLS support
+
+> **Disclaimer:** not every database backend is able to encrypt the connection to the database. When a backend doesn't support TLS, the user name, the password and the data are sent in clear text. In this case, only use it with a database running on the same server as the stream connector (localhost), through a trusted network or through an encrypted tunnel (stunnel, SSH tunnel...).
+
+| backend name | TLS support     | details                                                                                                                                                                                                                       |
+| ------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| mysql        | ❌ not supported | the luasql-mysql driver doesn't provide any TLS option. The connection is not encrypted, even if TLS is enabled on the database server. See the [sc_database_mysql documentation](database_backends/sc_database_mysql.md#tls) |
 
 ## How are database parameters handled
 
@@ -123,12 +132,12 @@ local test_database_fail = sc_database.new("oracle", test_common, test_logger, p
 
 The **escape** method converts a Lua value into a SQL value that can be safely used **as is** in a query. It checks the type of the value and calls the appropriate method of the database backend:
 
-| Lua type | backend method                                                          | MySQL example                |
-| -------- | ----------------------------------------------------------------------- | ---------------------------- |
-| nil      | escape_nil()                                                            | `NULL`                       |
-| string   | escape_string(value): escapes the string and wraps it in single quotes  | `O'Brien` -> `'O\'Brien'`    |
-| boolean  | escape_boolean(value)                                                   | `true` -> `1`                |
-| number   | escape_number(value)                                                    | `0.1` -> `0.1`               |
+| Lua type | backend method                                                         | MySQL example             |
+| -------- | ---------------------------------------------------------------------- | ------------------------- |
+| nil      | escape_nil()                                                           | `NULL`                    |
+| string   | escape_string(value): escapes the string and wraps it in single quotes | `O'Brien` -> `'O\'Brien'` |
+| boolean  | escape_boolean(value)                                                  | `true` -> `1`             |
+| number   | escape_number(value)                                                   | `0.1` -> `0.1`            |
 
 Any other type (table, function...) as well as NaN and infinite numbers are refused.
 
@@ -144,15 +153,15 @@ Since the returned value is already formatted for the database engine (quotes in
 
 ### escape: parameters
 
-| parameter                  | type                        | optional | default value |
-| -------------------------- | --------------------------- | -------- | ------------- |
-| the raw value to escape    | string, number, boolean, nil | no       |               |
+| parameter               | type                         | optional | default value |
+| ----------------------- | ---------------------------- | -------- | ------------- |
+| the raw value to escape | string, number, boolean, nil | no       |               |
 
 ### escape: returns
 
-| return                       | type              | always | condition                                                                                                     |
-| ---------------------------- | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------- |
-| false or the escaped value   | boolean or string | yes    | false if the type is not supported, if the number is NaN or infinite, or if escaping failed. The SQL value otherwise |
+| return                     | type              | always | condition                                                                                                            |
+| -------------------------- | ----------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| false or the escaped value | boolean or string | yes    | false if the type is not supported, if the number is NaN or infinite, or if escaping failed. The SQL value otherwise |
 
 ### escape: example
 
@@ -184,6 +193,8 @@ result = test_database:escape(0/0)
 
 The **execute** method runs the given query using the database backend. If the connection to the database is not opened yet, the backend will open it.
 
+If the query fails because the connection has been lost (database restart, network issue, idle connection closed by the server...), the backend opens the connection again and runs the query a second time. If the query fails for another reason (syntax error, missing table, missing permission...), it is not run again.
+
 ### execute: parameters
 
 | parameter                  | type   | optional | default value |
@@ -192,8 +203,8 @@ The **execute** method runs the given query using the database backend. If the c
 
 ### execute: returns
 
-| return                         | type    | always | condition                                                                                                                         |
-| ------------------------------ | ------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| return                           | type             | always | condition                                                                                                                    |
+| -------------------------------- | ---------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | false or the result of the query | boolean or table | yes    | false if the query is not a string or if something went wrong. A table otherwise (an empty table if the query has no result) |
 
 ### execute: example
@@ -219,6 +230,10 @@ query = "SELECT id, address FROM hosts WHERE name = 'host_that_does_not_exist';"
 result = test_database:execute(query)
 --> result is {}
 
+query = "UPDATE hosts SET address = '10.0.0.1' WHERE id = 2712;"
+result = test_database:execute(query)
+--> result is {}
+
 query = 2712
 result = test_database:execute(query)
 --> result is false
@@ -230,9 +245,9 @@ The **open_connection** method opens the connection to the database. You usually
 
 ### open_connection: returns
 
-| return        | type    | always | condition                                                   |
-| ------------- | ------- | ------ | ----------------------------------------------------------- |
-| true or false | boolean | yes    | true if the connection has been opened, false otherwise     |
+| return        | type    | always | condition                                               |
+| ------------- | ------- | ------ | ------------------------------------------------------- |
+| true or false | boolean | yes    | true if the connection has been opened, false otherwise |
 
 ### open_connection: example
 
@@ -243,13 +258,13 @@ local result = test_database:open_connection()
 
 ## close_connection method
 
-The **close_connection** method closes the connection to the database.
+The **close_connection** method closes the connection to the database. If no connection has been opened, there is nothing to do and the method returns true.
 
 ### close_connection: returns
 
-| return        | type    | always | condition                                                   |
-| ------------- | ------- | ------ | ----------------------------------------------------------- |
-| true or false | boolean | yes    | true if the connection has been closed, false otherwise     |
+| return        | type    | always | condition                                                                                        |
+| ------------- | ------- | ------ | ------------------------------------------------------------------------------------------------ |
+| true or false | boolean | yes    | true if the connection has been closed (or if there was no connection to close), false otherwise |
 
 ### close_connection: example
 

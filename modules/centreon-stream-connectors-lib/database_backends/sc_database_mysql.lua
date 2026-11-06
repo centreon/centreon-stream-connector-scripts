@@ -34,7 +34,7 @@ function sc_database_mysql.new(sc_common, sc_logger, params, db_params)
   return self
 end
 
---- init_params: check if mandatory params are set
+--- check_mandatory_params: check if mandatory params are set
 -- @return is_valid (boolean) true if all mandatory parameters are set. False otherwise
 function ScDatabaseMysql:check_mandatory_params()
   local is_valid = true
@@ -55,6 +55,23 @@ function ScDatabaseMysql:check_mandatory_params()
   end
 
   return is_valid
+end
+
+--- is_connection_alive: check if the connection to the database still works
+-- @return status (boolean) true if the connection works, false otherwise
+function ScDatabaseMysql:is_connection_alive()
+  if not self.db then
+    return false
+  end
+
+  local cursor = self.db:execute("SELECT 1")
+
+  if not cursor then
+    return false
+  end
+
+  cursor:close()
+  return true
 end
 
 --- open_connection: open the db connection
@@ -128,6 +145,11 @@ end
 -- @param result (cursor object) https://lunarmodules.github.io/luasql/manual.html#cursor_object
 -- @return db_content (table) empty table if no result
 function ScDatabaseMysql:build_result(result)
+  if type(result) == "number" then
+    self.sc_logger:info("[sc_database_mysql:build_result]: " .. tostring(result) .. " rows affected by the query.")
+    return {}
+  end
+
   local row = result:fetch({}, "a")
   local db_content = {}
   local tmp_row
@@ -159,16 +181,21 @@ function ScDatabaseMysql:execute(query)
   end
 
   local result, error_msg = self.db:execute(query)
+  self.sc_logger:info("[sc_database_mysql:execute]: try to run query: " .. query)
 
   if not result then
     self.sc_logger:error("[sc_database_mysql:execute]: query: " .. tostring(query) .. " failed\n error: " .. tostring(error_msg))
 
+    -- connection works, problem is on the query
+    if self:is_connection_alive() then
+      return false
+    end
+
     -- we may have just lost the connection. We can try to redo it
     self.sc_logger:notice("[sc_database_mysql:execute]: Connection to db may have just been lost. We try to redo it")
-    self:open_connection()
     
-    if not self.is_db_connection_active then
-      self.sc_logger:error("[sc_database_mysql:execute]: Connection to database is not active")
+    -- connection wasn't up but we couldn't open it back
+    if not self:open_connection() then
       return false
     end
 

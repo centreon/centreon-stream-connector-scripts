@@ -11,6 +11,7 @@
     - [Escaping values](#escaping-values)
     - [Parameters](#parameters)
     - [Dependencies](#dependencies)
+    - [TLS support](#tls-support)
   - [Documentation](#documentation)
 
 ## Introduction
@@ -78,8 +79,12 @@ The escape_* methods are not called by stream connectors. They are called by the
 
 - the constructor must not crash if the parameters are invalid. It must log the errors and the backend must refuse to connect until the parameters are fixed.
 - the constructor doesn't have to open the connection. The connection must be opened by the execute() method if it is not already active.
-- if a query fails, the connection may have been lost (database restart, network issue, timeout...). The execute() method should try to open the connection again and run the query one more time before giving up.
-- the open_connection() and close_connection() methods must return false if they fail. They must never raise an error, even if close_connection() is called before any connection has been opened.
+- if a query fails, the connection may have been lost (database restart, network issue, idle connection closed by the server...). In this case, the execute() method must open the connection again and run the query one more time before giving up.
+- a query can also fail because of the query itself (syntax error, missing table, missing permission...). Running it again would fail the same way, so the execute() method must not open the connection again nor run the query a second time.
+- to tell those two cases apart, check if the connection still works after a failed query (for example the mysql backend has an is_connection_alive() method that runs a `SELECT 1` query). **Don't rely on the error messages** returned by the driver: they depend on the driver and client library versions and can change without notice.
+- the query must be run again only once. If it fails a second time, log the error and return false.
+- before opening a new connection, close the existing one (if any). Otherwise, every reconnection leaks a connection and the database server will end up refusing new connections.
+- the open_connection() and close_connection() methods must return false if they fail. They must never raise an error. If close_connection() is called while no connection has been opened, there is nothing to do and it must return true.
 
 ### Query results
 
@@ -159,6 +164,16 @@ Database drivers are not installed with the stream connectors library. If your b
 - load it with `pcall(require, "<module_name>")` and log an explicit error if it can't be loaded. Your backend must never crash the stream connector because a dependency is missing.
 - explain how to install it in the Prerequisites section of your backend documentation.
 
+### TLS support
+
+Stream connectors may connect to a database that runs on another server. If the connection is not encrypted, the user name, the password and the data are sent in clear text. Therefore, you must find out if your backend is able to use TLS.
+
+- if the driver provides TLS options, add the corresponding parameters to your backend (using the naming rules from the [Parameters](#parameters) section).
+- don't trust what the driver or the client library documentation says. Test it: enable TLS on a database server and check from your backend that the connection is really encrypted (for example with MySQL/MariaDB, the `SHOW SESSION STATUS LIKE 'Ssl_cipher'` query returns an empty value when the connection is not encrypted).
+- document the result in a TLS section of your backend documentation, with the versions of the driver and the client library that you tested.
+
+**You must also fill the [TLS support table](../sc_database.md#tls-support) in the sc_database documentation**, even if your backend doesn't support TLS. Users must be able to know, before choosing a backend, if their data will be sent in clear text.
+
 ## Documentation
 
 Obviously the backend must be documented, even the functions that are already documented in the [database wrapper documentation](../sc_database.md).
@@ -167,5 +182,6 @@ The [sc_database_mysql documentation](../database_backends/sc_database_mysql.md)
 You must also:
 
 - add your backend in the list of available database backends in the [sc_database documentation](../sc_database.md#available-database-backends)
+- add your backend in the [TLS support table](../sc_database.md#tls-support) of the sc_database documentation (see [TLS support](#tls-support))
 - add your functions in the global function index in the [README.md file](../README.md)
 - add your parameters in the [sc_param documentation](../sc_param.md)

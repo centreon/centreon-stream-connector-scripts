@@ -4,12 +4,16 @@
   - [Introduction](#introduction)
   - [Prerequisites](#prerequisites)
   - [Parameters](#parameters)
+  - [TLS](#tls)
   - [Module initialization](#module-initialization)
     - [Module constructor](#module-constructor)
     - [constructor: Example](#constructor-example)
   - [check\_mandatory\_params method](#check_mandatory_params-method)
     - [check\_mandatory\_params: returns](#check_mandatory_params-returns)
     - [check\_mandatory\_params: example](#check_mandatory_params-example)
+  - [is\_connection\_alive method](#is_connection_alive-method)
+    - [is\_connection\_alive: returns](#is_connection_alive-returns)
+    - [is\_connection\_alive: example](#is_connection_alive-example)
   - [open\_connection method](#open_connection-method)
     - [open\_connection: returns](#open_connection-returns)
     - [open\_connection: example](#open_connection-example)
@@ -72,6 +76,12 @@ The following parameters are mandatory. They are first read from the db_params t
 
 > Every parameter must be a non empty value of the expected type. If it is not the case, the module will log the invalid parameters and will not try to connect to the database.
 
+## TLS
+
+**This backend does not support TLS. The connection to the database is not encrypted.**
+
+The TLS support of every database backend is listed in the [sc_database documentation](../sc_database.md#tls-support).
+
 ## Module initialization
 
 Since this is OOP, it is required to initiate your module.
@@ -128,8 +138,8 @@ The **check_mandatory_params** method makes sure that every mandatory parameter 
 
 ### check_mandatory_params: returns
 
-| return        | type    | always | condition                                                      |
-| ------------- | ------- | ------ | -------------------------------------------------------------- |
+| return        | type    | always | condition                                                   |
+| ------------- | ------- | ------ | ----------------------------------------------------------- |
 | true or false | boolean | yes    | true if all mandatory parameters are valid, false otherwise |
 
 ### check_mandatory_params: example
@@ -150,9 +160,30 @@ local result = test_database_mysql:check_mandatory_params()
 ]]
 ```
 
+## is_connection_alive method
+
+The **is_connection_alive** method checks if the connection to the database still works by running a `SELECT 1` query.
+
+It is used by the [execute method](#execute-method) when a query fails, to know if the failure comes from the query itself (the connection still works) or from a lost connection (database restart, network issue, idle connection closed by the server after its `wait_timeout`...). This way, the connection is only opened again when it has really been lost, without relying on the error message returned by the driver.
+
+### is_connection_alive: returns
+
+| return        | type    | always | condition                                                                        |
+| ------------- | ------- | ------ | -------------------------------------------------------------------------------- |
+| true or false | boolean | yes    | true if the connection works, false if it doesn't or if it has never been opened |
+
+### is_connection_alive: example
+
+```lua
+local result = test_database_mysql:is_connection_alive()
+--> result is true
+```
+
 ## open_connection method
 
 The **open_connection** method opens the connection to the database using the luasql.mysql module. It sets `self.is_db_connection_active` to true when the connection is opened.
+
+If a connection already exists, it is closed before opening a new one.
 
 > The connection will not be opened if the parameters are invalid or if the luasql.mysql module can't be loaded.
 
@@ -172,13 +203,15 @@ local result = test_database_mysql:open_connection()
 
 ## close_connection method
 
-The **close_connection** method closes the connection to the database.
+The **close_connection** method closes the connection to the database. It sets `self.is_db_connection_active` to false when the connection is closed.
+
+If no connection has been opened, there is nothing to do and the method returns true.
 
 ### close_connection: returns
 
-| return        | type    | always | condition                                               |
-| ------------- | ------- | ------ | ------------------------------------------------------- |
-| true or false | boolean | yes    | true if the connection has been closed, false otherwise |
+| return        | type    | always | condition                                                                                        |
+| ------------- | ------- | ------ | ------------------------------------------------------------------------------------------------ |
+| true or false | boolean | yes    | true if the connection has been closed (or if there was no connection to close), false otherwise |
 
 ### close_connection: example
 
@@ -189,19 +222,21 @@ local result = test_database_mysql:close_connection()
 
 ## build_result method
 
-The **build_result** method converts a luasql cursor into a table. Each row of the result is a table indexed by column names.
+The **build_result** method converts the result of a luasql query into a table. Each row of the result is a table indexed by column names.
+
+For queries that don't return rows (INSERT, UPDATE, DELETE...), luasql returns the number of affected rows instead of a cursor. In this case, the method returns an empty table.
 
 ### build_result: parameters
 
-| parameter                                                                                   | type   | optional | default value |
-| ------------------------------------------------------------------------------------------- | ------ | -------- | ------------- |
-| a luasql cursor. Refer to [this documentation](https://lunarmodules.github.io/luasql/manual.html#cursor_object) | object | no       |               |
+| parameter                                                                                                                                                  | type             | optional | default value |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------- | ------------- |
+| a luasql cursor (refer to [the luasql cursor documentation](https://lunarmodules.github.io/luasql/manual.html#cursor_object)) or a number of affected rows | object or number | no       |               |
 
 ### build_result: returns
 
-| return                    | type  | always | condition                                  |
-| ------------------------- | ----- | ------ | ------------------------------------------ |
-| the content of the cursor | table | yes    | an empty table if the cursor has no row |
+| return                    | type  | always | condition                                                                |
+| ------------------------- | ----- | ------ | ------------------------------------------------------------------------ |
+| the content of the cursor | table | yes    | an empty table if the cursor has no row or if a number of rows was given |
 
 ### build_result: example
 
@@ -212,7 +247,11 @@ There is no example (that is on purpose).
 The **execute** method runs the given query.
 
 - if the connection to the database is not active, it will try to open it first.
-- if the query fails, it considers that the connection may have been lost. It will try to open the connection again and run the query a second time.
+- if the query fails, it checks if the connection still works using the [is_connection_alive method](#is_connection_alive-method):
+  - if the connection works, the problem comes from the query (syntax error, missing table, missing permission...). The query is not run again and the method returns false.
+  - if the connection has been lost, it opens the connection again and runs the query a second time.
+
+> If the connection is lost after the database applied a write query (INSERT, UPDATE, DELETE) but before the answer is received, the query will be applied twice. If this is a problem for you, write queries that can be run multiple times without side effects (for example `INSERT ... ON DUPLICATE KEY UPDATE`).
 
 ### execute: parameters
 
@@ -248,6 +287,14 @@ local result = test_database_mysql:execute(query)
 query = "SELECT id, address FROM hosts WHERE name = 'host_that_does_not_exist';"
 result = test_database_mysql:execute(query)
 --> result is {}
+
+query = "UPDATE hosts SET address = '10.0.0.1' WHERE id = 2712;"
+result = test_database_mysql:execute(query)
+--> result is {}
+
+query = "SELECT id FROM table_that_does_not_exist;"
+result = test_database_mysql:execute(query)
+--> result is false (the connection still works so the query is not run again)
 ```
 
 ## escape_nil method
@@ -285,8 +332,8 @@ The luasql escape method relies on the charset of the connection. Therefore, the
 
 ### escape_string: returns
 
-| return                                 | type              | always | condition                                                                                 |
-| -------------------------------------- | ----------------- | ------ | ----------------------------------------------------------------------------------------- |
+| return                                 | type              | always | condition                                                                                |
+| -------------------------------------- | ----------------- | ------ | ---------------------------------------------------------------------------------------- |
 | false or the escaped and quoted string | boolean or string | yes    | false if the connection to the database couldn't be opened, the escaped string otherwise |
 
 ### escape_string: example
@@ -304,9 +351,9 @@ The **escape_boolean** method converts a boolean into its MySQL equivalent. MySQ
 
 ### escape_boolean: parameters
 
-| parameter                 | type    | optional | default value |
-| ------------------------- | ------- | -------- | ------------- |
-| the boolean to convert    | boolean | no       |               |
+| parameter              | type    | optional | default value |
+| ---------------------- | ------- | -------- | ------------- |
+| the boolean to convert | boolean | no       |               |
 
 ### escape_boolean: returns
 
@@ -343,9 +390,9 @@ Big or small numbers may be written using the scientific notation (for example `
 
 ### escape_number: returns
 
-| return                  | type   | always | condition |
-| ----------------------- | ------ | ------ | --------- |
-| the number as a string  | string | yes    |           |
+| return                 | type   | always | condition |
+| ---------------------- | ------ | ------ | --------- |
+| the number as a string | string | yes    |           |
 
 ### escape_number: example
 
