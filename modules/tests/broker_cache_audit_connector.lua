@@ -345,10 +345,10 @@ function write(event)
     queue:write_result()
     queue:remove_old_files()
     queue.last_update = os.time()
-    self.sc_logger:notice("[write]:\nmissing hosts: " .. tostring(queue.audit_result.metadata.host_missing)
+    queue.sc_logger:notice("[write]:\nmissing hosts: " .. tostring(queue.audit_result.metadata.host_missing)
       .. "\nmissing services: " .. tostring(queue.audit_result.metadata.service_missing)
-      .. "\nmissing host groups: " .. tostring(queue.audit_result.hg_missing)
-      .. "\nmissing service groups: " .. tostring(queue.audit_result.sg_missing)
+      .. "\nmissing host groups: " .. tostring(queue.audit_result.metadata.hg_missing)
+      .. "\nmissing service groups: " .. tostring(queue.audit_result.metadata.sg_missing)
     )
   end
 
