@@ -79,6 +79,7 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
 
+  self.sc_logger:notice(self.sc_common:dumper(self.sc_params.params))
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
   self.sc_database = sc_database.new("mysql", self.sc_common, self.sc_logger, self.sc_trigger, self.sc_params.params)
 
@@ -106,6 +107,7 @@ function EventQueue:check_host_cache()
 
     if not cache then
       status = "missing"
+      self.audit_result.metadata.host_missing = self.audit_result.metadata.host_missing + 1
     end
 
     if self.sc_params.params.only_log_missing_objects == 1 and status == "present" then
@@ -140,6 +142,7 @@ function EventQueue:check_service_cache()
 
     if not cache then
       status = "missing"
+      self.audit_result.metadata.service_missing = self.audit_result.metadata.service_missing + 1
     end
 
     if not self.full_host_list[service_info.host_id] then
@@ -182,6 +185,7 @@ function EventQueue:check_hostgroups_cache()
 
     if not cache then
       status = "missing"
+      self.audit_result.metadata.hg_missing = self.audit_result.metadata.hg_missing + 1
     end
 
     if self.sc_params.params.only_log_missing_objects == 1 and status == "present" then
@@ -212,6 +216,7 @@ function EventQueue:check_servicegroups_cache()
 
     if not cache then
       status = "missing"
+      self.audit_result.metadata.sg_missing = self.audit_result.metadata.sg_missing + 1
     end
 
     if self.sc_params.params.only_log_missing_objects == 1 and status == "present" then
@@ -324,7 +329,13 @@ function write(event)
       hosts = {},
       services = {},
       host_groups = {},
-      service_groups = {}
+      service_groups = {},
+      metadata = {
+        host_missing = 0,
+        service_missing = 0,
+        hg_missing = 0,
+        sg_missing = 0
+      }
     }
 
     queue:check_host_cache()
@@ -334,6 +345,11 @@ function write(event)
     queue:write_result()
     queue:remove_old_files()
     queue.last_update = os.time()
+    self.sc_logger:notice("[write]:\nmissing hosts: " .. tostring(queue.audit_result.metadata.host_missing)
+      .. "\nmissing services: " .. tostring(queue.audit_result.metadata.service_missing)
+      .. "\nmissing host groups: " .. tostring(queue.audit_result.hg_missing)
+      .. "\nmissing service groups: " .. tostring(queue.audit_result.sg_missing)
+    )
   end
 
   return true
