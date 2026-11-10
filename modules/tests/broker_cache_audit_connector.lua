@@ -1,10 +1,12 @@
 --[[
   broker cache audit connector (test tool)
 
-  Every audit_frequency hours, compares the hosts, services, hostgroups and servicegroups
+  Every audit_frequency hours, compares the pollers, hosts, services, hostgroups and servicegroups
   found in the centreon_storage database with the content of the broker cache.
   The result is written as json in <log_directory>/cache-audit-result.<timestamp>.json
   and only the audit_retention most recent files are kept.
+  The json has one entry per object type (pollers, hosts, services, host_groups, service_groups)
+  and a metadata entry with the number of missing objects of each type.
 
   Parameters:
 
@@ -79,18 +81,50 @@ function EventQueue.new(params)
   self.sc_params:param_override(params)
   self.sc_params:check_params()
 
-  self.sc_logger:notice(self.sc_common:dumper(self.sc_params.params))
   self.sc_trigger = sc_trigger.new(self.sc_params.params, self.sc_common, self.sc_logger)
   self.sc_database = sc_database.new("mysql", self.sc_common, self.sc_logger, self.sc_trigger, self.sc_params.params)
 
-  
   -- return EventQueue object
   setmetatable(self, { __index = EventQueue })
   return self
 end
 
+--- EventQueue:check_poller_cache: check that every non deleted poller from the database is present in the broker cache
+-- results are stored in self.audit_result.pollers (only missing pollers if only_log_missing_objects is 1)
+-- and the number of missing pollers in self.audit_result.metadata.poller_missing
+-- @return false (boolean) if the database query failed
+function EventQueue:check_poller_cache()
+  local query = "select instance_id, name from instances where deleted = 0"
+  local result = self.sc_database:execute(query)
+  
+  if not result then
+    return false
+  end
+
+  for index, poller_info in ipairs(result) do
+    local status = "present"
+    local cache = broker_cache:get_instance_name(poller_info.instance_id)
+
+    if not cache then
+      status = "missing"
+      self.audit_result.metadata.poller_missing = self.audit_result.metadata.poller_missing + 1
+    end
+
+    if self.sc_params.params.only_log_missing_objects == 1 and status == "present" then
+      -- do nothing
+    else
+      self.audit_result.pollers[poller_info.instance_id] = {
+        status = status,
+        name = poller_info.name
+      }
+    end
+  end
+end
+
 --- EventQueue:check_host_cache: check that every enabled host from the database is present in the broker cache
 -- results are stored in self.audit_result.hosts (only missing hosts if only_log_missing_objects is 1)
+-- and the number of missing hosts in self.audit_result.metadata.host_missing
+-- every host name is also stored in self.full_host_list so check_service_cache() can resolve it
 -- @return false (boolean) if the database query failed
 function EventQueue:check_host_cache()
   local query = "select host_id, name from hosts where enabled = 1"
@@ -124,6 +158,7 @@ end
 
 --- EventQueue:check_service_cache: check that every enabled service from the database is present in the broker cache
 -- results are stored in self.audit_result.services (only missing services if only_log_missing_objects is 1)
+-- and the number of missing services in self.audit_result.metadata.service_missing
 -- must be called after check_host_cache() since it uses self.full_host_list to resolve host names
 -- @return false (boolean) if the database query failed
 function EventQueue:check_service_cache()
@@ -170,6 +205,7 @@ end
 
 --- EventQueue:check_hostgroups_cache: check that every hostgroup from the database is present in the broker cache
 -- results are stored in self.audit_result.host_groups (only missing hostgroups if only_log_missing_objects is 1)
+-- and the number of missing hostgroups in self.audit_result.metadata.hg_missing
 -- @return false (boolean) if the database query failed
 function EventQueue:check_hostgroups_cache()
   local query = "select hostgroup_id, name from hostgroups"
@@ -201,6 +237,7 @@ end
 
 --- EventQueue:check_servicegroups_cache: check that every servicegroup from the database is present in the broker cache
 -- results are stored in self.audit_result.service_groups (only missing servicegroups if only_log_missing_objects is 1)
+-- and the number of missing servicegroups in self.audit_result.metadata.sg_missing
 -- @return false (boolean) if the database query failed
 function EventQueue:check_servicegroups_cache()
   local query = "select servicegroup_id, name from servicegroups"
@@ -316,7 +353,8 @@ function init(conf)
   queue = EventQueue.new(conf)
 end
 
---- write: called by broker for each event. Runs the cache audit when audit_frequency is elapsed since the last run
+--- write: called by broker for each event. Runs the cache audit (pollers, hosts, services, hostgroups, servicegroups)
+-- when audit_frequency is elapsed since the last run, then logs a summary of the missing objects
 -- @param event (table) the broker event (unused, it only acts as a clock)
 -- @return true (boolean) always, so broker considers the event as handled
 function write(event)
@@ -326,6 +364,7 @@ function write(event)
 
   if os.time() - queue.sc_params.params.audit_frequency >= queue.last_update then
     queue.audit_result = {
+      pollers = {},
       hosts = {},
       services = {},
       host_groups = {},
@@ -334,10 +373,12 @@ function write(event)
         host_missing = 0,
         service_missing = 0,
         hg_missing = 0,
-        sg_missing = 0
+        sg_missing = 0,
+        poller_missing = 0
       }
     }
 
+    queue:check_poller_cache()
     queue:check_host_cache()
     queue:check_service_cache()
     queue:check_hostgroups_cache()
@@ -345,7 +386,8 @@ function write(event)
     queue:write_result()
     queue:remove_old_files()
     queue.last_update = os.time()
-    queue.sc_logger:notice("[write]:\nmissing hosts: " .. tostring(queue.audit_result.metadata.host_missing)
+    queue.sc_logger:notice("[write]:\nmissing pollers: " .. tostring(queue.audit_result.metadata.poller_missing)
+      .. "\nmissing hosts: " .. tostring(queue.audit_result.metadata.host_missing)
       .. "\nmissing services: " .. tostring(queue.audit_result.metadata.service_missing)
       .. "\nmissing host groups: " .. tostring(queue.audit_result.metadata.hg_missing)
       .. "\nmissing service groups: " .. tostring(queue.audit_result.metadata.sg_missing)
