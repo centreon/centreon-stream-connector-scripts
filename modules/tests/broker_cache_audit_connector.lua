@@ -94,10 +94,12 @@ end
 -- and the number of missing pollers in self.audit_result.metadata.poller_missing
 -- @return false (boolean) if the database query failed
 function EventQueue:check_poller_cache()
+  self.sc_logger:notice("[EventQueue:check_poller_cache]: start poller analysis")
   local query = "select instance_id, name from instances where deleted = 0"
   local result = self.sc_database:execute(query)
   
   if not result then
+    self.sc_logger:error("[EventQueue:check_poller_cache]: couldn't get info from DB. Ending poller analysis")
     return false
   end
 
@@ -119,6 +121,7 @@ function EventQueue:check_poller_cache()
       }
     end
   end
+  self.sc_logger:notice("[EventQueue:check_poller_cache]: end poller analysis")
 end
 
 --- EventQueue:check_host_cache: check that every enabled host from the database is present in the broker cache
@@ -127,11 +130,13 @@ end
 -- every host name is also stored in self.full_host_list so check_service_cache() can resolve it
 -- @return false (boolean) if the database query failed
 function EventQueue:check_host_cache()
+  self.sc_logger:notice("[EventQueue:check_host_cache]: start host analysis")
   local query = "select host_id, name from hosts where enabled = 1"
   local result = self.sc_database:execute(query)
   self.full_host_list = {}
   
   if not result then 
+    self.sc_logger:error("[EventQueue:check_host_cache]: couldn't get info from DB. Ending host analysis")
     return false
   end
   
@@ -154,6 +159,7 @@ function EventQueue:check_host_cache()
       }
     end
   end
+  self.sc_logger:notice("[EventQueue:check_host_cache]: end host analysis")
 end
 
 --- EventQueue:check_service_cache: check that every enabled service from the database is present in the broker cache
@@ -162,10 +168,12 @@ end
 -- must be called after check_host_cache() since it uses self.full_host_list to resolve host names
 -- @return false (boolean) if the database query failed
 function EventQueue:check_service_cache()
+  self.sc_logger:notice("[EventQueue:check_service_cache]: start service analysis")
   local query = "select host_id, service_id, description from services where enabled = 1"
   local result = self.sc_database:execute(query)
   
   if not result then
+    self.sc_logger:error("[EventQueue:check_service_cache]: couldn't get info from DB. Ending service analysis")
     return false
   end
 
@@ -201,6 +209,7 @@ function EventQueue:check_service_cache()
       }
     end
   end
+  self.sc_logger:notice("[EventQueue:check_service_cache]: end service analysis")
 end
 
 --- EventQueue:check_hostgroups_cache: check that every hostgroup from the database is present in the broker cache
@@ -208,10 +217,12 @@ end
 -- and the number of missing hostgroups in self.audit_result.metadata.hg_missing
 -- @return false (boolean) if the database query failed
 function EventQueue:check_hostgroups_cache()
+  self.sc_logger:notice("[EventQueue:check_hostgroups_cache]: start host group analysis")
   local query = "select hostgroup_id, name from hostgroups"
   local result = self.sc_database:execute(query)
   
   if not result then
+    self.sc_logger:error("[EventQueue:check_hostgroups_cache]: couldn't get info from DB. Ending host group analysis")
     return false
   end
   
@@ -233,6 +244,7 @@ function EventQueue:check_hostgroups_cache()
       }
     end
   end
+  self.sc_logger:notice("[EventQueue:check_hostgroups_cache]: end host group analysis")
 end
 
 --- EventQueue:check_servicegroups_cache: check that every servicegroup from the database is present in the broker cache
@@ -240,10 +252,12 @@ end
 -- and the number of missing servicegroups in self.audit_result.metadata.sg_missing
 -- @return false (boolean) if the database query failed
 function EventQueue:check_servicegroups_cache()
+  self.sc_logger:notice("[EventQueue:check_servicegroups_cache]: start service group analysis")
   local query = "select servicegroup_id, name from servicegroups"
   local result = self.sc_database:execute(query)
   
   if not result then
+    self.sc_logger:error("[EventQueue:check_servicegroups_cache]: couldn't get info from DB. Ending service group analysis")
     return false
   end
   
@@ -265,6 +279,7 @@ function EventQueue:check_servicegroups_cache()
       }
     end
   end
+  self.sc_logger:notice("[EventQueue:check_servicegroups_cache]: end service group analysis")
 end
 
 --- EventQueue:write_result: write the audit result as json in log_directory/cache-audit-result.<timestamp>.json
