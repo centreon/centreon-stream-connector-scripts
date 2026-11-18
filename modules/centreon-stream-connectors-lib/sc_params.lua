@@ -141,6 +141,13 @@ function sc_params.new(common, logger)
     storage_backend = "broker",
     ["sc_storage.sqlite.db_file"] = "/var/lib/centreon-broker/stream-connector-storage.sdb",
 
+    -- database parameters
+    ["sc_database.mysql.db_name"] = "",
+    ["sc_database.mysql.db_user"] = "",
+    ["sc_database.mysql.db_password"] = "",
+    ["sc_database.mysql.db_port"] = 3306,
+    ["sc_database.mysql.db_address"] = "",
+
     -- metric
     metric_name_regex = "no_forbidden_character_to_replace",
     metric_replacement_character = "_",
