@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Canopsis",
+  "description": "Sends Centreon host, service, acknowledgement and downtime events to Canopsis.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

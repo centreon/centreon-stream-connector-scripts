@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Logstash",
+  "description": "Sends Centreon host and service status events to a Logstash HTTP input.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}
