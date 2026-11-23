@@ -11,6 +11,7 @@
   "packages": {
     "base64": "lua-base64",
     "cffi": "lua-cffi",
+    "luasql.mysql": "lua-sql-mysql",
     "luatz.*": "lua-tz",
     "openssl": "lua-openssl",
     "ssl.*": "lua-sec"
