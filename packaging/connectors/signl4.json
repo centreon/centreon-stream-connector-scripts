@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for Signl4",
+  "description": "Sends Centreon host and service status events to Signl4.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

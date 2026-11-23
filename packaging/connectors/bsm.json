@@ -1,0 +1,12 @@
+{
+  "summary": "Centreon stream connector for BSM",
+  "description": "Sends Centreon host and service state changes to Micro Focus BSM through its webservice.",
+  "depends": {
+    "rpm": [
+      "libcurl"
+    ],
+    "deb": [
+      "libcurl4"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "summary": "Centreon stream connector for Splunk",
+  "description": "Sends Centreon host and service status events and performance metrics to the Splunk HTTP Event Collector.",
+  "depends": {
+    "rpm": [
+      "libcurl",
+      "lua-tz"
+    ],
+    "deb": [
+      "libcurl4",
+      "lua-tz"
+    ]
+  }
+}
