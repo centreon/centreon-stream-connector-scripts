@@ -261,7 +261,7 @@ jobs:
 
       - name: Deliver packages on Pulp
         if: ${{ contains(fromJson('["testing", "unstable"]'), needs.get-environment.outputs.stability) }}
-        uses: ./.github/actions/package-delivery-pulp
+        uses: centreon/github-actions/pulp/package-delivery@pulp/v1
         with:
           module_name: lua-cffi
           repository_name: plugins
@@ -277,7 +277,7 @@ jobs:
 
       - name: Promote packages on Pulp
         if: ${{ needs.get-environment.outputs.stability == 'stable' && steps.get_release_type.outputs.release_type != '' }}
-        uses: ./.github/actions/promote-to-stable-pulp
+        uses: centreon/github-actions/pulp/promote-to-stable@pulp/v1
         with:
           module_name: lua-cffi
           repository_name: plugins
@@ -320,7 +320,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Promote packages on Pulp
-        uses: ./.github/actions/promote-to-stable-pulp
+        uses: centreon/github-actions/pulp/promote-to-stable@pulp/v1
         with:
           module_name: lua-cffi
           repository_name: plugins
